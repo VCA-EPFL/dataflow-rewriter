@@ -1,5 +1,15 @@
-{"version": "1.0.0",
+{"version": "1.1.0",
  "packagesDir": ".lake/packages",
- "packages": [],
+ "packages":
+ [{"url": "https://github.com/VCA-EPFL/leanses",
+   "type": "git",
+   "subDir": null,
+   "scope": "",
+   "rev": "95bc5ddd93553ae416ced18839cccbcff6b2a01c",
+   "name": "leanses",
+   "manifestFile": "lake-manifest.json",
+   "inputRev": "main",
+   "inherited": false,
+   "configFile": "lakefile.lean"}],
  "name": "«dataflow-rewriter»",
  "lakeDir": ".lake"}

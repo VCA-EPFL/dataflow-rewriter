@@ -1,6 +1,8 @@
 import Lake
 open Lake DSL
 
+require «leanses» from git "https://github.com/VCA-EPFL/leanses" @ "main"
+
 package «dataflow-rewriter» where
   -- add package configuration options here
 
