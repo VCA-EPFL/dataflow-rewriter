@@ -143,7 +143,7 @@ variable (mod : Module S)
 
 inductive existSR : S → S → Prop where
   | done : ∀ init, existSR init init
-  | existSR_step :
+  | step :
     ∀ init mid final n,
       (getRule mod.internals n) init mid →
       existSR mid final →
@@ -314,16 +314,57 @@ theorem correct_threeway {T: Type _} :
               ) := by
       simp [threemerge, refines]
       intros l l' indis
+      rcases indis with ⟨indisL, indisR⟩
       constructor
-      .
-        simp
-        intros ident mid v pf pf2
+      . simp_all
+        intros ident mid v val pf2
         fin_cases ident <;> simp_all
-        · 
-
-
-
-
+        · constructor; and_intros
+          · apply existSR.done
+          · trivial
+          · constructor
+            · intros ident' new_i v_1 Hrule; simp_all
+              fin_cases ident' <;> simp_all
+            · intros ident' new_i v_1 HVal; simp_all
+              fin_cases ident' <;> simp_all
+              cases pf2 
+              cases HVal
+              subst mid
+              subst l'
+              subst v
+              exists (val :: (l ++ new_i.2))
+              simp
+        · constructor; and_intros
+          · apply existSR.done
+          · trivial
+          · constructor
+            · intros ident' new_i v_1 Hrule; simp_all
+              fin_cases ident' <;> simp_all
+            · intros ident' new_i v_1 HVal; simp_all
+              fin_cases ident' <;> simp_all
+              cases pf2 
+              
+              cases HVal
+              subst mid
+              subst l'
+              subst v
+              exists (val :: (l ++ new_i.2))
+              simp
+        · constructor; and_intros
+          · apply existSR.done
+          · cases pf2; subst l; subst v
+          · constructor
+            · intros ident' new_i v_1 Hrule; simp_all
+              fin_cases ident' <;> simp_all
+            · intros ident' new_i v_1 HVal; simp_all
+              fin_cases ident' <;> simp_all
+              cases pf2 
+              cases HVal
+              subst mid
+              subst l'
+              subst v
+              exists (val :: (l ++ new_i.2))
+              simp
 
     -- stop by
     --       simp; constructor<;> simp;
