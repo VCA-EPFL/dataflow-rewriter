@@ -12,9 +12,14 @@ structure Module (S : Type u₁) : Type (max u₁ (u₂ + 1)) where
 mklenses Module
 open Module.l
 
+
+def empty : Module S := {inputs := [], outputs := [], internals:= []}
+
+@[simp]
 def List.remove {α : Type u} : (as : List α) → Fin as.length → List α
   | List.cons _ as,  ⟨0, _⟩ => as
-  | List.cons _ as, ⟨Nat.succ i, h⟩ => remove as ⟨i, Nat.le_of_succ_le_succ h⟩
+  | List.cons a as, ⟨Nat.succ i, h⟩ => a::remove as ⟨i, Nat.le_of_succ_le_succ h⟩
+
 
 def connect (mod : Module S) (i : Fin (List.length mod.inputs)) (o : Fin (List.length mod.outputs))
       (wf : (List.get mod.inputs i).1 = (List.get mod.outputs o).1) : Module S :=
@@ -24,10 +29,11 @@ def connect (mod : Module S) (i : Fin (List.length mod.inputs)) (o : Fin (List.l
                               (List.get mod.inputs i).2 consumed_output (Eq.rec id wf output) st')
                         :: mod.internals }
 
+@[simp]
 def connect' (mod : Module S) (i : Fin (List.length mod.inputs)) (o : Fin (List.length mod.outputs)) : Module S :=
        { inputs := List.remove mod.inputs i ,
          outputs :=  List.remove mod.outputs o,
-         internals :=  (fun st st' => ∀ wf : (List.get mod.inputs i).1 = (List.get mod.outputs o).1, 
+         internals :=  (fun st st' => ∀ wf : (List.get mod.inputs i).1 = (List.get mod.outputs o).1,
                             ∃ consumed_output output, (List.get mod.outputs o).2 st output consumed_output /\
                               (List.get mod.inputs i).2 consumed_output (Eq.rec id wf output) st')
                               :: mod.internals }
@@ -97,9 +103,11 @@ structure ExprHigh where
 def lower (e : ExprHigh) : Option ExprLow := by sorry
 def higher (e : ExprLow) : Option ExprHigh := by sorry
 
+@[simp]
 def getIO.{u₁, u₂} {S : Type u₁} (l: List ((T : Type u₂) × (S -> T -> S -> Prop))) (n : Nat): ((T : Type u₂) × (S -> T -> S -> Prop)) :=
   List.getD l n (⟨ PUnit, fun _ _ _ => True ⟩)
 
+@[simp]
 def getRule {S : Type _} (l : List (S → S → Prop)) (n : Nat) : (S → S → Prop) :=
   List.getD l n (fun _ _ => True)
 
@@ -123,8 +131,8 @@ structure indistinguishable_strict (imod : Module I) (smod : Module S) : Prop wh
       (List.get smod.outputs (Eq.rec id outputs_length ident)).2 init_s ((outputs_types ident).mp v) new_s
 
 structure matching_interface (imod : Module I) (smod : Module S) : Prop where
-  input_types : ∀ ident, (getIO imod.inputs ident).1 = (getIO smod.inputs ident).1
-  output_types : ∀ ident, (getIO imod.outputs ident).1 = (getIO smod.outputs ident).1
+  input_types : ∀ (ident : Fin (List.length imod.inputs)), (List.get imod.inputs ident).1 = (getIO smod.inputs ident).1
+  output_types : ∀ (ident : Fin (List.length imod.outputs)), (List.get imod.outputs ident).1 = (getIO smod.outputs ident).1
 
 section Trace
 
@@ -156,26 +164,26 @@ function for the inputs and outputs.  For now this might be general enough
 though.
 -/
 structure indistinguishable (init_i : I) (init_s : S) : Prop where
-  inputs_indistinguishable : ∀ ident new_i v,
-    (getIO imod.inputs ident).2 init_i v new_i →
+  inputs_indistinguishable : ∀ (ident : Fin (List.length imod.inputs))
+  new_i v,
+    (List.get imod.inputs ident).2 init_i v new_i →
     ∃ new_s, (getIO smod.inputs ident).2 init_s ((matching.input_types ident).mp v) new_s
-
   outputs_indistinguishable : ∀ ident new_i v,
-    (getIO imod.outputs ident).2 init_i v new_i →
+    (List.get imod.outputs ident).2 init_i v new_i →
     ∃ new_s, (getIO smod.outputs ident).2 init_s ((matching.output_types ident).mp v) new_s
 
 structure comp_refines (R : I → S → Prop) (init_i : I) (init_s : S) : Prop where
   inputs :
-    ∀ ident mid_i v,
-      (getIO imod.inputs ident).2 init_i v mid_i →
+    ∀ (ident : Fin (List.length imod.inputs)) mid_i v,
+      (List.get imod.inputs ident).2 init_i v mid_i →
       ∃ almost_mid_s mid_s,
         (getIO smod.inputs ident).2 init_s ((matching.input_types ident).mp v) almost_mid_s
         ∧ existSR smod almost_mid_s mid_s
         ∧ R mid_i mid_s
         ∧ indistinguishable imod smod matching mid_i mid_s
   outputs :
-    ∀ ident mid_i v,
-      (getIO imod.outputs ident).2 init_i v mid_i →
+    ∀ (ident : Fin (List.length imod.outputs)) mid_i v,
+      (List.get imod.outputs ident).2 init_i v mid_i →
       ∃ almost_mid_s mid_s,
         (getIO smod.outputs ident).2 init_s ((matching.output_types ident).mp v) almost_mid_s
         ∧ existSR smod almost_mid_s mid_s
@@ -229,6 +237,7 @@ section Semantics
   --     | none => True
   --   | ExprLow.product a b => True
 
+@[simp]
 def build_module' (e : ExprLow) (ε : List ((T: Type _) × Module T))
   : Option ((T: Type _) × Module T) :=
   match e with
@@ -247,26 +256,96 @@ def build_module' (e : ExprLow) (ε : List ((T: Type _) × Module T))
     let b <- build_module' b ε;
     return ⟨a.1 × b.1, product a.2 b.2⟩
 
-def build_module (e : ExprLow) (ε : List ((T: Type _) × Module T))
-  : Option ((T: Type _) × Module T) :=
-  match e with
-  | .base e => ε.get? e
-  | .connect e' i o => do
-    let e ← build_module' e' ε
-    if hi : i < e.2.inputs.length then
-      if ho : o < e.2.outputs.length then
-        let i := ⟨i, hi⟩;
-        let o := ⟨o, ho⟩;
-        return ⟨e.1, connect e.2 i o _⟩
-      else none
-    else none
-  | .product a b => do
-    let a <- build_module' a ε;
-    let b <- build_module' b ε;
-    return ⟨a.1 × b.1, product a.2 b.2⟩
+
+
+
+-- def build_module (e : ExprLow) (ε : List ((T: Type _) × Module T))
+--   : Option ((T: Type _) × Module T) :=
+--   match e with
+--   | .base e => ε.get? e
+--   | .connect e' i o => do
+--     let e ← build_module' e' ε
+--     if hi : i < e.2.inputs.length then
+--       if ho : o < e.2.outputs.length then
+--         let i := ⟨i, hi⟩;
+--         let o := ⟨o, ho⟩;
+--         return ⟨e.1, connect e.2 i o _⟩
+--       else none
+--     else none
+--   | .product a b => do
+--     let a <- build_module' a ε;
+--     let b <- build_module' b ε;
+--     return ⟨a.1 × b.1, product a.2 b.2⟩
 
 end Semantics
 
+section Syntax
+
+end Syntax
+
+
+@[simp]
+def mergeLow : ExprLow :=
+  let merge1 := ExprLow.base 0;
+  let merge2 := ExprLow.base 0;
+  let prod := ExprLow.product merge1 merge2;
+  ExprLow.connect prod 2 0
+
+@[simp]
+def merge_sem (T: Type _) :=
+  match build_module' mergeLow [⟨List T, merge T⟩] with
+  | some x => x
+  | none => ⟨Unit, empty⟩
+#reduce merge_sem Nat
+-- #eval (merge_sem Nat).2
+
+theorem lol T :  matching_interface (merge_sem T).snd (threemerge T) :=  by sorry
+#print refines
+#print indistinguishable
+-- set_option pp.proofs true
+-- set_option trace.Meta.Tactic.simp.rewrite true
+theorem correct_threeway {T: Type _} :
+    refines ((merge_sem T).snd) (threemerge T) (lol T)
+          (fun x y => by {
+            -- sorry
+              simp at x;
+              exact (x.1 ++ x.2 = y)
+              }) := by
+      simp [threemerge, refines]
+      intros i indis
+      constructor
+      .
+        simp
+        intros ident mid v pf
+        rcases ident with ⟨i, _⟩
+        cases i
+        simp_all
+        simp at v
+        constructor
+        apply And.intro
+        . apply existSR.done
+        . simp
+          constructor
+          simp
+
+
+
+
+
+    -- stop by
+    --       simp; constructor<;> simp;
+    --       . intros ident
+    --         simp [List.remove, threemerge] at *
+    --         simp [List.remove] at ident
+    --         rcases ident with ⟨i, pf⟩
+    --         rcases i with ⟨ ⟨ ⟩ |  jjd  ⟩
+    --         simp at *
+    --         rename_i i
+    --         rcases i with ⟨ ⟨ ⟩ | ⟨ i ⟩ ⟩
+    --         simp at *
+    --         omega
+    --       . intros ident
+    --         simp [List.remove, threemerge] at *
 section RefinementTheorem
 
 --def inlining (e: ExprLow) (ε : List (T × Module T)) (pf : List.get ε i = )
