@@ -1,6 +1,8 @@
 import Leanses
 import Lean
 import Init.Data.BitVec.Lemmas
+import Mathlib.Tactic.FinCases
+
 open Lean Meta Elab
 namespace DataflowRewriter
 
