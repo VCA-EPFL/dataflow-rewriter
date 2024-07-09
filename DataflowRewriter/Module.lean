@@ -2,7 +2,6 @@ import Leanses
 import Lean
 import Init.Data.BitVec.Lemmas
 open Lean Meta Elab
-
 namespace DataflowRewriter
 
 structure Module (S : Type u₁) : Type (max u₁ (u₂ + 1)) where
@@ -24,6 +23,14 @@ def connect (mod : Module S) (i : Fin (List.length mod.inputs)) (o : Fin (List.l
          internals :=  (fun st st' => ∃ consumed_output output, (List.get mod.outputs o).2 st output consumed_output /\
                               (List.get mod.inputs i).2 consumed_output (Eq.rec id wf output) st')
                         :: mod.internals }
+
+def connect' (mod : Module S) (i : Fin (List.length mod.inputs)) (o : Fin (List.length mod.outputs)) : Module S :=
+       { inputs := List.remove mod.inputs i ,
+         outputs :=  List.remove mod.outputs o,
+         internals :=  (fun st st' => ∀ wf : (List.get mod.inputs i).1 = (List.get mod.outputs o).1, 
+                            ∃ consumed_output output, (List.get mod.outputs o).2 st output consumed_output /\
+                              (List.get mod.inputs i).2 consumed_output (Eq.rec id wf output) st')
+                              :: mod.internals }
 
 @[simp]
 def liftL (x: (T : Type _) × (S -> T -> S -> Prop)) : (T : Type _) × (S × S' -> T -> S × S' -> Prop) :=
@@ -136,9 +143,9 @@ end Trace
 
 section Refinement
 
-variable {I : Type _} 
-variable {S : Type _} 
-variable (imod : Module I) 
+variable {I : Type _}
+variable {S : Type _}
+variable (imod : Module I)
 variable (smod : Module S)
 
 variable (matching : matching_interface imod smod)
@@ -174,7 +181,7 @@ structure comp_refines (R : I → S → Prop) (init_i : I) (init_s : S) : Prop w
         ∧ existSR smod almost_mid_s mid_s
         ∧ R mid_i mid_s
         ∧ indistinguishable imod smod matching mid_i mid_s
-  internals : 
+  internals :
     ∀ n mid_i,
       (getRule imod.internals n) init_i mid_i →
       ∃ mid_s,
@@ -190,7 +197,79 @@ def refines (R : I → S → Prop) :=
 
 end Refinement
 
+section Semantics
+-- def connect (mod : Module S) (i : Fin (List.length mod.inputs)) (o : Fin (List.length mod.outputs))
+--       (wf : (List.get mod.inputs i).1 = (List.get mod.outputs o).1) : Module S :=
+--        { inputs := List.remove mod.inputs i ,
+--          outputs :=  List.remove mod.outputs o,
+--          internals :=  (fun st st' => ∃ consumed_output output, (List.get mod.outputs o).2 st output consumed_output /\
+--                               (List.get mod.inputs i).2 consumed_output (Eq.rec id wf output) st')
+--                         :: mod.internals }
+
+-- @[simp]
+-- def product (mod1 : Module S) (mod2: Module S') : Module (S × S') :=
+--       { inputs := List.map liftL mod1.inputs ++ List.map liftR mod2.inputs,
+--         outputs := List.map liftL mod1.outputs ++ List.map liftR mod2.outputs,
+--         internals := List.map liftL' mod1.internals ++ List.map liftR' mod2.internals
+--       }
+  -- def wf (e :ExprLow) (build_module: ExprLow -> List ((T: Type _) × Module T) -> Option ((T: Type _) ×  Module T)) (ε : List ((T: Type _) × Module T)): Prop :=
+  --   match e with
+  --   | ExprLow.base i => True
+  --   | ExprLow.connect e' i o =>
+  --     let e := build_module e' ε;
+  --     match e with
+  --     | some e =>
+  --     if hi:i<List.length e.2.inputs then
+  --       if ho:o<List.length e.2.outputs then
+  --         let i := ⟨i, hi⟩;
+  --         let o := ⟨o, ho⟩;
+  --         ((e.2.inputs.get i).fst = (e.2.outputs.get o).fst) /\ wf e' build_module ε
+  --       else True
+  --     else True
+  --     | none => True
+  --   | ExprLow.product a b => True
+
+def build_module' (e : ExprLow) (ε : List ((T: Type _) × Module T))
+  : Option ((T: Type _) × Module T) :=
+  match e with
+  | .base e => ε.get? e
+  | .connect e' i o => do
+    let e ← build_module' e' ε
+    if hi : i < e.2.inputs.length then
+      if ho : o < e.2.outputs.length then
+        let i := ⟨i, hi⟩;
+        let o := ⟨o, ho⟩;
+        return ⟨e.1, connect' e.2 i o⟩
+      else none
+    else none
+  | .product a b => do
+    let a <- build_module' a ε;
+    let b <- build_module' b ε;
+    return ⟨a.1 × b.1, product a.2 b.2⟩
+
+def build_module (e : ExprLow) (ε : List ((T: Type _) × Module T))
+  : Option ((T: Type _) × Module T) :=
+  match e with
+  | .base e => ε.get? e
+  | .connect e' i o => do
+    let e ← build_module' e' ε
+    if hi : i < e.2.inputs.length then
+      if ho : o < e.2.outputs.length then
+        let i := ⟨i, hi⟩;
+        let o := ⟨o, ho⟩;
+        return ⟨e.1, connect e.2 i o _⟩
+      else none
+    else none
+  | .product a b => do
+    let a <- build_module' a ε;
+    let b <- build_module' b ε;
+    return ⟨a.1 × b.1, product a.2 b.2⟩
+
+end Semantics
+
 section RefinementTheorem
+
+--def inlining (e: ExprLow) (ε : List (T × Module T)) (pf : List.get ε i = )
 
 -- inductive ExprLow where
 --   | base : Nat -> ExprLow
