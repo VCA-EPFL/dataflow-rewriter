@@ -308,27 +308,18 @@ theorem lol T :  matching_interface (merge_sem T).snd (threemerge T) :=  by sorr
 -- set_option trace.Meta.Tactic.simp.rewrite true
 theorem correct_threeway {T: Type _} :
     refines ((merge_sem T).snd) (threemerge T) (lol T)
-          (fun x y => by {
-            -- sorry
+          (fun x y => by
               simp at x;
               exact (x.1 ++ x.2 = y)
-              }) := by
+              ) := by
       simp [threemerge, refines]
-      intros i indis
+      intros l l' indis
       constructor
       .
         simp
-        intros ident mid v pf
-        rcases ident with ⟨i, _⟩
-        cases i
-        simp_all
-        simp at v
-        constructor
-        apply And.intro
-        . apply existSR.done
-        . simp
-          constructor
-          simp
+        intros ident mid v pf pf2
+        fin_cases ident <;> simp_all
+        · 
 
 
 
