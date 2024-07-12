@@ -6,6 +6,23 @@ import Mathlib.Tactic.FinCases
 open Lean Meta Elab
 namespace DataflowRewriter
 
+def get_ofs? {n : Nat} (a : Nat) : Option (Fin n) :=
+  let x: Nat := a % n
+  if h : n > 0 then
+    some ⟨x, Nat.mod_lt _ h ⟩
+  else none
+
+section
+
+variable {n : Nat}
+variable (hNumberOfCachesGtThan0 : n > 0)
+
+def get_ofs (a : Nat) : Fin n :=
+  let x: Nat := a % n
+  ⟨ x, Nat.mod_lt _ hNumberOfCachesGtThan0 ⟩
+
+end
+
 structure Module (S : Type u₁) : Type (max u₁ (u₂ + 1)) where
   inputs : List ((T : Type u₂) × (S -> T -> S -> Prop))
   outputs : List ((T : Type u₂) × (S -> T -> S -> Prop))
@@ -304,14 +321,60 @@ def merge_sem (T: Type _) :=
 theorem lol T :  matching_interface (merge_sem T).snd (threemerge T) :=  by sorry
 #print refines
 #print indistinguishable
--- set_option pp.proofs true
+set_option pp.proofs true
+set_option trace.profiler true 
 -- set_option trace.Meta.Tactic.simp.rewrite true
+set_option trace.Meta.Tactic.simp.numSteps true
+set_option pp.proofs.threshold 0
 theorem correct_threeway {T: Type _} :
+    refines ((merge_sem T).snd) (threemerge T) (lol T)
+          (fun x y => x.1 ++ x.2 = y) := show_term by
+      simp [threemerge, refines]
+      intros l l' indis
+      rcases indis with ⟨indisL, indisR⟩
+      constructor
+      . set_option trace.profiler true in simp at *
+        intros ident mid v val pf2
+        set_option trace.profiler true in (fin_cases ident <;> simp)
+        · constructor; and_intros
+          · apply existSR.done
+          · simp at *; simp [*]
+          · constructor
+            · intros ident' new_i v_1 Hrule
+              fin_cases ident' <;> simp
+            · intros ident' new_i v_1 HVal
+              fin_cases ident' <;> simp
+              cases pf2
+              cases HVal
+              simp at *; simp [*]
+              subst mid
+              subst l'
+              subst v
+              exists (val :: (l ++ new_i.2))
+              simp
+        · constructor; and_intros
+          · apply existSR.done
+          · simp at *; simp [*]
+          · constructor
+            · intros ident' new_i v_1 Hrule
+              fin_cases ident' <;> simp
+            · intros ident' new_i v_1 HVal
+              fin_cases ident' <;> simp
+              cases pf2
+              cases HVal
+              simp at *
+              subst mid
+              subst l'
+              subst v
+              exists (val :: (l ++ new_i.2))
+              simp
+
+theorem correct_threeway' {T: Type _} :
     refines ((merge_sem T).snd) (threemerge T) (lol T)
           (fun x y => by
               simp at x;
               exact (x.1 ++ x.2 = y)
-              ) := by
+              ) := show_term by
       simp [threemerge, refines]
       intros l l' indis
       rcases indis with ⟨indisL, indisR⟩
@@ -344,21 +407,6 @@ theorem correct_threeway {T: Type _} :
               fin_cases ident' <;> simp_all
               cases pf2 
               
-              cases HVal
-              subst mid
-              subst l'
-              subst v
-              exists (val :: (l ++ new_i.2))
-              simp
-        · constructor; and_intros
-          · apply existSR.done
-          · cases pf2; subst l; subst v
-          · constructor
-            · intros ident' new_i v_1 Hrule; simp_all
-              fin_cases ident' <;> simp_all
-            · intros ident' new_i v_1 HVal; simp_all
-              fin_cases ident' <;> simp_all
-              cases pf2 
               cases HVal
               subst mid
               subst l'
