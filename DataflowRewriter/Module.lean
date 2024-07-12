@@ -328,7 +328,9 @@ set_option trace.Meta.Tactic.simp.numSteps true
 set_option pp.proofs.threshold 0
 theorem correct_threeway {T: Type _} :
     refines ((merge_sem T).snd) (threemerge T) (lol T)
-          (fun x y => x.1 ++ x.2 = y) := show_term by
+          (fun x y => by 
+               reduce
+               exact x.1 ++ x.2 = y) := show_term by
       simp [threemerge, refines]
       intros l l' indis
       rcases indis with ⟨indisL, indisR⟩

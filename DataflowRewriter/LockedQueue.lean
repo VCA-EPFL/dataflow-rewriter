@@ -108,8 +108,9 @@ theorem enough :
       simp; exists ⟨[n]⟩; and_intros
       · apply step_one; constructor
       · apply φ.deq
-        · intros n'; apply φ.base
-        · intros n'; constructor; simp
+        · apply φ.base
+        · constructor; simp; rfl
+        · constructor; simp
     | handle_deq n rst a => simp at a
     | handle_lock =>
       simp; exists ⟨[]⟩; and_intros
@@ -142,6 +143,9 @@ theorem enough :
         intros n''; apply iH
         apply Himp2
       have iH'' := iH'; clear iH'
+      rcases s with ⟨ queue ⟩
+      rcases queue with _ | ⟨ a, b ⟩
+      
       constructor; and_intros
       
 
