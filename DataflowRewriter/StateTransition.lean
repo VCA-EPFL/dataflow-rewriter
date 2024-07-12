@@ -1,6 +1,6 @@
 namespace DataflowRewriter
 
-/-- 
+/--
 Create a class for an arbitrary state transition system.
 -/
 class StateTransition (Event: Type _) (State: Type _) where
@@ -35,13 +35,13 @@ theorem star.plus_one (s s': State) (e: List Event) :
   rw [He]
   apply star.step <;> first | assumption | apply star.refl
 
-theorem step_internal [trans : StateTransition a b] : 
+theorem step_internal [trans : StateTransition a b] :
   ∀ s1, trans.step s1 [] s2 -> star s2 e2 s3 -> @star _ _ trans s1 e2 s3 := by
   have h : e2 = [] ++ e2 := by rfl
   intros; rw [h]
   apply star.step <;> assumption
 
-theorem step_one [trans : StateTransition a b] : 
+theorem step_one [trans : StateTransition a b] :
   ∀ s1, trans.step s1 e2 s2 -> @star _ _ trans s1 e2 s2 := by
   have h : e2 = e2 ++ [] := by simp
   intros; rw [h]
