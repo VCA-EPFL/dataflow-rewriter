@@ -17,10 +17,15 @@ notation:45 s " -[ " t:45 " ]-> " s':44 => StateTransition.step s t s'
 section
 
 variable {State Event : Type}
+
+-- Variable of type StateTransition which needs Event and State for its constructor
 variable [trans: StateTransition Event State]
 
+-- It will trigger an inductive hypothesis, reflexive tranisitve closure
 inductive star : State -> List Event -> State -> Prop where
+  -- this performs no steps ([]) keeping us in the same state s1. It is the base case of induction and models the reflexive property (s1 is equal to itself)
   | refl : forall s1, star s1 [] s1
+  -- this states the transitive property, if s1 takes you to s2 through e1 and s2 takes you to s3 through e2. Then, we can go from s1 to s3 directly by concatenating e1 and e2.
   | step : forall s1, trans.step s1 e1 s2 -> star s2 e2 s3 -> star s1 (e1 ++ e2) s3
 
 notation:45 s " -[ " t:45 " ]*> " s':44 => star s t s'
@@ -34,6 +39,17 @@ theorem star.plus_one (s s': State) (e: List Event) :
   have He : e = e ++ [] := by simp
   rw [He]
   apply star.step <;> first | assumption | apply star.refl
+
+  theorem star.trans_star (s s' s'': State) (e e': List Event) :
+    s -[e]*> s' -> s' -[e']*> s'' -> s -[e ++ e']*> s''  := by
+    intros H1; induction H1 generalizing s'' e'
+    . simp
+    . intros H1
+      rw [List.append_assoc]
+      apply star.step
+      assumption
+      rename_i ih
+      apply ih; apply H1
 
 theorem step_internal [trans : StateTransition a b] :
   ∀ s1, trans.step s1 [] s2 -> star s2 e2 s3 -> @star _ _ trans s1 e2 s3 := by
@@ -49,6 +65,12 @@ theorem step_one [trans : StateTransition a b] :
 
 end
 
+-- Functions are produced with the fun syntax that begins with the keyword fun
+-- followed by one or more arguments, which are separated from the return expression using => .
+-- In this function, i is the argument and the return expression is the entire code coming after =>
+-- Fin is a positive natural number
+-- (1) a is an arbitrary type, (2) i' is a positive natural number, (3) f has a function syntax from n to a
+-- The retrun type of the function comes after the colon (:) and in this case the return is a function from n to a
 def update_Fin {a: Type} (i' : Fin n)  (e : a) (f : Fin n -> a) : Fin n -> a :=
   fun i =>
     if i == i' then
