@@ -16,7 +16,7 @@ notation:45 s " -[ " t:45 " ]-> " s':44 => StateTransition.step s t s'
 
 section
 
-variable {State Event : Type}
+variable {State Event : Type _}
 variable [trans: StateTransition Event State]
 
 inductive star : State -> List Event -> State -> Prop where
@@ -49,7 +49,7 @@ theorem step_one [trans : StateTransition a b] :
 
 end
 
-def update_Fin {a: Type} (i' : Fin n)  (e : a) (f : Fin n -> a) : Fin n -> a :=
+def update_Fin {a: Type _} (i' : Fin n)  (e : a) (f : Fin n -> a) : Fin n -> a :=
   fun i =>
     if i == i' then
       e
@@ -57,7 +57,7 @@ def update_Fin {a: Type} (i' : Fin n)  (e : a) (f : Fin n -> a) : Fin n -> a :=
       f i
 
 @[simp]
-theorem update_Fin_gso {a: Type} (i i' : Fin n)  (e : a) (f : Fin n -> a) :
+theorem update_Fin_gso {a: Type _} (i i' : Fin n)  (e : a) (f : Fin n -> a) :
   ¬(i = i') -> update_Fin i' e f i = f i := by
     intro h1
     unfold update_Fin
@@ -65,12 +65,12 @@ theorem update_Fin_gso {a: Type} (i i' : Fin n)  (e : a) (f : Fin n -> a) :
 
 
 @[simp]
-theorem update_Fin_gss {a: Type} (i  : Fin n)  (e : a) (f : Fin n -> a) :
+theorem update_Fin_gss {a: Type _} (i  : Fin n)  (e : a) (f : Fin n -> a) :
   update_Fin i e f i  = e := by
     unfold update_Fin
     simp
 
-def enq_Fin {a: Type} (i' : Fin n)  (e : a) (f : Fin n -> List a) : Fin n -> List a :=
+def enq_Fin {a: Type _} (i' : Fin n)  (e : a) (f : Fin n -> List a) : Fin n -> List a :=
   fun i =>
     if i == i' then
       f i ++ [e]
@@ -106,5 +106,18 @@ instance [Repr b] : Repr (Fin n → b) where
     for nVal in range n do
       s := s ++ (repr <| a nVal)
     return s
+
+section
+
+variable {Event ImpState SpecState : Type _}
+
+variable [imp : @StateTransition Event ImpState]
+variable [spec : @StateTransition Event SpecState]
+
+def indistinguishable (i: ImpState) (s: SpecState): Prop :=
+  forall (e : List Event) i',
+    i -[ e ]-> i' → exists s', s -[ e ]*> s'
+
+end
 
 end DataflowRewriter
