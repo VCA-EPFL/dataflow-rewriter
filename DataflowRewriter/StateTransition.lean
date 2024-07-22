@@ -21,7 +21,7 @@ variable [trans: StateTransition Event State]
 
 inductive star : State -> List Event -> State -> Prop where
   | refl : forall s1, star s1 [] s1
-  | step : forall s1, trans.step s1 e1 s2 -> star s2 e2 s3 -> star s1 (e1 ++ e2) s3
+  | step : forall s1 s2 s3 e1 e2, trans.step s1 e1 s2 -> star s2 e2 s3 -> star s1 (e1 ++ e2) s3
 
 notation:45 s " -[ " t:45 " ]*> " s':44 => star s t s'
 
