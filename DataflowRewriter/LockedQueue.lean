@@ -153,8 +153,8 @@ Tactic to specialize all the hypotheses in the context that contain an binding
 of that term in the first position.
 -/
 syntax (name := specializeAll) "specializeAll " term : tactic
-
-@[tactic specializeAll] def specializeAllTactic : Tactic
+#check Array
+@[tactic specializeAll] def specializeAllTactic : Tactic -- Syntax -> TacticM Unit
   | `(tactic| specializeAll $t:term) => withMainContext do
     let t ← elabTerm t none
     let termType ← inferType t
@@ -185,11 +185,8 @@ def kAbstractMatches (expr t : Expr) : MetaM Bool := do
   try
     -- `==` does not work here because sometimes the term can be reduced I
     -- believe, in which case they won't 100% match.
-    let _ ← withAssignableSyntheticOpaque <| kabstract expr t
-    if not (← withAssignableSyntheticOpaque <| isDefEq (← kabstract expr t) expr) then
-      return true
-    else
-      return false
+    let abstr ← withAssignableSyntheticOpaque <| kabstract expr t
+    not <$> (withAssignableSyntheticOpaque <| isDefEq abstr expr)
   -- isDefEq will error with unbound bvars, which is expected and means
   -- that the abstraction worked.
   catch _e =>
@@ -297,7 +294,7 @@ syntax (name := haveByLet) "have_hole " haveDecl : tactic
 macro_rules
   | `(tactic| have_hole $id:haveId $bs* : $type := $proof) => 
     `(tactic| (let h $bs* : $type := $proof; have $id:haveId := h; clear h))
-set_option pp.all true
+--set_option pp.all true
 theorem enough :
   ∀ i s, φ i s→ 
     ∀ e i', imp_step i e i' → 
