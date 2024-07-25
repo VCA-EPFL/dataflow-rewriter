@@ -6,7 +6,6 @@ namespace DataflowRewriter
 inductive Method where
   | enq (n : Nat)
   | deq (n : Nat)
-  | lock
   | unlock
 
 structure ImpState where
@@ -22,12 +21,14 @@ inductive imp_step : ImpState → List Method → ImpState → Prop where
     s.queue = n :: rst →
     imp_step s [Method.deq n] { s with queue := rst }
   | handle_lock : ∀ s,
-    imp_step s [Method.lock] { s with lock := true }
+    imp_step s [] { s with lock := true }
   | handle_unlock : ∀ s,
+    s.lock = true →
     imp_step s [Method.unlock] { s with lock := false }
   | unlock_natural : ∀ s,
     s.queue = [] →
-    imp_step s [] { s with lock := false }
+    s.lock = true →
+    imp_step s [] { lock := false, queue := [] }
 
 instance ImpStateTransition : StateTransition Method ImpState where
   init := default
@@ -43,8 +44,6 @@ inductive spec_step : SpecState → List Method → SpecState → Prop where
   | handle_deq : ∀ s n rst,
     s.queue = n :: rst →
     spec_step s [Method.deq n] { s with queue := rst }
-  | handle_lock : ∀ s,
-    spec_step s [Method.lock] s
   | handle_unlock : ∀ s,
     spec_step s [Method.unlock] s
 
@@ -58,7 +57,8 @@ infix:60 " ≺ " => @indistinguishable Method
 We define phi with a few necessary extensions.  For example, we use
 quantification for the `enq` case, so that we can handle any inputs and still
 commute.  In addition to that, we have indistinguishability inside of the φ.
-This is because
+This is because it makes it easier to prove the `enq` case, because one knows
+one just has indistinguishability.
 -/
 inductive φ : ImpState → SpecState → Prop where
   | base :
@@ -83,12 +83,6 @@ inductive φ : ImpState → SpecState → Prop where
     imp_step i [Method.unlock] i' →
     spec_step s [Method.unlock] s' →
     φ i s
-  | lock : ∀ i i' s s',
-    i ≺ s →
-    φ i' s' →
-    imp_step i [Method.lock] i' →
-    spec_step s [Method.lock] s' →
-    φ i s
   | internal : ∀ i i' s,
     i ≺ s →
     φ i' s →
@@ -99,9 +93,9 @@ theorem empty_indistinguishable :
   (default : ImpState) ≺ (default : SpecState) := by
   unfold indistinguishable; intros e i' Himp
   cases Himp with
-  | handle_enq n a | handle_lock | handle_unlock => constructor; apply star.plus_one; constructor
+  | handle_enq n a | handle_unlock => constructor; apply star.plus_one; constructor
   | handle_deq n rst a => simp at a
-  | unlock_natural => constructor; apply star.refl
+  | unlock_natural | handle_lock => constructor; apply star.refl
 
 theorem φ_indistinguishable i s :
   φ i s → i ≺ s := by
@@ -120,11 +114,11 @@ theorem φ_length i s :
     rw [i_wf,s_wf] at Hlist
     simp at Hlist; assumption
   | deq i i' s s' n _ Hphi Himp Hspec Hlist
-  | unlock i i' s s' _ Hphi Himp Hspec Hlist
-  | lock i i' s s' _ Hphi Himp Hspec Hlist =>
+  | unlock i i' s s' _ Hphi Himp Hspec Hlist =>
     cases Himp; cases Hspec; simp [*]
   | internal i i' s _ Hphi Himp Hlist =>
-    cases Himp; assumption
+    cases Himp; assumption 
+    simp [*] at *; assumption
 
 macro "solve_indistinguishable" t:tactic : tactic => 
   `(tactic| (unfold indistinguishable; intros _ _ a; have Hindimpstep := a; cases a 
@@ -153,7 +147,7 @@ Tactic to specialize all the hypotheses in the context that contain an binding
 of that term in the first position.
 -/
 syntax (name := specializeAll) "specializeAll " term : tactic
-#check Array
+
 @[tactic specializeAll] def specializeAllTactic : Tactic -- Syntax -> TacticM Unit
   | `(tactic| specializeAll $t:term) => withMainContext do
     let t ← elabTerm t none
@@ -279,9 +273,12 @@ syntax (name := createInductivePhi) "create_ind_phi" : tactic
         if ← isDefEq (← inferType x) (← inferType e) then
           x.mvarId!.assign e
       let e_t ← mkAppM' ind_decl.toExpr ars
-      let mvarIdNew ← mvarId.define ind_decl.userName t e_t
+      let mvarIdNew ← mvarId.assert ind_decl.userName t e_t
       let (_, mvarIdNew) ← mvarIdNew.intro1P
-      sequence <| (mvarIdNew :: (ars.map (·.mvarId!)).toList.reverse).map (·.tryClear ind)
+      let mvarIdNew ← mvarIdNew.tryClear ind
+      -- log m!"LOG: {repr ((← (sequence <| (mvarIdNew :: (ars.map (·.mvarId!)).toList.reverse).map (·.getKind))))}"
+      let newMVars := (ars.map (·.mvarId!)).toList.reverse
+      return mvarIdNew :: newMVars
   | _ => throwUnsupportedSyntax
 
 /--
@@ -294,7 +291,7 @@ syntax (name := haveByLet) "have_hole " haveDecl : tactic
 macro_rules
   | `(tactic| have_hole $id:haveId $bs* : $type := $proof) => 
     `(tactic| (let h $bs* : $type := $proof; have $id:haveId := h; clear h))
---set_option pp.all true
+
 theorem enough :
   ∀ i s, φ i s→ 
     ∀ e i', imp_step i e i' → 
@@ -315,20 +312,16 @@ theorem enough :
     | handle_deq n rst a => simp at a
     | handle_lock =>
       simp; exists ⟨[]⟩; and_intros
-      · apply star.plus_one; constructor
+      · apply star.refl
       · apply φ.unlock
         · solve_indistinguishable (simp [*] at *)
         · apply φ.base
+        · generalize H : ({ lock := true, queue := [] } : ImpState) = l at *; 
+          have : [] = l.queue := by subst l; simp
+          rw [this]; constructor; subst l; simp
         · constructor
-        · constructor
-    | handle_unlock =>
-      simp; exists ⟨[]⟩; and_intros
-      · apply star.plus_one; constructor
-      · apply φ.base
-    | unlock_natural a =>
-      simp; exists ⟨[]⟩; and_intros
-      · apply star.refl
-      · apply φ.base
+    | handle_unlock
+    | unlock_natural a => tauto
   | enq i i_ne s s_ne i_wf s_wf Hindist Hphi HimpRight HspecRight iH =>
     intro e i_sw HimpDown
     have HimpDown' := HimpDown
@@ -340,15 +333,6 @@ theorem enough :
       · apply star.plus_one; constructor
       · assumption
     | handle_deq n' rst Hqueue =>
-      create_ind_phi; rotate_left
-      specializeAll ?n
-      apply imp_step.handle_deq
-      run_tac do
-        withAssignableSyntheticOpaque <| evalTactic (← `(tactic| apply imp_step.handle_deq))
-      
-      rw [i_wf, Hqueue]; constructor; simp; rfl
-      have_hole Himp2 : ∀ n, imp_step (i_ne n) [Method.deq n'] _ := by
-        
       simp at *
       -- have_hole iH' : ∀ n, ∃ s', s_ne n -[ [Method.deq n'] ]*> s' ∧ φ { lock := i.lock, queue := rst ++ [n] } s' := by
       --   intro n''; apply iH
@@ -410,9 +394,112 @@ theorem enough :
       · intros; constructor; specialize HimpRight 0; 
         generalize Hother : i_ne 0 = i' at *; cases HimpRight; simp [*]
       . intros; constructor
-    | handle_lock => sorry
-    | handle_unlock => sorry
-    | unlock_natural => sorry
+    | handle_lock => 
+      create_ind_phi; rotate_left; apply imp_step.handle_lock; rotate_right
+      exists s; and_intros; constructor
+      apply φ.unlock
+      · solve_indistinguishable fail
+        sorry
+      · apply φ.enq <;> assumption
+      · specialize HimpRight 0; generalize Hc : i_ne 0 = i' at *; cases HimpRight
+        cases i; simp at *; rename_i l _ _; subst l; constructor; simp
+      · constructor
+    | handle_unlock =>
+      specialize HimpRight 0; generalize h: i_ne 0 = i' at *; cases HimpRight; simp [*] at *
+    | unlock_natural =>
+      specialize HimpRight 0; generalize h: i_ne 0 = i' at *; cases HimpRight; simp [*] at *
+  | deq i i_ne s s_ne n Hind Hphi HistepRight HsstepRight iH =>
+    intro e i_sw HistepDown
+    have HsstepDown := HistepDown
+    apply Hind at HsstepDown
+    cases HsstepDown; rename_i s_sw HsstepDown
+    exists s_sw; and_intros; assumption
+    have HistepDown' := HistepDown
+    cases HistepDown' with
+    | handle_enq n' Hlock =>
+      have_hole HistepRight' : imp_step i_ne [Method.enq n'] _ := by
+        constructor
+        cases HistepRight; assumption
+      apply iH at HistepRight'
+      cases HistepRight'; rename_i s_se Hs
+      cases Hs; rename_i HsstepDownRight Hphi_se
+      have HistepRight' := HistepRight; cases HistepRight'; rename_i rst a
+      have HsstepRight' := HsstepRight; cases HsstepRight'; rename_i rst' a'
+      have HsstepDown' := HsstepDown; apply invert_single_spec_step at HsstepDown'
+      cases HsstepDown'
+      apply invert_single_spec_step at HsstepDown
+      apply φ.deq
+      · solve_indistinguishable fail
+        sorry
+      · apply Hphi_se
+      · simp; constructor
+        simp; rw [a]; rfl
+      · constructor
+        simp; rw [a']; apply invert_single_spec_step at HsstepDownRight; cases HsstepDownRight
+        simp
+    | handle_deq n' rst' a' =>
+      cases HistepRight; cases HsstepRight
+      cases HistepDown; apply invert_single_spec_step at HsstepDown; cases HsstepDown
+      rename_i a b c d e f g; simp [*] at *; cases g; subst n; subst c
+      cases b; subst rst'; assumption
+    | handle_lock =>
+      rcases i with ⟨ ilock, iqueue ⟩
+      cases ilock
+      · apply φ.unlock
+        · solve_indistinguishable fail
+          sorry
+        · apply φ.deq <;> assumption
+        · simp at *; generalize h : ({ lock := true, queue := iqueue } : ImpState) = i' at *
+          have : iqueue = i'.queue := by subst i'; simp
+          rw [this]; constructor
+          subst i'; simp
+        · sorry -- easy
+      · sorry -- assumption
+    | handle_unlock Hlock =>
+      apply invert_single_spec_step at HsstepDown; cases HsstepDown
+      apply φ.internal
+      · solve_indistinguishable fail; sorry
+      · apply φ.deq <;> assumption
+      · generalize h : ({ lock := false, queue := i.queue } : ImpState) = i' at *
+        cases i; rename_i ilock iqueue; simp at Hlock; subst ilock
+        have : iqueue = i'.queue := by cases HistepDown; simp
+        rw [this]; apply imp_step.handle_lock
+    | unlock_natural =>
+      cases HistepRight; cases HistepDown; rename_i a b c d e f g; rw [f] at e; simp at *
+  | unlock i i_ne s s_ne Hind Hphi HistepRight HsstepRight iH =>
+    intro e i_sw HistepDown
+    have HsstepDown := HistepDown
+    apply Hind at HsstepDown
+    cases HsstepDown; rename_i s_sw HsstepDown
+    exists s_sw; and_intros; assumption
+    have HistepDown' := HistepDown
+    cases HistepDown' with
+    | handle_enq n Hlock =>
+      cases HistepRight; rw [Hlock] at *; simp at *
+    | handle_deq n rst a =>
+      sorry -- difficult
+    | handle_lock =>
+      apply φ.unlock
+      · solve_indistinguishable fail; sorry
+      · assumption
+      · cases HistepRight; constructor; simp
+      · sorry -- assumption
+    | handle_unlock Hlock =>
+      apply invert_single_spec_step at HsstepDown; cases HsstepDown
+      cases HsstepRight; cases HistepRight; cases HistepDown; assumption
+    | unlock_natural Hqueue Hlock =>
+      cases HistepRight; cases HsstepRight; cases HistepDown;  
+      sorry -- assumption
+  | internal i i_ne s Hind Hphi HsitepRight iH =>
+    intro e i_sw HistepDown
+    have HsstepDown := HistepDown
+    apply Hind at HsstepDown
+    cases HsstepDown; rename_i s_sw HsstepDown
+    exists s_sw; and_intros; assumption
+    have HistepDown' := HistepDown
+    cases HistepDown' with
+    | handle_enq n Hlock =>
+      
   | _ => sorry
 
 end DataflowRewriter
