@@ -552,7 +552,7 @@ theorem correct_threeway {T: Type _} [DecidableEq T]:
     --       simp; constructor<;> simp;
     --       . intros ident
     --         simp [List.remove, threemerge] at *
-e     --         simp [List.remove] at ident
+     --         simp [List.remove] at ident
     --         rcases ident with ⟨i, pf⟩
     --         rcases i with ⟨ ⟨ ⟩ |  jjd  ⟩
     --         simp at *

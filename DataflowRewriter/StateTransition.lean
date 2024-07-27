@@ -47,6 +47,17 @@ theorem step_one [trans : StateTransition a b] :
   intros; rw [h]
   apply star.step <;> first | assumption | apply star.refl
 
+theorem star.trans_star (s s' s'': State) (e e': List Event) :
+  s -[e]*> s' -> s' -[e']*> s'' -> s -[e ++ e']*> s''  := by
+  intros H1; induction H1 generalizing s'' e'
+  . simp
+  . intros H1
+    rw [List.append_assoc]
+    apply star.step
+    assumption
+    rename_i ih
+    apply ih; apply H1
+
 end
 
 def update_Fin {a: Type _} (i' : Fin n)  (e : a) (f : Fin n -> a) : Fin n -> a :=
