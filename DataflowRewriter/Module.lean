@@ -14,13 +14,7 @@ structure Module (S : Type u₁) : Type (max u₁ (u₂ + 1)) where
 mklenses Module
 open Module.l
 
-
 def empty : Module S := {inputs := [], outputs := [], internals:= []}
-
--- @[simp]
--- def _root_.List.remove {α : Type u} : (as : List α) → Fin as.length → List α
---   | .cons _ as, ⟨0, _⟩ => as
---   | .cons a as, ⟨i + 1, h⟩ => a :: as.remove ⟨i, Nat.le_of_succ_le_succ h⟩
 
 @[simp]
 def _root_.List.remove {α : Type u} (as : List α) (i : Fin as.length) : List α := as.eraseIdx i
@@ -210,36 +204,6 @@ def refines (R : I → S → Prop) :=
 end Refinement
 
 section Semantics
--- def connect (mod : Module S) (i : Fin (List.length mod.inputs)) (o : Fin (List.length mod.outputs))
---       (wf : (List.get mod.inputs i).1 = (List.get mod.outputs o).1) : Module S :=
---        { inputs := List.remove mod.inputs i ,
---          outputs :=  List.remove mod.outputs o,
---          internals :=  (fun st st' => ∃ consumed_output output, (List.get mod.outputs o).2 st output consumed_output /\
---                               (List.get mod.inputs i).2 consumed_output (Eq.rec id wf output) st')
---                         :: mod.internals }
-
--- @[simp]
--- def product (mod1 : Module S) (mod2: Module S') : Module (S × S') :=
---       { inputs := List.map liftL mod1.inputs ++ List.map liftR mod2.inputs,
---         outputs := List.map liftL mod1.outputs ++ List.map liftR mod2.outputs,
---         internals := List.map liftL' mod1.internals ++ List.map liftR' mod2.internals
---       }
-  -- def wf (e :ExprLow) (build_module: ExprLow -> List ((T: Type _) × Module T) -> Option ((T: Type _) ×  Module T)) (ε : List ((T: Type _) × Module T)): Prop :=
-  --   match e with
-  --   | ExprLow.base i => True
-  --   | ExprLow.connect e' i o =>
-  --     let e := build_module e' ε;
-  --     match e with
-  --     | some e =>
-  --     if hi:i<List.length e.2.inputs then
-  --       if ho:o<List.length e.2.outputs then
-  --         let i := ⟨i, hi⟩;
-  --         let o := ⟨o, ho⟩;
-  --         ((e.2.inputs.get i).fst = (e.2.outputs.get o).fst) /\ wf e' build_module ε
-  --       else True
-  --     else True
-  --     | none => True
-  --   | ExprLow.product a b => True
 
 @[simp]
 def build_module' (e : ExprLow) (ε : List ((T: Type _) × Module T))
@@ -260,24 +224,6 @@ def build_module' (e : ExprLow) (ε : List ((T: Type _) × Module T))
     let b <- build_module' b ε;
     return ⟨a.1 × b.1, product a.2 b.2⟩
 
--- def build_module (e : ExprLow) (ε : List ((T: Type _) × Module T))
---   : Option ((T: Type _) × Module T) :=
---   match e with
---   | .base e => ε.get? e
---   | .connect e' i o => do
---     let e ← build_module' e' ε
---     if hi : i < e.2.inputs.length then
---       if ho : o < e.2.outputs.length then
---         let i := ⟨i, hi⟩;
---         let o := ⟨o, ho⟩;
---         return ⟨e.1, connect e.2 i o _⟩
---       else none
---     else none
---   | .product a b => do
---     let a <- build_module' a ε;
---     let b <- build_module' b ε;
---     return ⟨a.1 × b.1, product a.2 b.2⟩
-
 end Semantics
 
 section Syntax
@@ -296,8 +242,6 @@ def merge_sem (T: Type _) :=
   match build_module' mergeLow [⟨List T, merge T⟩] with
   | some x => x
   | none => ⟨Unit, empty⟩
-#reduce merge_sem Nat
--- #eval (merge_sem Nat).2
 
 theorem perm_erase {α : Type _} [DecidableEq α] (l₁ l₂ : List α) i:
   l₁.Perm l₂ →
@@ -322,18 +266,9 @@ theorem perm_erase {α : Type _} [DecidableEq α] (l₁ l₂ : List α) i:
     rename_i l₃ _ _
     trans; apply H1; simp [*]
 
-#check List.getElem_append_left
-
 theorem interface_match T :  matching_interface (merge_sem T).snd (threemerge T) := by
   constructor <;> (intro ident; fin_cases ident) <;> rfl
 
--- #print refines
--- #print indistinguishable
--- set_option pp.proofs true
--- set_option trace.profiler true 
--- -- set_option trace.Meta.Tactic.simp.rewrite true
--- set_option trace.Meta.Tactic.simp.numSteps true
--- set_option pp.proofs.threshold 0
 theorem correct_threeway {T: Type _} [DecidableEq T]:
     refines ((merge_sem T).snd) (threemerge T) (interface_match T)
           (fun x y => (x.1 ++ x.2).Perm y) := by
@@ -353,7 +288,7 @@ theorem correct_threeway {T: Type _} [DecidableEq T]:
             · intro ident' new_i v_1 Hrule
               fin_cases ident' <;> simp
             · intros ident' new_i v_1 HVal
-              fin_cases ident' <;> simp
+              fin_cases ident'; simp
               reduce at *
               rcases Hi with ⟨ Hil, Hir ⟩
               rcases HVal with ⟨ ⟨ i, HVall, temp ⟩, HValr ⟩
@@ -377,7 +312,7 @@ theorem correct_threeway {T: Type _} [DecidableEq T]:
             · intros ident' new_i v_1 Hrule
               fin_cases ident' <;> simp
             · intros ident' new_i v_1 HVal
-              fin_cases ident' <;> simp
+              fin_cases ident'; simp
               reduce at *
               rcases Hi with ⟨ Hil, Hir ⟩
               rcases HVal with ⟨ ⟨ i, HVall, temp ⟩, HValr ⟩
@@ -402,7 +337,7 @@ theorem correct_threeway {T: Type _} [DecidableEq T]:
             · intros ident' new_i v_1 Hrule
               fin_cases ident' <;> simp
             · intros ident' new_i v_1 HVal
-              fin_cases ident' <;> simp
+              fin_cases ident'; simp
               reduce at *
               rcases Hi with ⟨ Hil, Hir ⟩
               rcases HVal with ⟨ ⟨ i, HVall, temp ⟩, HValr ⟩
@@ -421,7 +356,7 @@ theorem correct_threeway {T: Type _} [DecidableEq T]:
                 rcases this with ⟨ i, Hl ⟩
                 constructor; exists i + 1
                 simp; tauto
-      . stop intro ident mid_i v Hi
+      . intro ident mid_i v Hi
         fin_cases ident <;> dsimp only at * <;> reduce at *
         rcases Hi with ⟨ ⟨ i, Hil ⟩, Hir ⟩
         reduce at *
@@ -433,20 +368,43 @@ theorem correct_threeway {T: Type _} [DecidableEq T]:
         have Hyin : v' ∈ y := by rw [← Hiff]; simp; tauto
         rw [List.mem_iff_get] at Hyin
         rcases Hyin with ⟨ i', Hyget ⟩
+        have HerasePerm : (mid_i.1.append mid_i.2).Perm (y.eraseIdx i'.1) := by
+          simp [Hill]
+          trans; apply List.perm_append_comm
+          rw [←List.eraseIdx_append_of_lt_length] <;> [skip; apply i.isLt]
+          trans ((x2 ++ mid_i.1).erase x2[i])
+          have H2 : x2[i] = (x2 ++ mid_i.1)[i] := by
+            symm; apply List.getElem_append_left
+          rw [H2]; symm; apply List.erase_get
+          symm; trans; symm; apply List.erase_get
+          rw [Hyget]; simp at Hx2get; simp; rw [Hx2get]
+          apply perm_erase; symm
+          symm; trans; symm; assumption
+          apply List.perm_append_comm
         constructor; constructor; and_intros
         · exists i'; and_intros; rfl; tauto
         · apply existSR.done
-        · rw [Hill]; simp
-          sorry
+        · assumption
         · constructor <;> dsimp only
           · intro ident' new_i v_1 Hrule
             fin_cases ident' <;> simp
           · intros ident' new_i v_1 HVal
-            fin_cases ident' <;> simp
+            fin_cases ident'
             reduce at *
             rcases HVal with ⟨ ⟨ i'', HVall, temp ⟩, HValr ⟩
             subst v'; subst v_1
-            sorry
+            dsimp at *
+            have : mid_i.2[i''] ∈ (x2.eraseIdx i.1) := by
+              simp [Hill]; apply List.getElem_mem
+            have : mid_i.2[i''] ∈ (mid_i.1 ++ x2.eraseIdx i.1) := by
+              rw [List.mem_eraseIdx_iff_getElem] at this; simp; right
+              simp at *; simp [Hill]; apply List.getElem_mem
+            have HPermIn : mid_i.2[i''] ∈ y.eraseIdx i' := by
+              rw [List.Perm.mem_iff]; assumption; symm
+              rw [←Hill]; assumption
+            rw [List.mem_iff_getElem] at HPermIn
+            rcases HPermIn with ⟨ Ha, Hb, Hc ⟩
+            constructor; exists ⟨ Ha, Hb ⟩; tauto
       · intro ident mid_i Hv
         fin_cases ident
         rcases Hv with ⟨ la, lb, vout, ⟨ ⟨ i, H2, H3 ⟩, Hx3 ⟩, ⟨ Hx2, H4 ⟩ ⟩; subst lb; subst la; subst vout
@@ -469,9 +427,9 @@ theorem correct_threeway {T: Type _} [DecidableEq T]:
           · intros ident' new_i v_1 Hrule
             fin_cases ident' <;> simp
           · intros ident' new_i v_1 HVal
-            fin_cases ident' <;> simp
+            fin_cases ident'
             reduce at *
-            rcases HVal with ⟨ ⟨ i', HVall, temp ⟩, HValr ⟩
+            rcases HVal with ⟨ ⟨ i', _, temp ⟩, _ ⟩
             subst v_1
             generalize h : mid_i.2.get i' = y'
             have Ht : ∃ i', mid_i.2.get i' = y' := by exists i'
@@ -479,98 +437,18 @@ theorem correct_threeway {T: Type _} [DecidableEq T]:
             have Hiff := List.Perm.mem_iff (a := y') He
             have Ht'' : y' ∈ x1.get i :: x2 := by rw [←Hx2]; assumption
             simp at Ht''; rcases Ht'' with (Ht'' | Ht'')
-            · 
-            have Ht' : y' ∈ y := by rw [← Hiff]; simp; tauto
-            rcases Ht' with _ | Ht'
-            · constructor; exists 0
-            · rename_i Ht';
-              have Hiff := List.Perm.mem_iff (a := y') He
-              have : y' ∈ y := by rw [← Hiff]; simp; tauto
-              rw [List.mem_iff_get] at this
-              rcases this with ⟨ i, Hl ⟩
-              constructor; exists i + 1
-              simp; tauto
-          
-            -- generalize h : mid_i.2.get i' = y'
-            
-            -- have Ht : ∃ i, mid_i.2.get i = y' := by exists i'
-            -- rw [← List.mem_iff_get] at Ht
-            -- have Hiff := List.Perm.mem_iff (a := y') He
-            -- have : y' ∈ y := by rw [← Hiff]; simp; tauto
-            -- rw [List.mem_iff_get] at Ht'
-            -- rcases Ht' with ⟨ i', Ht'r ⟩
-            -- constructor; exists i' + 1
-            -- simp; tauto
-                
+            · have Ht' : y' ∈ y := by 
+                rw [List.Perm.mem_iff]; rotate_left; rewrite [List.perm_comm]; assumption; subst y'
+                rw [Ht'']; simp; left; apply List.getElem_mem
+              dsimp; apply List.getElem_of_mem at Ht'; rcases Ht' with ⟨ Ha, Hb, Hc ⟩
+              constructor; exists ⟨ Ha, Hb ⟩; and_intros; rfl; symm; assumption
+            · have Ht' : y' ∈ y := by 
+                rw [List.Perm.mem_iff]; rotate_left; rewrite [List.perm_comm]; assumption; subst y'
+                simp; tauto
+              dsimp; apply List.getElem_of_mem at Ht'; rcases Ht' with ⟨ Ha, Hb, Hc ⟩
+              constructor; exists ⟨ Ha, Hb ⟩; and_intros; rfl; symm; assumption
 
--- theorem correct_threeway' {T: Type _} :
---     refines ((merge_sem T).snd) (threemerge T) (lol T)
---           (fun x y => by
---               simp at x;
---               exact (x.1 ++ x.2 = y)
---               ) := by
---       simp [threemerge, refines]
---       intros l l' indis
---       rcases indis with ⟨indisL, indisR⟩
---       constructor
---       . simp_all
---         intros ident mid v val pf2
---         fin_cases ident <;> simp_all
---         · constructor; and_intros
---           · apply existSR.done
---           · trivial
---           · constructor
---             · intros ident' new_i v_1 Hrule; simp_all
---               fin_cases ident' <;> simp_all
---             · intros ident' new_i v_1 HVal; simp_all
---               fin_cases ident' <;> simp_all
---               cases pf2 
---               cases HVal
---               subst mid
---               subst l'
---               subst v
---               exists (val :: (l ++ new_i.2))
---               simp
---         · constructor; and_intros
---           · apply existSR.done
---           · trivial
---           · constructor
---             · intros ident' new_i v_1 Hrule; simp_all
---               fin_cases ident' <;> simp_all
---             · intros ident' new_i v_1 HVal; simp_all
---               fin_cases ident' <;> simp_all
---               cases pf2 
-              
---               cases HVal
---               subst mid
---               subst l'
---               subst v
---               exists (val :: (l ++ new_i.2))
---               simp
-
-    -- stop by
-    --       simp; constructor<;> simp;
-    --       . intros ident
-    --         simp [List.remove, threemerge] at *
-     --         simp [List.remove] at ident
-    --         rcases ident with ⟨i, pf⟩
-    --         rcases i with ⟨ ⟨ ⟩ |  jjd  ⟩
-    --         simp at *
-    --         rename_i i
-    --         rcases i with ⟨ ⟨ ⟩ | ⟨ i ⟩ ⟩
-    --         simp at *
-    --         omega
-    --       . intros ident
-    --         simp [List.remove, threemerge] at *
 section RefinementTheorem
-
---def inlining (e: ExprLow) (ε : List (T × Module T)) (pf : List.get ε i = )
-
--- inductive ExprLow where
---   | base : Nat -> ExprLow
---   | product : ExprLow -> ExprLow -> ExprLow
---   | connect : ExprLow -> Nat -> Nat -> ExprLow
-
 
 end RefinementTheorem
 
