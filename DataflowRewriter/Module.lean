@@ -87,19 +87,176 @@ inductive ExprLow where
   | base : Nat -> ExprLow
   | product : ExprLow -> ExprLow -> ExprLow
   | connect : ExprLow -> Nat -> Nat -> ExprLow
+  deriving Repr
 
 structure Connection where
   inputInstance  : Nat
   outputInstance : Nat
   inputPort      : Nat
   outputPort     : Nat
+  deriving Repr
+
+structure Interface where
+  inputs : Nat
+  outputs : Nat
+  deriving Repr
 
 structure ExprHigh where
   modules     : List Nat
   connections : List Connection
+  deriving Repr
 
-def lower (e : ExprHigh) : Option ExprLow := by sorry
-def higher (e : ExprLow) : Option ExprHigh := by sorry
+/--
+Returns the maximum number of input and output ports for each module.
+-/
+-- def maxPorts (l : ExprHigh) : List (Nat × Nat) :=
+--   Id.run <| do
+--     let mut outL : List (Nat × Nat) := []
+--     for mod in List.range (l.modules.length) do
+--       let mut max_out := 0
+--       let mut max_in := 0
+--       for conn in l.connections do
+--         match conn with
+--         | .connect inputInstance outputInstance inputPort outputPort =>
+--           if mod = inputInstance then max_in := max_in.max inputPort
+--           if mod = outputInstance then max_out := max_out.max outputPort
+--         | .dangleInput inst port => if mod = inst then max_in := max_in.max port
+--         | .dangleOutput inst port => if mod = inst then max_out := max_out.max port
+--       outL := outL ++ [(max_in, max_out)]
+--     return outL
+
+def accumUntil (ports : List Interface) (n : Nat): Nat × Nat :=
+  (ports.foldl (λ a b => if a.fst < n then (a.fst + 1, a.snd + (b.inputs, b.outputs)) else a) (0, 0, 0)).snd
+
+def findInput (ports : List Interface) (n : Nat): Nat × Nat :=
+  let (a, b, _) := ports.foldl (λ (a : Nat × Nat × Bool) b =>
+    if a.2.1 + b.inputs <= n && a.2.2
+    then (a.1 + 1, a.2.1 + b.inputs, a.2.2)
+    else if a.2.1 <= n && a.2.1 + b.inputs > n && a.2.2
+         then (a.1, n - a.2.1, false)
+         else a) (0, 0, true)
+  (a, b)
+
+def findOutput (ports : List Interface) (n : Nat): Nat × Nat :=
+  let (a, b, _) := ports.foldl (λ (a : Nat × Nat × Bool) b =>
+    if a.2.1 + b.outputs <= n && a.2.2
+    then (a.1 + 1, a.2.1 + b.outputs, a.2.2)
+    else if a.2.1 <= n && a.2.1 + b.outputs > n && a.2.2
+         then (a.1, n - a.2.1, false)
+         else a) (0, 0, true)
+  (a, b)
+
+def connectWithOffset (ports : List Interface) (prod : ExprLow) (conn : Connection) : Option ExprLow := do
+  let inputOffs := accumUntil ports conn.inputInstance
+  let outputOffs := accumUntil ports conn.outputInstance
+  let newProd := ExprLow.connect prod (inputOffs.fst + conn.inputPort) (outputOffs.snd + conn.outputPort)
+  return newProd
+
+def getEachInterface (i : List Interface) (e : ExprHigh) := sequence <| e.modules.map (i.get? ·)
+
+def lower (i : List Interface) (e : ExprHigh) : Option ExprLow := do
+  match e.modules with
+  | m :: ms =>
+    let prod := (ms.map (ExprLow.base ·)).foldl ExprLow.product (ExprLow.base m)
+    e.connections.foldlM (connectWithOffset <| ← getEachInterface i e) prod
+  | _ => none
+
+def higher (i : List Interface) (e : ExprLow) : Option ExprHigh := do
+  match e with
+  | .base n => pure ⟨ [ n ], [] ⟩
+  | .product a b =>
+    let ha ← higher i a
+    let hb ← higher i b
+    pure ⟨ ha.modules ++ hb.modules, ha.connections ++ hb.connections ⟩
+  | .connect a ni no =>
+    let ha ← higher i a
+    let eachInt ← getEachInterface i ha
+    let inp := findInput eachInt ni
+    let out := findOutput eachInt no
+    pure ⟨ ha.modules, ⟨ inp.1, out.1, inp.2, out.2 ⟩ :: ha.connections ⟩
+
+declare_syntax_cat dot_value
+declare_syntax_cat dot_stmnt
+declare_syntax_cat dot_attr_list
+declare_syntax_cat dot_attr
+
+syntax str : dot_value
+syntax num : dot_value
+syntax ident : dot_value
+
+syntax ident " = " dot_value : dot_attr
+syntax (dot_attr),* : dot_attr_list
+
+syntax ident (" [" dot_attr_list "]")? : dot_stmnt
+syntax ident " -> " ident (" [" dot_attr_list "]")? : dot_stmnt
+
+syntax dot_stmnt_list := (dot_stmnt "; ")*
+
+syntax (name := dot_graph) "[graph| " dot_stmnt_list " ]" : term
+
+#check_failure [graph| a [node = 0, n2 = 1]; b; c; a -> c; ]
+
+set_option pp.rawOnError true
+
+open Term Syntax
+
+def findStx (n : Name) (stx : Array Syntax) : Option Nat := do
+  let mut out := none
+  for pair in stx do
+    if pair[0].getId = n then
+      out := some (TSyntax.mk pair[2][0]).getNat
+  out
+
+@[term_elab dot_graph]
+def dotGraphElab : TermElab := λ stx typ? => do
+  let mut idx := 0
+  let mut hmap : HashMap Name (Nat × Nat) := mkHashMap
+  let mut conns : List Connection := []
+  for stmnt in stx[1][0].getArgs do
+    let low_stmnt := stmnt.getArgs[0]!
+    match low_stmnt with
+    -- | `(dot_stmnt| $i:ident $[[$[$el:dot_attr],*]]? ) =>
+    | `(dot_stmnt| $i:ident $[[$[$el:dot_attr],*]]? ) =>
+      let mut modId: Nat := 0
+      if el.isSome then
+        modId := (findStx `mod (← el)).getD 0
+      let (map', idx') := hmap.insertIfNew i.getId (idx, modId)
+      if idx'.isNone then
+        hmap := map'; idx := idx + 1
+      -- logInfo m!"{el.map (·.get! 1 |>.raw.getArgs.get! 0)}"
+    | `(dot_stmnt| $a:ident -> $b:ident $[[$[$el:dot_attr],*]]? ) =>
+      let mut out := 0
+      let mut inp := 0
+      if el.isSome then
+        let el ← el
+        out := (findStx `out el).getD 0
+        inp := (findStx `inp el).getD 0
+      let inpMod := hmap.find! b.getId
+      let outMod := hmap.find! a.getId
+      -- logInfo m!"out = {out}, in = {inp}"
+      conns := ⟨ inpMod.1, outMod.1, inp, out ⟩ :: conns
+    | _ => pure ()
+  let lst := ((hmap.toArray.map (·.snd)).insertionSort (fun (a, _) (a', _) => a <= a')).toList.map (·.snd)
+  -- logInfo m!"{lst}"
+  let connExpr ← mkListLit (mkConst ``Connection) (← conns.mapM (λ ⟨ a, b, c, d ⟩ => do
+    let s ← #[a, b, c, d].mapM (mkNumeral (mkConst ``Nat) ·)
+    mkAppM ``Connection.mk s))
+  let modList ← mkListLit (mkConst ``Nat) (← lst.mapM (mkNumeral (mkConst ``Nat) ·))
+  mkAppM ``ExprHigh.mk #[modList, connExpr]
+
+def merge3 : ExprHigh :=
+  [graph|
+    merge1 [label="merge1"];
+    merge2;
+    merge1 -> merge2;
+  ]
+
+#eval lower [ ⟨ 2, 1 ⟩ ] merge3
+
+def highlow int mod := do
+  higher int <| ← lower int mod
+
+#eval highlow [ ⟨ 2, 1 ⟩ ] merge3
 
 @[simp]
 def getIO.{u₁, u₂} {S : Type u₁} (l: List ((T : Type u₂) × (S -> T -> S -> Prop))) (n : Nat): ((T : Type u₂) × (S -> T -> S -> Prop)) :=
@@ -248,7 +405,7 @@ theorem perm_erase {α : Type _} [DecidableEq α] (l₁ l₂ : List α) i:
   (l₁.erase i).Perm (l₂.erase i) := by
   intro H; induction H generalizing i with
   | nil => simp
-  | cons x l1 l2 => 
+  | cons x l1 l2 =>
     rename_i l1' l2'
     rw [List.erase_cons]
     rw [List.erase_cons]
@@ -411,7 +568,7 @@ theorem correct_threeway {T: Type _} [DecidableEq T]:
         constructor; and_intros
         · apply existSR.done
         · rw [Hx2,← H4,←List.eraseIdx_append_of_lt_length] <;> [skip; apply i.isLt]
-          dsimp only; 
+          dsimp only;
           trans ((x1 ++ x1[i] :: x2).erase x1[i])
           rw [List.perm_comm]
           have : x1[↑i] = x1.get i := by simp
@@ -437,12 +594,12 @@ theorem correct_threeway {T: Type _} [DecidableEq T]:
             have Hiff := List.Perm.mem_iff (a := y') He
             have Ht'' : y' ∈ x1.get i :: x2 := by rw [←Hx2]; assumption
             simp at Ht''; rcases Ht'' with (Ht'' | Ht'')
-            · have Ht' : y' ∈ y := by 
+            · have Ht' : y' ∈ y := by
                 rw [List.Perm.mem_iff]; rotate_left; rewrite [List.perm_comm]; assumption; subst y'
                 rw [Ht'']; simp; left; apply List.getElem_mem
               dsimp; apply List.getElem_of_mem at Ht'; rcases Ht' with ⟨ Ha, Hb, Hc ⟩
               constructor; exists ⟨ Ha, Hb ⟩; and_intros; rfl; symm; assumption
-            · have Ht' : y' ∈ y := by 
+            · have Ht' : y' ∈ y := by
                 rw [List.Perm.mem_iff]; rotate_left; rewrite [List.perm_comm]; assumption; subst y'
                 simp; tauto
               dsimp; apply List.getElem_of_mem at Ht'; rcases Ht' with ⟨ Ha, Hb, Hc ⟩
