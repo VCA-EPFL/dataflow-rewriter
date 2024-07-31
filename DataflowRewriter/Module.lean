@@ -6,9 +6,9 @@ import Mathlib
 open Lean Meta Elab
 namespace DataflowRewriter
 
-structure Module (S : Type u₁) : Type (max u₁ (u₂ + 1)) where
-  inputs : List ((T : Type u₂) × (S -> T -> S -> Prop))
-  outputs : List ((T : Type u₂) × (S -> T -> S -> Prop))
+structure Module (S : Type u₁) : Type (max u₁ 1) where
+  inputs : List ((T : Type 0) × (S -> T -> S -> Prop))
+  outputs : List ((T : Type 0) × (S -> T -> S -> Prop))
   internals : List (S -> S -> Prop)
 
 mklenses Module
@@ -58,6 +58,30 @@ def product (mod1 : Module S) (mod2: Module S') : Module (S × S') :=
         outputs := mod1.outputs.map liftL ++ mod2.outputs.map liftR,
         internals := mod1.internals.map liftL' ++ mod2.internals.map liftR'
       }
+@[simp]
+def merge_inputs (mod : Module S) (in1 in2 : Fin (List.length mod.inputs)) : Module S  :=
+      { inputs :=
+        let in1_t := mod.inputs.get in1;
+        let in2_t := mod.inputs.get in2;
+        let rmin2 := List.remove mod.inputs in2;
+        List.set rmin2 in2.1 ⟨ in1_t.1 × in2_t.1, λ s (v1,v2) s' =>
+              ∃ s_int, in1_t.2 s v1 s_int ∧
+              in2_t.2 s_int v2 s'⟩
+      ,
+        outputs := mod.outputs,
+        internals := mod.internals }
+@[simp]
+def merge_outputs (mod : Module S) (out1 out2 : Fin (List.length mod.outputs)) : Module S  :=
+      { outputs :=
+        let out1_t := mod.outputs.get out1;
+        let out2_t := mod.outputs.get out2;
+        let rmout2 := List.remove mod.outputs out2;
+        List.set rmout2 out2.1 ⟨ out1_t.1 × out2_t.1, λ s (v1,v2) s' =>
+              ∃ s_int, out1_t.2 s v1 s_int ∧
+              out2_t.2 s_int v2 s'⟩
+      ,
+        inputs := mod.inputs,
+        internals := mod.internals }
 
 @[simp]
 def merge T : Module (List T):=
@@ -196,7 +220,7 @@ syntax (name := dot_graph) "[graph| " dot_stmnt_list " ]" : term
 
 #check_failure [graph| a [node = 0, n2 = 1]; b; c; a -> c; ]
 
-set_option pp.rawOnError true
+-- set_option pp.rawOnError true
 
 open Term Syntax
 
@@ -246,7 +270,7 @@ def dotGraphElab : TermElab := λ stx typ? => do
 
 def merge3 : ExprHigh :=
   [graph|
-    merge1 [label="merge1"];
+    merge1 [label="merge1", mod = 0];
     merge2;
     merge1 -> merge2;
   ]
@@ -383,9 +407,105 @@ def build_module' (e : ExprLow) (ε : List ((T: Type _) × Module T))
 
 end Semantics
 
+
 section Syntax
 
 end Syntax
+section littlemodules
+
+  @[simp]
+  def queue T : Module (List T) :=
+   { inputs := [⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩],
+     outputs := [⟨ T, λ oldList oldElement newList =>  newList ++ [oldElement] = oldList ⟩],
+     internals := []}
+
+  @[simp]
+  def merger T R : Module (List T × List R) :=
+   { inputs := [⟨ T, λ (oldListT,oldListR) newElementT (newListT, newListR) => newListT = newElementT ::  oldListT ∧ newListR = oldListR ⟩,
+                ⟨ R, λ (oldListT,oldListR) newElementR (newListT, newListR) => newListR = newElementR ::  oldListR ∧ newListT = oldListT ⟩,
+   ],
+     outputs := [⟨ T × R , λ (oldListT,oldListR) (elementT, elementR) (newListT, newListR) =>
+       newListT ++ [elementT] = oldListT ∧
+       newListR ++ [elementR] = oldListR
+        ⟩],
+     internals := []}
+
+  @[simp]
+  def pipelined_m TagT (m : Module Q) (wf :  m.outputs.length = 1) :=
+    merge_outputs (product m (queue TagT)) ⟨0, by simp⟩  ⟨1, by simp; omega⟩
+
+  -- We should start thinking about moving things in component libraries
+  @[simp]
+  def bag T : Module (List T) :=
+        { inputs := [⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩],
+          outputs := [⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩],
+          internals := []}
+  -- set_option trace.profiler true
+  @[simp]
+  def bagged_m (Q: Type _) (TagT : Type _) (m : Module Q) (wf :  m.outputs.length = 1 ∧ m.inputs.length = 1) :=
+    let pipe := pipelined_m TagT m wf.1;
+    let prod := product pipe (bag (m.outputs[0].1 × TagT));
+    connect prod ⟨2, by sorry⟩ ⟨0, by sorry⟩ (by sorry)
+
+  @[simp]
+  def bagged : ExprHigh :=
+  [graph|
+    pipe;
+    bag;
+    pipe -> bag [inp = 2, out = 0]; ]
+
+  def baggedl : ExprLow :=  Option.get (lower [⟨2,1⟩, ⟨1,1⟩] bagged) (by rfl)
+
+  def bagged_m' (Q: Type _) (TagT : Type 0) (m : Module Q) (wf : m.outputs.length = 1 ∧ m.inputs.length = 1) := do
+      build_module' baggedl [⟨_, pipelined_m TagT m wf.1⟩, ⟨_,(bag (m.outputs[0].1 × TagT))⟩]
+
+  @[simp]
+  def tag_complete_spec (TagT : Type 0) [_i: BEq TagT] (T : Type 0) : Module (List TagT × (TagT → Option T)) :=
+        { inputs := [
+          -- Complete computation
+          ⟨ TagT × T, λ (oldOrder, oldMap) (tag,el) (newOrder, newMap) =>
+            -- Tag must be used, but no value ready, otherwise block:
+            (List.elem tag oldOrder ∧ oldMap tag = none) ∧
+            newMap = (λ idx => if idx == tag then some el else oldMap idx) ∧ newOrder = oldOrder⟩
+        ],
+          outputs := [
+            -- Allocate fresh tag
+          ⟨ TagT, λ (oldOrder, oldMap) (tag) (newOrder, newMap) =>
+            -- Tag must be unused otherwise block (alternatively we
+            -- could an implication to say undefined behavior):
+            (!List.elem tag oldOrder ∧ oldMap tag = none) ∧
+            newMap = oldMap ∧ newOrder = tag :: oldOrder⟩,
+            -- Dequeue + free tag
+          ⟨ T, λ (oldorder, oldmap) el (neworder, newmap) =>
+            -- tag must be used otherwise, but no value brought, undefined behavior:
+            ∃ l tag , oldorder = l ++ [tag] ∧ oldmap tag = some el ∧
+            newmap = (λ idx => if idx == tag then none else oldmap idx) ∧ neworder = l ⟩,
+            ],
+          internals := []}
+
+  @[simp]
+  def tagged_ooo_h : ExprHigh :=
+  [graph|
+    tagger [mod=0];
+    bagged [mod=1];
+    merger [mod=2];
+    -- Match tag and input
+    tagger -> merger [inp = 0, out = 0];
+    -- Feed the pair to the bag
+    merger -> bagged [inp = 0, out = 0];
+    -- Output of the bag complete inside the tagger
+    bagged -> tagger [inp = 0, out = 0];
+
+    -- Top-level inputs: The second input to merger which is unbound
+    -- Top-level outputs: Second output of the tagger which is unbound
+    ]
+
+
+  @[simp]
+  def tagged_ooo_l : ExprLow :=  Option.get (lower [⟨1,2⟩, ⟨1,1⟩, ⟨2,1⟩] tagged_ooo_h) (by rfl)
+
+end littlemodules
+
 
 @[simp]
 def mergeLow : ExprLow :=
