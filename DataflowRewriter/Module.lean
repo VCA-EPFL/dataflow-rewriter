@@ -2,8 +2,13 @@ import Leanses
 import Lean
 import Init.Data.BitVec.Lemmas
 import Mathlib
+import DataflowRewriter.Reduce
+import DataflowRewriter.Simp
 
-open Lean Meta Elab
+open Batteries (AssocList)
+open Batteries (RBMap)
+
+open Lean.Meta Lean.Elab
 namespace DataflowRewriter
 
 structure Module (S : Type u₁) : Type (max u₁ 1) where
@@ -107,30 +112,42 @@ def threemerge T : Module (List T):=
     internals := []
   }
 
+abbrev Ident := String
+deriving instance BEq for Ident
+
+deriving instance Repr for Ident
+deriving instance Hashable for Ident
+deriving instance DecidableEq for Ident
+deriving instance Ord for Ident
+
 inductive ExprLow where
-  | base : Nat -> ExprLow
-  | product : ExprLow -> ExprLow -> ExprLow
-  | connect : ExprLow -> Nat -> Nat -> ExprLow
+  | base : Ident → Ident → ExprLow
+  | product : ExprLow → ExprLow → ExprLow
+  | connect : ExprLow → Nat → Nat → ExprLow
   deriving Repr
 
 structure Connection where
-  inputInstance  : Nat
-  outputInstance : Nat
+  inputInstance  : Ident
+  outputInstance : Ident
   inputPort      : Nat
   outputPort     : Nat
-  deriving Repr
+  deriving Repr, Hashable, DecidableEq, Ord
 
 structure Interface where
   inputs : Nat
   outputs : Nat
   deriving Repr
 
+deriving instance Repr for AssocList
+
+abbrev IdentMap α := AssocList Ident α
+
 structure ExprHigh where
-  modules     : List Nat
+  modules     : IdentMap Ident
   connections : List Connection
   deriving Repr
 
-/--
+/-
 Returns the maximum number of input and output ports for each module.
 -/
 -- def maxPorts (l : ExprHigh) : List (Nat × Nat) :=
@@ -145,49 +162,53 @@ Returns the maximum number of input and output ports for each module.
 --           if mod = inputInstance then max_in := max_in.max inputPort
 --           if mod = outputInstance then max_out := max_out.max outputPort
 --         | .dangleInput inst port => if mod = inst then max_in := max_in.max port
---         | .dangleOutput inst port => if mod = inst then max_out := max_out.max port
+--         | .dangleOutput inst port => if mod = inst then max_out := max_out.max port-
 --       outL := outL ++ [(max_in, max_out)]
 --     return outL
+def accumUntil (ports : IdentMap Interface) (n : Ident): Nat × Nat :=
+  ports.foldl (λ a bi bo => if bi ≠ n then (a + (bo.inputs, bo.outputs)) else a) (0, 0)
 
-def accumUntil (ports : List Interface) (n : Nat): Nat × Nat :=
-  (ports.foldl (λ a b => if a.fst < n then (a.fst + 1, a.snd + (b.inputs, b.outputs)) else a) (0, 0, 0)).snd
-
-def findInput (ports : List Interface) (n : Nat): Nat × Nat :=
-  let (a, b, _) := ports.foldl (λ (a : Nat × Nat × Bool) b =>
-    if a.2.1 + b.inputs <= n && a.2.2
-    then (a.1 + 1, a.2.1 + b.inputs, a.2.2)
-    else if a.2.1 <= n && a.2.1 + b.inputs > n && a.2.2
-         then (a.1, n - a.2.1, false)
-         else a) (0, 0, true)
+def findInput (ports : IdentMap Interface) (n : Nat): Ident × Nat :=
+  let (a, b, _) := ports.foldl (λ (a : Ident × Nat × Bool) bi bo =>
+    let (_, a2, a3) := a
+    if a2 + bo.inputs <= n && a3
+    then (bi, a2 + bo.inputs, a3)
+    else if a3 then (bi, n - a2, false) else a) ("", 0, true)
   (a, b)
 
-def findOutput (ports : List Interface) (n : Nat): Nat × Nat :=
-  let (a, b, _) := ports.foldl (λ (a : Nat × Nat × Bool) b =>
-    if a.2.1 + b.outputs <= n && a.2.2
-    then (a.1 + 1, a.2.1 + b.outputs, a.2.2)
-    else if a.2.1 <= n && a.2.1 + b.outputs > n && a.2.2
-         then (a.1, n - a.2.1, false)
-         else a) (0, 0, true)
+def findOutput (ports : IdentMap Interface) (n : Nat): Ident × Nat :=
+  let (a, b, _) := ports.foldl (λ (a : Ident × Nat × Bool) bi bo =>
+    let (_, a2, a3) := a
+    if a2 + bo.outputs <= n && a3
+    then (bi, a2 + bo.outputs, a3)
+    else if a3 then (bi, n - a2, false) else a) ("", 0, true)
   (a, b)
 
-def connectWithOffset (ports : List Interface) (prod : ExprLow) (conn : Connection) : Option ExprLow := do
+def connectWithOffset (ports : IdentMap Interface) (prod : ExprLow) (conn : Connection) : Option ExprLow := do
   let inputOffs := accumUntil ports conn.inputInstance
   let outputOffs := accumUntil ports conn.outputInstance
   let newProd := ExprLow.connect prod (inputOffs.fst + conn.inputPort) (outputOffs.snd + conn.outputPort)
   return newProd
 
-def getEachInterface (i : List Interface) (e : ExprHigh) := sequence <| e.modules.map (i.get? ·)
+def getEachInterface (i : IdentMap Interface) (e : ExprHigh) : Option (IdentMap Interface) :=
+  e.modules.foldlM (λ nm k v => do nm.cons k (← i.find? v)) ∅
 
-def lower (i : List Interface) (e : ExprHigh) : Option ExprLow := do
+def lower (i : IdentMap Interface) (e : ExprHigh) : Option ExprLow := do
   match e.modules with
-  | m :: ms =>
-    let prod := (ms.map (ExprLow.base ·)).foldl ExprLow.product (ExprLow.base m)
+  | .cons m k ms =>
+    let prod := (ms.toList.map (Function.uncurry ExprLow.base ·)).foldl ExprLow.product (ExprLow.base m k)
     e.connections.foldlM (connectWithOffset <| ← getEachInterface i e) prod
   | _ => none
 
-def higher (i : List Interface) (e : ExprLow) : Option ExprHigh := do
+protected def _root_.Batteries.AssocList.append : (xs ys : AssocList α β) → AssocList α β
+  | .nil,    bs => bs
+  | .cons a1 a2 as, bs => .cons a1 a2 <| as.append bs
+
+instance : Append (AssocList α β) := ⟨AssocList.append⟩
+
+def higher (i : IdentMap Interface) (e : ExprLow) : Option ExprHigh := do
   match e with
-  | .base n => pure ⟨ [ n ], [] ⟩
+  | .base k n => pure ⟨ .cons k n .nil, [] ⟩
   | .product a b =>
     let ha ← higher i a
     let hb ← higher i b
@@ -218,12 +239,9 @@ syntax dot_stmnt_list := (dot_stmnt "; ")*
 
 syntax (name := dot_graph) "[graph| " dot_stmnt_list " ]" : term
 
-#check_failure [graph| a [node = 0, n2 = 1]; b; c; a -> c; ]
+open Term Lean.Syntax
 
--- set_option pp.rawOnError true
-
-open Term Syntax
-
+open Lean in
 def findStx (n : Name) (stx : Array Syntax) : Option Nat := do
   let mut out := none
   for pair in stx do
@@ -231,20 +249,32 @@ def findStx (n : Name) (stx : Array Syntax) : Option Nat := do
       out := some (TSyntax.mk pair[2][0]).getNat
   out
 
+open Lean in
+def findStxStr (n : Name) (stx : Array Syntax) : MetaM (Option String) := do
+  let mut out := none
+  for pair in stx do
+    if pair[0].getId = n then
+      let some out' := pair[2][0].isStrLit?
+        | throwErrorAt pair[2][0] "`mod` attribute is not a string"
+      out := some out'
+  return out
+
+open Lean in
 @[term_elab dot_graph]
 def dotGraphElab : TermElab := λ stx typ? => do
   let mut idx := 0
-  let mut hmap : HashMap Name (Nat × Nat) := mkHashMap
+  let mut hmap : HashMap Name String := mkHashMap
   let mut conns : List Connection := []
   for stmnt in stx[1][0].getArgs do
     let low_stmnt := stmnt.getArgs[0]!
     match low_stmnt with
     -- | `(dot_stmnt| $i:ident $[[$[$el:dot_attr],*]]? ) =>
     | `(dot_stmnt| $i:ident $[[$[$el:dot_attr],*]]? ) =>
-      let mut modId: Nat := 0
-      if el.isSome then
-        modId := (findStx `mod (← el)).getD 0
-      let (map', idx') := hmap.insertIfNew i.getId (idx, modId)
+      let some el := el
+        | throwErrorAt i "No `mod` attribute found at node"
+      let some modId ← findStxStr `mod el
+        | throwErrorAt i "No `mod` attribute found at node"
+      let (map', idx') := hmap.insertIfNew i.getId modId
       if idx'.isNone then
         hmap := map'; idx := idx + 1
       -- logInfo m!"{el.map (·.get! 1 |>.raw.getArgs.get! 0)}"
@@ -255,32 +285,52 @@ def dotGraphElab : TermElab := λ stx typ? => do
         let el ← el
         out := (findStx `out el).getD 0
         inp := (findStx `inp el).getD 0
-      let inpMod := hmap.find! b.getId
-      let outMod := hmap.find! a.getId
       -- logInfo m!"out = {out}, in = {inp}"
-      conns := ⟨ inpMod.1, outMod.1, inp, out ⟩ :: conns
+      conns := ⟨ b.getId.toString, a.getId.toString, inp, out ⟩ :: conns
     | _ => pure ()
-  let lst := ((hmap.toArray.map (·.snd)).insertionSort (fun (a, _) (a', _) => a <= a')).toList.map (·.snd)
+  let lst := hmap.toList
   -- logInfo m!"{lst}"
   let connExpr ← mkListLit (mkConst ``Connection) (← conns.mapM (λ ⟨ a, b, c, d ⟩ => do
-    let s ← #[a, b, c, d].mapM (mkNumeral (mkConst ``Nat) ·)
-    mkAppM ``Connection.mk s))
-  let modList ← mkListLit (mkConst ``Nat) (← lst.mapM (mkNumeral (mkConst ``Nat) ·))
-  mkAppM ``ExprHigh.mk #[modList, connExpr]
+    let idents := #[a, b].map (.strVal · |> .lit)
+    let nats := #[c, d].map (.natVal · |> .lit)
+    mkAppM ``Connection.mk (idents ++ nats)))
+  let modList ← mkListLit (← mkAppM ``Prod #[mkConst ``Ident, mkConst ``Ident])
+    (← lst.mapM (fun (a, b) => mkAppM ``Prod.mk #[.lit (.strVal a.toString), .lit (.strVal b)]))
+  let modListMap ← mkAppM ``List.toAssocList #[modList]
+  mkAppM ``ExprHigh.mk #[modListMap, connExpr]
+
+open Lean.PrettyPrinter Delaborator SubExpr
+
+-- @[delab app.DataflowRewriter.ExprHigh.mk]
+-- def delabGraph : Delab := do
+--   let nodes : TSyntaxArray `dot_stmnt ← withNaryArg 0 delab
+--   let edges : TSyntaxArray `dot_stmnt ← withNaryArg 1 delab
+--   let concat := nodes ++ edges
+--   `([graph|
+--       digraph {
+--         $concat
+--       }
+--     ])
 
 def merge3 : ExprHigh :=
   [graph|
-    merge1 [label="merge1", mod = 0];
-    merge2;
-    merge1 -> merge2;
+    merge1 [mod = "merge"];
+    merge2 [mod = "merge"];
+    merge1 -> merge2 [out = 0, inp = 0];
   ]
 
-#eval lower [ ⟨ 2, 1 ⟩ ] merge3
+#check [graph|
+      merge1 [mod = "merge"];
+      merge2 [mod = "merge"];
+      merge1 -> merge2;
+  ]
+
+#eval lower [ ("merge", ⟨ 2, 1 ⟩) ].toAssocList merge3
 
 def highlow int mod := do
   higher int <| ← lower int mod
 
-#eval highlow [ ⟨ 2, 1 ⟩ ] merge3
+#eval highlow [ ("merge", ⟨ 2, 1 ⟩) ].toAssocList merge3
 
 @[simp]
 def getIO.{u₁, u₂} {S : Type u₁} (l: List ((T : Type u₂) × (S -> T -> S -> Prop))) (n : Nat): ((T : Type u₂) × (S -> T -> S -> Prop)) :=
@@ -291,23 +341,6 @@ def getRule {S : Type _} (l : List (S → S → Prop)) (n : Nat) : (S → S → 
   l.getD n (λ _ _ => True)
 
 variable (baseModules : Fin n → ((T : Type) × Module T))
-
-structure indistinguishable_strict (imod : Module I) (smod : Module S) : Prop where
-  inputs_length : imod.inputs.length = smod.inputs.length
-  inputs_types : ∀ ident, (imod.inputs.get ident).1 = (smod.inputs.get (Eq.rec id inputs_length ident)).1
-
-  inputs_indistinguishable : ∀ ident init_i new_i init_s v,
-    (imod.inputs.get ident).2 init_i v new_i →
-    ∃ new_s,
-      (smod.inputs.get (Eq.rec id inputs_length ident)).2 init_s ((inputs_types ident).mp v) new_s
-
-  outputs_length : imod.outputs.length = smod.outputs.length
-  outputs_types : ∀ ident, (imod.outputs.get ident).1 = (smod.outputs.get (Eq.rec id outputs_length ident)).1
-
-  outputs_indistinguishable : ∀ ident init_i new_i init_s v,
-    (imod.outputs.get ident).2 init_i v new_i →
-    ∃ new_s,
-      (smod.outputs.get (Eq.rec id outputs_length ident)).2 init_s ((outputs_types ident).mp v) new_s
 
 structure matching_interface (imod : Module I) (smod : Module S) : Prop where
   input_types : ∀ (ident : Fin imod.inputs.length), (imod.inputs.get ident).1 = (getIO smod.inputs ident).1
@@ -387,10 +420,10 @@ end Refinement
 section Semantics
 
 @[simp]
-def build_module' (e : ExprLow) (ε : List ((T: Type _) × Module T))
+def build_module' (e : ExprLow) (ε : IdentMap ((T: Type _) × Module T))
   : Option ((T: Type _) × Module T) :=
   match e with
-  | .base e => ε.get? e
+  | .base _ e => ε.find? e
   | .connect e' i o => do
     let e ← build_module' e' ε
     if hi : i < e.2.inputs.length then
@@ -450,14 +483,16 @@ section littlemodules
   @[simp]
   def bagged : ExprHigh :=
   [graph|
-    pipe;
-    bag;
-    pipe -> bag [inp = 2, out = 0]; ]
+      pipe [mod="pipe"];
+      bag [mod="bag"];
+      pipe -> bag [inp = 2, out = 0]; 
+  ]
 
-  def baggedl : ExprLow :=  Option.get (lower [⟨2,1⟩, ⟨1,1⟩] bagged) (by rfl)
+  def baggedl : ExprLow :=  Option.get (lower [("pipe", ⟨2,1⟩), ("bag", ⟨1,1⟩)].toAssocList bagged) rfl
 
   def bagged_m' (Q: Type _) (TagT : Type 0) (m : Module Q) (wf : m.outputs.length = 1 ∧ m.inputs.length = 1) := do
-      build_module' baggedl [⟨_, pipelined_m TagT m wf.1⟩, ⟨_,(bag (m.outputs[0].1 × TagT))⟩]
+      build_module' baggedl [("pipe", (⟨_, pipelined_m TagT m wf.1⟩ : ((T: Type _) × Module T))), 
+                             ("bag", ⟨_, bag (m.outputs[0].1 × TagT)⟩)].toAssocList
 
   @[simp]
   def tag_complete_spec (TagT : Type 0) [_i: BEq TagT] (T : Type 0) : Module (List TagT × (TagT → Option T)) :=
@@ -486,37 +521,37 @@ section littlemodules
   @[simp]
   def tagged_ooo_h : ExprHigh :=
   [graph|
-    tagger [mod=0];
-    bagged [mod=1];
-    merger [mod=2];
-    -- Match tag and input
-    tagger -> merger [inp = 0, out = 0];
-    -- Feed the pair to the bag
-    merger -> bagged [inp = 0, out = 0];
-    -- Output of the bag complete inside the tagger
-    bagged -> tagger [inp = 0, out = 0];
-
-    -- Top-level inputs: The second input to merger which is unbound
-    -- Top-level outputs: Second output of the tagger which is unbound
+      tagger [mod="tag"];
+      bagged [mod="bag"];
+      merger [mod="merge"];
+      -- Match tag and input
+      tagger -> merger [inp = 0, out = 0];
+      -- Feed the pair to the bag
+      merger -> bagged [inp = 0, out = 0];
+      -- Output of the bag complete inside the tagger
+      bagged -> tagger [inp = 0, out = 0];
+      
+      -- Top-level inputs: The second input to merger which is unbound
+      -- Top-level outputs: Second output of the tagger which is unbound
     ]
 
 
   @[simp]
-  def tagged_ooo_l : ExprLow :=  Option.get (lower [⟨1,2⟩, ⟨1,1⟩, ⟨2,1⟩] tagged_ooo_h) (by rfl)
+  def tagged_ooo_l : ExprLow :=  Option.get (lower [("tag", ⟨1,2⟩), ("bag", ⟨1,1⟩), ("merge", ⟨2,1⟩)].toAssocList tagged_ooo_h) (Eq.refl _)
 
 end littlemodules
 
 
 @[simp]
 def mergeLow : ExprLow :=
-  let merge1 := ExprLow.base 0;
-  let merge2 := ExprLow.base 0;
+  let merge1 := ExprLow.base "merge1" "merge";
+  let merge2 := ExprLow.base "merge2" "merge";
   let prod := ExprLow.product merge1 merge2;
   ExprLow.connect prod 2 0
 
 @[simp]
 def merge_sem (T: Type _) :=
-  match build_module' mergeLow [⟨List T, merge T⟩] with
+  match build_module' mergeLow [("merge", ⟨List T, merge T⟩)].toAssocList with
   | some x => x
   | none => ⟨Unit, empty⟩
 
@@ -545,6 +580,8 @@ theorem perm_erase {α : Type _} [DecidableEq α] (l₁ l₂ : List α) i:
 
 theorem interface_match T :  matching_interface (merge_sem T).snd (threemerge T) := by
   constructor <;> (intro ident; fin_cases ident) <;> rfl
+
+attribute [simp] AssocList.find? BEq.beq decide instIdentDecidableEq instDecidableEqString String.decEq
 
 theorem correct_threeway {T: Type _} [DecidableEq T]:
     refines ((merge_sem T).snd) (threemerge T) (interface_match T)
