@@ -32,6 +32,28 @@ def connect (mod : Module S) (i : Fin mod.inputs.length) (o : Fin mod.outputs.le
                               (mod.inputs.get i).2 consumed_output (Eq.rec id wf output) st')
                         :: mod.internals }
 
+-- @[simp]
+-- def source (l : List ((T : Type) × T)) : Module (Fin l.length → ((T : Type) × List T)) :=
+--   { inputs := ((List.drange l.length).zip l).map 
+--               (λ (n, (Sigma.mk T d)) => ⟨ T, λ s t s' => s' = update_Fin n ⟩),
+--     internals := [],
+--     outputs := l.map (λ (Sigma.mk T d) => ⟨ T, λ _ t _ => t = d ⟩)
+--   }
+
+@[simp]
+def io (T : Type) : Module (List T) :=
+  { inputs := [⟨ T, λ s t s' => s' = t :: s ⟩],
+    internals := [],
+    outputs := [⟨ T, λ s t s' => s = s' ++ [t] ⟩]
+  }
+
+@[simp]
+def sink (l : List Type) : Module Unit :=
+  { inputs := l.map (λ T => ⟨ T, λ _ _ _ => True ⟩),
+    internals := [],
+    outputs := []
+  }
+
 @[simp]
 def connect' (mod : Module S) (i : Fin mod.inputs.length) (o : Fin mod.outputs.length) : Module S :=
        { inputs := mod.inputs.remove i ,
@@ -96,6 +118,15 @@ def merge T : Module (List T):=
         internals := []
       }
 
+@[simp]
+def fork T : Module (List T):=
+      { inputs := [⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩],
+        outputs := [ ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩
+                   , ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩
+                   ],
+        internals := []
+      }
+
 def composed_threemerge T :=
   let merge1 := merge T;
   let merge2 := merge T;
@@ -146,6 +177,9 @@ structure ExprHigh where
   modules     : IdentMap Ident
   connections : List Connection
   deriving Repr
+
+def Interface.ofModules (l : IdentMap ((T : Type _) × Module T)) : IdentMap Interface :=
+  l.mapVal (λ _ (Sigma.mk _ m) => Interface.mk m.inputs.length m.outputs.length)
 
 /-
 Returns the maximum number of input and output ports for each module.
@@ -431,8 +465,7 @@ def build_module' (e : ExprLow) (ε : IdentMap ((T: Type _) × Module T))
         let i := ⟨i, hi⟩;
         let o := ⟨o, ho⟩;
         return ⟨e.1, connect' e.2 i o⟩
-      else none
-    else none
+    .none
   | .product a b => do
     let a <- build_module' a ε;
     let b <- build_module' b ε;
@@ -450,7 +483,8 @@ section littlemodules
   def queue T : Module (List T) :=
    { inputs := [⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩],
      outputs := [⟨ T, λ oldList oldElement newList =>  newList ++ [oldElement] = oldList ⟩],
-     internals := []}
+     internals := []
+  }
 
   @[simp]
   def merger T R : Module (List T × List R) :=
@@ -491,7 +525,7 @@ section littlemodules
   def baggedl : ExprLow :=  Option.get (lower [("pipe", ⟨2,1⟩), ("bag", ⟨1,1⟩)].toAssocList bagged) rfl
 
   def bagged_m' (Q: Type _) (TagT : Type 0) (m : Module Q) (wf : m.outputs.length = 1 ∧ m.inputs.length = 1) := do
-      build_module' baggedl [("pipe", (⟨_, pipelined_m TagT m wf.1⟩ : ((T: Type _) × Module T))), 
+      build_module' baggedl [("pipe", (⟨_, pipelined_m TagT m wf.1⟩ : ((T: Type _) × Module T))),
                              ("bag", ⟨_, bag (m.outputs[0].1 × TagT)⟩)].toAssocList
 
   @[simp]
@@ -535,11 +569,61 @@ section littlemodules
       -- Top-level outputs: Second output of the tagger which is unbound
     ]
 
-
   @[simp]
   def tagged_ooo_l : ExprLow :=  Option.get (lower [("tag", ⟨1,2⟩), ("bag", ⟨1,1⟩), ("merge", ⟨2,1⟩)].toAssocList tagged_ooo_h) (Eq.refl _)
 
 end littlemodules
+
+namespace mergemod
+
+@[simp]
+def mergeHigh : ExprHigh :=
+  [graph|
+    src0 [mod="io"];
+    snk0 [mod="io"];
+
+    fork1 [mod="fork"];
+    fork2 [mod="fork"];
+    merge1 [mod="merge"];
+    merge2 [mod="merge"];
+
+    src0 -> fork1;
+
+    fork1 -> fork2 [out=1];
+
+    fork1 -> merge1;
+    fork2 -> merge1 [inp=1];
+    fork2 -> merge2 [out=1,inp=1];
+    
+    merge1 -> merge2;
+
+    merge2 -> snk0;
+  ]
+
+#eval mergeHigh
+
+def modules : IdentMap ((T : Type _) × Module T) := 
+  [ ("io", ⟨ _, io Nat ⟩)
+  , ("merge", ⟨ _, merge Nat ⟩)
+  , ("fork", ⟨ _, fork Nat ⟩)
+  ].toAssocList
+
+def mod_interfaces : IdentMap Interface := Interface.ofModules modules
+
+def mergeLow : ExprLow := lower mod_interfaces mergeHigh |>.get rfl
+
+def mergeOther : Option ((T : Type _) × Module T) :=
+  build_module' mergeLow modules
+
+#reduce mergeOther
+
+def _root_.DataflowRewriter.ExprHigh.shatter_io : Unit := sorry
+
+def _root_.DataflowRewriter.ExprHigh.connect_io (e: ExprHigh): ExprHigh := sorry
+
+def _root_.DataflowRewriter.ExprHigh.subgraph (e: ExprHigh) (l: List Ident): ExprHigh := sorry
+
+end mergemod
 
 
 @[simp]
