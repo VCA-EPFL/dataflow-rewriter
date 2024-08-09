@@ -4,6 +4,9 @@ import Init.Data.BitVec.Lemmas
 import Mathlib
 import DataflowRewriter.Reduce
 import DataflowRewriter.Simp
+import Qq
+
+open Qq
 
 open Batteries (AssocList)
 open Batteries (RBMap)
@@ -169,11 +172,17 @@ structure Interface where
   outputs : Nat
   deriving Repr
 
+structure IO where
+  inPorts : List Nat
+  outPorts : List Nat
+  deriving Repr, Inhabited
+
 deriving instance Repr for AssocList
 
 abbrev IdentMap α := AssocList Ident α
 
 structure ExprHigh where
+  ioPorts     : List (Ident × IO)
   modules     : IdentMap Ident
   connections : List Connection
   deriving Repr
@@ -228,7 +237,11 @@ def getEachInterface (i : IdentMap Interface) (e : ExprHigh) : Option (IdentMap 
   e.modules.foldlM (λ nm k v => do nm.cons k (← i.find? v)) ∅
 
 def lower (i : IdentMap Interface) (e : ExprHigh) : Option ExprLow := do
-  match e.modules with
+  let iomodules ← e.ioPorts.reverse.foldlM (λ a b => do
+    let m ← e.modules.find? b.1
+    return .cons b.1 m <| a.erase b.1
+    ) e.modules
+  match iomodules with
   | .cons m k ms =>
     let prod := (ms.toList.map (Function.uncurry ExprLow.base ·)).foldl ExprLow.product (ExprLow.base m k)
     e.connections.foldlM (connectWithOffset <| ← getEachInterface i e) prod
@@ -242,17 +255,17 @@ instance : Append (AssocList α β) := ⟨AssocList.append⟩
 
 def higher (i : IdentMap Interface) (e : ExprLow) : Option ExprHigh := do
   match e with
-  | .base k n => pure ⟨ .cons k n .nil, [] ⟩
+  | .base k n => pure ⟨ [], .cons k n .nil, [] ⟩
   | .product a b =>
     let ha ← higher i a
     let hb ← higher i b
-    pure ⟨ ha.modules ++ hb.modules, ha.connections ++ hb.connections ⟩
+    pure ⟨ [], ha.modules ++ hb.modules, ha.connections ++ hb.connections ⟩
   | .connect a ni no =>
     let ha ← higher i a
     let eachInt ← getEachInterface i ha
     let inp := findInput eachInt ni
     let out := findOutput eachInt no
-    pure ⟨ ha.modules, ⟨ inp.1, out.1, inp.2, out.2 ⟩ :: ha.connections ⟩
+    pure ⟨ [], ha.modules, ⟨ inp.1, out.1, inp.2, out.2 ⟩ :: ha.connections ⟩
 
 declare_syntax_cat dot_value
 declare_syntax_cat dot_stmnt
@@ -270,6 +283,8 @@ syntax ident (" [" dot_attr_list "]")? : dot_stmnt
 syntax ident " -> " ident (" [" dot_attr_list "]")? : dot_stmnt
 
 syntax dot_stmnt_list := (dot_stmnt "; ")*
+
+syntax dot_input_list := ("(" ident ", " num ")"),*
 
 syntax (name := dot_graph) "[graph| " dot_stmnt_list " ]" : term
 
@@ -295,7 +310,7 @@ def findStxStr (n : Name) (stx : Array Syntax) : MetaM (Option String) := do
 
 open Lean in
 @[term_elab dot_graph]
-def dotGraphElab : TermElab := λ stx typ? => do
+def dotGraphElab : TermElab := λ stx _typ? => do
   let mut idx := 0
   let mut hmap : HashMap Name String := mkHashMap
   let mut conns : List Connection := []
@@ -324,14 +339,15 @@ def dotGraphElab : TermElab := λ stx typ? => do
     | _ => pure ()
   let lst := hmap.toList
   -- logInfo m!"{lst}"
-  let connExpr ← mkListLit (mkConst ``Connection) (← conns.mapM (λ ⟨ a, b, c, d ⟩ => do
+  let connExpr : Q(List Connection) ← mkListLit (mkConst ``Connection) (← conns.mapM (λ ⟨ a, b, c, d ⟩ => do
     let idents := #[a, b].map (.strVal · |> .lit)
     let nats := #[c, d].map (.natVal · |> .lit)
     mkAppM ``Connection.mk (idents ++ nats)))
   let modList ← mkListLit (← mkAppM ``Prod #[mkConst ``Ident, mkConst ``Ident])
     (← lst.mapM (fun (a, b) => mkAppM ``Prod.mk #[.lit (.strVal a.toString), .lit (.strVal b)]))
-  let modListMap ← mkAppM ``List.toAssocList #[modList]
-  mkAppM ``ExprHigh.mk #[modListMap, connExpr]
+  let modListMap : Q(IdentMap Ident) ← mkAppM ``List.toAssocList #[modList]
+  let ioList : Q(List (Ident × IO)) := q([])
+  return q(ExprHigh.mk $ioList $modListMap $connExpr)
 
 open Lean.PrettyPrinter Delaborator SubExpr
 
@@ -347,17 +363,15 @@ open Lean.PrettyPrinter Delaborator SubExpr
 --     ])
 
 def merge3 : ExprHigh :=
-  [graph|
+  {[graph|
     merge1 [mod = "merge"];
     merge2 [mod = "merge"];
-    merge1 -> merge2 [out = 0, inp = 0];
-  ]
+    merge1 -> merge2;
+  ] with ioPorts := [ ("merge1", {(default : IO) with inPorts := [0, 1]})
+                    , ("merge2", {inPorts := [1], outPorts := [0]})
+                    ]}
 
-#check [graph|
-      merge1 [mod = "merge"];
-      merge2 [mod = "merge"];
-      merge1 -> merge2;
-  ]
+#eval merge3
 
 #eval lower [ ("merge", ⟨ 2, 1 ⟩) ].toAssocList merge3
 
@@ -576,9 +590,15 @@ end littlemodules
 
 namespace mergemod
 
+def inPort (i : Ident) : Ident × IO :=
+  (i, {inPorts := [0], outPorts := []})
+
+def outPort (i : Ident) : Ident × IO :=
+  (i, {inPorts := [], outPorts := [0]})
+
 @[simp]
 def mergeHigh : ExprHigh :=
-  [graph|
+  {[graph|
     src0 [mod="io"];
     snk0 [mod="io"];
 
@@ -598,8 +618,48 @@ def mergeHigh : ExprHigh :=
     merge1 -> merge2;
 
     merge2 -> snk0;
-  ]
+  ] with ioPorts := [inPort "src0", outPort "snk0"]}
 
+def _root_.Batteries.AssocList.filterKeys (p : α → Bool) : AssocList α β → AssocList α β
+  | .nil => .nil
+  | .cons a b as => match p a with
+    | true => .cons a b <| as.filterKeys p
+    | false => as.filterKeys p
+
+def fromConnection (l : List Connection) (instances : List Ident): List (Ident × IO) :=
+  l.foldl (λ lcon conn => 
+    if conn.inputInstance ∈ instances
+    then if lcon.any (·.1 == conn.inputInstance)
+         then lcon.replaceF λ a => if a.1 == conn.inputInstance then some (a.1, {a.2 with inPorts := a.2.inPorts ++ [conn.inputPort]}) else none
+         else lcon ++ [(conn.inputInstance, {inPorts := [conn.inputPort], outPorts := []})]
+    else if lcon.any (·.1 == conn.outputInstance)
+         then lcon.replaceF λ a => if a.1 == conn.outputInstance then some (a.1, {a.2 with outPorts := a.2.outPorts ++ [conn.outputPort]}) else none
+         else lcon ++ [(conn.outputInstance, {outPorts := [conn.outputPort], inPorts := []})]) []
+
+def appendIO (a b : IO) : IO :=
+  { inPorts := a.inPorts ++ b.inPorts, outPorts := a.outPorts ++ b.outPorts }
+
+def mergeLists (l1 l2 : List (Ident × IO)) : List (Ident × IO) :=
+  (RBMap.ofList l1 compare).mergeWith (λ _ => appendIO) (RBMap.ofList l2 compare) |>.toList
+
+def sortIO' (a : IO) : IO :=
+  { inPorts := a.inPorts.mergeSort (r := (· ≤ ·)), outPorts := a.outPorts.mergeSort (r := (· ≤ ·)) }
+
+def sortIO (a : List (Ident × IO)) : List (Ident × IO) := 
+  a.map λ (a, b) => (a, sortIO' b)
+
+def _root_.DataflowRewriter.ExprHigh.subgraph (e : ExprHigh) (instances : List Ident) : ExprHigh :=
+  let new_modules := e.modules.filterKeys (· ∈ instances)
+  let new_connections := e.connections.filter λ a => a.inputInstance ∈ instances && a.outputInstance ∈ instances
+  let generated_io := (e.connections.filter λ a => 
+    a.inputInstance ∈ instances || a.outputInstance ∈ instances).removeAll new_connections
+  let new_io_ports := e.ioPorts.filter λ s => s.1 ∈ instances
+  { ioPorts := fromConnection generated_io instances |> mergeLists new_io_ports |> sortIO, 
+    modules := new_modules, 
+    connections := new_connections }
+
+#eval mergeHigh.subgraph ["fork1", "fork2"]
+#check List.filter
 #eval mergeHigh
 
 def modules : IdentMap ((T : Type _) × Module T) := 
@@ -615,13 +675,9 @@ def mergeLow : ExprLow := lower mod_interfaces mergeHigh |>.get rfl
 def mergeOther : Option ((T : Type _) × Module T) :=
   build_module' mergeLow modules
 
-#reduce mergeOther
-
 def _root_.DataflowRewriter.ExprHigh.shatter_io : Unit := sorry
 
 def _root_.DataflowRewriter.ExprHigh.connect_io (e: ExprHigh): ExprHigh := sorry
-
-def _root_.DataflowRewriter.ExprHigh.subgraph (e: ExprHigh) (l: List Ident): ExprHigh := sorry
 
 end mergemod
 
