@@ -207,32 +207,17 @@ inductive φ₂ : ImpState → SpecState → Prop where
     φ₂ ⟨false, []⟩ ⟨[]⟩
   | enq : ∀ i i' s s' n,
     φ₂ i' s' →
-    imp_step i [Method.enq n] i' →
-    spec_step s [Method.enq n] s' →
-    φ₂ i s
-  | unenq : ∀ i i' s s' n,
-    φ₂ i' s' →
-    imp_step i [Method.unenq n] i' →
-    spec_step s [Method.unenq n] s' →
+    imp_step₂ i [Method₂.enq n] i' →
+    spec_step₂ s [Method₂.enq n] s' →
     φ₂ i s
   | deq : ∀ i i' s s' n,
     φ₂ i' s' →
-    imp_step i [Method.deq n] i' →
-    spec_step s [Method.deq n] s' →
-    φ₂ i s
-  | undeq : ∀ i i' s s' n,
-    φ₂ i' s' →
-    imp_step i [Method.undeq n] i' →
-    spec_step s [Method.undeq n] s' →
-    φ₂ i s
-  | unlock : ∀ i i' s s',
-    φ₂ i' s' →
-    imp_step i [Method.unlock] i' →
-    spec_step s [Method.unlock] s' →
+    imp_step₂ i [Method₂.deq n] i' →
+    spec_step₂ s [Method₂.deq n] s' →
     φ₂ i s
   | internal : ∀ i i' s,
     φ₂ i' s →
-    imp_step i [] i' →
+    imp_step₂ i [] i' →
     φ₂ i s
 
 macro "solve_indistinguishable" t:tactic : tactic =>
@@ -243,22 +228,16 @@ theorem φ₂_equal_queues i s : φ₂ i s → i.queue = s.queue := by
   intro H; induction H with
   | base => simp
   | enq i i' s s' n Hphi Histep Hsstep iH
-  | unenq i i' s s' n Hphi Histep Hsstep iH
-  | deq i i' s s' n Hphi Histep Hsstep iH
-  | undeq i i' s s' n Hphi Histep Hsstep iH
-  | unlock i i' s s' Hphi Histep Hsstep iH =>
+  | deq i i' s s' n Hphi Histep Hsstep iH =>
     cases Histep; cases Hsstep; simp [*] at *; assumption
   | internal i i' s Hphi Histep iH =>
     cases Histep <;> (simp [*] at *; assumption)
 
 theorem φ₂_indist i s :
-  φ₂ i s → i ≺ s := by
-  intro Hphi; 
+  φ₂ i s → i ≺₂ s := by
+  intro Hphi;
   have Heq := φ₂_equal_queues _ _ Hphi
   solve_indistinguishable fail
-  case unenq n rst Hl Hq _Hstep =>
-    constructor; apply star.plus_one; constructor
-    rw [←Heq]; assumption
   case deq n rst a _Hstep =>
     constructor; apply star.plus_one; constructor
     rw [←Heq]; assumption
@@ -278,6 +257,22 @@ theorem φ_indistinguishable i s :
   | _ => assumption
 
 theorem invert_single_spec_step (s1 s2 : SpecState) (e : Method):
+  s1 -[[e]]*> s2 → s1 -[[e]]-> s2 := by
+  generalize Hthis : [e] = e'; intros Hs
+  cases Hs with
+  | refl => simp at Hthis
+  | step s1' s2' s3' e1 e2 Hstep Hstar =>
+    have Hthis' : e1 = [e] ∧ e2 = [] := by
+      cases Hstep <;> (simp at *; tauto)
+    cases Hthis'; subst e1; subst e2
+    generalize Hother : [] = e' at Hstar
+    cases Hstar with
+   | step s1'' s2'' s3'' e1' e2' Hstep' Hstar' =>
+      symm at Hother; rw [List.append_eq_nil] at Hother; cases Hother
+      subst e1'; subst e2'; cases Hstep'
+   | refl => assumption
+
+theorem invert_single_spec_step₂ (s1 s2 : SpecState) (e : Method₂):
   s1 -[[e]]*> s2 → s1 -[[e]]-> s2 := by
   generalize Hthis : [e] = e'; intros Hs
   cases Hs with
@@ -360,8 +355,8 @@ def findIndHyp : TacticM (FVarId × FVarId) := do
       -- find the inductive hypothesis.
       let (x, ind_hyp') ← withNewMCtxDepth do
         let (_, _, expr) ← forallMetaTelescopeReducing decl.type
-        let t ← elabTermWithHoles (← `(imp_step ?a ?b ?c)) none `createInductivePhi
-        let s ← elabTerm (← `(imp_step ?c ?d ?e)) none
+        let t ← elabTermWithHoles (← `(imp_step₂ ?a ?b ?c)) none `createInductivePhi
+        let s ← elabTerm (← `(imp_step₂ ?c ?d ?e)) none
         -- trace[debug] m!"T':: {t.fst}"
         -- trace[debug] m!"(DECL2): {expr}"
         -- trace[debug] m!"(DECL3): {repr expr}"
@@ -401,6 +396,7 @@ def findIndHyp : TacticM (FVarId × FVarId) := do
 def findCurrentEvent : TacticM Expr := do
   let (.app (.app (.const ``Exists _) _) goalType) := (← getMainTarget).consumeMData
     | throwError "Not the right goal type"
+  trace[debug] m!"goal: {goalType}"
   withNewMCtxDepth <| lambdaTelescope goalType fun _ars newGoalType => do
     let (t, ars) ← elabTermWithHoles (← `(@star SpecState Method _ ?a ?b ?c)) none `findCurrentEvent
     if ← kAbstractMatches newGoalType t then
@@ -434,10 +430,104 @@ syntax (name := createInductivePhi) "create_ind_phi" : tactic
       return mvarIdNew :: newMVars
   | _ => throwUnsupportedSyntax
 
+elab "remImp " h:ident : tactic =>
+  withMainContext do
+    let some decl := (← getLCtx).findFromUserName? h.getId
+      | throwErrorAt h "Not found"
+    liftMetaTactic fun mvarId => do
+      let (arrs, _, e) ← forallMetaTelescopeReducing decl.type
+      let e_t ← mkAppM' decl.toExpr arrs
+      let mvarIdNew ← mvarId.assert decl.userName e e_t
+      let (_, mvarIdNew) ← mvarIdNew.intro1P
+      let mvarIdNew ← mvarIdNew.tryClear decl.fvarId
+      return mvarIdNew :: (arrs.map (·.mvarId!)).toList
+
+elab "cases_transitions" : tactic =>
+  withMainContext do
+    let lctx ← getLCtx
+    for decl in lctx do
+      let (arr, _, expr) ← forallMetaTelescopeReducing decl.type
+      let sig1 ← elabTerm (← `(imp_step₂ _ _ _)) none
+      let sig2 ← elabTerm (← `(spec_step₂ _ _ _)) none
+      let sig3 ← elabTerm (← `(@StateTransition.step Method₂ SpecState _ _ [_] _)) none
+      if (arr.size == 0 && ((← kAbstractMatches expr sig1) ||
+                            (← kAbstractMatches expr sig2) ||
+                            (← kAbstractMatches expr sig3))) then
+        trace[debug] m!"Found: {arr}, {expr}"
+        evalTactic (← `(tactic| cases $(mkIdent <| decl.userName):term))
+
+elab "propagate_eq" : tactic =>
+  withMainContext do
+    let lctx ← getLCtx
+    for decl in lctx do
+      let (_, _, expr) ← forallMetaTelescopeReducing decl.type
+      let sig ← elabTerm (← `(_ = _)) none
+      if (← kAbstractMatches expr sig) then
+        evalTactic (← `(tactic| try subst $(mkIdent <| decl.userName):term))
+        trace[debug] m!"Found: {expr}"
+
+elab "findDownEvent" : tactic =>
+  withMainContext do
+    let lctx ← getLCtx
+    for decl in lctx do
+      -- find the base i_ne through φ
+      let (_, _, expr) ← forallMetaTelescopeReducing decl.type
+      let sig ← elabTerm (← `(φ₂ _ _)) none
+      if (← kAbstractMatches expr sig) then
+        match expr with
+        | .app (.app _ i) _ =>
+          for decl' in lctx do
+            if decl'.isImplementationDetail then continue
+            let (lst, _, expr') ← forallMetaTelescopeReducing decl'.type
+            match ← whnf expr' with
+            | .app (.app (.const ``Exists _) _) _ =>
+              let mut matched := false
+              let s ← elabTermWithHoles (← `(imp_step₂ _ _ _)) none `findDownEvent true
+              s.snd.head!.assign i
+              for arg in lst do
+                if ← kAbstractMatches (← inferType arg) s.fst then
+                  matched := true
+              if matched then
+                for decl' in lctx do
+                  if decl'.isImplementationDetail then continue
+                  let s ← elabTerm (← `(imp_step₂ _ _ _)) none
+                  -- get the down left event
+                  if (← kAbstractMatches decl'.type s) then
+                    match decl'.type with
+                    | .app (.app (.app _ _) m) i' =>
+                      if !(← isDefEq i i') then
+                        let t ← elabTermWithHoles (← `(imp_step₂ _ _ _)) none `findDownEvent true
+                        t.snd[0]!.assign i
+                        t.snd[1]!.assign m
+                        let v ← mkFreshExprMVar (some t.fst)
+                        liftMetaTactic fun mvarId => do
+                          let mvarIdNew ← mvarId.assert (Name.mkSimple "c1") t.fst v
+                          let (_, mvarIdNew) ← mvarIdNew.intro1P
+                          let mvarIdNew ← mvarIdNew.tryClear decl.fvarId
+                          return [v.mvarId!] ++ [mvarIdNew]
+                    | _ => pure ()
+            | _ => pure ()
+        | _ => throwUnsupportedSyntax
+
+-- syntax (name := remImp) "remImp " ident : tactic
+
+-- @[tactic remImp] def remImpTactic : Tactic
+--   | `(tactic| remImp $h:ident) => withMainContext do
+--     let some decl := (← getLCtx).findFromUserName? h.getId
+--       | throwErrorAt h "Not found"
+--     liftMetaTactic fun mvarId => do
+--       let (arrs, _, e) ← forallMetaTelescopeReducing decl.type
+--       let e_t ← mkAppM' decl.toExpr arrs
+--       let mvarIdNew ← mvarId.assert decl.userName e e_t
+--       let (_, mvarIdNew) ← mvarIdNew.intro1P
+--       let mvarIdNew ← mvarIdNew.tryClear decl.fvarId
+--       return mvarIdNew :: (arrs.map (·.mvarId!)).toList
+--   | _ => throwUnsupportedSyntax
+
 theorem enough :
   ∀ i s, φ i s →
     ∀ e i', imp_step i e i' →
-      ∃ s', star s e s' ∧ φ i' s' := by stop
+      ∃ s', star s e s' ∧ φ i' s' := by
   intro i s h;
   induction h with
   | base =>
@@ -467,12 +557,10 @@ theorem enough :
       · apply φ.unlock
         · solve_indistinguishable (simp [*] at *)
         · apply φ.base
+        · constructor; simp
         · constructor
-        · constructor
-    | unlock =>
-      simp; exists ⟨[]⟩; and_intros
-      · apply star.plus_one; constructor
-      · apply φ.base
+    | unlock a =>
+      simp at a
     | unlock_natural a =>
       simp; exists ⟨[]⟩; and_intros
       · apply star.refl
@@ -500,7 +588,7 @@ theorem enough :
         · sorry
         · sorry
       · apply φ.enq <;> assumption
-      · generalize Hi : ({ lock := false, queue := rst } : ImpState) = i''; 
+      · generalize Hi : ({ lock := false, queue := rst } : ImpState) = i'';
         have : false = i''.lock := by subst i''; rfl
         rw [this]
         have : rst = i''.queue := by subst i''; rfl
@@ -521,9 +609,18 @@ theorem empty_spec (s s' : SpecState) :
   cases Hempty; subst e1; subst e2
   cases Hs1
 
+theorem empty_spec₂ (s s' : SpecState) :
+  s -[ ([] : List Method₂) ]*> s' → s = s' := by
+  intro H; generalize Hempty : ([] : List Method₂) = l at H
+  induction H; rfl
+  rename_i s1 s2 s3 e1 e2 Hs1 Hs2 He
+  rw [List.nil_eq_append] at Hempty
+  cases Hempty; subst e1; subst e2
+  cases Hs1
+
 theorem enough₂ :
   ∀ i s, φ₂ i s →
-    ∀ e i', imp_step i e i' →
+    ∀ e i', imp_step₂ i e i' →
       ∃ s', star s e s' ∧ φ₂ i' s' := by
   intro i s h;
   induction h with
@@ -533,91 +630,63 @@ theorem enough₂ :
     | enq n a =>
       simp; exists ⟨[n]⟩; and_intros
       · apply step_one; constructor
-      · apply φ₂.unenq
-        · apply φ₂.base
-        · constructor; simp; rfl
-        · constructor; simp
-    | unenq n rst a b => simp at b
-    | deq n rst a => simp at a
-    | undeq n =>
-      simp; exists ⟨[n]⟩; and_intros
-      · apply step_one; constructor
       · apply φ₂.deq
         · apply φ₂.base
         · constructor; simp; rfl
         · constructor; simp
+    | deq n rst a => simp at a
     | lock =>
       simp; exists ⟨[]⟩; and_intros
       · apply star.refl
-      · apply φ₂.unlock
+      · apply φ₂.internal
         · apply φ₂.base
         · constructor; simp
-        · constructor
-    | unlock => tauto
-      -- simp; exists ⟨[]⟩; and_intros
-      -- · apply star.plus_one; constructor
-      -- · apply φ₂.base
     | unlock_natural a =>
       simp; exists ⟨[]⟩; and_intros
       · apply star.refl
       · apply φ₂.base
   | enq i i_ne s s_ne n Hphi HimpRight HspecRight iH =>
-    intro e i_sw HimpDown
-    have HspecDown := HimpDown
-    have Hphi_base : φ₂ i s := by
-      apply φ₂.enq <;> assumption
-    have Hindist := φ₂_indist _ _ Hphi_base
-    apply Hindist at HspecDown
-    cases HspecDown; rename_i s' HspecDown
-    exists s'; and_intros; assumption
-    have HimpDown' := HimpDown
-    cases HimpDown' with
-    | enq n lock =>
-      apply φ₂.unenq
-      · assumption
-      · constructor <;> [simp [*]; rfl]
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; constructor; simp
-    | unenq n' rst Hl Hq =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *; subst ileft; subst iright
-      apply φ₂.enq
-      · assumption
-      · generalize Hi : ({ lock := false, queue := rst } : ImpState) = i''; 
-        have : false = i''.lock := by subst i''; rfl
-        rw [this]
-        have : rst = i''.queue := by subst i''; rfl
-        rw [this]
-        constructor; symm; assumption
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; rename_i rst' a; rcases s with ⟨ s ⟩; simp at *; rw [a]; constructor
-    | deq n' rst a =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *; subst iright
-      apply φ₂.undeq
-      · assumption
-      · constructor
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; cases s; rename_i Ha; simp at Ha; rw [Ha]; constructor
-    | undeq n' =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *
-      apply φ₂.deq
-      · assumption
-      · constructor; simp; rfl
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; cases s; rename_i q; constructor; simp
-    | unlock a =>
-      cases HimpRight; rw [a] at *; tauto
-    | lock =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *
-      apply empty_spec at HspecDown; subst s
-      cases ileft
-      · apply φ₂.unlock
-        · assumption
-        · constructor; simp
-        · constructor
-      · assumption
-    | unlock_natural Hq =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *
-      apply empty_spec at HspecDown; subst s
-      cases ileft <;> try assumption
-      apply φ₂.internal
-      · assumption
-      · constructor
+    sorry
+    -- intro e i_sw HimpDown
+    -- have HspecDown := HimpDown
+    -- have Hphi_base : φ₂ i s := by
+    --   apply φ₂.enq <;> assumption
+    -- have Hindist := φ₂_indist _ _ Hphi_base
+    -- apply Hindist at HspecDown
+    -- cases HspecDown; rename_i s' HspecDown
+    -- exists s'; and_intros; assumption
+    -- have HimpDown' := HimpDown
+    -- cases HimpDown' with
+    -- | enq n' lock =>
+    --   apply φ₂.deq (n := n')
+    --   · apply φ₂.enq (n := n)
+    --     · exact Hphi
+    --     · assumption
+    --     · assumption
+    --   · constructor <;> simp [*]
+    --   · apply invert_single_spec_step at HspecDown; cases HspecDown; constructor; simp
+    -- | deq n' rst a =>
+    --   rcases i with ⟨ ileft, iright ⟩; simp at *; subst iright
+    --   apply φ₂.undeq
+    --   · assumption
+    --   · constructor
+    --   · apply invert_single_spec_step at HspecDown; cases HspecDown; cases s; rename_i Ha; simp at Ha; rw [Ha]; constructor
+    -- | lock =>
+    --   rcases i with ⟨ ileft, iright ⟩; simp at *
+    --   apply empty_spec at HspecDown; subst s
+    --   cases ileft
+    --   · apply φ₂.unlock
+    --     · assumption
+    --     · constructor; simp
+    --     · constructor
+    --   · assumption
+    -- | unlock_natural Hq =>
+    --   rcases i with ⟨ ileft, iright ⟩; simp at *
+    --   apply empty_spec at HspecDown; subst s
+    --   cases ileft <;> try assumption
+    --   apply φ₂.internal
+    --   · assumption
+    --   · constructor
   | deq i i_ne s s_ne n Hphi HimpRight HspecRight iH =>
     intro e i_sw HimpDown
     have HspecDown := HimpDown
@@ -629,235 +698,70 @@ theorem enough₂ :
     exists s'; and_intros; assumption
     have HimpDown' := HimpDown
     cases HimpDown' with
-    | enq n lock =>
-      apply φ₂.unenq
-      · assumption
-      · constructor <;> [simp [*]; rfl]
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; constructor; simp
-    | unenq n' rst Hl Hq =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *; subst ileft; subst iright
-      apply φ₂.enq
-      · assumption
-      · generalize Hi : ({ lock := false, queue := rst } : ImpState) = i''; 
-        have : false = i''.lock := by subst i''; rfl
-        rw [this]
-        have : rst = i''.queue := by subst i''; rfl
-        rw [this]
-        constructor; symm; assumption
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; rename_i rst' a; rcases s with ⟨ s ⟩; simp at *; rw [a]; constructor
+    | enq n' lock =>
+      set_option trace.debug true in
+      findDownEvent
+      · apply imp_step₂.enq
+        · apply i_ne.lock
+        · apply (i_ne.queue ++ [n'])
+
+      let H' : imp_step₂ i_ne [Method₂.enq n'] _ := by
+        constructor; cases_transitions; simp [*]
+
+      specialize iH [Method₂.enq n'] { lock := i_ne.lock, queue := i_ne.queue ++ [n'] }
+      remImp iH
+      rcases iH with ⟨ s_se, H, phi ⟩
+      · apply φ₂.deq
+        · exact phi
+        · cases_transitions; simp [*] at *
+          constructor; rfl
+        · apply invert_single_spec_step₂ at H
+          apply invert_single_spec_step₂ at HspecDown
+          cases_transitions
+          constructor; simp [*] at *
+      · cases_transitions; constructor; simp [*]
     | deq n' rst a =>
       rcases i with ⟨ ileft, iright ⟩; simp at *; subst iright
-      apply φ₂.undeq
-      · assumption
-      · constructor
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; cases s; rename_i Ha; simp at Ha; rw [Ha]; constructor
-    | undeq n' =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *
-      apply φ₂.deq
-      · assumption
-      · constructor; simp; rfl
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; cases s; rename_i q; constructor; simp
-    | unlock a =>
-      apply invert_single_spec_step at HspecDown; cases HspecDown
-      rcases i with ⟨ ileft, iright ⟩; simp at *; subst ileft
-      apply φ₂.internal
-      · assumption
-      · constructor
+      cases HimpRight
+      rename_i rst H
+      simp [*] at *
+      cases H
+      rename_i right left; subst right left
+      cases HspecRight
+      rename_i rst_s H
+      apply invert_single_spec_step₂ at HspecDown
+      cases HspecDown
+      rename_i right left
+      simp [*] at *
+      subst left
+      assumption
     | lock =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *
-      apply empty_spec at HspecDown; subst s
-      cases ileft
-      · apply φ₂.unlock
+      set_option trace.debug true in
+      have Htest : ∃ i, imp_step₂ i_ne [] i := by
+        constructor
+        apply imp_step₂.lock
+      create_ind_phi
+      rcases i with ⟨ lock, queue ⟩; simp at *
+      apply empty_spec₂ at HspecDown; subst s
+      cases Htest
+      rename_i i_se H
+      specialize iH [] i_se
+      remImp iH
+      cases_transitions
+      propagate_eq
+      cases lock
+      · rcases iH with ⟨ s_se, H, phi ⟩
+        apply empty_spec₂ at H; subst s_se
+        apply φ₂.deq
+        · exact phi
+        · constructor; simp; rfl
         · assumption
-        · constructor; simp
-        · constructor
+      · assumption
+      · admit
       · assumption
     | unlock_natural Hq =>
       rcases i with ⟨ ileft, iright ⟩; simp at *
-      apply empty_spec at HspecDown; subst s
-      cases ileft <;> try assumption
-      apply φ₂.internal
-      · assumption
-      · constructor
-  | unenq i i_ne s s_ne n Hphi HimpRight HspecRight iH =>
-    intro e i_sw HimpDown
-    have HspecDown := HimpDown
-    have Hphi_base : φ₂ i s := by
-      apply φ₂.unenq <;> assumption
-    have Hindist := φ₂_indist _ _ Hphi_base
-    apply Hindist at HspecDown
-    cases HspecDown; rename_i s' HspecDown
-    exists s'; and_intros; assumption
-    have HimpDown' := HimpDown
-    cases HimpDown' with
-    | enq n lock =>
-      apply φ₂.unenq
-      · assumption
-      · constructor <;> [simp [*]; rfl]
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; constructor; simp
-    | unenq n' rst Hl Hq =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *; subst ileft; subst iright
-      apply φ₂.enq
-      · assumption
-      · generalize Hi : ({ lock := false, queue := rst } : ImpState) = i''; 
-        have : false = i''.lock := by subst i''; rfl
-        rw [this]
-        have : rst = i''.queue := by subst i''; rfl
-        rw [this]
-        constructor; symm; assumption
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; rename_i rst' a; rcases s with ⟨ s ⟩; simp at *; rw [a]; constructor
-    | deq n' rst a =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *; subst iright
-      apply φ₂.undeq
-      · assumption
-      · constructor
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; cases s; rename_i Ha; simp at Ha; rw [Ha]; constructor
-    | undeq n' =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *
-      apply φ₂.deq
-      · assumption
-      · constructor; simp; rfl
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; cases s; rename_i q; constructor; simp
-    | unlock a =>
-      apply invert_single_spec_step at HspecDown; cases HspecDown
-      rcases i with ⟨ ileft, iright ⟩; simp at *; subst ileft
-      apply φ₂.internal
-      · assumption
-      · constructor
-    | lock =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *
-      apply empty_spec at HspecDown; subst s
-      cases ileft
-      · apply φ₂.unlock
-        · assumption
-        · constructor; simp
-        · constructor
-      · assumption
-    | unlock_natural Hq =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *
-      apply empty_spec at HspecDown; subst s
-      cases ileft <;> try assumption
-      apply φ₂.internal
-      · assumption
-      · constructor
-  | undeq i i_ne s s_ne n Hphi HimpRight HspecRight iH =>
-    intro e i_sw HimpDown
-    have HspecDown := HimpDown
-    have Hphi_base : φ₂ i s := by
-      apply φ₂.undeq <;> assumption
-    have Hindist := φ₂_indist _ _ Hphi_base
-    apply Hindist at HspecDown
-    cases HspecDown; rename_i s' HspecDown
-    exists s'; and_intros; assumption
-    have HimpDown' := HimpDown
-    cases HimpDown' with
-    | enq n lock =>
-      apply φ₂.unenq
-      · assumption
-      · constructor <;> [simp [*]; rfl]
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; constructor; simp
-    | unenq n' rst Hl Hq =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *; subst ileft; subst iright
-      apply φ₂.enq
-      · assumption
-      · generalize Hi : ({ lock := false, queue := rst } : ImpState) = i''; 
-        have : false = i''.lock := by subst i''; rfl
-        rw [this]
-        have : rst = i''.queue := by subst i''; rfl
-        rw [this]
-        constructor; symm; assumption
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; rename_i rst' a; rcases s with ⟨ s ⟩; simp at *; rw [a]; constructor
-    | deq n' rst a =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *; subst iright
-      apply φ₂.undeq
-      · assumption
-      · constructor
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; cases s; rename_i Ha; simp at Ha; rw [Ha]; constructor
-    | undeq n' =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *
-      apply φ₂.deq
-      · assumption
-      · constructor; simp; rfl
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; cases s; rename_i q; constructor; simp
-    | unlock a =>
-      apply invert_single_spec_step at HspecDown; cases HspecDown
-      rcases i with ⟨ ileft, iright ⟩; simp at *; subst ileft
-      apply φ₂.internal
-      · assumption
-      · constructor
-    | lock =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *
-      apply empty_spec at HspecDown; subst s
-      cases ileft
-      · apply φ₂.unlock
-        · assumption
-        · constructor; simp
-        · constructor
-      · assumption
-    | unlock_natural Hq =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *
-      apply empty_spec at HspecDown; subst s
-      cases ileft <;> try assumption
-      apply φ₂.internal
-      · assumption
-      · constructor
-  | unlock i i_ne s s_ne Hphi HimpRight HspecRight iH =>
-    intro e i_sw HimpDown
-    have HspecDown := HimpDown
-    have Hphi_base : φ₂ i s := by
-      apply φ₂.unlock <;> assumption
-    have Hindist := φ₂_indist _ _ Hphi_base
-    apply Hindist at HspecDown
-    cases HspecDown; rename_i s' HspecDown
-    exists s'; and_intros; assumption
-    have HimpDown' := HimpDown
-    cases HimpDown' with
-    | enq n lock =>
-      apply φ₂.unenq
-      · assumption
-      · constructor <;> [simp [*]; rfl]
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; constructor; simp
-    | unenq n' rst Hl Hq =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *; subst ileft; subst iright
-      apply φ₂.enq
-      · assumption
-      · generalize Hi : ({ lock := false, queue := rst } : ImpState) = i''; 
-        have : false = i''.lock := by subst i''; rfl
-        rw [this]
-        have : rst = i''.queue := by subst i''; rfl
-        rw [this]
-        constructor; symm; assumption
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; rename_i rst' a; rcases s with ⟨ s ⟩; simp at *; rw [a]; constructor
-    | deq n' rst a =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *; subst iright
-      apply φ₂.undeq
-      · assumption
-      · constructor
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; cases s; rename_i Ha; simp at Ha; rw [Ha]; constructor
-    | undeq n' =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *
-      apply φ₂.deq
-      · assumption
-      · constructor; simp; rfl
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; cases s; rename_i q; constructor; simp
-    | unlock a =>
-      apply invert_single_spec_step at HspecDown; cases HspecDown
-      rcases i with ⟨ ileft, iright ⟩; simp at *; subst ileft
-      apply φ₂.internal
-      · assumption
-      · constructor
-    | lock =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *
-      apply empty_spec at HspecDown; subst s
-      cases ileft
-      · apply φ₂.unlock
-        · assumption
-        · constructor; simp
-        · constructor
-      · assumption
-    | unlock_natural Hq =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *
-      apply empty_spec at HspecDown; subst s
+      apply empty_spec₂ at HspecDown; subst s
       cases ileft <;> try assumption
       apply φ₂.internal
       · assumption
@@ -878,35 +782,12 @@ theorem enough₂ :
       · assumption
       · constructor <;> [simp [*]; rfl]
       · apply invert_single_spec_step at HspecDown; cases HspecDown; constructor; simp
-    | unenq n' rst Hl Hq =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *; subst ileft; subst iright
-      apply φ₂.enq
-      · assumption
-      · generalize Hi : ({ lock := false, queue := rst } : ImpState) = i''; 
-        have : false = i''.lock := by subst i''; rfl
-        rw [this]
-        have : rst = i''.queue := by subst i''; rfl
-        rw [this]
-        constructor; symm; assumption
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; rename_i rst' a; rcases s with ⟨ s ⟩; simp at *; rw [a]; constructor
     | deq n' rst a =>
       rcases i with ⟨ ileft, iright ⟩; simp at *; subst iright
       apply φ₂.undeq
       · assumption
       · constructor
       · apply invert_single_spec_step at HspecDown; cases HspecDown; cases s; rename_i Ha; simp at Ha; rw [Ha]; constructor
-    | undeq n' =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *
-      apply φ₂.deq
-      · assumption
-      · constructor; simp; rfl
-      · apply invert_single_spec_step at HspecDown; cases HspecDown; cases s; rename_i q; constructor; simp
-    | unlock a =>
-      apply invert_single_spec_step at HspecDown; cases HspecDown
-      rcases i with ⟨ ileft, iright ⟩; simp at *; subst ileft
-      apply φ₂.internal
-      · assumption
-      · constructor
     | lock =>
       rcases i with ⟨ ileft, iright ⟩; simp at *
       apply empty_spec at HspecDown; subst s
