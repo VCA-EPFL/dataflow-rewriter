@@ -495,15 +495,17 @@ elab "findDownEvent" : tactic =>
                   if (← kAbstractMatches decl'.type s) then
                     match decl'.type with
                     | .app (.app (.app _ _) m) i' =>
-                      if !(← isDefEq i i') then
+                      if !(← kAbstractMatches i i') then
                         let t ← elabTermWithHoles (← `(imp_step₂ _ _ _)) none `findDownEvent true
                         t.snd[0]!.assign i
                         t.snd[1]!.assign m
+                        t.snd[2]!.setKind .natural
                         let v ← mkFreshExprMVar (some t.fst)
                         liftMetaTactic fun mvarId => do
                           let mvarIdNew ← mvarId.assert (Name.mkSimple "c1") t.fst v
                           let (_, mvarIdNew) ← mvarIdNew.intro1P
-                          let mvarIdNew ← mvarIdNew.tryClear decl.fvarId
+                          --let mvarIdNew ← mvarIdNew.tryClear decl.fvarId
+                          logInfo m!"ISSYNTHETIC: {MetavarKind.isSyntheticOpaque <| ← t.snd[0]!.getKind}"
                           return [v.mvarId!] ++ [mvarIdNew]
                     | _ => pure ()
             | _ => pure ()
