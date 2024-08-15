@@ -36,7 +36,7 @@ def connect (mod : Module S) (i : Fin mod.inputs.length) (o : Fin mod.outputs.le
 
 -- @[simp]
 -- def source (l : List ((T : Type) × T)) : Module (Fin l.length → ((T : Type) × List T)) :=
---   { inputs := ((List.drange l.length).zip l).map 
+--   { inputs := ((List.drange l.length).zip l).map
 --               (λ (n, (Sigma.mk T d)) => ⟨ T, λ s t s' => s' = update_Fin n ⟩),
 --     internals := [],
 --     outputs := l.map (λ (Sigma.mk T d) => ⟨ T, λ _ t _ => t = d ⟩)
@@ -532,7 +532,7 @@ section littlemodules
   [graph|
       pipe [mod="pipe"];
       bag [mod="bag"];
-      pipe -> bag [inp = 2, out = 0]; 
+      pipe -> bag [inp = 2, out = 0];
   ]
 
   def baggedl : ExprLow :=  Option.get (lower [("pipe", ⟨2,1⟩), ("bag", ⟨1,1⟩)].toAssocList bagged) rfl
@@ -577,7 +577,7 @@ section littlemodules
       merger -> bagged [inp = 0, out = 0];
       -- Output of the bag complete inside the tagger
       bagged -> tagger [inp = 0, out = 0];
-      
+
       -- Top-level inputs: The second input to merger which is unbound
       -- Top-level outputs: Second output of the tagger which is unbound
     ]
@@ -613,7 +613,7 @@ def mergeHigh : ExprHigh :=
     fork1 -> merge1;
     fork2 -> merge1 [inp=1];
     fork2 -> merge2 [out=1,inp=1];
-    
+
     merge1 -> merge2;
 
     merge2 -> snk0;
@@ -626,7 +626,7 @@ def _root_.Batteries.AssocList.filterKeys (p : α → Bool) : AssocList α β �
     | false => as.filterKeys p
 
 def fromConnection (l : List Connection) (instances : List Ident): List (Ident × IO) :=
-  l.foldl (λ lcon conn => 
+  l.foldl (λ lcon conn =>
     if conn.inputInstance ∈ instances
     then if lcon.any (·.1 == conn.inputInstance)
          then lcon.replaceF λ a => if a.1 == conn.inputInstance then some (a.1, {a.2 with inPorts := a.2.inPorts ++ [conn.inputPort]}) else none
@@ -644,24 +644,62 @@ def mergeLists (l1 l2 : List (Ident × IO)) : List (Ident × IO) :=
 def sortIO' (a : IO) : IO :=
   { inPorts := a.inPorts.mergeSort (r := (· ≤ ·)), outPorts := a.outPorts.mergeSort (r := (· ≤ ·)) }
 
-def sortIO (a : List (Ident × IO)) : List (Ident × IO) := 
+def sortIO (a : List (Ident × IO)) : List (Ident × IO) :=
   a.map λ (a, b) => (a, sortIO' b)
 
 def _root_.DataflowRewriter.ExprHigh.subgraph (e : ExprHigh) (instances : List Ident) : ExprHigh :=
   let new_modules := e.modules.filterKeys (· ∈ instances)
   let new_connections := e.connections.filter λ a => a.inputInstance ∈ instances && a.outputInstance ∈ instances
-  let generated_io := (e.connections.filter λ a => 
+  let generated_io := (e.connections.filter λ a =>
     a.inputInstance ∈ instances || a.outputInstance ∈ instances).removeAll new_connections
   let new_io_ports := e.ioPorts.filter λ s => s.1 ∈ instances
-  { ioPorts := fromConnection generated_io instances |> mergeLists new_io_ports |> sortIO, 
-    modules := new_modules, 
+  { ioPorts := fromConnection generated_io instances |> mergeLists new_io_ports |> sortIO,
+    modules := new_modules,
     connections := new_connections }
 
+def _root_.DataflowRewriter.ExprHigh.replaceInst
+    (e : ExprHigh)
+    (ports : IdentMap Interface)
+    (instances : List Ident)
+    (inst : Ident)
+    (mod : Ident)
+    : ExprHigh :=
+  let new_modules := e.modules.filterKeys (· ∉ instances) |> (AssocList.cons inst mod ·)
+  let new_conns :=
+    e.connections.foldl (λ conns curr =>
+      -- First, skip the internal connections
+      if curr.inputInstance ∈ instances && curr.outputInstance ∈ instances then conns
+      else
+        if curr.inputInstance ∈ instances then
+          -- Instance in the input, the input needs to be reconnected to the
+          -- input of the new instance.
+          let inputOffs := accumUntil ports curr.inputInstance
+          conns.concat <| Connection.mk inst curr.outputInstance (inputOffs.fst + curr.inputPort) curr.outputPort
+        else if curr.outputInstance ∈ instances then
+               -- Instance in the input, the input needs to be reconnected to the
+               -- input of the new instance.
+               let outputOffs := accumUntil ports curr.outputInstance
+               conns.concat <| Connection.mk curr.inputInstance inst curr.inputPort (outputOffs.snd + curr.outputPort)
+             else conns.concat curr
+    ) []
+  let new_io :=
+    e.ioPorts.foldl (λ conns curr =>
+      if curr.fst ∉ instances then conns.concat curr
+      else
+        let offs := accumUntil ports curr.fst
+        let new_io := IO.mk (curr.snd.inPorts.map (· + offs.fst)) (curr.snd.outPorts.map (· + offs.snd))
+        conns.concat (inst, new_io)
+    ) []
+  { ioPorts := new_io,
+    modules := new_modules,
+    connections := new_conns }
+
+#check List
 #eval mergeHigh.subgraph ["fork1", "fork2"]
 #check List.filter
 #eval mergeHigh
 
-def modules : IdentMap ((T : Type _) × Module T) := 
+def modules : IdentMap ((T : Type _) × Module T) :=
   [ ("io", ⟨ _, io Nat ⟩)
   , ("merge", ⟨ _, merge Nat ⟩)
   , ("fork", ⟨ _, fork Nat ⟩)
@@ -931,6 +969,6 @@ example A (a b : A) (Ha : a = b) : True := by
     logInfo m!"y: {y}"
     let b' ← evalTacticOnExpr (← `(tactic| rw [$(mkIdent `Ha):ident])) y
     logInfo m!"b': {b'}"
-  
+
 
 end DataflowRewriter
