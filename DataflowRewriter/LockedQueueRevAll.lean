@@ -446,6 +446,7 @@ elab "cases_transitions" : tactic =>
   withMainContext do
     let lctx ← getLCtx
     for decl in lctx do
+      if decl.isImplementationDetail then continue
       let (arr, _, expr) ← forallMetaTelescopeReducing decl.type
       let sig1 ← elabTerm (← `(imp_step₂ _ _ _)) none
       let sig2 ← elabTerm (← `(spec_step₂ _ _ _)) none
@@ -456,23 +457,25 @@ elab "cases_transitions" : tactic =>
         trace[debug] m!"Found: {arr}, {expr}"
         evalTactic (← `(tactic| cases $(mkIdent <| decl.userName):term))
 
-elab "propagate_eq" : tactic =>
+elab "propagateEq" : tactic =>
   withMainContext do
     let lctx ← getLCtx
     for decl in lctx do
+      if decl.isImplementationDetail then continue
       let (_, _, expr) ← forallMetaTelescopeReducing decl.type
       let sig ← elabTerm (← `(_ = _)) none
       if (← kAbstractMatches expr sig) then
         evalTactic (← `(tactic| try subst $(mkIdent <| decl.userName):term))
         trace[debug] m!"Found: {expr}"
 
-elab "findDownEvent" : tactic =>
+elab "findDownEvent " phi:term ", " step:term : tactic =>
   withMainContext do
     let lctx ← getLCtx
     for decl in lctx do
-      -- find the base i_ne through φ
+      -- find the i_ne through φ
+      if decl.isImplementationDetail then continue
       let (_, _, expr) ← forallMetaTelescopeReducing decl.type
-      let sig ← elabTerm (← `(φ₂ _ _)) none
+      let sig ← elabTerm (← `($phi _ _)) none
       if (← kAbstractMatches expr sig) then
         match expr with
         | .app (.app _ i) _ =>
@@ -482,34 +485,82 @@ elab "findDownEvent" : tactic =>
             match ← whnf expr' with
             | .app (.app (.const ``Exists _) _) _ =>
               let mut matched := false
-              let s ← elabTermWithHoles (← `(imp_step₂ _ _ _)) none `findDownEvent true
+              let s ← elabTermWithHoles (← `($step _ _ _)) none `findDownEvent true
               s.snd.head!.assign i
               for arg in lst do
                 if ← kAbstractMatches (← inferType arg) s.fst then
                   matched := true
               if matched then
-                for decl' in lctx do
-                  if decl'.isImplementationDetail then continue
-                  let s ← elabTerm (← `(imp_step₂ _ _ _)) none
+                for decl'' in lctx do
+                  if decl''.isImplementationDetail then continue
+                  let s ← elabTerm (← `($step _ _ _)) none
                   -- get the down left event
-                  if (← kAbstractMatches decl'.type s) then
-                    match decl'.type with
+                  if (← kAbstractMatches decl''.type s) then
+                    match decl''.type with
                     | .app (.app (.app _ _) m) i' =>
                       if !(← kAbstractMatches i i') then
-                        let t ← elabTermWithHoles (← `(imp_step₂ _ _ _)) none `findDownEvent true
-                        t.snd[0]!.assign i
-                        t.snd[1]!.assign m
+                        let t ← elabTermWithHoles (← `($step _ _ _)) none `findDownEvent true
+                        t.snd[0]!.setKind .natural
+                        t.snd[1]!.setKind .synthetic
                         t.snd[2]!.setKind .natural
+                        let _ ← isDefEq (.mvar t.snd[0]!) i
+                        let _ ← isDefEq (.mvar t.snd[1]!) m
                         let v ← mkFreshExprMVar (some t.fst)
+                        lst[0]!.mvarId!.assign m
+                        lst[1]!.mvarId!.assign (.mvar t.snd[2]!)
+                        -- let _ ← isDefEq lst[0]! m
+                        -- let _ ← isDefEq lst[1]! (.mvar t.snd[2]!)
                         liftMetaTactic fun mvarId => do
-                          let mvarIdNew ← mvarId.assert (Name.mkSimple "c1") t.fst v
-                          let (_, mvarIdNew) ← mvarIdNew.intro1P
-                          --let mvarIdNew ← mvarIdNew.tryClear decl.fvarId
-                          logInfo m!"ISSYNTHETIC: {MetavarKind.isSyntheticOpaque <| ← t.snd[0]!.getKind}"
+                          let e_t ← mkAppM' decl'.toExpr lst
+                          let mvarIdNew ← mvarId.assert decl'.userName expr' e_t
+                          let mvarIdNew ← mvarIdNew.assert (Name.mkSimple "HrightDown") t.fst v
+                          let (_, mvarIdNew) ← mvarIdNew.introNP 2
+                          -- let mvarIdNew ← mvarIdNew.tryClear decl'.fvarId
+                          -- logInfo m!"ISSYNTHETIC: {MetavarKind.isNatural <| ← lst[0]!.mvarId!.getKind}"
                           return [v.mvarId!] ++ [mvarIdNew]
                     | _ => pure ()
             | _ => pure ()
         | _ => throwUnsupportedSyntax
+
+elab "cleanup" : tactic =>
+  withMainContext do
+    let lctx ← getLCtx
+    for decl in lctx do
+      if decl.isImplementationDetail then continue
+      let (_, _, expr) ← forallMetaTelescopeReducing decl.type
+      let sig ← elabTerm (← `(_ ∧ _)) none
+      if (← kAbstractMatches expr sig) then
+        evalTactic (← `(tactic| cases $(mkIdent <| decl.userName):term))
+
+elab "simplifyStar" : tactic =>
+  withMainContext do
+    let lctx ← getLCtx
+    for decl in lctx do
+      if decl.isImplementationDetail then continue
+      let (_, _, expr) ← forallMetaTelescopeReducing decl.type
+      let sig ← elabTerm (← `(@star _ Method₂ SpecStateTransition₂ _ [_] _)) none
+      if (← kAbstractMatches expr sig) then
+        evalTactic (← `(tactic| apply invert_single_spec_step₂ at $(mkIdent <| decl.userName)))
+
+theorem empty_spec₂ (s s' : SpecState) :
+  s -[ ([] : List Method₂) ]*> s' → s = s' := by
+  intro H; generalize Hempty : ([] : List Method₂) = l at H
+  induction H; rfl
+  rename_i s1 s2 s3 e1 e2 Hs1 Hs2 He
+  rw [List.nil_eq_append] at Hempty
+  cases Hempty; subst e1; subst e2
+  cases Hs1
+
+elab "simplifyEmpty" : tactic =>
+  withMainContext do
+    let lctx ← getLCtx
+    for decl in lctx do
+      if decl.isImplementationDetail then continue
+      let (_, _, expr) ← forallMetaTelescopeReducing decl.type
+      let sig ← elabTerm (← `(@star _ Method₂ SpecStateTransition₂ _ [] _)) none
+      if (← kAbstractMatches expr sig) then
+        evalTactic (← `(tactic| apply empty_spec₂ at $(mkIdent <| decl.userName);
+                                subst $(mkIdent <| decl.userName):term))
 
 -- syntax (name := remImp) "remImp " ident : tactic
 
@@ -611,14 +662,35 @@ theorem empty_spec (s s' : SpecState) :
   cases Hempty; subst e1; subst e2
   cases Hs1
 
-theorem empty_spec₂ (s s' : SpecState) :
-  s -[ ([] : List Method₂) ]*> s' → s = s' := by
-  intro H; generalize Hempty : ([] : List Method₂) = l at H
-  induction H; rfl
-  rename_i s1 s2 s3 e1 e2 Hs1 Hs2 He
-  rw [List.nil_eq_append] at Hempty
-  cases Hempty; subst e1; subst e2
-  cases Hs1
+syntax "clearDownRight " term  ", " term : tactic
+
+macro_rules
+  | `(tactic| clearDownRight $m, $t) => `(tactic| apply $m <;>
+        (first | exact $t | simplifyStar; cases_transitions; simp [*] at *; constructor; try simp [*]; try rfl))
+
+syntax "upperTriangle": tactic
+
+syntax "seMethod" : tactic
+
+macro_rules
+  | `(tactic| seMethod) => `(tactic| constructor; cases_transitions; simp [*])
+
+syntax "seInternal " term : tactic
+
+macro_rules
+  | `(tactic| seInternal $t) => `(tactic| apply $t; try simp [*])
+
+macro_rules
+  | `(tactic| upperTriangle) => `(tactic| simplifyStar; cases_transitions; simp [*] at *; cleanup; propagateEq; simp [*])
+
+syntax "square " Lean.Parser.Tactic.casesTarget ", " term ", " tactic ", " tactic : tactic
+
+macro_rules
+  | `(tactic| square $IH, $t, $tac1, $tac2) => `(tactic| findDownEvent φ₂, imp_step₂; $tac1;
+                                                         rcases $IH with ⟨ $(mkIdent <| Name.mkSimple "s_se"),
+                                                                           $(mkIdent <| Name.mkSimple "H"),
+                                                                           $(mkIdent <| Name.mkSimple "phi") ⟩; cases_transitions;
+                                                         $tac2; clearDownRight $t, $(mkIdent <| Name.mkSimple "phi"))
 
 theorem enough₂ :
   ∀ i s, φ₂ i s →
@@ -699,75 +771,16 @@ theorem enough₂ :
     cases HspecDown; rename_i s' HspecDown
     exists s'; and_intros; assumption
     have HimpDown' := HimpDown
-    cases HimpDown' with
+    cases HimpDown with
     | enq n' lock =>
-      set_option trace.debug true in
-      findDownEvent
-      · apply imp_step₂.enq
-        · apply i_ne.lock
-        · apply (i_ne.queue ++ [n'])
-
-      let H' : imp_step₂ i_ne [Method₂.enq n'] _ := by
-        constructor; cases_transitions; simp [*]
-
-      specialize iH [Method₂.enq n'] { lock := i_ne.lock, queue := i_ne.queue ++ [n'] }
-      remImp iH
-      rcases iH with ⟨ s_se, H, phi ⟩
-      · apply φ₂.deq
-        · exact phi
-        · cases_transitions; simp [*] at *
-          constructor; rfl
-        · apply invert_single_spec_step₂ at H
-          apply invert_single_spec_step₂ at HspecDown
-          cases_transitions
-          constructor; simp [*] at *
-      · cases_transitions; constructor; simp [*]
+      (square iH, φ₂.deq, (constructor; cases_transitions; simp [*]), skip)
     | deq n' rst a =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *; subst iright
-      cases HimpRight
-      rename_i rst H
-      simp [*] at *
-      cases H
-      rename_i right left; subst right left
-      cases HspecRight
-      rename_i rst_s H
-      apply invert_single_spec_step₂ at HspecDown
-      cases HspecDown
-      rename_i right left
-      simp [*] at *
-      subst left
-      assumption
+      upperTriangle
     | lock =>
-      set_option trace.debug true in
-      have Htest : ∃ i, imp_step₂ i_ne [] i := by
-        constructor
-        apply imp_step₂.lock
-      create_ind_phi
-      rcases i with ⟨ lock, queue ⟩; simp at *
-      apply empty_spec₂ at HspecDown; subst s
-      cases Htest
-      rename_i i_se H
-      specialize iH [] i_se
-      remImp iH
-      cases_transitions
-      propagate_eq
-      cases lock
-      · rcases iH with ⟨ s_se, H, phi ⟩
-        apply empty_spec₂ at H; subst s_se
-        apply φ₂.deq
-        · exact phi
-        · constructor; simp; rfl
-        · assumption
-      · assumption
-      · admit
-      · assumption
+      (square iH, φ₂.deq, (apply imp_step₂.lock; try simp [*]), simplifyEmpty)
     | unlock_natural Hq =>
-      rcases i with ⟨ ileft, iright ⟩; simp at *
-      apply empty_spec₂ at HspecDown; subst s
-      cases ileft <;> try assumption
-      apply φ₂.internal
-      · assumption
-      · constructor
+      -- incompatible events → contradiction
+      cases_transitions; simp [*] at *
   | internal i i_ne s Hphi HimpRight iH =>
     intro e i_sw HimpDown
     have HspecDown := HimpDown
