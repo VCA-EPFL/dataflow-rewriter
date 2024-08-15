@@ -2,7 +2,6 @@ import Leanses
 import Lean
 import Init.Data.BitVec.Lemmas
 import Mathlib
-import DataflowRewriter.Reduce
 import DataflowRewriter.Simp
 import Qq
 
@@ -906,5 +905,32 @@ section RefinementTheorem
 
 end RefinementTheorem
 
+@[irreducible] def Opaque {A : Sort _} (a : A) : Prop := False
+
+#check Tactic.evalTactic
+
+open Lean Meta Tactic Qq in
+def evalTacticOnExpr (tac : Syntax) (e : Expr) : TacticM Expr := do
+  let e' ← mkAppOptM ``Opaque #[(← inferType e), e]
+  let s ← saveState
+  let l ← mkFreshExprMVar e'
+  setGoals [l.mvarId!]
+  evalTactic tac
+  let new_e : Q(Prop) ← getMainTarget
+  restoreState s
+  match new_e with
+  | ~q(Opaque $e) => return e
+  | _ => throwError "Not in correct form"
+
+open Lean Meta Tactic in
+example A (a b : A) (Ha : a = b) : True := by
+  run_tac do
+    let some a_decl := (← getLCtx).findFromUserName? `a
+      | throwError "not found"
+    let y := a_decl.toExpr
+    logInfo m!"y: {y}"
+    let b' ← evalTacticOnExpr (← `(tactic| rw [$(mkIdent `Ha):ident])) y
+    logInfo m!"b': {b'}"
+  
 
 end DataflowRewriter
