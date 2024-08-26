@@ -14,7 +14,7 @@ normal function syntax.
 -/
 notation:45 s " -[ " t:45 " ]-> " s':44 => StateTransition.step s t s'
 
-section
+section Behaviour
 
 variable {State Event : Type _}
 variable [trans: StateTransition Event State]
@@ -58,9 +58,13 @@ theorem star.trans_star (s s' s'': State) (e e': List Event) :
     rename_i ih
     apply ih; apply H1
 
-end
+end Behaviour
 
-def update_Fin {a: Type _} (i' : Fin n)  (e : a) (f : Fin n -> a) : Fin n -> a :=
+section UpdateFin
+
+variable {α : Type _}
+
+def update_Fin (i' : Fin n)  (e : α) (f : Fin n -> α) : Fin n -> α :=
   fun i =>
     if i == i' then
       e
@@ -68,7 +72,7 @@ def update_Fin {a: Type _} (i' : Fin n)  (e : a) (f : Fin n -> a) : Fin n -> a :
       f i
 
 @[simp]
-theorem update_Fin_gso {a: Type _} (i i' : Fin n)  (e : a) (f : Fin n -> a) :
+theorem update_Fin_gso (i i' : Fin n)  (e : α) (f : Fin n -> α) :
   ¬(i = i') -> update_Fin i' e f i = f i := by
     intro h1
     unfold update_Fin
@@ -76,17 +80,19 @@ theorem update_Fin_gso {a: Type _} (i i' : Fin n)  (e : a) (f : Fin n -> a) :
 
 
 @[simp]
-theorem update_Fin_gss {a: Type _} (i  : Fin n)  (e : a) (f : Fin n -> a) :
+theorem update_Fin_gss (i  : Fin n)  (e : α) (f : Fin n -> α) :
   update_Fin i e f i  = e := by
     unfold update_Fin
     simp
 
-def enq_Fin {a: Type _} (i' : Fin n)  (e : a) (f : Fin n -> List a) : Fin n -> List a :=
+def enq_Fin (i' : Fin n)  (e : α) (f : Fin n -> List α) : Fin n -> List α :=
   fun i =>
     if i == i' then
       f i ++ [e]
     else
       f i
+
+end UpdateFin
 
 def subtract_Fin (i : Fin 3): Fin 2 :=
   match i with
@@ -118,7 +124,7 @@ instance [Repr b] : Repr (Fin n → b) where
       s := s ++ (repr <| a nVal)
     return s
 
-section
+section Indistinguishable
 
 variable {Event ImpState SpecState : Type _}
 
@@ -129,6 +135,6 @@ def indistinguishable (i: ImpState) (s: SpecState): Prop :=
   forall (e : List Event) i',
     i -[ e ]-> i' → exists s', s -[ e ]*> s'
 
-end
+end Indistinguishable
 
 end DataflowRewriter

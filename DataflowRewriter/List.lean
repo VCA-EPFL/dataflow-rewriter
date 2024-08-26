@@ -3,6 +3,9 @@ import Mathlib
 
 namespace List
 
+@[simp]
+def _root_.List.remove {α : Type u} (as : List α) (i : Fin as.length) : List α := as.eraseIdx i
+
 theorem perm_erase {α : Type _} [DecidableEq α] (l₁ l₂ : List α) i:
   l₁.Perm l₂ →
   (l₁.erase i).Perm (l₂.erase i) := by

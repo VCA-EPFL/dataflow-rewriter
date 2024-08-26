@@ -17,6 +17,22 @@ open Lean.Meta Lean.Elab
 
 namespace DataflowRewriter
 
+def composed_threemerge T :=
+  let merge1 := merge T;
+  let merge2 := merge T;
+  let prod := product merge1 merge2;
+  connect prod (by { refine ⟨2, ?_⟩; simp (config := { zetaDelta := true}) at * } )
+               (by { refine ⟨0, ?_⟩; simp (config := { zetaDelta := true}) at * } )
+               (by { simp (config := { zetaDelta := true}) at *})
+
+def threemerge T : Module (List T):=
+  { inputs := [⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩,
+               ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩,
+               ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩],
+    outputs := [⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩],
+    internals := []
+  }
+
 @[simp]
 def mergeLow : ExprLow :=
   let merge1 := ExprLow.base "merge1" "merge";
