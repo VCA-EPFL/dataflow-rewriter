@@ -6,6 +6,7 @@ import Qq
 
 import DataflowRewriter.Simp
 import DataflowRewriter.Module
+import DataflowRewriter.Component
 import DataflowRewriter.List
 
 open Qq
@@ -17,39 +18,55 @@ open Lean.Meta Lean.Elab
 
 namespace DataflowRewriter
 
-def composed_threemerge T :=
-  let merge1 := merge T;
-  let merge2 := merge T;
-  let prod := product merge1 merge2;
-  connect prod (by { refine ⟨2, ?_⟩; simp (config := { zetaDelta := true}) at * } )
-               (by { refine ⟨0, ?_⟩; simp (config := { zetaDelta := true}) at * } )
-               (by { simp (config := { zetaDelta := true}) at *})
+def build_module (e : ExprLow) (map : IdentMap ((T : Type _) × Module T)) (proof : (build_module' e map).isSome = true := by decide):  (T : Type _) × Module T := 
+  (build_module' e map).get proof
 
 def threemerge T : Module (List T):=
-  { inputs := [⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩,
-               ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩,
-               ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩],
-    outputs := [⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩],
+  { inputs := RBMap.ofList [("a", ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
+               ("b", ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
+               ("c", ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)] _,
+    outputs := RBMap.ofList [("z", ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)] _,
     internals := []
   }
 
 @[simp]
 def mergeLow : ExprLow :=
-  let merge1 := ExprLow.base "merge1" "merge";
-  let merge2 := ExprLow.base "merge2" "merge";
-  let prod := ExprLow.product merge1 merge2;
-  ExprLow.connect prod 2 0
+  let merge1 := .base "merge1" "merge"
+  let merge2 := .base "merge2" "merge"
+  .product merge1 merge2
+  |> .connect ⟨"merge1", "z"⟩ ⟨"merge2", "a"⟩
+  |> .rename ⟨"merge1", "a"⟩ "a"
+  |> .rename ⟨"merge1", "b"⟩ "b"
+  |> .rename ⟨"merge2", "b"⟩ "c"
+  |> .rename ⟨"merge2", "z"⟩ "z"
 
 @[simp]
 def merge_sem (T: Type _) :=
-  match build_module' mergeLow [("merge", ⟨List T, merge T⟩)].toAssocList with
+  match build_module' mergeLow (RBMap.ofList [("merge", ⟨List T, merge T⟩)] _) with
   | some x => x
   | none => ⟨Unit, empty⟩
 
-theorem interface_match T :  matching_interface (merge_sem T).snd (threemerge T) := by
-  constructor <;> (intro ident; fin_cases ident) <;> rfl
+attribute [dmod] AssocList.find? BEq.beq decide instIdentDecidableEq instDecidableEqString String.decEq RBMap.ofList RBMap.find? RBMap.findEntry? Batteries.RBSet.ofList Batteries.RBSet.insert Option.map Batteries.RBSet.findP? Batteries.RBNode.find? compare compareOfLessAndEq
 
-attribute [simp] AssocList.find? BEq.beq decide instIdentDecidableEq instDecidableEqString String.decEq
+#check RBMap.findD
+
+-- theorem help : .isSome = true := by
+
+set_option maxHeartbeats 0 in
+example : ((merge_sem T).snd.inputs.getIO "a").fst = T := by
+  simp (config := {implicitDefEqProofs := false}) [dmod]
+
+instance : Repr (Option A) where
+  reprPrec | (some a) => fun _ => "some"    
+           | none => fun _ => "none"
+
+theorem interface_match T :  matching_interface (merge_sem T).snd (threemerge T) := by
+  constructor
+  · intro ident
+    have : ident = "a" := sorry
+    subst ident
+    trans T
+    
 
 theorem correct_threeway {T: Type _} [DecidableEq T]:
     refines ((merge_sem T).snd) (threemerge T) (interface_match T)
