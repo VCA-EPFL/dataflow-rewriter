@@ -22,10 +22,10 @@ def build_module (e : ExprLow) (map : IdentMap ((T : Type _) × Module T)) (proo
   (build_module' e map).get proof
 
 def threemerge T : Module (List T):=
-  { inputs := RBMap.ofList [("a", ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
+  { inputs := Std.HashMap.ofList [("a", ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
                ("b", ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
-               ("c", ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)] _,
-    outputs := RBMap.ofList [("z", ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)] _,
+               ("c", ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)],
+    outputs := Std.HashMap.ofList [("z", ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)],
     internals := []
   }
 
@@ -37,24 +37,38 @@ def mergeLow : ExprLow :=
   |> .connect ⟨"merge1", "z"⟩ ⟨"merge2", "a"⟩
   |> .rename ⟨"merge1", "a"⟩ "a"
   |> .rename ⟨"merge1", "b"⟩ "b"
-  |> .rename ⟨"merge2", "b"⟩ "c"
+  |> .rename ⟨"merge2", "c"⟩ "c"
   |> .rename ⟨"merge2", "z"⟩ "z"
 
 @[simp]
 def merge_sem (T: Type _) :=
-  match build_module' mergeLow (RBMap.ofList [("merge", ⟨List T, merge T⟩)] _) with
+  match build_module' mergeLow (Std.HashMap.ofList [("merge", ⟨List T, merge T⟩)]) with
   | some x => x
   | none => ⟨Unit, empty⟩
 
-attribute [dmod] AssocList.find? BEq.beq decide instIdentDecidableEq instDecidableEqString String.decEq RBMap.ofList RBMap.find? RBMap.findEntry? Batteries.RBSet.ofList Batteries.RBSet.insert Option.map Batteries.RBSet.findP? Batteries.RBNode.find? compare compareOfLessAndEq
+attribute [dmod] AssocList.find? BEq.beq decide instIdentDecidableEq instDecidableEqString String.decEq RBMap.ofList RBMap.find?  RBMap.findEntry? Batteries.RBSet.ofList Batteries.RBSet.insert Option.map Option.bind Batteries.RBSet.findP? Batteries.RBNode.find?
 
 #check RBMap.findD
 
 -- theorem help : .isSome = true := by
 
-set_option maxHeartbeats 0 in
-example : ((merge_sem T).snd.inputs.getIO "a").fst = T := by
-  simp (config := {implicitDefEqProofs := false}) [dmod]
+-- axiom T : Type _
+
+#check Std.HashMap
+
+example : ∀ (x : (∀ T, T → Prop)), ((RBMap.find? (RBMap.ofList [(1, ⟨ Y, x Y ⟩)] _ : RBMap Nat ((T : Type _) × (T → Prop)) Ord.compare) 1).get rfl).fst = Y := by intros; rfl
+
+#check isDefEq
+
+-- set_option maxHeartbeats 0 in
+-- set_option trace.profiler true in
+example : ((merge_sem Nat).snd.inputs.getIO "a").fst = Nat := by
+  -- dsimp
+  -- -- -- simp (config := {implicitDefEqProofs := false}) [dmod]
+  -- dsimp [dmod]
+  -- have : compare "merge" "merge" = Ordering.eq := by decide
+  -- repeat rw [this]
+  -- dsimp only  
 
 instance : Repr (Option A) where
   reprPrec | (some a) => fun _ => "some"    
@@ -66,7 +80,6 @@ theorem interface_match T :  matching_interface (merge_sem T).snd (threemerge T)
     have : ident = "a" := sorry
     subst ident
     trans T
-    
 
 theorem correct_threeway {T: Type _} [DecidableEq T]:
     refines ((merge_sem T).snd) (threemerge T) (interface_match T)
