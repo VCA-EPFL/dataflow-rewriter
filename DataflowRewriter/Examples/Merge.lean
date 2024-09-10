@@ -48,203 +48,261 @@ def merge_sem (T: Type _) :=
 
 attribute [dmod] AssocList.find? BEq.beq decide instIdentDecidableEq instDecidableEqString String.decEq RBMap.ofList RBMap.find? RBMap.findEntry? Batteries.RBSet.ofList Batteries.RBSet.insert Option.map Batteries.RBSet.findP? Batteries.RBNode.find? compare compareOfLessAndEq
 
+@[simp]
+def product' (mod1 : Module S) (mod2: Module S') : Module (S × S') :=
+      { inputs := (mod1.inputs.mapVal (λ _ => liftL)).mergeWith (λ _ a _ => a) (mod2.inputs.mapVal (λ _ => liftR)),
+        outputs := (mod1.outputs.mapVal (λ _ => liftL)).mergeWith (λ _ a _ => a) (mod2.outputs.mapVal (λ _ => liftR)),
+        internals := mod1.internals.map liftL' ++ mod2.internals.map liftR'
+      }
+
+@[simp]
+def build_module'' (e : ExprLow) (ε : IdentMap ((T: Type _) × Module T))
+  : Option ((T: Type _) × Module T) := do
+  match e with
+  | .base i e =>
+    let mod ← ε.find? e
+    return ⟨ mod.1, mod.2.renamePorts (i ++ "." ++ ·) ⟩
+  | .rename a b e' =>
+    let e ← build_module'' e' ε
+    return ⟨ e.1, e.2.renamePorts (λ a' => if a' == toString a then b else a') ⟩
+  | .connect o i e' =>
+    let e ← build_module'' e' ε
+    return ⟨e.1, connect' e.2 (toString o) (toString i)⟩
+  | .product a b =>
+    let a <- build_module'' a ε;
+    let b <- build_module'' b ε;
+    return ⟨a.1 × b.1, product' a.2 b.2⟩
+
 #check RBMap.findD
+
+@[simp]
+def mergeLow' : ExprLow :=
+  let merge1 := .base "merge1" "merge"
+  let merge2 := .base "merge2" "merge"
+  .product merge1 merge2
 
 -- theorem help : .isSome = true := by
 
-set_option maxHeartbeats 0 in
-example : ((merge_sem T).snd.inputs.getIO "a").fst = T := by
-  simp (config := {implicitDefEqProofs := false}) [dmod]
+set_option profiler true in
+example : 
+  (RBMap.ofList [("a", 1), ("b", 2), ("c", 3), ("d", 4)] Ord.compare).mergeWith (λ _ a _ => a) (RBMap.ofList [("e", 5), ("f", 6), ("g", 7)] _)
+    = (RBMap.ofList [("a", 1), ("b", 2), ("c", 3), ("d", 4)] Ord.compare).mergeWith (λ _ a _ => a) (RBMap.ofList [("e", 5), ("f", 6), ("g", 7)] _) := by rfl
+
+@[simp]
+def liftL'' (x: (T : Type _) × (S → T → S → Prop)) : (T : Type _) × (S × S' → T → S × S' → Prop) :=
+      ⟨ x.1, λ (a,b) ret (a',b') => x.2 a ret a' ∧ b = b' ⟩
+
+@[simp]
+def liftR'' (x: (T : Type _) × (S' → T → S' → Prop)) : (T : Type _) × (S × S' → T → S × S' → Prop) :=
+      ⟨ x.1, λ (a,b) ret (a',b') => x.2 b ret b' ∧ a = a' ⟩
+
+set_option trace.profiler.output "/home/ymh/out.json"
+set_option trace.profiler.output.pp true
+set_option trace.profiler false
+
+--set_option trace.Meta.whnf true in
+set_option profiler true in
+example : ((((RBMap.ofList [("a", ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
+                            ("b", ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
+                            ("c", ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
+                           ] Ord.compare : RBMap String ((Y : Type) × (List T → Y → List T → Prop)) Ord.compare).mapVal (λ _ => liftL'')).mergeWith (λ _ a _ => a) (((RBMap.ofList [("a", ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
+                            ("b", ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)] Ord.compare : RBMap String ((Y : Type) × (List T → Y → List T → Prop)) Ord.compare)).mapVal (λ _ => liftR''))).find? "a").map (·.fst) = some T := by rfl
+
+set_option trace.profiler false
+
+set_option profiler true in
+example : ((((build_module'' mergeLow' (RBMap.ofList [("merge", ⟨List T, merge T⟩)] _))).get rfl).snd.inputs.find? "merge1.a").map (·.fst) = some T := by rfl
+--   simp (config := {implicitDefEqProofs := false}) [dmod]
 
 instance : Repr (Option A) where
   reprPrec | (some a) => fun _ => "some"    
            | none => fun _ => "none"
 
-theorem interface_match T :  matching_interface (merge_sem T).snd (threemerge T) := by
-  constructor
-  · intro ident
-    have : ident = "a" := sorry
-    subst ident
-    trans T
+-- theorem interface_match T :  matching_interface (merge_sem T).snd (threemerge T) := by
+--   constructor
+--   · intro ident
+--     have : ident = "a" := sorry
+--     subst ident
+--     trans T
     
 
-theorem correct_threeway {T: Type _} [DecidableEq T]:
-    refines ((merge_sem T).snd) (threemerge T) (interface_match T)
-          (fun x y => (x.1 ++ x.2).Perm y) := by
-      simp [threemerge, refines]
-      intro x1 x2 y He indis
-      rcases indis with ⟨indisL, indisR⟩
-      constructor <;> dsimp at *
-      . intro ident mid_i v Hi
-        (fin_cases ident <;> dsimp at *)
-        · constructor; constructor; and_intros
-          · rfl
-          · apply existSR.done
-          · rcases Hi with ⟨ Hl, Hr ⟩
-            rw [Hl]; subst x2
-            simp [*]
-          · constructor <;> dsimp only
-            · intro ident' new_i v_1 Hrule
-              fin_cases ident' <;> simp
-            · intros ident' new_i v_1 HVal
-              fin_cases ident'; simp
-              reduce at *
-              rcases Hi with ⟨ Hil, Hir ⟩
-              rcases HVal with ⟨ ⟨ i, HVall, temp ⟩, HValr ⟩
-              subst x2; subst v_1
-              generalize h : mid_i.2.get i = y'
-              have Ht : ∃ i, mid_i.2.get i = y' := by exists i
-              rw [← List.mem_iff_get] at Ht
-              have Hiff := List.Perm.mem_iff (a := y') He
-              have Ht' : y' ∈ y := by rw [← Hiff]; simp; tauto
-              rw [List.mem_iff_get] at Ht'
-              rcases Ht' with ⟨ i', Ht'r ⟩
-              constructor; exists i' + 1
-              simp; tauto
-        · constructor; constructor; and_intros
-          · rfl
-          · apply existSR.done
-          · rcases Hi with ⟨ Hl, Hr ⟩
-            rw [Hl]; subst x2
-            simp [*]
-          · constructor
-            · intros ident' new_i v_1 Hrule
-              fin_cases ident' <;> simp
-            · intros ident' new_i v_1 HVal
-              fin_cases ident'; simp
-              reduce at *
-              rcases Hi with ⟨ Hil, Hir ⟩
-              rcases HVal with ⟨ ⟨ i, HVall, temp ⟩, HValr ⟩
-              subst x2; subst v_1
-              generalize h : mid_i.2.get i = y'
-              have Ht : ∃ i, mid_i.2.get i = y' := by exists i
-              rw [← List.mem_iff_get] at Ht
-              have Hiff := List.Perm.mem_iff (a := y') He
-              have Ht' : y' ∈ y := by rw [← Hiff]; simp; tauto
-              rw [List.mem_iff_get] at Ht'
-              rcases Ht' with ⟨ i', Ht'r ⟩
-              constructor; exists i' + 1
-              simp; tauto
-        · constructor; constructor; and_intros
-          · rfl
-          · apply existSR.done
-          · rcases Hi with ⟨ Hl, Hr ⟩
-            rw [Hl]; subst x1
-            rw [List.perm_comm]
-            apply List.perm_cons_append_cons; rw [List.perm_comm]; assumption
-          · constructor
-            · intros ident' new_i v_1 Hrule
-              fin_cases ident' <;> simp
-            · intros ident' new_i v_1 HVal
-              fin_cases ident'; simp
-              reduce at *
-              rcases Hi with ⟨ Hil, Hir ⟩
-              rcases HVal with ⟨ ⟨ i, HVall, temp ⟩, HValr ⟩
-              subst x1; subst v_1
-              generalize h : mid_i.2.get i = y'
-              have Ht : ∃ i', mid_i.2.get i' = y' := by exists i
-              rw [← List.mem_iff_get] at Ht
-              -- FAILS???: rw [Hil] at Ht
-              have Ht' : y' ∈ v :: x2 := by rw [← Hil]; assumption
-              rcases Ht' with _ | Ht'
-              · constructor; exists 0
-              · rename_i Ht';
-                have Hiff := List.Perm.mem_iff (a := y') He
-                have : y' ∈ y := by rw [← Hiff]; simp; tauto
-                rw [List.mem_iff_get] at this
-                rcases this with ⟨ i, Hl ⟩
-                constructor; exists i + 1
-                simp; tauto
-      . intro ident mid_i v Hi
-        fin_cases ident <;> dsimp only at * <;> reduce at *
-        rcases Hi with ⟨ ⟨ i, Hil ⟩, Hir ⟩
-        reduce at *
-        rcases Hil with ⟨ Hill, Hilr ⟩
-        subst v; subst x1
-        generalize Hx2get : x2.get i = v'
-        have Hx2in : v' ∈ x2 := by rw [List.mem_iff_get]; tauto
-        have Hiff := List.Perm.mem_iff (a := v') He
-        have Hyin : v' ∈ y := by rw [← Hiff]; simp; tauto
-        rw [List.mem_iff_get] at Hyin
-        rcases Hyin with ⟨ i', Hyget ⟩
-        have HerasePerm : (mid_i.1.append mid_i.2).Perm (y.eraseIdx i'.1) := by
-          simp [Hill]
-          trans; apply List.perm_append_comm
-          rw [←List.eraseIdx_append_of_lt_length] <;> [skip; apply i.isLt]
-          trans ((x2 ++ mid_i.1).erase x2[i])
-          have H2 : x2[i] = (x2 ++ mid_i.1)[i] := by
-            symm; apply List.getElem_append_left
-          rw [H2]; symm; apply List.erase_get
-          symm; trans; symm; apply List.erase_get
-          rw [Hyget]; simp at Hx2get; simp; rw [Hx2get]
-          apply List.perm_erase; symm
-          symm; trans; symm; assumption
-          apply List.perm_append_comm
-        constructor; constructor; and_intros
-        · exists i'; and_intros; rfl; tauto
-        · apply existSR.done
-        · assumption
-        · constructor <;> dsimp only
-          · intro ident' new_i v_1 Hrule
-            fin_cases ident' <;> simp
-          · intros ident' new_i v_1 HVal
-            fin_cases ident'
-            reduce at *
-            rcases HVal with ⟨ ⟨ i'', HVall, temp ⟩, HValr ⟩
-            subst v'; subst v_1
-            dsimp at *
-            have : mid_i.2[i''] ∈ (x2.eraseIdx i.1) := by
-              simp [Hill]; apply List.getElem_mem
-            have : mid_i.2[i''] ∈ (mid_i.1 ++ x2.eraseIdx i.1) := by
-              rw [List.mem_eraseIdx_iff_getElem] at this; simp; right
-              simp at *; simp [Hill]; apply List.getElem_mem
-            have HPermIn : mid_i.2[i''] ∈ y.eraseIdx i' := by
-              rw [List.Perm.mem_iff]; assumption; symm
-              rw [←Hill]; assumption
-            rw [List.mem_iff_getElem] at HPermIn
-            rcases HPermIn with ⟨ Ha, Hb, Hc ⟩
-            constructor; exists ⟨ Ha, Hb ⟩; tauto
-      · intro ident mid_i Hv
-        fin_cases ident
-        rcases Hv with ⟨ la, lb, vout, ⟨ ⟨ i, H2, H3 ⟩, Hx3 ⟩, ⟨ Hx2, H4 ⟩ ⟩; subst lb; subst la; subst vout
-        constructor; and_intros
-        · apply existSR.done
-        · rw [Hx2,← H4,←List.eraseIdx_append_of_lt_length] <;> [skip; apply i.isLt]
-          dsimp only;
-          trans ((x1 ++ x1[i] :: x2).erase x1[i])
-          rw [List.perm_comm]
-          have : x1[↑i] = x1.get i := by simp
-          simp [*] at *
-          have H : x1[↑i] = (x1 ++ x1[↑i] :: x2)[↑i] := by
-            symm; apply List.getElem_append_left
-          dsimp at *; conv => arg 1; arg 2; rw [H]
-          apply List.erase_get
-          trans ((x1[i] :: (x1 ++ x2)).erase x1[i])
-          apply List.perm_erase; simp
-          rw [List.erase_cons_head]; assumption
-        · constructor
-          · intros ident' new_i v_1 Hrule
-            fin_cases ident' <;> simp
-          · intros ident' new_i v_1 HVal
-            fin_cases ident'
-            reduce at *
-            rcases HVal with ⟨ ⟨ i', _, temp ⟩, _ ⟩
-            subst v_1
-            generalize h : mid_i.2.get i' = y'
-            have Ht : ∃ i', mid_i.2.get i' = y' := by exists i'
-            rw [← List.mem_iff_get] at Ht
-            have Hiff := List.Perm.mem_iff (a := y') He
-            have Ht'' : y' ∈ x1.get i :: x2 := by rw [←Hx2]; assumption
-            simp at Ht''; rcases Ht'' with (Ht'' | Ht'')
-            · have Ht' : y' ∈ y := by
-                rw [List.Perm.mem_iff]; rotate_left; rewrite [List.perm_comm]; assumption; subst y'
-                rw [Ht'']; simp; left; apply List.getElem_mem
-              dsimp; apply List.getElem_of_mem at Ht'; rcases Ht' with ⟨ Ha, Hb, Hc ⟩
-              constructor; exists ⟨ Ha, Hb ⟩; and_intros; rfl; symm; assumption
-            · have Ht' : y' ∈ y := by
-                rw [List.Perm.mem_iff]; rotate_left; rewrite [List.perm_comm]; assumption; subst y'
-                simp; tauto
-              dsimp; apply List.getElem_of_mem at Ht'; rcases Ht' with ⟨ Ha, Hb, Hc ⟩
-              constructor; exists ⟨ Ha, Hb ⟩; and_intros; rfl; symm; assumption
+-- theorem correct_threeway {T: Type _} [DecidableEq T]:
+--     refines ((merge_sem T).snd) (threemerge T) (interface_match T)
+--           (fun x y => (x.1 ++ x.2).Perm y) := by
+--       simp [threemerge, refines]
+--       intro x1 x2 y He indis
+--       rcases indis with ⟨indisL, indisR⟩
+--       constructor <;> dsimp at *
+--       . intro ident mid_i v Hi
+--         (fin_cases ident <;> dsimp at *)
+--         · constructor; constructor; and_intros
+--           · rfl
+--           · apply existSR.done
+--           · rcases Hi with ⟨ Hl, Hr ⟩
+--             rw [Hl]; subst x2
+--             simp [*]
+--           · constructor <;> dsimp only
+--             · intro ident' new_i v_1 Hrule
+--               fin_cases ident' <;> simp
+--             · intros ident' new_i v_1 HVal
+--               fin_cases ident'; simp
+--               reduce at *
+--               rcases Hi with ⟨ Hil, Hir ⟩
+--               rcases HVal with ⟨ ⟨ i, HVall, temp ⟩, HValr ⟩
+--               subst x2; subst v_1
+--               generalize h : mid_i.2.get i = y'
+--               have Ht : ∃ i, mid_i.2.get i = y' := by exists i
+--               rw [← List.mem_iff_get] at Ht
+--               have Hiff := List.Perm.mem_iff (a := y') He
+--               have Ht' : y' ∈ y := by rw [← Hiff]; simp; tauto
+--               rw [List.mem_iff_get] at Ht'
+--               rcases Ht' with ⟨ i', Ht'r ⟩
+--               constructor; exists i' + 1
+--               simp; tauto
+--         · constructor; constructor; and_intros
+--           · rfl
+--           · apply existSR.done
+--           · rcases Hi with ⟨ Hl, Hr ⟩
+--             rw [Hl]; subst x2
+--             simp [*]
+--           · constructor
+--             · intros ident' new_i v_1 Hrule
+--               fin_cases ident' <;> simp
+--             · intros ident' new_i v_1 HVal
+--               fin_cases ident'; simp
+--               reduce at *
+--               rcases Hi with ⟨ Hil, Hir ⟩
+--               rcases HVal with ⟨ ⟨ i, HVall, temp ⟩, HValr ⟩
+--               subst x2; subst v_1
+--               generalize h : mid_i.2.get i = y'
+--               have Ht : ∃ i, mid_i.2.get i = y' := by exists i
+--               rw [← List.mem_iff_get] at Ht
+--               have Hiff := List.Perm.mem_iff (a := y') He
+--               have Ht' : y' ∈ y := by rw [← Hiff]; simp; tauto
+--               rw [List.mem_iff_get] at Ht'
+--               rcases Ht' with ⟨ i', Ht'r ⟩
+--               constructor; exists i' + 1
+--               simp; tauto
+--         · constructor; constructor; and_intros
+--           · rfl
+--           · apply existSR.done
+--           · rcases Hi with ⟨ Hl, Hr ⟩
+--             rw [Hl]; subst x1
+--             rw [List.perm_comm]
+--             apply List.perm_cons_append_cons; rw [List.perm_comm]; assumption
+--           · constructor
+--             · intros ident' new_i v_1 Hrule
+--               fin_cases ident' <;> simp
+--             · intros ident' new_i v_1 HVal
+--               fin_cases ident'; simp
+--               reduce at *
+--               rcases Hi with ⟨ Hil, Hir ⟩
+--               rcases HVal with ⟨ ⟨ i, HVall, temp ⟩, HValr ⟩
+--               subst x1; subst v_1
+--               generalize h : mid_i.2.get i = y'
+--               have Ht : ∃ i', mid_i.2.get i' = y' := by exists i
+--               rw [← List.mem_iff_get] at Ht
+--               -- FAILS???: rw [Hil] at Ht
+--               have Ht' : y' ∈ v :: x2 := by rw [← Hil]; assumption
+--               rcases Ht' with _ | Ht'
+--               · constructor; exists 0
+--               · rename_i Ht';
+--                 have Hiff := List.Perm.mem_iff (a := y') He
+--                 have : y' ∈ y := by rw [← Hiff]; simp; tauto
+--                 rw [List.mem_iff_get] at this
+--                 rcases this with ⟨ i, Hl ⟩
+--                 constructor; exists i + 1
+--                 simp; tauto
+--       . intro ident mid_i v Hi
+--         fin_cases ident <;> dsimp only at * <;> reduce at *
+--         rcases Hi with ⟨ ⟨ i, Hil ⟩, Hir ⟩
+--         reduce at *
+--         rcases Hil with ⟨ Hill, Hilr ⟩
+--         subst v; subst x1
+--         generalize Hx2get : x2.get i = v'
+--         have Hx2in : v' ∈ x2 := by rw [List.mem_iff_get]; tauto
+--         have Hiff := List.Perm.mem_iff (a := v') He
+--         have Hyin : v' ∈ y := by rw [← Hiff]; simp; tauto
+--         rw [List.mem_iff_get] at Hyin
+--         rcases Hyin with ⟨ i', Hyget ⟩
+--         have HerasePerm : (mid_i.1.append mid_i.2).Perm (y.eraseIdx i'.1) := by
+--           simp [Hill]
+--           trans; apply List.perm_append_comm
+--           rw [←List.eraseIdx_append_of_lt_length] <;> [skip; apply i.isLt]
+--           trans ((x2 ++ mid_i.1).erase x2[i])
+--           have H2 : x2[i] = (x2 ++ mid_i.1)[i] := by
+--             symm; apply List.getElem_append_left
+--           rw [H2]; symm; apply List.erase_get
+--           symm; trans; symm; apply List.erase_get
+--           rw [Hyget]; simp at Hx2get; simp; rw [Hx2get]
+--           apply List.perm_erase; symm
+--           symm; trans; symm; assumption
+--           apply List.perm_append_comm
+--         constructor; constructor; and_intros
+--         · exists i'; and_intros; rfl; tauto
+--         · apply existSR.done
+--         · assumption
+--         · constructor <;> dsimp only
+--           · intro ident' new_i v_1 Hrule
+--             fin_cases ident' <;> simp
+--           · intros ident' new_i v_1 HVal
+--             fin_cases ident'
+--             reduce at *
+--             rcases HVal with ⟨ ⟨ i'', HVall, temp ⟩, HValr ⟩
+--             subst v'; subst v_1
+--             dsimp at *
+--             have : mid_i.2[i''] ∈ (x2.eraseIdx i.1) := by
+--               simp [Hill]; apply List.getElem_mem
+--             have : mid_i.2[i''] ∈ (mid_i.1 ++ x2.eraseIdx i.1) := by
+--               rw [List.mem_eraseIdx_iff_getElem] at this; simp; right
+--               simp at *; simp [Hill]; apply List.getElem_mem
+--             have HPermIn : mid_i.2[i''] ∈ y.eraseIdx i' := by
+--               rw [List.Perm.mem_iff]; assumption; symm
+--               rw [←Hill]; assumption
+--             rw [List.mem_iff_getElem] at HPermIn
+--             rcases HPermIn with ⟨ Ha, Hb, Hc ⟩
+--             constructor; exists ⟨ Ha, Hb ⟩; tauto
+--       · intro ident mid_i Hv
+--         fin_cases ident
+--         rcases Hv with ⟨ la, lb, vout, ⟨ ⟨ i, H2, H3 ⟩, Hx3 ⟩, ⟨ Hx2, H4 ⟩ ⟩; subst lb; subst la; subst vout
+--         constructor; and_intros
+--         · apply existSR.done
+--         · rw [Hx2,← H4,←List.eraseIdx_append_of_lt_length] <;> [skip; apply i.isLt]
+--           dsimp only;
+--           trans ((x1 ++ x1[i] :: x2).erase x1[i])
+--           rw [List.perm_comm]
+--           have : x1[↑i] = x1.get i := by simp
+--           simp [*] at *
+--           have H : x1[↑i] = (x1 ++ x1[↑i] :: x2)[↑i] := by
+--             symm; apply List.getElem_append_left
+--           dsimp at *; conv => arg 1; arg 2; rw [H]
+--           apply List.erase_get
+--           trans ((x1[i] :: (x1 ++ x2)).erase x1[i])
+--           apply List.perm_erase; simp
+--           rw [List.erase_cons_head]; assumption
+--         · constructor
+--           · intros ident' new_i v_1 Hrule
+--             fin_cases ident' <;> simp
+--           · intros ident' new_i v_1 HVal
+--             fin_cases ident'
+--             reduce at *
+--             rcases HVal with ⟨ ⟨ i', _, temp ⟩, _ ⟩
+--             subst v_1
+--             generalize h : mid_i.2.get i' = y'
+--             have Ht : ∃ i', mid_i.2.get i' = y' := by exists i'
+--             rw [← List.mem_iff_get] at Ht
+--             have Hiff := List.Perm.mem_iff (a := y') He
+--             have Ht'' : y' ∈ x1.get i :: x2 := by rw [←Hx2]; assumption
+--             simp at Ht''; rcases Ht'' with (Ht'' | Ht'')
+--             · have Ht' : y' ∈ y := by
+--                 rw [List.Perm.mem_iff]; rotate_left; rewrite [List.perm_comm]; assumption; subst y'
+--                 rw [Ht'']; simp; left; apply List.getElem_mem
+--               dsimp; apply List.getElem_of_mem at Ht'; rcases Ht' with ⟨ Ha, Hb, Hc ⟩
+--               constructor; exists ⟨ Ha, Hb ⟩; and_intros; rfl; symm; assumption
+--             · have Ht' : y' ∈ y := by
+--                 rw [List.Perm.mem_iff]; rotate_left; rewrite [List.perm_comm]; assumption; subst y'
+--                 simp; tauto
+--               dsimp; apply List.getElem_of_mem at Ht'; rcases Ht' with ⟨ Ha, Hb, Hc ⟩
+--               constructor; exists ⟨ Ha, Hb ⟩; and_intros; rfl; symm; assumption
 
 end DataflowRewriter
