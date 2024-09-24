@@ -1,0 +1,19 @@
+name = "«dataflow-rewriter»"
+defaultTargets = ["DataflowRewriter"]
+
+[[require]]
+name = "leanses"
+git = "https://github.com/VCA-EPFL/leanses"
+rev = "main"
+
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4"
+rev = "2eb00cae7edccf4e54238db2cb4b0a7dff59fbdd"
+
+[[lean_lib]]
+name = "DataflowRewriter"
+
+[[lean_exe]]
+name = "«dataflow-rewriter»"
+root = "Main"
