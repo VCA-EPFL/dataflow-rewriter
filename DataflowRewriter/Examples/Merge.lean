@@ -73,19 +73,15 @@ theorem keysInMap {α β γ} [@Batteries.OrientedCmp α γ] [@Batteries.TransCmp
   rcases H with ⟨ ⟨ k, v ⟩, H, Heq ⟩; subst_vars
   have H' : m.findEntry? k = some (k, v) := by
     rw [Batteries.RBMap.findEntry?_some]
-    and_intros; assumption
-    apply Batteries.OrientedCmp.cmp_refl
+    solve_by_elim [Batteries.OrientedCmp.cmp_refl]
   simp [H']
 
 theorem keysInMap' {α β γ} [BEq α] [LawfulBEq α] [Batteries.BEqCmp (α := α) γ] [@Batteries.TransCmp α γ] (m : RBMap α β γ) : ∀ k, m.contains k → k ∈ m.keysList' := by
   dsimp only [RBMap.contains, RBMap.keysList', Option.isSome]
   intro k H
   split at H <;> [skip ; simp at H]
-  rename_i Hopt Hval Hfind
-  have : k = Hval.fst := by
-    apply (@Batteries.BEqCmp.cmp_iff_eq α γ).mp
-    apply Batteries.RBMap.findEntry?_some_eq_eq; assumption
-  rw [this];
+  rename_i _ _ Hfind
+  rw [Batteries.BEqCmp.cmp_iff_eq.mp (RBMap.findEntry?_some_eq_eq Hfind)]
   solve_by_elim [List.mem_map_of_mem, Batteries.RBMap.findEntry?_some_mem_toList]
 
 theorem merge_sem_type {T} : Sigma.fst (merge_sem T) = (List T × List T) := by ker_refl
