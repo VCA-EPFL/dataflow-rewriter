@@ -1,7 +1,6 @@
 import Leanses
 import Lean
 import Init.Data.BitVec.Lemmas
-import Mathlib
 import Qq
 
 import DataflowRewriter.Simp
@@ -15,17 +14,20 @@ open Batteries (RBMap RBSet)
 
 open Lean.Meta Lean.Elab
 
+deriving instance Repr for AssocList
+
 namespace DataflowRewriter
+
+structure Wr (T : Type _) where
+  unwrap : T
+deriving Repr, Inhabited, Hashable, DecidableEq, Ord, BEq
 
 abbrev Ident := String
 deriving instance BEq for Ident
-
 deriving instance Repr for Ident
 deriving instance Hashable for Ident
 deriving instance DecidableEq for Ident
 deriving instance Ord for Ident
-
-deriving instance Repr for AssocList
 
 abbrev IdentMap α := RBMap Ident α compare
 abbrev IdentSet := RBSet Ident compare
@@ -46,15 +48,19 @@ inductive ExprLow where
   | connect : InternalPort → InternalPort → ExprLow → ExprLow
   deriving Repr
 
-structure Module (S : Type u₁) : Type (max u₁ 1) where
-  inputs : IdentMap ((T : Type 0) × (S → T → S → Prop))
-  outputs : IdentMap ((T : Type 0) × (S → T → S → Prop))
+structure Module.{u₁} (S : Type u₁) : Type (max u₁ 1) where
+  inputs : IdentMap ((T : Type) × (S → T → S → Prop))
+  outputs : IdentMap ((T : Type) × (S → T → S → Prop))
   internals : List (S → S → Prop)
 
 mklenses Module
 open Module.l
 
-def empty : Module S := {inputs := ∅, outputs := ∅, internals:= []}
+abbrev Module' S := Wr (Module S)
+
+def Module.empty {S} : Module S := {inputs := ∅, outputs := ∅, internals:= []}
+
+def Module'.empty {S} : Module' S := Wr.mk {inputs := ∅, outputs := ∅, internals:= []}
 
 @[simp]
 def IdentMap.getIO.{u₁, u₂} {S : Type u₁} (l: IdentMap ((T : Type u₂) × (S → T → S → Prop))) (n : Ident): ((T : Type u₂) × (S → T → S → Prop)) :=
@@ -66,7 +72,9 @@ def _root_.List.getRule {S : Type _} (l : List (S → S → Prop)) (n : Nat) : (
 
 -- variable (baseModules : Fin n → ((T : Type) × Module T))
 
-structure matching_interface (imod : Module I) (smod : Module S) : Prop where
+structure matching_interface {I S} (imod : Module I) (smod : Module S) : Prop where
+  input_keys : ∀ (ident : Ident), imod.inputs.contains ident → smod.inputs.contains ident
+  output_keys : ∀ (ident : Ident), imod.outputs.contains ident → smod.outputs.contains ident
   input_types : ∀ (ident : Ident), (imod.inputs.getIO ident).1 = (smod.inputs.getIO ident).1
   output_types : ∀ (ident : Ident), (imod.outputs.getIO ident).1 = (smod.outputs.getIO ident).1
 
@@ -102,17 +110,19 @@ function for the inputs and outputs.  For now this might be general enough
 though.
 -/
 structure indistinguishable (init_i : I) (init_s : S) : Prop where
-  inputs_indistinguishable : ∀ (ident : Ident)
-  new_i v,
+  inputs_indistinguishable : ∀ (ident : Ident) new_i v,
+    mm.imod.inputs.contains ident →
     (mm.imod.inputs.getIO ident).2 init_i v new_i →
     ∃ new_s, (mm.smod.inputs.getIO ident).2 init_s ((mm.matching.input_types ident).mp v) new_s
   outputs_indistinguishable : ∀ ident new_i v,
+    mm.imod.outputs.contains ident →
     (mm.imod.outputs.getIO ident).2 init_i v new_i →
     ∃ new_s, (mm.smod.outputs.getIO ident).2 init_s ((mm.matching.output_types ident).mp v) new_s
 
 structure comp_refines (R : I → S → Prop) (init_i : I) (init_s : S) : Prop where
   inputs :
     ∀ (ident : Ident) mid_i v,
+      mm.imod.inputs.contains ident →
       (mm.imod.inputs.getIO ident).2 init_i v mid_i →
       ∃ almost_mid_s mid_s,
         (mm.smod.inputs.getIO ident).2 init_s ((mm.matching.input_types ident).mp v) almost_mid_s
@@ -121,6 +131,7 @@ structure comp_refines (R : I → S → Prop) (init_i : I) (init_s : S) : Prop w
         ∧ indistinguishable mid_i mid_s
   outputs :
     ∀ (ident : Ident) mid_i v,
+      mm.imod.outputs.contains ident →
       (mm.imod.outputs.getIO ident).2 init_i v mid_i →
       ∃ almost_mid_s mid_s,
         (mm.smod.outputs.getIO ident).2 init_s ((mm.matching.output_types ident).mp v) almost_mid_s
@@ -145,7 +156,7 @@ end Refinement
 
 section Semantics
 
-def connect (mod : Module S) (i o : Ident)
+def connect {S} (mod : Module S) (i o : Ident)
       (wf : (mod.inputs.getIO i).1 = (mod.outputs.getIO o).1) : Module S :=
        { inputs := mod.inputs.erase i,
          outputs :=  mod.outputs.erase o,
@@ -158,7 +169,7 @@ def connect (mod : Module S) (i o : Ident)
 precondition that the input and output type must match.
 -/
 @[simp]
-def connect' (mod : Module S) (o i : Ident) : Module S :=
+def connect' {S} (mod : Module S) (o i : Ident) : Module S :=
        { inputs := mod.inputs.erase i ,
          outputs :=  mod.outputs.erase o,
          internals :=  (λ st st' => ∀ wf : (mod.inputs.getIO i).1 = (mod.outputs.getIO o).1,
@@ -167,32 +178,32 @@ def connect' (mod : Module S) (o i : Ident) : Module S :=
                               :: mod.internals }
 
 @[simp]
-def liftL (x: (T : Type _) × (S → T → S → Prop)) : (T : Type _) × (S × S' → T → S × S' → Prop) :=
+def liftL {S S'} (x: (T : Type _) × (S → T → S → Prop)) : (T : Type _) × (S × S' → T → S × S' → Prop) :=
       ⟨ x.1, λ (a,b) ret (a',b') => x.2 a ret a' ∧ b = b' ⟩
 
 @[simp]
-def liftR (x: (T : Type _) × (S' → T → S' → Prop)) : (T : Type _) × (S × S' → T → S × S' → Prop) :=
+def liftR {S S'} (x: (T : Type _) × (S' → T → S' → Prop)) : (T : Type _) × (S × S' → T → S × S' → Prop) :=
       ⟨ x.1, λ (a,b) ret (a',b') => x.2 b ret b' ∧ a = a' ⟩
 
 @[simp]
-def liftL' (x:  S → S → Prop) : S × S' → S × S' → Prop :=
+def liftL' {S S'} (x:  S → S → Prop) : S × S' → S × S' → Prop :=
       λ (a,b) (a',b') => x a a' ∧ b = b'
 
 @[simp]
-def liftR' (x:  S' → S' → Prop) : S × S' → S × S' → Prop :=
+def liftR' {S S'} (x:  S' → S' → Prop) : S × S' → S × S' → Prop :=
       λ (a,b) (a',b') => x b b' ∧ a = a'
 
 @[simp]
-def product (mod1 : Module S) (mod2: Module S') : Module (S × S') :=
+def product {S S'} (mod1 : Module S) (mod2: Module S') : Module (S × S') :=
       { inputs := (mod1.inputs.mapVal (λ _ => liftL)).mergeWith (λ _ a _ => a) (mod2.inputs.mapVal (λ _ => liftR)),
         outputs := (mod1.outputs.mapVal (λ _ => liftL)).mergeWith (λ _ a _ => a) (mod2.outputs.mapVal (λ _ => liftR)),
         internals := mod1.internals.map liftL' ++ mod2.internals.map liftR'
       }
 
-def _root_.Batteries.RBMap.modifyKeys (map : RBMap α β c) (f : α → α) : RBMap α β c :=
+def _root_.Batteries.RBMap.modifyKeys {α β c} (map : RBMap α β c) (f : α → α) : RBMap α β c :=
   map.foldl (λ new_map k v => new_map.insert (f k) v) ∅
 
-def Module.renamePorts (mod : Module S) (f : Ident → Ident) : Module S :=
+def Module.renamePorts {S} (mod : Module S) (f : Ident → Ident) : Module S :=
   { inputs := mod.inputs.modifyKeys f,
     outputs := mod.outputs.modifyKeys f,
     internals := mod.internals
@@ -216,6 +227,9 @@ def build_module' (e : ExprLow) (ε : IdentMap ((T: Type _) × Module T))
     let b <- build_module' b ε;
     return ⟨a.1 × b.1, product a.2 b.2⟩
 
+def build_module (e : ExprLow) (map : IdentMap ((T : Type _) × Module T)) (proof : (build_module' e map).isSome = true := by decide):  (T : Type _) × Module T :=
+  (build_module' e map).get proof
+
 end Semantics
 
 section GraphSyntax
@@ -232,7 +246,7 @@ structure ExprHigh where
   connections : List Connection
 
 instance : Repr ExprHigh where
-  reprPrec a _ := 
+  reprPrec a _ :=
     let instances := a.modules.foldl (λ s inst mod => s ++ s!"\n {inst} [mod = \"{mod}\"];") ""
     let inPorts := a.inPorts.foldl (λ s i port => s ++ s!"\n {i} -> {port.inst} [inp = \"{port.name}\"];") ""
     let outPorts := a.outPorts.foldl (λ s i port => s ++ s!"\n {port.inst} -> {i} [out = \"{port.name}\"];") ""
@@ -350,7 +364,7 @@ def dotGraphElab : TermElab := λ stx _typ? => do
   let modList : Q(List (Ident × Ident)) ← mkListLit (← mkAppM ``Prod #[mkConst ``Ident, mkConst ``Ident])
     (← lst.mapM (fun (a, b) => mkAppM ``Prod.mk #[.lit (.strVal a.toString), .lit (.strVal b)]))
   let modListMap : Q(IdentMap Ident) := q(Batteries.RBMap.ofList $modList compare)
-  return q(ExprHigh.mk $modListMap (Batteries.RBMap.ofList $inputPorts compare) 
+  return q(ExprHigh.mk $modListMap (Batteries.RBMap.ofList $inputPorts compare)
                        (Batteries.RBMap.ofList $outputPorts compare) $connExpr)
 
 open Lean.PrettyPrinter Delaborator SubExpr
@@ -426,7 +440,7 @@ def combineDotStmntList (a b : TSyntax `DataflowRewriter.dot_stmnt_list) : Delab
   | _, _ => failure
 
 open Lean Meta PrettyPrinter Delaborator SubExpr in
-@[delab app.DataflowRewriter.ExprHigh.mk] 
+@[delab app.DataflowRewriter.ExprHigh.mk]
 def delabExprHigh : Delab := do
   let modList ← withNaryArg 0 <| withNaryArg 2 do
     runUnexpander unexpandStrProdList (← delab)
@@ -482,25 +496,25 @@ def delabExprHigh : Delab := do
     merge2 -> snk0 [out="out"];
   ]
 
-def compareProd (i j : Ident × Ident) := 
+def compareProd (i j : Ident × Ident) :=
   match compare i.1 j.1 with
   | .eq => compare i.2 j.2
   | a => a
 
-def _root_.DataflowRewriter.ExprHigh.subgraph (e : ExprHigh) (instances : List Ident) 
+def _root_.DataflowRewriter.ExprHigh.subgraph (e : ExprHigh) (instances : List Ident)
     (newInputs newOutputs : IdentMap InternalPort) : ExprHigh :=
   { inPorts := e.inPorts.filter (λ _ b => b.inst ∈ instances) |>.mergeWith (λ _ a _ => a) newInputs,
     outPorts := e.outPorts.filter (λ _ b => b.inst ∈ instances) |>.mergeWith (λ _ a _ => a) newOutputs,
     modules := e.modules.filter (λ b _ => b ∈ instances),
     connections := e.connections.filter λ a => a.input.inst ∈ instances && a.output.inst ∈ instances }
 
-def _root_.DataflowRewriter.ExprHigh.subgraph' (e : ExprHigh) (instances : List Ident) 
+def _root_.DataflowRewriter.ExprHigh.subgraph' (e : ExprHigh) (instances : List Ident)
     (newInputs newOutputs : IdentMap InternalPort) : ExprHigh :=
-  e.subgraph (e.modules.keysList.diff instances) 
-    (newOutputs.mapVal λ _ v => ((e.connections.find? λ | ⟨ o, _ ⟩ => v = o).getD default).input) 
+  e.subgraph (e.modules.keysList.diff instances)
+    (newOutputs.mapVal λ _ v => ((e.connections.find? λ | ⟨ o, _ ⟩ => v = o).getD default).input)
     (newInputs.mapVal λ _ v => ((e.connections.find? λ | ⟨ _, i ⟩ => v = i).getD default).output)
 
-def _root_.DataflowRewriter.ExprHigh.subgraph'' (e : ExprHigh) (instances : List Ident) 
+def _root_.DataflowRewriter.ExprHigh.subgraph'' (e : ExprHigh) (instances : List Ident)
     (newInputs newOutputs : IdentMap InternalPort) : ExprHigh :=
   e.subgraph (e.modules.keysList.diff instances) newInputs newOutputs
 
@@ -533,10 +547,10 @@ elab "#delab" e:term : command => do
                   { output := { inst := "fork1", name := "out1" }, input := { inst := "fork2", name := "inp" } }] } : ExprHigh)
 
 def _root_.DataflowRewriter.ExprHigh.inline (e e' : ExprHigh) : Option ExprHigh := do
-  let new_input_connections ← e'.inPorts.foldlM (λ conns i port => do 
+  let new_input_connections ← e'.inPorts.foldlM (λ conns i port => do
                                                     let outP ← e.outPorts.find? i
                                                     return Connection.mk port outP :: conns) []
-  let new_output_connections ← e'.outPorts.foldlM (λ conns i port => do 
+  let new_output_connections ← e'.outPorts.foldlM (λ conns i port => do
                                                     let inpP ← e.inPorts.find? i
                                                     return Connection.mk inpP port :: conns) []
   return { inPorts := e.inPorts.filter (λ a _ => a ∉ e'.outPorts.keysList),

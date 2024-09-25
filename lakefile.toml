@@ -1,6 +1,9 @@
 name = "«dataflow-rewriter»"
 defaultTargets = ["DataflowRewriter"]
 
+[leanOptions]
+autoImplicit = false
+
 [[require]]
 name = "leanses"
 git = "https://github.com/VCA-EPFL/leanses"

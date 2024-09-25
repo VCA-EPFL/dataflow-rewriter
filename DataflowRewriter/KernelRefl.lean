@@ -10,10 +10,8 @@ private def useKernel (lhs rhs : Expr) : MetaM Bool := do
   else
     return (← getTransparency) matches TransparencyMode.default | TransparencyMode.all
 
-#check LocalContext
-
 /--
-Close given goal using `Eq.refl`.
+Close given goal using `Eq.refl`, using Kernel isDefEq even with free variables.
 -/
 def _root_.Lean.MVarId.ker_refl (mvarId : MVarId) : MetaM Unit := do
   mvarId.withContext do
@@ -27,7 +25,7 @@ def _root_.Lean.MVarId.ker_refl (mvarId : MVarId) : MetaM Unit := do
     let quantifiedTargetType ← mkForallFVars (usedOnly := true) lctx.getFVars targetType
     let instQuantifiedTargetType ← instantiateMVars quantifiedTargetType
     let newContext ← withLCtx {} {} <| forallTelescope instQuantifiedTargetType λ _ _ => getLCtx
-    let success ← if (← useKernel lhs rhs) then
+    let success ← if (← useKernel lhs rhs) && !instQuantifiedTargetType.hasMVar then
       ofExceptKernelException (Kernel.isDefEq (← getEnv) newContext lhs rhs)
     else
       isDefEq lhs rhs

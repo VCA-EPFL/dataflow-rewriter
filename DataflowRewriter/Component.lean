@@ -13,7 +13,7 @@ def io (T : Type) : Module (List T) :=
   }
 
 @[simp]
-def merge_inputs (mod : Module S) (in1 in2 : Ident) : Option (Module S)  := do
+def merge_inputs {S} (mod : Module S) (in1 in2 : Ident) : Option (Module S)  := do
   let in1_t ← mod.inputs.find? in1;
   let in2_t ← mod.inputs.find? in2;
   let rmin2 := mod.inputs.erase in2;
@@ -25,7 +25,7 @@ def merge_inputs (mod : Module S) (in1 in2 : Ident) : Option (Module S)  := do
          internals := mod.internals }
 
 @[simp]
-def merge_outputs (mod : Module S) (out1 out2 : Ident) : Option (Module S)  := do
+def merge_outputs {S} (mod : Module S) (out1 out2 : Ident) : Option (Module S)  := do
   let out1_t ← mod.outputs.find? out1;
   let out2_t ← mod.outputs.find? out2;
   let rmout2 := mod.outputs.erase out2;

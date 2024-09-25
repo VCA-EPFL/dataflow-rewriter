@@ -4,7 +4,7 @@ import Mathlib
 namespace List
 
 @[simp]
-def _root_.List.remove {α : Type u} (as : List α) (i : Fin as.length) : List α := as.eraseIdx i
+def _root_.List.remove {α : Type _} (as : List α) (i : Fin as.length) : List α := as.eraseIdx i
 
 theorem perm_erase {α : Type _} [DecidableEq α] (l₁ l₂ : List α) i:
   l₁.Perm l₂ →
@@ -15,13 +15,13 @@ theorem perm_erase {α : Type _} [DecidableEq α] (l₁ l₂ : List α) i:
     rename_i l1' l2'
     rw [List.erase_cons]
     rw [List.erase_cons]
-    split_ifs <;> simp [*]
+    split <;> simp [*]
   | swap x y l =>
     rw [List.erase_cons]
     rw [List.erase_cons]
     rw [List.erase_cons]
     rw [List.erase_cons]
-    split_ifs <;> (try simp [*])
+    split <;> split <;> (try simp [*])
     · simp [*] at *
       rename_i H1 H2; rw [H1,H2]
     · simp [*] at *; apply List.Perm.swap
