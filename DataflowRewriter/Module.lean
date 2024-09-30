@@ -28,35 +28,43 @@ structure Wr (T : Type _) where
   unwrap : T
 deriving Repr, Inhabited, Hashable, DecidableEq, Ord, BEq
 
-abbrev Ident := String
+abbrev Ident := Nat
+
 deriving instance BEq for Ident
 deriving instance Repr for Ident
 deriving instance Hashable for Ident
 deriving instance DecidableEq for Ident
 deriving instance Ord for Ident
 
-abbrev IdentMap α := RBMap Ident α compare
-abbrev IdentSet := RBSet Ident compare
-
 structure InternalPort where
   inst : Ident
   name : Ident
-deriving Repr, Hashable, DecidableEq, Ord, Inhabited
+  deriving Repr, Hashable, DecidableEq, Ord, Inhabited
 
-instance : ToString InternalPort where
-  toString
-    | ⟨ a, b ⟩ => a ++ "." ++ b
+abbrev PortMap α := AssocList InternalPort α
+abbrev IdentMap α := AssocList Ident α
+abbrev IdentSet := Finset Ident
+
+instance : Coe Ident InternalPort where
+  coe i := ⟨0, i⟩
+
+instance (n : Nat) : OfNat InternalPort n where
+  ofNat := ⟨ 0, n ⟩
+
+-- def internalPortToString : InternalPort → String
+--   | ⟨ a, b ⟩ => a ++ "." ++ b
 
 inductive ExprLow where
   | base : Ident → Ident → ExprLow
-  | rename : InternalPort → Ident → ExprLow → ExprLow
+  | input : InternalPort → Ident → ExprLow → ExprLow
+  | output : InternalPort → Ident → ExprLow → ExprLow
   | product : ExprLow → ExprLow → ExprLow
   | connect : InternalPort → InternalPort → ExprLow → ExprLow
   deriving Repr
 
 structure Module.{u₁} (S : Type u₁) : Type (max u₁ 1) where
-  inputs : IdentMap ((T : Type) × (S → T → S → Prop))
-  outputs : IdentMap ((T : Type) × (S → T → S → Prop))
+  inputs : PortMap ((T : Type) × (S → T → S → Prop))
+  outputs : PortMap ((T : Type) × (S → T → S → Prop))
   internals : List (S → S → Prop)
 
 mklenses Module
@@ -64,23 +72,27 @@ open Module.l
 
 abbrev Module' S := Wr (Module S)
 
-def Module.empty {S} : Module S := {inputs := ∅, outputs := ∅, internals:= []}
+def Module.empty {S} : Module S := {inputs := ∅, outputs := ∅, internals:= ∅}
 
-def Module'.empty {S} : Module' S := Wr.mk {inputs := ∅, outputs := ∅, internals:= []}
-
-@[simp]
-def IdentMap.getIO.{u₁, u₂} {S : Type u₁} (l: IdentMap ((T : Type u₂) × (S → T → S → Prop))) (n : Ident): ((T : Type u₂) × (S → T → S → Prop)) :=
-  l.findD n (⟨ PUnit, λ _ _ _ => True ⟩)
+def Module'.empty {S} : Module' S := Wr.mk {inputs := ∅, outputs := ∅, internals:= ∅}
 
 @[simp]
-def _root_.List.getRule {S : Type _} (l : List (S → S → Prop)) (n : Nat) : (S → S → Prop) :=
-  l.getD n (λ _ _ => True)
+def PortMap.getIO.{u₁, u₂} {S : Type u₁} (l: PortMap (Σ (T : Type u₂), (S → T → S → Prop))) (n : Ident): (Σ (T : Type u₂), (S → T → S → Prop)) :=
+  (l.find? ↑n).getD (⟨ PUnit, λ _ _ _ => True ⟩)
+
+@[simp]
+def PortMap.getInternalPort.{u₁, u₂} {S : Type u₁} (l: PortMap (Σ (T : Type u₂), (S → T → S → Prop))) (n : InternalPort): (Σ (T : Type u₂), (S → T → S → Prop)) :=
+  (l.find? n).getD (⟨ PUnit, λ _ _ _ => True ⟩)
+
+-- @[simp]
+-- def _root_.Finset.getRule {S : Type _} (l : Finset (S → S → Prop)) (n : Nat) : (S → S → Prop) :=
+--   l.lookup n (λ _ _ => True)
 
 -- variable (baseModules : Fin n → ((T : Type) × Module T))
 
 structure matching_interface {I S} (imod : Module I) (smod : Module S) : Prop where
-  input_keys : ∀ (ident : Ident), imod.inputs.contains ident → smod.inputs.contains ident
-  output_keys : ∀ (ident : Ident), imod.outputs.contains ident → smod.outputs.contains ident
+  input_keys : ∀ (ident : Ident), imod.inputs.contains ↑ident → smod.inputs.contains ↑ident
+  output_keys : ∀ (ident : Ident), imod.outputs.contains ↑ident → smod.outputs.contains ↑ident
   input_types : ∀ (ident : Ident), (imod.inputs.getIO ident).1 = (smod.inputs.getIO ident).1
   output_types : ∀ (ident : Ident), (imod.outputs.getIO ident).1 = (smod.outputs.getIO ident).1
 
@@ -91,8 +103,9 @@ variable {S : Type _}
 inductive existSR (mod : Module S) : S → S → Prop where
   | done : ∀ init, existSR mod init init
   | step :
-    ∀ init mid final n,
-      (mod.internals.getRule n) init mid →
+    ∀ init mid final rule,
+      rule ∈ mod.internals →
+      rule init mid →
       existSR mod mid final →
       existSR mod init final
 
@@ -117,18 +130,18 @@ though.
 -/
 structure indistinguishable (init_i : I) (init_s : S) : Prop where
   inputs_indistinguishable : ∀ (ident : Ident) new_i v,
-    mm.imod.inputs.contains ident →
+    mm.imod.inputs.contains ↑ident →
     (mm.imod.inputs.getIO ident).2 init_i v new_i →
     ∃ new_s, (mm.smod.inputs.getIO ident).2 init_s ((mm.matching.input_types ident).mp v) new_s
   outputs_indistinguishable : ∀ ident new_i v,
-    mm.imod.outputs.contains ident →
+    mm.imod.outputs.contains ↑ident →
     (mm.imod.outputs.getIO ident).2 init_i v new_i →
     ∃ new_s, (mm.smod.outputs.getIO ident).2 init_s ((mm.matching.output_types ident).mp v) new_s
 
 structure comp_refines (R : I → S → Prop) (init_i : I) (init_s : S) : Prop where
   inputs :
-    ∀ (ident : Ident) mid_i v,
-      mm.imod.inputs.contains ident →
+    ∀ ident mid_i v,
+      mm.imod.inputs.contains ↑ident →
       (mm.imod.inputs.getIO ident).2 init_i v mid_i →
       ∃ almost_mid_s mid_s,
         (mm.smod.inputs.getIO ident).2 init_s ((mm.matching.input_types ident).mp v) almost_mid_s
@@ -136,8 +149,8 @@ structure comp_refines (R : I → S → Prop) (init_i : I) (init_s : S) : Prop w
         ∧ R mid_i mid_s
         ∧ indistinguishable mid_i mid_s
   outputs :
-    ∀ (ident : Ident) mid_i v,
-      mm.imod.outputs.contains ident →
+    ∀ ident mid_i v,
+      mm.imod.outputs.contains ↑ident →
       (mm.imod.outputs.getIO ident).2 init_i v mid_i →
       ∃ almost_mid_s mid_s,
         (mm.smod.outputs.getIO ident).2 init_s ((mm.matching.output_types ident).mp v) almost_mid_s
@@ -145,8 +158,9 @@ structure comp_refines (R : I → S → Prop) (init_i : I) (init_s : S) : Prop w
         ∧ R mid_i mid_s
         ∧ indistinguishable mid_i mid_s
   internals :
-    ∀ (ident : Nat) mid_i,
-      (mm.imod.internals.getRule ident) init_i mid_i →
+    ∀ rule mid_i,
+      rule ∈ mm.imod.internals →
+      rule init_i mid_i →
       ∃ mid_s,
         existSR mm.smod init_s mid_s
         ∧ R mid_i mid_s
@@ -162,25 +176,17 @@ end Refinement
 
 section Semantics
 
-def connect {S} (mod : Module S) (i o : Ident)
-      (wf : (mod.inputs.getIO i).1 = (mod.outputs.getIO o).1) : Module S :=
-       { inputs := mod.inputs.erase i,
-         outputs :=  mod.outputs.erase o,
-         internals :=  (λ st st' => ∃ consumed_output output, (mod.outputs.getIO o).2 st output consumed_output ∧
-                              (mod.inputs.getIO i).2 consumed_output (Eq.rec id wf output) st')
-                        :: mod.internals }
-
 /--
 `connect'` will produce a new rule that fuses an input with an output, with a
 precondition that the input and output type must match.
 -/
 @[simp]
-def connect' {S} (mod : Module S) (o i : Ident) : Module S :=
+def connect' {S} (mod : Module S) (o i : InternalPort) : Module S :=
        { inputs := mod.inputs.erase i ,
          outputs :=  mod.outputs.erase o,
-         internals :=  (λ st st' => ∀ wf : (mod.inputs.getIO i).1 = (mod.outputs.getIO o).1,
-                            ∃ consumed_output output, (mod.outputs.getIO o).2 st output consumed_output ∧
-                              (mod.inputs.getIO i).2 consumed_output (Eq.rec id wf output) st')
+         internals :=  (λ st st' => ∀ wf : (mod.inputs.getInternalPort i).1 = (mod.outputs.getInternalPort o).1,
+                            ∃ consumed_output output, (mod.outputs.getInternalPort o).2 st output consumed_output ∧
+                              (mod.inputs.getInternalPort i).2 consumed_output (Eq.rec id wf output) st')
                               :: mod.internals }
 
 @[simp]
@@ -199,18 +205,42 @@ def liftL' {S S'} (x:  S → S → Prop) : S × S' → S × S' → Prop :=
 def liftR' {S S'} (x:  S' → S' → Prop) : S × S' → S × S' → Prop :=
       λ (a,b) (a',b') => x b b' ∧ a = a'
 
+def _root_.Batteries.AssocList.append {α β} (a b : AssocList α β) : AssocList α β :=
+  match a with
+  | .nil => b
+  | .cons x y xs => 
+    .cons x y <| xs.append b
+
 @[simp]
 def product {S S'} (mod1 : Module S) (mod2: Module S') : Module (S × S') :=
-      { inputs := (mod1.inputs.mapVal (λ _ => liftL)).mergeWith (λ _ a _ => a) (mod2.inputs.mapVal (λ _ => liftR)),
-        outputs := (mod1.outputs.mapVal (λ _ => liftL)).mergeWith (λ _ a _ => a) (mod2.outputs.mapVal (λ _ => liftR)),
+      { inputs := (mod1.inputs.mapVal (λ _ => liftL)).append (mod2.inputs.mapVal (λ _ => liftR)),
+        outputs := (mod1.outputs.mapVal (λ _ => liftL)).append (mod2.outputs.mapVal (λ _ => liftR)),
         internals := mod1.internals.map liftL' ++ mod2.internals.map liftR'
       }
 
 def _root_.Batteries.RBMap.modifyKeys {α β c} (map : RBMap α β c) (f : α → α) : RBMap α β c :=
   map.foldl (λ new_map k v => new_map.insert (f k) v) ∅
 
-def Module.renamePorts {S} (mod : Module S) (f : Ident → Ident) : Module S :=
+def _root_.Batteries.AssocList.modifyKeys {α β} (map : AssocList α β) (f : α → α) : AssocList α β :=
+  map.foldl (λ new_map k v => new_map.cons (f k) v) ∅
+
+def _root_.Batteries.AssocList.keysList {α β} (map : AssocList α β) : List α :=
+  map.toList.map (·.fst)
+
+def Module.renamePorts {S} (mod : Module S) (f : InternalPort → InternalPort) : Module S :=
   { inputs := mod.inputs.modifyKeys f,
+    outputs := mod.outputs.modifyKeys f,
+    internals := mod.internals
+  }
+
+def Module.renameToInput {S} (mod : Module S) (f : InternalPort → InternalPort) : Module S :=
+  { inputs := mod.inputs.modifyKeys f,
+    outputs := mod.outputs,
+    internals := mod.internals
+  }
+
+def Module.renameToOutput {S} (mod : Module S) (f : InternalPort → InternalPort) : Module S :=
+  { inputs := mod.inputs,
     outputs := mod.outputs.modifyKeys f,
     internals := mod.internals
   }
@@ -221,13 +251,16 @@ def build_module' (e : ExprLow) (ε : IdentMap ((T: Type _) × Module T))
   match e with
   | .base i e =>
     let mod ← ε.find? e
-    return ⟨ mod.1, mod.2.renamePorts (i ++ "." ++ ·) ⟩
-  | .rename a b e' =>
+    return ⟨ mod.1, mod.2.renamePorts (λ ⟨ _, y ⟩ => ⟨ i, y ⟩ ) ⟩
+  | .input a b e' =>
     let e ← build_module' e' ε
-    return ⟨ e.1, e.2.renamePorts (λ a' => if a' == toString a then b else a') ⟩
+    return ⟨ e.1, e.2.renameToInput (λ p => if p == a then ⟨ 0, b ⟩ else p) ⟩
+  | .output a b e' =>
+    let e ← build_module' e' ε
+    return ⟨ e.1, e.2.renameToOutput (λ p => if p == a then ⟨ 0, b ⟩ else p) ⟩
   | .connect o i e' =>
     let e ← build_module' e' ε
-    return ⟨e.1, connect' e.2 (toString o) (toString i)⟩
+    return ⟨e.1, connect' e.2 o i⟩
   | .product a b =>
     let a <- build_module' a ε;
     let b <- build_module' b ε;
@@ -264,14 +297,14 @@ def lower (e : ExprHigh) : Option ExprLow :=
   | x :: xs =>
     let prod_expr := xs.foldl (fun expr val => .product (.base val.1 val.2) expr) (.base x.1 x.2)
     let conn_expr := e.connections.foldl (fun expr conn => .connect conn.output conn.input expr) prod_expr
-    let in_ports_conn := e.inPorts.foldl (fun expr i port => .rename port i expr) conn_expr
-    some <| e.outPorts.foldl (fun expr i port => .rename port i expr) in_ports_conn
+    let in_ports_conn := e.inPorts.foldl (fun expr i port => .input port i expr) conn_expr
+    some <| e.outPorts.foldl (fun expr i port => .output port i expr) in_ports_conn
   | _ => none
 
 def merge3 : ExprHigh :=
-  { modules := RBMap.ofList [("merge_inst", "merge")] _
-  , inPorts := RBMap.ofList [("a", ⟨ "merge_inst", "a"⟩), ("b", ⟨ "merge_inst", "b"⟩)] _
-  , outPorts := RBMap.ofList [("c", ⟨ "merge_inst", "c"⟩)] _
+  { modules := [(1, 0)].toAssocList
+  , inPorts := [(0, ⟨1, 0⟩), (1, ⟨1, 1⟩)].toAssocList
+  , outPorts := [(0, ⟨1, 0⟩)].toAssocList
   , connections := []
   }
 
@@ -319,8 +352,12 @@ def findStxStr (n : Name) (stx : Array Syntax) : MetaM (Option String) := do
 open Lean in
 @[term_elab dot_graph]
 def dotGraphElab : TermElab := λ stx _typ? => do
-  let mut idx := 0
-  let mut hmap : HashMap Name String := mkHashMap
+  let mut idx := 1
+  let mut idx' := 0
+  let mut hmap : Std.HashMap Name String := ∅
+  let mut instMap : Std.HashMap Name Nat := ∅
+  let mut revInstMap : Std.HashMap Nat Name := ∅
+  let mut modMap : Std.HashMap String Nat := ∅
   let mut conns : List Connection := []
   for stmnt in stx[1][0].getArgs do
     let low_stmnt := stmnt.getArgs[0]!
@@ -331,47 +368,54 @@ def dotGraphElab : TermElab := λ stx _typ? => do
         | throwErrorAt i "No `mod` attribute found at node"
       let some modId ← findStxStr `mod el
         | throwErrorAt i "No `mod` attribute found at node"
-      let (map', idx') := hmap.insertIfNew i.getId modId
-      if idx'.isNone then
-        hmap := map'; idx := idx + 1
+      let (b, map') := hmap.containsThenInsertIfNew i.getId modId
+      if !b then
+        hmap := map'
+        instMap := instMap.insert i.getId idx
+        revInstMap := revInstMap.insert idx i.getId
+        idx := idx + 1
+      let (b, modMap') := modMap.containsThenInsertIfNew modId idx'
+      if !b then
+        modMap := modMap'
+        idx' := idx' + 1
       -- logInfo m!"{el.map (·.get! 1 |>.raw.getArgs.get! 0)}"
     | `(dot_stmnt| $a:ident -> $b:ident $[[$[$el:dot_attr],*]]? ) =>
       let some el := el
         | throwErrorAt (mkListNode #[a, b]) "No `mod` attribute found at node"
-      let mut out ← (findStxStr `out el) -- | throwErrorAt (mkListNode el) "No input found"
-      let mut inp ← (findStxStr `inp el) -- | throwErrorAt (mkListNode el) "No output found"
-      if out.isNone && hmap[a.getId] == "io" then out := some a.getId.toString
-      if inp.isNone && hmap[b.getId] == "io" then inp := some b.getId.toString
+      let mut out := (findStx `out el) -- | throwErrorAt (mkListNode el) "No input found"
+      let mut inp := (findStx `inp el) -- | throwErrorAt (mkListNode el) "No output found"
+      if out.isNone && hmap[a.getId]! == "io" then out := some 0
+      if inp.isNone && hmap[b.getId]! == "io" then inp := some 0
       let some out' := out | throwErrorAt (mkListNode el) "No output found"
       let some inp' := inp | throwErrorAt (mkListNode el) "No input found"
       -- logInfo m!"out = {out}, in = {inp}"
-      conns := ⟨ ⟨ a.getId.toString, out' ⟩, ⟨ b.getId.toString, inp' ⟩ ⟩ :: conns
+      conns := ⟨ ⟨ instMap[a.getId]!, out' ⟩, ⟨ instMap[b.getId]!, inp' ⟩ ⟩ :: conns
     | _ => pure ()
   let lst := hmap.toList
   -- logInfo m!"{lst}"
-  let internalConns := conns.filter (fun | ⟨x, y⟩ => hmap[x.inst.toName] != "io" && hmap[y.inst.toName] != "io")
-  let inputConns := conns.filter (fun | ⟨x, _⟩ => hmap[x.inst.toName] == "io")
-  let outputConns := conns.filter (fun | ⟨_, y⟩ => hmap[y.inst.toName] == "io")
+  let internalConns := conns.filter (fun | ⟨x, y⟩ => hmap[revInstMap[x.inst]!]! != "io" && hmap[revInstMap[y.inst]!]! != "io")
+  let inputConns := conns.filter (fun | ⟨x, _⟩ => hmap[revInstMap[x.inst]!]! == "io")
+  let outputConns := conns.filter (fun | ⟨_, y⟩ => hmap[revInstMap[y.inst]!]! == "io")
   let connExpr : Q(List Connection) ← mkListLit (mkConst ``Connection) (← internalConns.mapM (λ ⟨ ⟨ a, b ⟩, ⟨ c, d ⟩ ⟩ => do
-    let idents : Array Q(String) := #[a, b, c, d].map (.strVal · |> .lit)
+    let idents : Array Q(Nat) := #[a, b, c, d].map (.natVal · |> .lit)
     let inPort : Q(InternalPort) := q(InternalPort.mk $(idents[0]!) $(idents[1]!))
     let outPort : Q(InternalPort) := q(InternalPort.mk $(idents[2]!) $(idents[3]!))
     mkAppM ``Connection.mk #[inPort, outPort]))
   let inputPorts : Q(List (Ident × InternalPort)) ← mkListLit q(Ident × InternalPort) (← inputConns.mapM (λ ⟨ ⟨ a, b ⟩, ⟨ c, d ⟩ ⟩ => do
-    let idents : Array Q(String) := #[a, b, c, d].map (.strVal · |> .lit)
+    let idents : Array Q(Nat) := #[a, b, c, d].map (.natVal · |> .lit)
     let ioPort := idents[1]!
     let outPort : Q(InternalPort) := q(InternalPort.mk $(idents[2]!) $(idents[3]!))
     return q(($ioPort, $outPort))))
   let outputPorts : Q(List (Ident × InternalPort)) ← mkListLit q(Ident × InternalPort) (← outputConns.mapM (λ ⟨ ⟨ a, b ⟩, ⟨ c, d ⟩ ⟩ => do
-    let idents : Array Q(String) := #[a, b, c, d].map (.strVal · |> .lit)
+    let idents : Array Q(Nat) := #[a, b, c, d].map (.natVal · |> .lit)
     let ioPort := idents[3]!
     let outPort : Q(InternalPort) := q(InternalPort.mk $(idents[0]!) $(idents[1]!))
     return q(($ioPort, $outPort))))
   let modList : Q(List (Ident × Ident)) ← mkListLit (← mkAppM ``Prod #[mkConst ``Ident, mkConst ``Ident])
-    (← lst.mapM (fun (a, b) => mkAppM ``Prod.mk #[.lit (.strVal a.toString), .lit (.strVal b)]))
-  let modListMap : Q(IdentMap Ident) := q(Batteries.RBMap.ofList $modList compare)
-  return q(ExprHigh.mk $modListMap (Batteries.RBMap.ofList $inputPorts compare)
-                       (Batteries.RBMap.ofList $outputPorts compare) $connExpr)
+    (← lst.mapM (fun (a, b) => mkAppM ``Prod.mk #[.lit (.natVal instMap[a]!), .lit (.natVal modMap[b]!)]))
+  let modListMap : Q(IdentMap Ident) := q(List.toAssocList $modList)
+  return q(ExprHigh.mk $modListMap (List.toAssocList $inputPorts)
+                       (List.toAssocList $outputPorts) $connExpr)
 
 open Lean.PrettyPrinter Delaborator SubExpr
 
@@ -507,10 +551,13 @@ def compareProd (i j : Ident × Ident) :=
   | .eq => compare i.2 j.2
   | a => a
 
+def _root_.Batteries.AssocList.filter {α β} (f : α → β → Bool) (l : AssocList α β) :=
+  l.foldl (λ c a b => if f a b then c.cons a b else c) (∅ : AssocList α β)
+
 def _root_.DataflowRewriter.ExprHigh.subgraph (e : ExprHigh) (instances : List Ident)
     (newInputs newOutputs : IdentMap InternalPort) : ExprHigh :=
-  { inPorts := e.inPorts.filter (λ _ b => b.inst ∈ instances) |>.mergeWith (λ _ a _ => a) newInputs,
-    outPorts := e.outPorts.filter (λ _ b => b.inst ∈ instances) |>.mergeWith (λ _ a _ => a) newOutputs,
+  { inPorts := (e.inPorts.filter (λ _ b => b.inst ∈ instances)).append newInputs,
+    outPorts := (e.outPorts.filter (λ _ b => b.inst ∈ instances)).append newOutputs,
     modules := e.modules.filter (λ b _ => b ∈ instances),
     connections := e.connections.filter λ a => a.input.inst ∈ instances && a.output.inst ∈ instances }
 
@@ -524,33 +571,33 @@ def _root_.DataflowRewriter.ExprHigh.subgraph'' (e : ExprHigh) (instances : List
     (newInputs newOutputs : IdentMap InternalPort) : ExprHigh :=
   e.subgraph (e.modules.keysList.diff instances) newInputs newOutputs
 
-def mergeHighSubgraph := mergeHigh.subgraph ["merge1"] (RBMap.ofList [("merge1_a", ⟨"merge1", "inp1"⟩), ("merge1_b", ⟨"merge1", "inp2"⟩)] _)
-  (RBMap.ofList [("merge1_c", ⟨"merge1", "out"⟩)] _)
+-- def mergeHighSubgraph := mergeHigh.subgraph ["merge1"] (RBMap.ofList [("merge1_a", ⟨"merge1", "inp1"⟩), ("merge1_b", ⟨"merge1", "inp2"⟩)] _)
+--   (RBMap.ofList [("merge1_c", ⟨"merge1", "out"⟩)] _)
 
-def mergeHighSubgraph' := mergeHigh.subgraph' ["merge1"] (RBMap.ofList [("merge1_a", ⟨"merge1", "inp1"⟩), ("merge1_b", ⟨"merge1", "inp2"⟩)] _)
-  (RBMap.ofList [("merge1_c", ⟨"merge1", "out"⟩)] _)
+-- def mergeHighSubgraph' := mergeHigh.subgraph' ["merge1"] (RBMap.ofList [("merge1_a", ⟨"merge1", "inp1"⟩), ("merge1_b", ⟨"merge1", "inp2"⟩)] _)
+--   (RBMap.ofList [("merge1_c", ⟨"merge1", "out"⟩)] _)
 
-open Lean Meta PrettyPrinter Delaborator SubExpr in
-elab "#delab" e:term : command => do
-  let l ← Command.liftTermElabM do
-    instantiateMVars <| (← Term.elabTerm e none)
-  logInfo (repr l)
+-- open Lean Meta PrettyPrinter Delaborator SubExpr in
+-- elab "#delab" e:term : command => do
+--   let l ← Command.liftTermElabM do
+--     instantiateMVars <| (← Term.elabTerm e none)
+--   logInfo (repr l)
 
-#eval mergeHighSubgraph
-#check ({ modules := RBMap.ofList [("merge1", "merge")] _,
-          inPorts := RBMap.ofList [("merge1_a", { inst := "merge1", name := "inp1" }),
-                      ("merge1_b", { inst := "merge1", name := "inp2" })] _,
-          outPorts := RBMap.ofList [("merge1_c", { inst := "merge1", name := "out" })] _,
-          connections := [] } : ExprHigh)
-#eval mergeHighSubgraph'
-#check ({ modules := RBMap.ofList [("fork1", "fork"), ("fork2", "fork"), ("merge2", "merge"), ("snk0", "io"), ("src0", "io")] _,
-          inPorts := RBMap.ofList [("merge1_c", { inst := "merge2", name := "inp2" }),
-                      ("src0", { inst := "fork1", name := "inp" })] _,
-          outPorts := RBMap.ofList [("merge1_a", { inst := "fork1", name := "out2" }),
-                       ("merge1_b", { inst := "fork2", name := "out1" }),
-                       ("snk0", { inst := "merge2", name := "out" })] _,
-          connections := [{ output := { inst := "fork2", name := "out2" }, input := { inst := "merge2", name := "inp1" } },
-                  { output := { inst := "fork1", name := "out1" }, input := { inst := "fork2", name := "inp" } }] } : ExprHigh)
+-- #eval mergeHighSubgraph
+-- #check ({ modules := RBMap.ofList [("merge1", "merge")] _,
+--           inPorts := RBMap.ofList [("merge1_a", { inst := "merge1", name := "inp1" }),
+--                       ("merge1_b", { inst := "merge1", name := "inp2" })] _,
+--           outPorts := RBMap.ofList [("merge1_c", { inst := "merge1", name := "out" })] _,
+--           connections := [] } : ExprHigh)
+-- #eval mergeHighSubgraph'
+-- #check ({ modules := RBMap.ofList [("fork1", "fork"), ("fork2", "fork"), ("merge2", "merge"), ("snk0", "io"), ("src0", "io")] _,
+--           inPorts := RBMap.ofList [("merge1_c", { inst := "merge2", name := "inp2" }),
+--                       ("src0", { inst := "fork1", name := "inp" })] _,
+--           outPorts := RBMap.ofList [("merge1_a", { inst := "fork1", name := "out2" }),
+--                        ("merge1_b", { inst := "fork2", name := "out1" }),
+--                        ("snk0", { inst := "merge2", name := "out" })] _,
+--           connections := [{ output := { inst := "fork2", name := "out2" }, input := { inst := "merge2", name := "inp1" } },
+--                   { output := { inst := "fork1", name := "out1" }, input := { inst := "fork2", name := "inp" } }] } : ExprHigh)
 
 def _root_.DataflowRewriter.ExprHigh.inline (e e' : ExprHigh) : Option ExprHigh := do
   let new_input_connections ← e'.inPorts.foldlM (λ conns i port => do
@@ -561,42 +608,42 @@ def _root_.DataflowRewriter.ExprHigh.inline (e e' : ExprHigh) : Option ExprHigh 
                                                     return Connection.mk inpP port :: conns) []
   return { inPorts := e.inPorts.filter (λ a _ => a ∉ e'.outPorts.keysList),
            outPorts := e.outPorts.filter (λ a _ => a ∉ e'.inPorts.keysList),
-           modules := e.modules.mergeWith (λ _ a _ => a) e'.modules,
+           modules := e.modules.append e'.modules,
            connections := e.connections
                           ++ new_input_connections
                           ++ new_output_connections
                           ++ e'.connections
          }
 
-#eval mergeHigh
-#check ({ modules := RBMap.ofList [("fork1", "fork"),
-              ("fork2", "fork"),
-              ("merge1", "merge"),
-              ("merge2", "merge"),
-              ("snk0", "io"),
-              ("src0", "io")] _,
-           inPorts := RBMap.ofList [("snk0", { inst := "merge2", name := "out" })] _,
-           outPorts := RBMap.ofList [("src0", { inst := "fork1", name := "inp" })] _,
-           connections := [{ input := { inst := "merge2", name := "inp2" }, output := { inst := "merge1", name := "out" } },
-                  { input := { inst := "merge2", name := "inp1" }, output := { inst := "fork2", name := "out2" } },
-                  { input := { inst := "merge1", name := "inp2" }, output := { inst := "fork2", name := "out1" } },
-                  { input := { inst := "merge1", name := "inp1" }, output := { inst := "fork1", name := "out2" } },
-                  { input := { inst := "fork2", name := "inp" }, output := { inst := "fork1", name := "out1" } }] } : ExprHigh)
+-- #eval mergeHigh
+-- #check ({ modules := RBMap.ofList [("fork1", "fork"),
+--               ("fork2", "fork"),
+--               ("merge1", "merge"),
+--               ("merge2", "merge"),
+--               ("snk0", "io"),
+--               ("src0", "io")] _,
+--            inPorts := RBMap.ofList [("snk0", { inst := "merge2", name := "out" })] _,
+--            outPorts := RBMap.ofList [("src0", { inst := "fork1", name := "inp" })] _,
+--            connections := [{ input := { inst := "merge2", name := "inp2" }, output := { inst := "merge1", name := "out" } },
+--                   { input := { inst := "merge2", name := "inp1" }, output := { inst := "fork2", name := "out2" } },
+--                   { input := { inst := "merge1", name := "inp2" }, output := { inst := "fork2", name := "out1" } },
+--                   { input := { inst := "merge1", name := "inp1" }, output := { inst := "fork1", name := "out2" } },
+--                   { input := { inst := "fork2", name := "inp" }, output := { inst := "fork1", name := "out1" } }] } : ExprHigh)
 
-#eval mergeHighSubgraph'.inline mergeHighSubgraph
-#check ({ modules := RBMap.ofList [("fork1", "fork"),
-              ("fork2", "fork"),
-              ("merge1", "merge"),
-              ("merge2", "merge"),
-              ("snk0", "io"),
-              ("src0", "io")] _,
-          inPorts := RBMap.ofList [("snk0", { inst := "merge2", name := "out" })] _,
-          outPorts := RBMap.ofList [("src0", { inst := "fork1", name := "inp" })] _,
-          connections := [{ input := { inst := "merge2", name := "inp1" }, output := { inst := "fork2", name := "out2" } },
-                  { input := { inst := "fork2", name := "inp" }, output := { inst := "fork1", name := "out1" } },
-                  { input := { inst := "merge1", name := "inp2" }, output := { inst := "fork2", name := "out1" } },
-                  { input := { inst := "merge1", name := "inp1" }, output := { inst := "fork1", name := "out2" } },
-                  { input := { inst := "merge2", name := "inp2" }, output := { inst := "merge1", name := "out" } }] } : ExprHigh)
+-- #eval mergeHighSubgraph'.inline mergeHighSubgraph
+-- #check ({ modules := RBMap.ofList [("fork1", "fork"),
+--               ("fork2", "fork"),
+--               ("merge1", "merge"),
+--               ("merge2", "merge"),
+--               ("snk0", "io"),
+--               ("src0", "io")] _,
+--           inPorts := RBMap.ofList [("snk0", { inst := "merge2", name := "out" })] _,
+--           outPorts := RBMap.ofList [("src0", { inst := "fork1", name := "inp" })] _,
+--           connections := [{ input := { inst := "merge2", name := "inp1" }, output := { inst := "fork2", name := "out2" } },
+--                   { input := { inst := "fork2", name := "inp" }, output := { inst := "fork1", name := "out1" } },
+--                   { input := { inst := "merge1", name := "inp2" }, output := { inst := "fork2", name := "out1" } },
+--                   { input := { inst := "merge1", name := "inp1" }, output := { inst := "fork1", name := "out2" } },
+--                   { input := { inst := "merge2", name := "inp2" }, output := { inst := "merge1", name := "out" } }] } : ExprHigh)
 
 end mergemod
 

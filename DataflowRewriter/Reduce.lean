@@ -9,6 +9,8 @@ import Mathlib
 
 open Lean Expr Meta Elab Tactic
 
+#check reduce
+
 partial def reallyReduce (e : Expr) (explicitOnly skipTypes skipProofs skipArgs useElabWhnf := true) : MetaM Expr :=
   let rec visit (e : Expr) : MonadCacheT Expr Expr MetaM Expr :=
     checkCache e fun _ => Core.withIncRecDepth do
@@ -18,7 +20,7 @@ partial def reallyReduce (e : Expr) (explicitOnly skipTypes skipProofs skipArgs 
         return e
       else
         let e ← if useElabWhnf then 
-                   whnf e 
+                   whnf e
                  else ofExceptKernelException <| Kernel.whnf (← getEnv) (← getLCtx) e
         match e with
         | Expr.app .. =>
@@ -78,7 +80,7 @@ where
         logInfoAt tk e
 
 #reduce (proofs := true) (types := true) 1 + 1 = 2 → True
-#reallyReduce 1 + 1 = 2 → True
+-- #reallyReduce 1 + 1 = 2 → True
 
 /--
 This is `Lean.MVarId.changeLocalDecl` but makes sure to preserve local variable order.
@@ -133,5 +135,11 @@ def runDefEqTactic (m : Option FVarId → Expr → MetaM Expr)
 elab "rreduce" loc?:(ppSpace Parser.Tactic.location)? : tactic =>
   runDefEqTactic (checkDefEq := false) (fun _ e => withTransparency (mode := TransparencyMode.all) <| reallyReduce e (skipTypes := false) (skipProofs := false) (skipArgs := false)) loc? "rreduce"
 
+elab "rreduce_not_all" loc?:(ppSpace Parser.Tactic.location)? : tactic =>
+  runDefEqTactic (checkDefEq := false) (fun _ e => reallyReduce e (skipTypes := false) (skipProofs := false) (skipArgs := false)) loc? "rreduce"
+
 elab "ker_rreduce" loc?:(ppSpace Parser.Tactic.location)? : tactic =>
   runDefEqTactic (checkDefEq := false) (fun _ e => withTransparency (mode := TransparencyMode.all) <| reallyReduce e (skipTypes := false) (skipProofs := false) (skipArgs := false) (useElabWhnf := false)) loc? "ker_rreduce"
+
+elab "ker_rreduce_not_all" loc?:(ppSpace Parser.Tactic.location)? : tactic =>
+  runDefEqTactic (checkDefEq := false) (fun _ e => reallyReduce e (skipTypes := false) (skipProofs := false) (skipArgs := false) (useElabWhnf := false)) loc? "ker_rreduce"

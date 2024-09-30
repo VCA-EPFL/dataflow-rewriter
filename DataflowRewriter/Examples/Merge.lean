@@ -25,31 +25,74 @@ open Lean.Meta Lean.Elab
 
 namespace DataflowRewriter
 
+elab "precompute " t:term : tactic => Tactic.withMainContext do
+  let expr ← Term.elabTerm t none
+  Term.synthesizeSyntheticMVarsUsingDefault
+  let expr ← Lean.instantiateMVars expr
+  let expr ←
+    -- withTransparency .all <|
+      reallyReduce (skipTypes := false) expr
+  (← Tactic.getMainGoal).assign expr
+
+#eval show Term.TermElabM Unit from do 
+  let expr ← Lean.instantiateMVars <| ← (Term.elabTerm (← `([(1:Nat) + 1, (2:Nat) + 3])) none)
+  -- let res ← withTransparency .all <| Lean.ofExceptKernelException <| Lean.Kernel.whnf (← Lean.getEnv) {} expr
+  let res ← reduce expr
+  Lean.logInfo m!"{res}"
+
+example : toString (1 : Nat) = "1" := by rfl
+
+#eval show Term.TermElabM Unit from do 
+  let expr ← (Term.elabTerm (← `(myCast ({ inst := "merge2", name := "a" } : InternalPort))) none)
+  let res ← withTransparency .all <| Lean.ofExceptKernelException <| Lean.Kernel.whnf (← Lean.getEnv) {} expr
+  -- let res ← withTransparency .all <| whnf expr
+  Lean.logInfo m!"{res}"
+
+-- example : toString ({ inst := "merge2", name := "a" } : InternalPort) = "merge2.a" := by 
+--   rreduce
+
+seal List.get List.remove in
 def threemerge T : Module (List T):=
-  { inputs := RBMap.ofList [("a", ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
-               ("b", ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
-               ("c", ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)] _,
-    outputs := RBMap.ofList [("z", ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)] _,
+  { inputs := [(0, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
+               (1, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
+               (2, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
+    outputs := [(0, ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)].toAssocList,
     internals := []
   }
 
+seal _root_.List.get _root_.List.remove in
+def threemerge' (T:Type) : Module (List T) := by precompute threemerge T
+
+#print threemerge'
+
+opaque threemerge_threemerge' T : threemerge T = threemerge' T := by ker_rreduce; ker_refl
+
 @[simp]
 def mergeLow : ExprLow :=
-  let merge1 := .base "merge1" "merge"
-  let merge2 := .base "merge2" "merge"
+  let merge1 := .base 1 0
+  let merge2 := .base 2 0
   .product merge1 merge2
-  |> .connect ⟨"merge1", "z"⟩ ⟨"merge2", "a"⟩
-  |> .rename ⟨"merge1", "a"⟩ "a"
-  |> .rename ⟨"merge1", "b"⟩ "b"
-  |> .rename ⟨"merge2", "b"⟩ "c"
-  |> .rename ⟨"merge2", "z"⟩ "z"
+  |> .connect ⟨1, 0⟩ ⟨2, 0⟩
+  |> .input ⟨1, 0⟩ 0
+  |> .input ⟨1, 1⟩ 1
+  |> .input ⟨2, 1⟩ 2
+  |> .output ⟨2, 0⟩ 0
 
 def merge_sem (T: Type _) :=
-  match build_module' mergeLow (RBMap.ofList [("merge", ⟨List T, merge T⟩)] _) with
+  match build_module' mergeLow ([(0, ⟨List T, merge T⟩)].toAssocList) with
   | some x => x
   | none => ⟨Unit, Module.empty⟩
 
+seal List.get List.remove in
+def merge_sem' (T:Type) : ((X:Type) × Module X) := by precompute merge_sem T
+
 attribute [dmod] AssocList.find? BEq.beq decide instIdentDecidableEq instDecidableEqString String.decEq RBMap.ofList RBMap.find? RBMap.findEntry? Batteries.RBSet.ofList Batteries.RBSet.insert Option.map Batteries.RBSet.findP? Batteries.RBNode.find? compare compareOfLessAndEq
+
+-- example T Y : merge_sem T = Y := by  
+
+#print merge_sem'
+
+opaque merge_sem_merge_sem' T : merge_sem T = merge_sem' T := by ker_rreduce; rfl
 
 theorem inputs_match {S S'} (A : Module S) (B : Module S') :
   A.inputs.toList.map (·.fst) = B.inputs.toList.map (·.fst) →
@@ -59,11 +102,11 @@ theorem outputs_match {S S'} (A : Module S) (B : Module S') :
   A.outputs.toList.map (·.fst) = B.outputs.toList.map (·.fst) →
   ∀ (ident : Ident), (A.outputs.getIO ident).1 = (B.outputs.getIO ident).1 := by sorry
 
-theorem interface_match T : matching_interface ((merge_sem T).snd) (threemerge T) := by sorry
+theorem interface_match T : matching_interface ((merge_sem' T).snd) (threemerge' T) := by sorry
 
 instance matching_three {T} : MatchingModules (List T × List T) (List T) where
-  imod := (merge_sem T).snd
-  smod := threemerge T
+  imod := (merge_sem' T).snd
+  smod := threemerge' T
   matching := interface_match T
 
 /--
@@ -90,74 +133,84 @@ theorem keysInMap' {α β γ} [BEq α] [LawfulBEq α] [Batteries.BEqCmp (α := �
   rw [Batteries.BEqCmp.cmp_iff_eq.mp (RBMap.findEntry?_some_eq_eq Hfind)]
   solve_by_elim [List.mem_map_of_mem, Batteries.RBMap.findEntry?_some_mem_toList]
 
+theorem keysInMap'' {α β} [BEq α] (m : AssocList α β) : ∀ k, m.contains k → k ∈ m.keysList := by sorry
+
 theorem merge_sem_type {T} : Sigma.fst (merge_sem T) = (List T × List T) := by ker_refl
 
-theorem getIO_none {S} (m : IdentMap ((T : Type) × (S → T → S → Prop))) ident :
-  m.findEntry? ident = none ->
+theorem getIO_none {S} (m : PortMap ((T : Type) × (S → T → S → Prop))) (ident : Ident) :
+  m.find? ↑ident = none ->
   m.getIO ident = ⟨ PUnit, λ _ _ _ => True ⟩ := by
-  intros H; simp [H, IdentMap.getIO, RBMap.findD, RBMap.find?]
+  intros H; rw [Batteries.AssocList.find?_eq] at H; simp [H]
 
-theorem getIO_some {S} (m : IdentMap ((T : Type) × (S → T → S → Prop))) ident t :
-  m.findEntry? ident = some (ident, t) ->
+theorem getIO_some {S} (m : PortMap ((T : Type) × (S → T → S → Prop))) (ident : Ident) t :
+  m.find? ↑ident = some t ->
   m.getIO ident = t := by
-  intros H; simp [H, IdentMap.getIO, RBMap.findD, RBMap.find?]
+  intros H; rw [Batteries.AssocList.find?_eq] at H; simp [H]
 
 def rule_rw {S T T'} (r : S → T → S → Prop) (eq : T = T') : S → T' → S → Prop :=
   fun a b => r a (eq.mpr b)
 
 @[simp]
-theorem input_keys T : ((@matching_three T).imod).inputs.keysList' = ["a", "b", "c"] := by ker_refl
+theorem input_keys T : ((@matching_three T).imod).inputs.keysList = [2, 0, 1] := by rfl
 
 @[simp]
-theorem other {T} : ((@matching_three T).imod).inputs.getIO "a" = ⟨T, fun x ret x_1 => x_1.1 = ret :: x.1 ∧ x.2 = x_1.2⟩ := by ker_refl
+theorem other {T} ident (h : ident ≠ 2) (h' : ((@matching_three T).imod).inputs.contains ↑ident) : ((@matching_three T).imod).inputs.getIO ident = ⟨T, fun x ret x_1 => x_1.1 = ret :: x.1 ∧ x.2 = x_1.2⟩ := by
+  simp at h'
+  rcases h' with h' | h' | h' <;> subst_vars <;> try rfl
+  simp at h
 
 @[simp]
-theorem other' {T} : ((@matching_three T).smod).inputs.getIO "a" = ⟨T, fun oldList newElement newList => newList = newElement :: oldList⟩ := by ker_refl
+theorem other' {T} : ((@matching_three T).smod).inputs.getIO 0 = ⟨T, fun oldList newElement newList => newList = newElement :: oldList⟩ := by rfl
 
 theorem in_inputs {α β γ} [BEq α] [LawfulBEq α] [Batteries.BEqCmp (α := α) γ] [@Batteries.TransCmp α γ] (t : Batteries.RBMap α β γ) y ident : t.find? ident = some y → ident ∈ t.keysList' := by
   intro H; apply keysInMap'
   dsimp only [Batteries.RBMap.contains, Batteries.RBMap.find?, Option.map] at *
   split at H <;> cases H; simp [*]
 
-set_option maxHeartbeats 10000 in
-seal merge_sem IdentMap.getIO in
+seal merge_sem List.remove List.get in
 theorem correct_threeway {T: Type _} [DecidableEq T]:
     @refines _ _ (@matching_three T) (fun (x : List T × List T) y => (x.1 ++ x.2).Perm y) := by
-      -- simp only [threemerge, refines]
-      -- dsimp only [merge_sem_type]
       intro ⟨ x1, x2 ⟩ y HPerm indis
-      -- dsimp only at HPerm
-      let ⟨indisL, indisR⟩ := indis
-      -- rcases indis with ⟨indisL, indisR⟩
       apply @comp_refines.mk _ _ (@matching_three T)
       . intro ident ⟨x'1, x'2⟩ v Hcontains Himod
-        have := keysInMap' _ _ Hcontains
+        have := keysInMap'' _ _ Hcontains
+        fin_cases this
+        · dsimp at *
+          
+        · sorry
+        · sorry
         have : ident = "a" := by sorry
         subst ident
-        -- -- dsimp at this; fin_cases this
-        -- ·  -- dsimp only [other, other'] at v Himod ⊢
-        --   set_option trace.Meta.check true in
-        --   -- set_option trace.Meta.isDefEq true in
-        --   set_option trace.Meta.whnf true in
-        --   -- set_option trace.Elab.match true in
-        --   set_option pp.proofs true in
         clear indisL indisR Hcontains this
+        
         simp (config := {implicitDefEqProofs := false}) only [other, other', input_keys] at v Himod
-        -- simp (config := {implicitDefEqProofs := false}) only [other, other', input_keys]
-        -- simp
-        set_option pp.explicit true in set_option pp.proofs true in trace_state
-        -- clear indisL indisR indis HPerm this Hcontains
-        have : x2 = x'2 := Himod.right
-        have : x'1 = v :: x1 := Himod.left
-        -- rcases Himod
-        let (And.intro l r) := Himod
-          -- exfalso
-          -- clear Hr v H hmod indis y x1 x2
-          -- have t' : PUnit.{1} := Hr'.mp t -- by rw [← Hr']; exact t
-          
-
-          -- simp only [getIO_none, H] at t v ⊢
-          
+        let (And.intro l r) := Himod; subst_vars; clear Himod
+        constructor; constructor; and_intros
+        · rfl
+        · apply existSR.done
+        · simp [*]
+        · constructor <;> dsimp only
+          · intro ident' new_i v_1 Hcontains Hrule
+            have := keysInMap' _ _ Hcontains
+            fin_cases this 
+            · set_option trace.Meta.whnf true in simp at Hrule
+          · intro ident' ⟨ new_i_1, new_i_2 ⟩ v_1 Hcontains HVal
+            have := keysInMap' _ _ Hcontains
+            fin_cases this
+            let ⟨ ⟨ i, HVall, temp ⟩, HValr ⟩ := HVal; clear HVal
+            rreduce_not_all at *; subst_vars
+            constructor; constructor
+            and_intros; rfl
+            rreduce_not_all
+            generalize h : mid_i.2.get i = y'
+            have Ht : ∃ i, mid_i.2.get i = y' := by exists i
+            rw [← List.mem_iff_get] at Ht
+            have Hiff := List.Perm.mem_iff (a := y') He
+            have Ht' : y' ∈ y := by rw [← Hiff]; simp; tauto
+            rw [List.mem_iff_get] at Ht'
+            rcases Ht' with ⟨ i', Ht'r ⟩
+            constructor; exists i' + 1
+            simp; tauto
 
         -- match H : (((@matching_three T).imod).inputs.findEntry? ident) with
         -- | .some x =>
