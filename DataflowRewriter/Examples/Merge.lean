@@ -25,13 +25,15 @@ open Lean.Meta Lean.Elab
 
 namespace DataflowRewriter
 
+abbrev Ident := Nat
+
 elab "precompute " t:term : tactic => Tactic.withMainContext do
   let expr ← Term.elabTerm t none
   Term.synthesizeSyntheticMVarsUsingDefault
   let expr ← Lean.instantiateMVars expr
   let expr ←
     -- withTransparency .all <|
-      reallyReduce (skipTypes := false) expr
+      reallyReduce (skipArgs := false) (skipTypes := false) expr
   (← Tactic.getMainGoal).assign expr
 
 #eval show Term.TermElabM Unit from do 
@@ -51,24 +53,23 @@ example : toString (1 : Nat) = "1" := by rfl
 -- example : toString ({ inst := "merge2", name := "a" } : InternalPort) = "merge2.a" := by 
 --   rreduce
 
-seal List.get List.remove in
-def threemerge T : Module (List T):=
+def threemerge T : NModule (List T):=
   { inputs := [(0, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
                (1, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
                (2, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
     outputs := [(0, ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)].toAssocList,
-    internals := []
+    internals := [λ a b => 1 + 1 = 2]
   }
 
 seal _root_.List.get _root_.List.remove in
-def threemerge' (T:Type) : Module (List T) := by precompute threemerge T
+def threemerge' (T:Type) : NModule (List T) := by precompute threemerge T
 
 #print threemerge'
 
-opaque threemerge_threemerge' T : threemerge T = threemerge' T := by ker_rreduce; ker_refl
+opaque threemerge_threemerge' T : threemerge T = threemerge' T := by rfl
 
 @[simp]
-def mergeLow : ExprLow :=
+def mergeLow : ExprLow Nat :=
   let merge1 := .base 1 0
   let merge2 := .base 2 0
   .product merge1 merge2
@@ -84,27 +85,27 @@ def merge_sem (T: Type _) :=
   | none => ⟨Unit, Module.empty⟩
 
 seal List.get List.remove in
-def merge_sem' (T:Type) : ((X:Type) × Module X) := by precompute merge_sem T
+def merge_sem' (T:Type) : ((X:Type) × NModule X) := by precompute merge_sem T
 
-attribute [dmod] AssocList.find? BEq.beq decide instIdentDecidableEq instDecidableEqString String.decEq RBMap.ofList RBMap.find? RBMap.findEntry? Batteries.RBSet.ofList Batteries.RBSet.insert Option.map Batteries.RBSet.findP? Batteries.RBNode.find? compare compareOfLessAndEq
+attribute [dmod] AssocList.find? BEq.beq decide instDecidableEqString String.decEq RBMap.ofList RBMap.find? RBMap.findEntry? Batteries.RBSet.ofList Batteries.RBSet.insert Option.map Batteries.RBSet.findP? Batteries.RBNode.find? compare compareOfLessAndEq
 
 -- example T Y : merge_sem T = Y := by  
 
 #print merge_sem'
 
-opaque merge_sem_merge_sem' T : merge_sem T = merge_sem' T := by ker_rreduce; rfl
+opaque merge_sem_merge_sem' T : merge_sem T = merge_sem' T := by rfl
 
-theorem inputs_match {S S'} (A : Module S) (B : Module S') :
+theorem inputs_match {S S'} (A : NModule S) (B : NModule S') :
   A.inputs.toList.map (·.fst) = B.inputs.toList.map (·.fst) →
   ∀ (ident : Ident), (A.inputs.getIO ident).1 = (B.inputs.getIO ident).1 := by sorry
 
-theorem outputs_match {S S'} (A : Module S) (B : Module S') :
+theorem outputs_match {S S'} (A : NModule S) (B : NModule S') :
   A.outputs.toList.map (·.fst) = B.outputs.toList.map (·.fst) →
   ∀ (ident : Ident), (A.outputs.getIO ident).1 = (B.outputs.getIO ident).1 := by sorry
 
 theorem interface_match T : matching_interface ((merge_sem' T).snd) (threemerge' T) := by sorry
 
-instance matching_three {T} : MatchingModules (List T × List T) (List T) where
+instance matching_three {T} : MatchingModules (List T × List T) (List T) Ident where
   imod := (merge_sem' T).snd
   smod := threemerge' T
   matching := interface_match T
@@ -137,15 +138,17 @@ theorem keysInMap'' {α β} [BEq α] (m : AssocList α β) : ∀ k, m.contains k
 
 theorem merge_sem_type {T} : Sigma.fst (merge_sem T) = (List T × List T) := by ker_refl
 
-theorem getIO_none {S} (m : PortMap ((T : Type) × (S → T → S → Prop))) (ident : Ident) :
+theorem getIO_none {S} (m : PortMap Ident ((T : Type) × (S → T → S → Prop))) (ident : Ident) :
   m.find? ↑ident = none ->
   m.getIO ident = ⟨ PUnit, λ _ _ _ => True ⟩ := by
-  intros H; rw [Batteries.AssocList.find?_eq] at H; simp [H]
+  intros H; rw [Batteries.AssocList.find?_eq] at H
+  dsimp at H; simp [H]
 
-theorem getIO_some {S} (m : PortMap ((T : Type) × (S → T → S → Prop))) (ident : Ident) t :
+theorem getIO_some {S} (m : PortMap Ident ((T : Type) × (S → T → S → Prop))) (ident : Ident) t :
   m.find? ↑ident = some t ->
   m.getIO ident = t := by
-  intros H; rw [Batteries.AssocList.find?_eq] at H; simp [H]
+  intros H; rw [Batteries.AssocList.find?_eq] at H
+  dsimp at H; simp [H]
 
 def rule_rw {S T T'} (r : S → T → S → Prop) (eq : T = T') : S → T' → S → Prop :=
   fun a b => r a (eq.mpr b)
