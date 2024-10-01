@@ -9,7 +9,7 @@ namespace DataflowRewriter
 /-- 
 Create a class for an arbitrary state transition system.
 -/
-class StateTransition (Event: Type _) (State: Type _) where
+class StateTransition (State: Type _) (Event: outParam (Type _)) where
   init : State
   step : State -> List Event -> State -> Prop
 
@@ -23,7 +23,7 @@ notation:45 s " -[ " t:45 " ]-> " s':44 => StateTransition.step s t s'
 section Behaviour
 
 variable {State Event : Type _}
-variable [trans: StateTransition Event State]
+variable [trans: StateTransition State Event]
 
 inductive star : State -> List Event -> State -> Prop where
   | refl : forall s1, star s1 [] s1
@@ -41,21 +41,18 @@ theorem star.plus_one (s s': State) (e: List Event) :
   rw [He]
   apply star.step <;> first | assumption | apply star.refl
 
-theorem step_internal {a b} [trans : StateTransition a b] : 
-  ∀ s1 s2 s3 e2, trans.step s1 [] s2 -> star s2 e2 s3 -> @star _ _ trans s1 e2 s3 := by
-  intros s1 s2 s3 e2
+theorem step_internal (s1 s2 s3 : State) e2 :
+  s1 -[[]]-> s2 -> s2 -[e2]*> s3 -> s1 -[e2]*> s3 := by
   have h : e2 = [] ++ e2 := by rfl
   intros; rw [h]
   apply star.step <;> assumption
 
-theorem step_one {a b} [trans : StateTransition a b] : 
-  ∀ s1 s2 e2, trans.step s1 e2 s2 -> @star _ _ trans s1 e2 s2 := by
-  intro s1 s2 e2
+theorem step_one (s1 s2 : State) e2 : s1 -[e2]-> s2 -> s1 -[e2]*> s2 := by
   have h : e2 = e2 ++ [] := by simp
   intros; rw [h]
   apply star.step <;> first | assumption | apply star.refl
 
-theorem star.trans_star (s s' s'': State) (e e': List Event) :
+theorem star.trans_star (s s' s'': State) e e' :
   s -[e]*> s' -> s' -[e']*> s'' -> s -[e ++ e']*> s''  := by
   intros H1; induction H1 generalizing s'' e'
   . simp
@@ -73,7 +70,7 @@ section UpdateFin
 variable {α : Type _}
 variable {n : Nat}
 
-def update_Fin (i' : Fin n)  (e : α) (f : Fin n -> α) : Fin n -> α :=
+def update_Fin (i' : Fin n) (e : α) (f : Fin n -> α) : Fin n -> α :=
   fun i =>
     if i == i' then
       e
@@ -81,7 +78,7 @@ def update_Fin (i' : Fin n)  (e : α) (f : Fin n -> α) : Fin n -> α :=
       f i
 
 @[simp]
-theorem update_Fin_gso (i i' : Fin n)  (e : α) (f : Fin n -> α) :
+theorem update_Fin_gso (i i' : Fin n) (e : α) (f : Fin n -> α) :
   ¬(i = i') -> update_Fin i' e f i = f i := by
     intro h1
     unfold update_Fin
@@ -89,7 +86,7 @@ theorem update_Fin_gso (i i' : Fin n)  (e : α) (f : Fin n -> α) :
 
 
 @[simp]
-theorem update_Fin_gss (i  : Fin n)  (e : α) (f : Fin n -> α) :
+theorem update_Fin_gss (i  : Fin n) (e : α) (f : Fin n -> α) :
   update_Fin i e f i  = e := by
     unfold update_Fin
     simp
@@ -137,12 +134,11 @@ section Indistinguishable
 
 variable {Event ImpState SpecState : Type _}
 
-variable [imp : @StateTransition Event ImpState]
-variable [spec : @StateTransition Event SpecState]
+variable [imp : StateTransition ImpState Event]
+variable [spec : StateTransition SpecState Event]
 
 def indistinguishable (i: ImpState) (s: SpecState): Prop :=
-  forall (e : List Event) i',
-    i -[ e ]-> i' → exists s', s -[ e ]*> s'
+  ∀ e i', i -[ e ]-> i' → ∃ s', s -[ e ]*> s'
 
 end Indistinguishable
 
