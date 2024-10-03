@@ -4,21 +4,14 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import Leanses
 import Lean
-import Init.Data.BitVec.Lemmas
+import Leanses
 import Qq
 
 import DataflowRewriter.Simp
 import DataflowRewriter.List
 
-open Qq
-
 open Batteries (AssocList)
-
-open Batteries (RBMap RBSet)
-
-open Lean.Meta Lean.Elab
 
 deriving instance Repr for AssocList
 
@@ -26,24 +19,18 @@ namespace DataflowRewriter
 
 structure Wr (T : Type _) where
   unwrap : T
-deriving Repr, Inhabited, Hashable, DecidableEq, Ord, BEq
-
--- abbrev Ident := Nat
-
--- deriving instance BEq for Ident
--- deriving instance Repr for Ident
--- deriving instance Hashable for Ident
--- deriving instance DecidableEq for Ident
--- deriving instance Ord for Ident
+deriving Repr, Inhabited, Hashable, DecidableEq, Ord
 
 section Module
 
-variable (Ident : Type _)
-
-structure InternalPort where
+structure InternalPort (Ident : Type _) where
   inst : Ident
   name : Ident
-  deriving Repr, Hashable, DecidableEq, Ord, Inhabited, BEq
+  deriving Repr, Hashable, Ord, Inhabited, DecidableEq
+
+-- instance [DecidableEq Ident] : DecidableEq (InternalPort Ident) where
+
+variable (Ident : Type _)
 
 instance [Inhabited Ident] : Coe Ident (InternalPort Ident) where
   coe a := ⟨default, a⟩
@@ -69,7 +56,7 @@ inductive ExprLow where
   | connect : InternalPort Ident → InternalPort Ident → ExprLow → ExprLow
   deriving Repr
 
-structure Module.{u₁} (S : Type u₁) where
+structure Module'.{u₁} (S : Type u₁) where
   inputs : PortMap Ident ((T : Type) × (S → T → S → Prop))
   outputs : PortMap Ident ((T : Type) × (S → T → S → Prop))
   internals : List (S → S → Prop)
@@ -80,10 +67,10 @@ structure Module.{u₁} (S : Type u₁) where
 -- abbrev Module' S := Wr (Module S)
 
 variable {Ident}
-variable [BEq Ident]
+variable [DecidableEq Ident]
 variable [Inhabited Ident]
 
-def Module.empty {S} : Module Ident S := {inputs := ∅, outputs := ∅, internals:= ∅}
+def Module.empty {S} : Module' Ident S := {inputs := ∅, outputs := ∅, internals:= ∅}
 
 -- def Module'.empty {S} : Module' S := Wr.mk {inputs := ∅, outputs := ∅, internals:= ∅}
 
@@ -101,7 +88,7 @@ def PortMap.getInternalPort.{u₁, u₂} {S : Type u₁} (l: PortMap Ident (Σ (
 
 -- variable (baseModules : Fin n → ((T : Type) × Module T))
 
-structure matching_interface {I S} (imod : Module Ident I) (smod : Module Ident S) : Prop where
+structure matching_interface {I S} (imod : Module' Ident I) (smod : Module' Ident S) : Prop where
   input_keys : ∀ (ident : Ident), imod.inputs.contains ↑ident → smod.inputs.contains ↑ident
   output_keys : ∀ (ident : Ident), imod.outputs.contains ↑ident → smod.outputs.contains ↑ident
   input_types : ∀ (ident : Ident), (imod.inputs.getIO ident).1 = (smod.inputs.getIO ident).1
@@ -111,7 +98,7 @@ section Trace
 
 variable {S : Type _}
 
-inductive existSR (mod : Module Ident S) : S → S → Prop where
+inductive existSR (mod : Module' Ident S) : S → S → Prop where
   | done : ∀ init, existSR mod init init
   | step :
     ∀ init mid final rule,
@@ -124,9 +111,9 @@ end Trace
 
 end Module
 
-class MatchingModules (I : Type _) (S : Type _) (Ident : outParam (Type _)) [BEq Ident] [Inhabited Ident] where
-  imod : Module Ident I
-  smod : Module Ident S
+class MatchingModules (I : Type _) (S : Type _) (Ident : outParam (Type _)) [DecidableEq Ident] [Inhabited Ident] where
+  imod : Module' Ident I
+  smod : Module' Ident S
   matching : matching_interface imod smod
 
 section Refinement
@@ -134,7 +121,7 @@ section Refinement
 variable {I : Type _}
 variable {S : Type _}
 variable {Ident : Type _}
-variable [BEq Ident]
+variable [DecidableEq Ident]
 variable [Inhabited Ident]
 
 variable [mm : MatchingModules I S Ident]
@@ -193,7 +180,7 @@ end Refinement
 section Semantics
 
 variable {Ident : Type _}
-variable [BEq Ident]
+variable [DecidableEq Ident]
 variable [Inhabited Ident]
 
 /--
@@ -201,7 +188,7 @@ variable [Inhabited Ident]
 precondition that the input and output type must match.
 -/
 @[simp]
-def connect' {S : Type _} (mod : Module Ident S) (o i : InternalPort Ident) : Module Ident S :=
+def connect' {S : Type _} (mod : Module' Ident S) (o i : InternalPort Ident) : Module' Ident S :=
        { inputs := mod.inputs.erase i ,
          outputs :=  mod.outputs.erase o,
          internals :=  (λ st st' => ∀ wf : (mod.inputs.getInternalPort i).1 = (mod.outputs.getInternalPort o).1,
@@ -232,14 +219,11 @@ def _root_.Batteries.AssocList.append {α β} (a b : AssocList α β) : AssocLis
     .cons x y <| xs.append b
 
 @[simp]
-def product {S S'} (mod1 : Module Ident S) (mod2: Module Ident S') : Module Ident (S × S') :=
+def product {S S'} (mod1 : Module' Ident S) (mod2: Module' Ident S') : Module' Ident (S × S') :=
       { inputs := (mod1.inputs.mapVal (λ _ => liftL)).append (mod2.inputs.mapVal (λ _ => liftR)),
         outputs := (mod1.outputs.mapVal (λ _ => liftL)).append (mod2.outputs.mapVal (λ _ => liftR)),
         internals := mod1.internals.map liftL' ++ mod2.internals.map liftR'
       }
-
-def _root_.Batteries.RBMap.modifyKeys {α β c} (map : RBMap α β c) (f : α → α) : RBMap α β c :=
-  map.foldl (λ new_map k v => new_map.insert (f k) v) ∅
 
 def _root_.Batteries.AssocList.modifyKeys {α β} (map : AssocList α β) (f : α → α) : AssocList α β :=
   map.foldl (λ new_map k v => new_map.cons (f k) v) ∅
@@ -247,27 +231,27 @@ def _root_.Batteries.AssocList.modifyKeys {α β} (map : AssocList α β) (f : �
 def _root_.Batteries.AssocList.keysList {α β} (map : AssocList α β) : List α :=
   map.toList.map (·.fst)
 
-def Module.renamePorts {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
+def Module'.renamePorts {S} (mod : Module' Ident S) (f : InternalPort Ident → InternalPort Ident) : Module' Ident S :=
   { inputs := mod.inputs.modifyKeys f,
     outputs := mod.outputs.modifyKeys f,
     internals := mod.internals
   }
 
-def Module.renameToInput {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
+def Module'.renameToInput {S} (mod : Module' Ident S) (f : InternalPort Ident → InternalPort Ident) : Module' Ident S :=
   { inputs := mod.inputs.modifyKeys f,
     outputs := mod.outputs,
     internals := mod.internals
   }
 
-def Module.renameToOutput {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
+def Module'.renameToOutput {S} (mod : Module' Ident S) (f : InternalPort Ident → InternalPort Ident) : Module' Ident S :=
   { inputs := mod.inputs,
     outputs := mod.outputs.modifyKeys f,
     internals := mod.internals
   }
 
 @[simp]
-def build_module' (e : ExprLow Ident) (ε : IdentMap Ident ((T: Type _) × Module Ident T))
-  : Option ((T: Type _) × Module Ident T) := do
+def build_module' (e : ExprLow Ident) (ε : IdentMap Ident ((T: Type _) × Module' Ident T))
+  : Option ((T: Type _) × Module' Ident T) := do
   match e with
   | .base i e =>
     let mod ← ε.find? e
@@ -286,7 +270,7 @@ def build_module' (e : ExprLow Ident) (ε : IdentMap Ident ((T: Type _) × Modul
     let b <- build_module' b ε;
     return ⟨a.1 × b.1, product a.2 b.2⟩
 
-def build_module (e : ExprLow Ident) (map : IdentMap Ident ((T : Type _) × Module Ident T)) (h : (build_module' e map).isSome = true := by decide):  (T : Type _) × Module Ident T :=
+def build_module (e : ExprLow Ident) (map : IdentMap Ident ((T : Type _) × Module' Ident T)) (h : (build_module' e map).isSome = true := by decide):  (T : Type _) × Module' Ident T :=
   (build_module' e map).get h
 
 end Semantics
@@ -347,7 +331,7 @@ syntax dot_input_list := ("(" ident ", " num ")"),*
 
 syntax (name := dot_graph) "[graph| " dot_stmnt_list " ]" : term
 
-open Term Lean.Syntax
+open Lean.Meta Lean.Elab Term Lean.Syntax
 
 open Lean in
 def findStx (n : Name) (stx : Array Syntax) : Option Nat := do
@@ -367,7 +351,7 @@ def findStxStr (n : Name) (stx : Array Syntax) : MetaM (Option String) := do
       out := some out'
   return out
 
-open Lean in
+open Lean Qq in
 @[term_elab dot_graph]
 def dotGraphElab : TermElab := λ stx _typ? => do
   let mut idx := 1
@@ -671,13 +655,13 @@ end mergemod
 
 end GraphSyntax
 
-section NModule
+section NatModule
 
 instance {n} : OfNat (InternalPort Nat) n where
   ofNat := ⟨ 0, n ⟩
 
-abbrev NModule := Module Nat
+abbrev Module := Module' Nat
 
-end NModule
+end NatModule
 
 end DataflowRewriter
