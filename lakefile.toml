@@ -3,6 +3,16 @@ defaultTargets = ["DataflowRewriter"]
 
 [leanOptions]
 autoImplicit = false
+linter.all = false
+weak.linter.refine = false
+weak.linter.haveLet = 0
+weak.linter.oldObtain = false
+weak.linter.hashCommand = false
+weak.linter.docPrime = false
+weak.linter.style.cdot = false
+weak.linter.style.dollarSyntax = false
+weak.linter.style.lambdaSyntax = false
+weak.aesop.warn.applyIff = false
 
 [[require]]
 name = "leanses"
@@ -12,7 +22,7 @@ rev = "main"
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4"
-rev = "2eb00cae7edccf4e54238db2cb4b0a7dff59fbdd"
+rev = "master"
 
 [[lean_lib]]
 name = "DataflowRewriter"
