@@ -34,23 +34,6 @@ elab "precompute " t:term : tactic => Tactic.withMainContext do
       reallyReduce (skipArgs := false) (skipTypes := false) expr
   (← Tactic.getMainGoal).assign expr
 
-#eval show Term.TermElabM Unit from do 
-  let expr ← Lean.instantiateMVars <| ← (Term.elabTerm (← `([(1:Nat) + 1, (2:Nat) + 3])) none)
-  -- let res ← withTransparency .all <| Lean.ofExceptKernelException <| Lean.Kernel.whnf (← Lean.getEnv) {} expr
-  let res ← reduce expr
-  Lean.logInfo m!"{res}"
-
-example : toString (1 : Nat) = "1" := by rfl
-
--- #eval show Term.TermElabM Unit from do 
---   let expr ← (Term.elabTerm (← `(myCast ({ inst := "merge2", name := "a" } : InternalPort))) none)
---   let res ← withTransparency .all <| Lean.ofExceptKernelException <| Lean.Kernel.whnf (← Lean.getEnv) {} expr
---   -- let res ← withTransparency .all <| whnf expr
---   Lean.logInfo m!"{res}"
-
--- example : toString ({ inst := "merge2", name := "a" } : InternalPort) = "merge2.a" := by 
---   rreduce
-
 def threemerge T : Module (List T):=
   { inputs := [(0, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
                (1, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
@@ -61,8 +44,6 @@ def threemerge T : Module (List T):=
 
 seal _root_.List.get _root_.List.remove in
 def threemerge' (T:Type) : Module (List T) := by precompute threemerge T
-
-#print threemerge'
 
 opaque threemerge_threemerge' T : threemerge T = threemerge' T := by rfl
 
@@ -85,32 +66,9 @@ def merge_sem (T: Type _) :=
 seal List.get List.remove in
 def merge_sem' (T:Type) : ((X:Type) × Module X) := by precompute merge_sem T
 
-attribute [dmod] Batteries.AssocList.find? BEq.beq -- decide instDecidableEqString String.decEq compare compareOfLessAndEq instDecidableEqInternalPort
-
--- example T Y : merge_sem T = Y := by  
-
-#print merge_sem'
+attribute [dmod] Batteries.AssocList.find? BEq.beq
 
 opaque merge_sem_merge_sem' T : merge_sem T = merge_sem' T := by rfl
-
-theorem inputs_match {S S'} (A : Module S) (B : Module S') :
-  A.inputs.toList.map (·.fst) = B.inputs.toList.map (·.fst) →
-  ∀ (ident : Ident), (A.inputs.getIO ident).1 = (B.inputs.getIO ident).1 := by sorry
-
-theorem outputs_match {S S'} (A : Module S) (B : Module S') :
-  A.outputs.toList.map (·.fst) = B.outputs.toList.map (·.fst) →
-  ∀ (ident : Ident), (A.outputs.getIO ident).1 = (B.outputs.getIO ident).1 := by sorry
-
-theorem interface_match T : matching_interface ((merge_sem' T).snd) (threemerge' T) := by sorry
-
-instance matching_three {T} : MatchingModules (List T × List T) (List T) Ident where
-  imod := (merge_sem' T).snd
-  smod := threemerge' T
-  matching := interface_match T
-
-theorem keysInMap'' {α β} [BEq α] (m : AssocList α β) : ∀ k, m.contains k → k ∈ m.keysList := by sorry
-
-theorem merge_sem_type {T} : Sigma.fst (merge_sem T) = (List T × List T) := by ker_refl
 
 theorem getIO_none {S} (m : PortMap Ident ((T : Type) × (S → T → S → Prop))) (ident : Ident) :
   m.find? ↑ident = none ->
@@ -124,27 +82,55 @@ theorem getIO_some {S} (m : PortMap Ident ((T : Type) × (S → T → S → Prop
   intros H; rw [Batteries.AssocList.find?_eq] at H
   dsimp at H; simp [H]
 
-def rule_rw {S T T'} (r : S → T → S → Prop) (eq : T = T') : S → T' → S → Prop :=
-  fun a b => r a (eq.mpr b)
+theorem AssocList_contains_none {S : Type _} (m : PortMap Ident ((T : Type) × (S → T → S → Prop))) ident :
+  ¬ m.contains ident ->
+  m.find? ident = none := by
+  intros H; rw [Batteries.AssocList.contains_eq] at H
+  rw [Batteries.AssocList.find?_eq]
+  rw [Option.map_eq_none', List.find?_eq_none]; intros x H
+  rcases x with ⟨ a, ⟨ b, c ⟩⟩
+  simp at *; unfold Not; intros; apply H
+  subst_vars; assumption
 
-@[simp]
-theorem input_keys T : ((@matching_three T).imod).inputs.keysList = [2, 0, 1] := by rfl
+theorem AssocList_contains_some {S : Type _} (m : PortMap Ident ((T : Type) × (S → T → S → Prop))) ident :
+  m.contains ident ->
+  (m.find? ident).isSome := by
+  intros H; rw [Batteries.AssocList.contains_eq] at H; simp at H; rcases H with ⟨ a, b, H ⟩
+  simp [*]; tauto
 
-@[simp]
-theorem other {T} ident (h : ident ≠ 2) (h' : ((@matching_three T).imod).inputs.contains ↑ident) : ((@matching_three T).imod).inputs.getIO ident = ⟨T, fun x ret x_1 => x_1.1 = ret :: x.1 ∧ x.2 = x_1.2⟩ := by
-  simp at h'
-  rcases h' with h' | h' | h' <;> subst_vars <;> try rfl
-  contradiction
+theorem inputs_match {S S'} (A : Module S) (B : Module S') :
+  (A.inputs.toList.map (·.fst)).Perm (B.inputs.toList.map (·.fst)) →
+  ∀ (ident : Ident), (A.inputs.getIO ident).1 = (B.inputs.getIO ident).1 := by stop
+  intro HPerm ident; by_cases h : (A.inputs.contains ↑ident)
+  · apply AssocList_contains_some at h
+    rw [Option.isSome_iff_exists] at h; rcases h with ⟨ a, h ⟩
+    rw [getIO_some _ _ _ h]
+  sorry
 
-@[simp]
-theorem other' {T} : ((@matching_three T).smod).inputs.getIO 0 = ⟨T, fun oldList newElement newList => newList = newElement :: oldList⟩ := by rfl
+theorem outputs_match {S S'} (A : Module S) (B : Module S') :
+  (A.outputs.toList.map (·.fst)).Perm (B.outputs.toList.map (·.fst)) →
+  ∀ (ident : Ident), (A.outputs.getIO ident).1 = (B.outputs.getIO ident).1 := by sorry
 
-theorem sigma_rw {S : Type _} {m m' : Σ (y : Type _), S → y → S → Prop} {x y : S} {v : m.fst}
+theorem interface_match T : matching_interface ((merge_sem' T).snd) (threemerge' T) := by
+  constructor
+  · apply inputs_match; solve_by_elim only [List.Perm.swap, List.Perm.trans]
+  · apply outputs_match; rfl
+
+instance matching_three {T} : MatchingModules (List T × List T) (List T) Ident where
+  imod := (merge_sem' T).snd
+  smod := threemerge' T
+  matching := interface_match T
+
+theorem keysInMap'' {α β} [DecidableEq α] (m : AssocList α β) : ∀ k, m.contains k → k ∈ m.keysList := by
+  unfold Batteries.AssocList.contains Batteries.AssocList.keysList
+  intro k Hk; simp at Hk; simp [*]
+
+theorem sigma_rw {S T : Type _} {m m' : Σ (y : Type _), S → y → T → Prop} {x : S} {y : T} {v : m.fst}
         (h : m = m' := by reduce; rfl) :
   m.snd x v y ↔ m'.snd x (h ▸ v) y := by
   constructor <;> (intros; subst h; assumption)
 
-theorem correct_threeway {T: Type _} [DecidableEq T]:
+theorem correct_threeway_merge {T: Type _} [DecidableEq T]:
     @refines _ _ _ _ _ (@matching_three T) (fun (x : List T × List T) y => (x.1 ++ x.2).Perm y) := by
       intro ⟨ x1, x2 ⟩ y HPerm indis
       apply comp_refines.mk
@@ -335,5 +321,11 @@ theorem correct_threeway {T: Type _} [DecidableEq T]:
                 simp; tauto
               dsimp; apply List.getElem_of_mem at Ht'; rcases Ht' with ⟨ Ha, Hb, Hc ⟩
               constructor; exists ⟨ Ha, Hb ⟩; and_intros; rfl; symm; assumption
+
+/--
+info: 'DataflowRewriter.correct_threeway_merge' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms correct_threeway_merge
 
 end DataflowRewriter

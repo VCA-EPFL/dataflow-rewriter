@@ -89,8 +89,6 @@ def PortMap.getInternalPort.{u₁, u₂} {S : Type u₁} (l: PortMap Ident (Σ (
 -- variable (baseModules : Fin n → ((T : Type) × Module T))
 
 structure matching_interface {I S} (imod : Module' Ident I) (smod : Module' Ident S) : Prop where
-  input_keys : ∀ (ident : Ident), imod.inputs.contains ↑ident → smod.inputs.contains ↑ident
-  output_keys : ∀ (ident : Ident), imod.outputs.contains ↑ident → smod.outputs.contains ↑ident
   input_types : ∀ (ident : Ident), (imod.inputs.getIO ident).1 = (smod.inputs.getIO ident).1
   output_types : ∀ (ident : Ident), (imod.outputs.getIO ident).1 = (smod.outputs.getIO ident).1
 
