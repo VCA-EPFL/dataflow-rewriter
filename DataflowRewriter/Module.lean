@@ -86,7 +86,7 @@ variable [Inhabited Ident]
 Get an IO port using external IO ports, i.e. `InternalPort Ident` with the
 instance set to `top`.
 -/
-def getIO.{u₁, u₂} {S : Type u₁} 
+@[drunfold] def getIO.{u₁, u₂} {S : Type u₁} 
     (l: PortMap Ident (Σ T : Type u₂, (S → T → S → Prop))) (n : Ident)
     : Σ T : Type u₂, (S → T → S → Prop) := 
   l.find? ↑n |>.getD (⟨ PUnit, λ _ _ _ => True ⟩)
@@ -94,7 +94,7 @@ def getIO.{u₁, u₂} {S : Type u₁}
 /--
 Get any internal port from the `PortMap`.
 -/
-def getInternalPort.{u₁, u₂} {S : Type u₁} 
+@[drunfold] def getInternalPort.{u₁, u₂} {S : Type u₁} 
     (l: PortMap Ident (Σ T : Type u₂, (S → T → S → Prop))) 
     (n : InternalPort Ident)
     : Σ T : Type u₂, (S → T → S → Prop) :=
@@ -121,7 +121,7 @@ namespace Module'
 /--
 The empty module, which should also be the `default` module.
 -/
-def empty {Ident S : Type _} : Module' Ident S := {inputs := ∅, outputs := ∅, internals:= ∅}
+@[drunfold] def empty {Ident S : Type _} : Module' Ident S := {inputs := ∅, outputs := ∅, internals:= ∅}
 
 theorem empty_is_default {Ident S} : @empty Ident S = default := Eq.refl _
 
@@ -129,25 +129,25 @@ variable {Ident : Type _}
 variable [DecidableEq Ident]
 variable [Inhabited Ident]
 
-def liftL {S S'} (x: (T : Type _) × (S → T → S → Prop)) 
+@[drunfold] def liftL {S S'} (x: (T : Type _) × (S → T → S → Prop)) 
     : (T : Type _) × (S × S' → T → S × S' → Prop) :=
   ⟨ x.1, λ (a,b) ret (a',b') => x.2 a ret a' ∧ b = b' ⟩
 
-def liftR {S S'} (x: (T : Type _) × (S' → T → S' → Prop)) 
+@[drunfold] def liftR {S S'} (x: (T : Type _) × (S' → T → S' → Prop)) 
     : (T : Type _) × (S × S' → T → S × S' → Prop) :=
   ⟨ x.1, λ (a,b) ret (a',b') => x.2 b ret b' ∧ a = a' ⟩
 
-def liftL' {S S'} (x:  S → S → Prop) : S × S' → S × S' → Prop :=
+@[drunfold] def liftL' {S S'} (x:  S → S → Prop) : S × S' → S × S' → Prop :=
   λ (a,b) (a',b') => x a a' ∧ b = b'
 
-def liftR' {S S'} (x:  S' → S' → Prop) : S × S' → S × S' → Prop :=
+@[drunfold] def liftR' {S S'} (x:  S' → S' → Prop) : S × S' → S × S' → Prop :=
   λ (a,b) (a',b') => x b b' ∧ a = a'
 
 /--
 `connect'` will produce a new rule that fuses an input with an output, with a
 precondition that the input and output type must match.
 -/
-def connect' {S : Type _} (mod : Module' Ident S) (o i : InternalPort Ident) : Module' Ident S :=
+@[drunfold] def connect' {S : Type _} (mod : Module' Ident S) (o i : InternalPort Ident) : Module' Ident S :=
   { inputs := mod.inputs.erase i ,
     outputs :=  mod.outputs.erase o,
     internals := 
@@ -157,25 +157,25 @@ def connect' {S : Type _} (mod : Module' Ident S) (o i : InternalPort Ident) : M
             ∧ (mod.inputs.getInternalPort i).2 consumed_output (wf.mpr output) st')
       :: mod.internals }
 
-def product {S S'} (mod1 : Module' Ident S) (mod2: Module' Ident S') : Module' Ident (S × S') :=
+@[drunfold] def product {S S'} (mod1 : Module' Ident S) (mod2: Module' Ident S') : Module' Ident (S × S') :=
   { inputs := (mod1.inputs.mapVal (λ _ => liftL)).append (mod2.inputs.mapVal (λ _ => liftR)),
     outputs := (mod1.outputs.mapVal (λ _ => liftL)).append (mod2.outputs.mapVal (λ _ => liftR)),
     internals := mod1.internals.map liftL' ++ mod2.internals.map liftR'
   }
 
-def renamePorts {S} (mod : Module' Ident S) (f : InternalPort Ident → InternalPort Ident) : Module' Ident S :=
+@[drunfold] def renamePorts {S} (mod : Module' Ident S) (f : InternalPort Ident → InternalPort Ident) : Module' Ident S :=
   { inputs := mod.inputs.modifyKeys f,
     outputs := mod.outputs.modifyKeys f,
     internals := mod.internals
   }
 
-def renameToInput {S} (mod : Module' Ident S) (f : InternalPort Ident → InternalPort Ident) : Module' Ident S :=
+@[drunfold] def renameToInput {S} (mod : Module' Ident S) (f : InternalPort Ident → InternalPort Ident) : Module' Ident S :=
   { inputs := mod.inputs.modifyKeys f,
     outputs := mod.outputs,
     internals := mod.internals
   }
 
-def renameToOutput {S} (mod : Module' Ident S) (f : InternalPort Ident → InternalPort Ident) : Module' Ident S :=
+@[drunfold] def renameToOutput {S} (mod : Module' Ident S) (f : InternalPort Ident → InternalPort Ident) : Module' Ident S :=
   { inputs := mod.inputs,
     outputs := mod.outputs.modifyKeys f,
     internals := mod.internals
@@ -266,13 +266,18 @@ structure comp_refines (R : I → S → Prop) (init_i : I) (init_s : S) : Prop w
         ∧ R mid_i mid_s
         ∧ indistinguishable imod smod mid_i mid_s
 
-def refines (R : I → S → Prop) :=
+@[drunfold] def refines (R : I → S → Prop) :=
   ∀ (init_i : I) (init_s : S),
     R init_i init_s →
     indistinguishable imod smod init_i init_s →
     comp_refines imod smod R init_i init_s
 
+notation:35 x " ⊑_{" f:35 "} " y:34 => refines x y f
+
 end Refinement
+
+instance {n} : OfNat (InstIdent Nat) n where
+  ofNat := .internal n
 
 instance {n} : OfNat (InternalPort Nat) n where
   ofNat := ⟨ .top, n ⟩

@@ -7,3 +7,4 @@ Authors: Yann Herklotz
 import Lean
 
 register_simp_attr dmod
+register_simp_attr drunfold
