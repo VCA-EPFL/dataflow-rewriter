@@ -6,16 +6,14 @@ Authors: Yann Herklotz
 
 import DataflowRewriter.Module
 
-namespace DataflowRewriter
+namespace DataflowRewriter.Module
 
-@[simp]
 def io (T : Type) : Module (List T) :=
   { inputs := [(0, ⟨ T, λ s t s' => s' = t :: s ⟩)].toAssocList,
     internals := [],
     outputs := [(0, ⟨ T, λ s t s' => s = s' ++ [t] ⟩)].toAssocList
   }
 
-@[simp]
 def merge_inputs {S} (mod : Module S) (in1 in2 : InternalPort Nat) : Option (Module S)  := do
   let in1_t ← mod.inputs.find? in1;
   let in2_t ← mod.inputs.find? in2;
@@ -27,7 +25,6 @@ def merge_inputs {S} (mod : Module S) (in1 in2 : InternalPort Nat) : Option (Mod
          outputs := mod.outputs,
          internals := mod.internals }
 
-@[simp]
 def merge_outputs {S} (mod : Module S) (out1 out2 : InternalPort Nat) : Option (Module S)  := do
   let out1_t ← mod.outputs.find? out1;
   let out2_t ← mod.outputs.find? out2;
@@ -39,7 +36,6 @@ def merge_outputs {S} (mod : Module S) (out1 out2 : InternalPort Nat) : Option (
              inputs := mod.inputs,
              internals := mod.internals }
 
-@[simp]
 def merge T : Module (List T) :=
       { inputs := [(0, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
                    (1, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
@@ -49,7 +45,6 @@ def merge T : Module (List T) :=
         internals := []
       }
 
-@[simp]
 def fork T : Module (List T) :=
       { inputs := [(0, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
         outputs := [ (0, ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)
@@ -58,4 +53,4 @@ def fork T : Module (List T) :=
         internals := []
       }
 
-end DataflowRewriter
+end DataflowRewriter.Module
