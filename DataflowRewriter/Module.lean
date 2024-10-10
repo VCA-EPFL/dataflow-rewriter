@@ -86,16 +86,28 @@ variable [Inhabited Ident]
 Get an IO port using external IO ports, i.e. `InternalPort Ident` with the
 instance set to `top`.
 -/
-@[drunfold] def getIO.{u₁, u₂} {S : Type u₁} 
+@[drunfold] def getIO.{u₁, u₂} {S : Type u₁}
     (l: PortMap Ident (Σ T : Type u₂, (S → T → S → Prop))) (n : Ident)
-    : Σ T : Type u₂, (S → T → S → Prop) := 
+    : Σ T : Type u₂, (S → T → S → Prop) :=
   l.find? ↑n |>.getD (⟨ PUnit, λ _ _ _ => True ⟩)
+
+theorem getIO_none {S} (m : PortMap Ident ((T : Type) × (S → T → S → Prop)))
+        (ident : Ident) :
+  m.find? ↑ident = none ->
+  m.getIO ident = ⟨ PUnit, λ _ _ _ => True ⟩ := by
+  intros H; simp only [PortMap.getIO, H]; simp
+
+theorem getIO_some {S} (m : PortMap Ident ((T : Type) × (S → T → S → Prop)))
+        (ident : Ident) t :
+  m.find? ↑ident = some t ->
+  m.getIO ident = t := by
+  intros H; simp only [PortMap.getIO, H]; simp
 
 /--
 Get any internal port from the `PortMap`.
 -/
-@[drunfold] def getInternalPort.{u₁, u₂} {S : Type u₁} 
-    (l: PortMap Ident (Σ T : Type u₂, (S → T → S → Prop))) 
+@[drunfold] def getInternalPort.{u₁, u₂} {S : Type u₁}
+    (l: PortMap Ident (Σ T : Type u₂, (S → T → S → Prop)))
     (n : InternalPort Ident)
     : Σ T : Type u₂, (S → T → S → Prop) :=
   l.find? n |>.getD (⟨ PUnit, λ _ _ _ => True ⟩)
@@ -129,11 +141,11 @@ variable {Ident : Type _}
 variable [DecidableEq Ident]
 variable [Inhabited Ident]
 
-@[drunfold] def liftL {S S'} (x: (T : Type _) × (S → T → S → Prop)) 
+@[drunfold] def liftL {S S'} (x: (T : Type _) × (S → T → S → Prop))
     : (T : Type _) × (S × S' → T → S × S' → Prop) :=
   ⟨ x.1, λ (a,b) ret (a',b') => x.2 a ret a' ∧ b = b' ⟩
 
-@[drunfold] def liftR {S S'} (x: (T : Type _) × (S' → T → S' → Prop)) 
+@[drunfold] def liftR {S S'} (x: (T : Type _) × (S' → T → S' → Prop))
     : (T : Type _) × (S × S' → T → S × S' → Prop) :=
   ⟨ x.1, λ (a,b) ret (a',b') => x.2 b ret b' ∧ a = a' ⟩
 
@@ -150,10 +162,10 @@ precondition that the input and output type must match.
 @[drunfold] def connect' {S : Type _} (mod : Module' Ident S) (o i : InternalPort Ident) : Module' Ident S :=
   { inputs := mod.inputs.erase i ,
     outputs :=  mod.outputs.erase o,
-    internals := 
-      (λ st st' => 
+    internals :=
+      (λ st st' =>
         ∀ wf : (mod.inputs.getInternalPort i).1 = (mod.outputs.getInternalPort o).1,
-          ∃ consumed_output output, (mod.outputs.getInternalPort o).2 st output consumed_output 
+          ∃ consumed_output output, (mod.outputs.getInternalPort o).2 st output consumed_output
             ∧ (mod.inputs.getInternalPort i).2 consumed_output (wf.mpr output) st')
       :: mod.internals }
 
@@ -247,7 +259,6 @@ structure comp_refines (R : I → S → Prop) (init_i : I) (init_s : S) : Prop w
         (smod.inputs.getIO ident).2 init_s ((mm.input_types ident).mp v) almost_mid_s
         ∧ existSR smod almost_mid_s mid_s
         ∧ R mid_i mid_s
-        ∧ indistinguishable imod smod mid_i mid_s
   outputs :
     ∀ ident mid_i v,
       imod.outputs.contains ↑ident →
@@ -256,7 +267,6 @@ structure comp_refines (R : I → S → Prop) (init_i : I) (init_s : S) : Prop w
         (smod.outputs.getIO ident).2 init_s ((mm.output_types ident).mp v) almost_mid_s
         ∧ existSR smod almost_mid_s mid_s
         ∧ R mid_i mid_s
-        ∧ indistinguishable imod smod mid_i mid_s
   internals :
     ∀ rule mid_i,
       rule ∈ imod.internals →
@@ -264,15 +274,41 @@ structure comp_refines (R : I → S → Prop) (init_i : I) (init_s : S) : Prop w
       ∃ mid_s,
         existSR smod init_s mid_s
         ∧ R mid_i mid_s
-        ∧ indistinguishable imod smod mid_i mid_s
 
-@[drunfold] def refines (R : I → S → Prop) :=
+def refines_φ (R : I → S → Prop) :=
   ∀ (init_i : I) (init_s : S),
     R init_i init_s →
-    indistinguishable imod smod init_i init_s →
     comp_refines imod smod R init_i init_s
 
-notation:35 x " ⊑_{" f:35 "} " y:34 => refines x y f
+def refines :=
+  ∃ (R : I → S → Prop),
+    ∀ (init_i : I) (init_s : S),
+      R init_i init_s →
+      indistinguishable imod smod init_i init_s →
+      comp_refines imod smod (fun a b => indistinguishable imod smod a b ∧ R a b) init_i init_s
+
+notation:35 x " ⊑_{" f:35 "} " y:34 => refines_φ x y f
+notation:35 x " ⊑ " y:34 => refines x y
+
+omit [Inhabited Ident] in
+theorem refines_φ_refines {φ} :
+  (∀ i_init s_init, φ i_init s_init → indistinguishable imod smod i_init s_init) →
+  imod ⊑_{φ} smod →
+  imod ⊑ smod := by
+  intro Hind Href
+  exists φ
+  intro init_i init_s Hphi Hindis
+  specialize Href init_i init_s Hphi
+  rcases Href with ⟨ Hin, Hout, Hint ⟩; constructor
+  · intro ident mid_i v Hcont Hrule
+    specialize Hin ident mid_i v Hcont Hrule
+    tauto
+  · intro ident mid_i v Hcont Hrule
+    specialize Hout ident mid_i v Hcont Hrule
+    tauto
+  · intro rule mid_i Hcont Hrule
+    specialize Hint rule mid_i Hcont Hrule
+    tauto
 
 end Refinement
 
