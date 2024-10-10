@@ -145,7 +145,7 @@ theorem φ_indistinguishable {T} :
     constructor; exists i'; and_intros; rfl
     simp [←Hi']
 
-theorem correct_threeway_merge' {T: Type _} [DecidableEq T]:
+theorem correct_threeway_merge'' {T: Type _} [DecidableEq T]:
     (merge_sem' T).snd ⊑_{φ} threemerge' T := by
   intro ⟨ x1, x2 ⟩ y HPerm
   apply comp_refines.mk
@@ -230,9 +230,16 @@ theorem correct_threeway_merge' {T: Type _} [DecidableEq T]:
     constructor; and_intros
     all_goals first | rfl | apply existSR.done | assumption
 
-theorem correct_threeway_merge {T: Type _} [DecidableEq T] :
+theorem correct_threeway_merge' {T: Type _} [DecidableEq T] :
     (merge_sem' T).snd ⊑ threemerge' T :=
-  refines_φ_refines (merge_sem' T).snd (threemerge' T) φ_indistinguishable correct_threeway_merge'
+  refines_φ_refines (merge_sem' T).snd (threemerge' T) φ_indistinguishable correct_threeway_merge''
+
+instance {T} : MatchInterface (merge_sem T).snd (threemerge T) :=
+  inferInstanceAs (MatchInterface (merge_sem' T).snd (threemerge' T))
+
+theorem correct_threeway_merge {T: Type _} [DecidableEq T] :
+    (merge_sem T).snd ⊑ threemerge T := by
+  apply correct_threeway_merge'
 
 /--
 info: 'DataflowRewriter.correct_threeway_merge' depends on axioms: [propext, Classical.choice, Quot.sound]
