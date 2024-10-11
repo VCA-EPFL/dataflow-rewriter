@@ -4,7 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import Leanses
 import Lean
 import Init.Data.BitVec.Lemmas
 import Qq
@@ -35,7 +34,7 @@ elab "precompute " t:term : tactic => Tactic.withMainContext do
       reallyReduce (skipArgs := false) (skipTypes := false) expr
   (← Tactic.getMainGoal).assign expr
 
-def threemerge T : Module (List T):=
+def threemerge T : NatModule (List T):=
   { inputs := [(0, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
                (1, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
                (2, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
@@ -44,7 +43,7 @@ def threemerge T : Module (List T):=
   }
 
 seal _root_.List.get _root_.List.remove in
-@[drunfold] def threemerge' (T:Type) : Module (List T) := by precompute threemerge T
+@[drunfold] def threemerge' (T:Type) : NatModule (List T) := by precompute threemerge T
 
 opaque threemerge_threemerge' T : threemerge T = threemerge' T := by rfl
 
@@ -62,7 +61,7 @@ def merge_sem (T: Type _) :=
   mergeLow.build_module [(0, ⟨List T, Module.merge T⟩)].toAssocList
 
 seal List.get List.remove in
-@[drunfold] def merge_sem' (T:Type) : ((X:Type) × Module X) := by precompute merge_sem T
+@[drunfold] def merge_sem' (T:Type) : ((X:Type) × NatModule X) := by precompute merge_sem T
 
 attribute [dmod] Batteries.AssocList.find? BEq.beq
 
@@ -123,7 +122,7 @@ theorem sigma_rw {S T : Type _} {m m' : Σ (y : Type _), S → y → T → Prop}
 def φ {T} (x : List T × List T) (y : List T) := (x.1 ++ x.2).Perm y
 
 theorem φ_indistinguishable {T} :
-  ∀ x y, φ x y → indistinguishable (merge_sem' T).snd (threemerge' T) x y := by
+  ∀ x y, φ x y → Module.indistinguishable (merge_sem' T).snd (threemerge' T) x y := by
   unfold φ; intro x y H
   constructor <;> intro ident new_i v Hcontains Hsem
   · have Hkeys := keysInMap Hcontains; clear Hcontains
@@ -148,7 +147,7 @@ theorem φ_indistinguishable {T} :
 theorem correct_threeway_merge'' {T: Type _} [DecidableEq T]:
     (merge_sem' T).snd ⊑_{φ} threemerge' T := by
   intro ⟨ x1, x2 ⟩ y HPerm
-  apply comp_refines.mk
+  apply Module.comp_refines.mk
   . intro ident ⟨x'1, x'2⟩ v Hcontains Himod
     have := keysInMap Hcontains
     fin_cases this
@@ -232,7 +231,7 @@ theorem correct_threeway_merge'' {T: Type _} [DecidableEq T]:
 
 theorem correct_threeway_merge' {T: Type _} [DecidableEq T] :
     (merge_sem' T).snd ⊑ threemerge' T :=
-  refines_φ_refines (merge_sem' T).snd (threemerge' T) φ_indistinguishable correct_threeway_merge''
+  Module.refines_φ_refines (merge_sem' T).snd (threemerge' T) φ_indistinguishable correct_threeway_merge''
 
 instance {T} : MatchInterface (merge_sem T).snd (threemerge T) :=
   inferInstanceAs (MatchInterface (merge_sem' T).snd (threemerge' T))

@@ -115,11 +115,11 @@ Get any internal port from the `PortMap`.
 end PortMap
 
 /--
-`Module'` definition, which is our definition of circuit semantics.  It can have
+`Module` definition, which is our definition of circuit semantics.  It can have
 inputs and outputs, which are maps from `Ident` to transition rules accept or
 return a value.
 -/
-structure Module' (Ident S : Type _) where
+structure Module (Ident S : Type _) where
   inputs : PortMap Ident (Σ T : Type, (S → T → S → Prop))
   outputs : PortMap Ident (Σ T : Type, (S → T → S → Prop))
   internals : List (S → S → Prop)
@@ -128,12 +128,12 @@ structure Module' (Ident S : Type _) where
 -- mklenses Module
 -- open Module.l
 
-namespace Module'
+namespace Module
 
 /--
 The empty module, which should also be the `default` module.
 -/
-@[drunfold] def empty {Ident S : Type _} : Module' Ident S := {inputs := ∅, outputs := ∅, internals:= ∅}
+@[drunfold] def empty {Ident S : Type _} : Module Ident S := {inputs := ∅, outputs := ∅, internals:= ∅}
 
 theorem empty_is_default {Ident S} : @empty Ident S = default := Eq.refl _
 
@@ -159,7 +159,7 @@ variable [Inhabited Ident]
 `connect'` will produce a new rule that fuses an input with an output, with a
 precondition that the input and output type must match.
 -/
-@[drunfold] def connect' {S : Type _} (mod : Module' Ident S) (o i : InternalPort Ident) : Module' Ident S :=
+@[drunfold] def connect' {S : Type _} (mod : Module Ident S) (o i : InternalPort Ident) : Module Ident S :=
   { inputs := mod.inputs.erase i ,
     outputs :=  mod.outputs.erase o,
     internals :=
@@ -169,31 +169,31 @@ precondition that the input and output type must match.
             ∧ (mod.inputs.getInternalPort i).2 consumed_output (wf.mpr output) st')
       :: mod.internals }
 
-@[drunfold] def product {S S'} (mod1 : Module' Ident S) (mod2: Module' Ident S') : Module' Ident (S × S') :=
+@[drunfold] def product {S S'} (mod1 : Module Ident S) (mod2: Module Ident S') : Module Ident (S × S') :=
   { inputs := (mod1.inputs.mapVal (λ _ => liftL)).append (mod2.inputs.mapVal (λ _ => liftR)),
     outputs := (mod1.outputs.mapVal (λ _ => liftL)).append (mod2.outputs.mapVal (λ _ => liftR)),
     internals := mod1.internals.map liftL' ++ mod2.internals.map liftR'
   }
 
-@[drunfold] def renamePorts {S} (mod : Module' Ident S) (f : InternalPort Ident → InternalPort Ident) : Module' Ident S :=
+@[drunfold] def renamePorts {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
   { inputs := mod.inputs.modifyKeys f,
     outputs := mod.outputs.modifyKeys f,
     internals := mod.internals
   }
 
-@[drunfold] def renameToInput {S} (mod : Module' Ident S) (f : InternalPort Ident → InternalPort Ident) : Module' Ident S :=
+@[drunfold] def renameToInput {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
   { inputs := mod.inputs.modifyKeys f,
     outputs := mod.outputs,
     internals := mod.internals
   }
 
-@[drunfold] def renameToOutput {S} (mod : Module' Ident S) (f : InternalPort Ident → InternalPort Ident) : Module' Ident S :=
+@[drunfold] def renameToOutput {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
   { inputs := mod.inputs,
     outputs := mod.outputs.modifyKeys f,
     internals := mod.internals
   }
 
-end Module'
+end Module
 
 /-
 The following definition lives in `Type`, I'm not sure if a type class can live
@@ -206,7 +206,7 @@ variable {Ident} [DecidableEq Ident] [Inhabited Ident] in
 Match two interfaces of two modules, which implies that the types of all the
 input and output rules match.
 -/
-class MatchInterface {I S} (imod : Module' Ident I) (smod : Module' Ident S) where
+class MatchInterface {I S} (imod : Module Ident I) (smod : Module Ident S) where
   input_types : ∀ (ident : Ident), (imod.inputs.getIO ident).1 = (smod.inputs.getIO ident).1
   output_types : ∀ (ident : Ident), (imod.outputs.getIO ident).1 = (smod.outputs.getIO ident).1
 
@@ -214,13 +214,15 @@ class MatchInterface {I S} (imod : Module' Ident I) (smod : Module' Ident S) whe
 State that there exists zero or more internal rule executions to reach a final
 state from an initial state.
 -/
-inductive existSR {Ident S : Type _} (mod : Module' Ident S) : S → S → Prop where
+inductive existSR {Ident S : Type _} (mod : Module Ident S) : S → S → Prop where
   | done : ∀ init, existSR mod init init
   | step : ∀ init mid final rule,
       rule ∈ mod.internals →
       rule init mid →
       existSR mod mid final →
       existSR mod init final
+
+namespace Module
 
 section Refinement
 
@@ -230,8 +232,8 @@ variable {Ident : Type _}
 variable [DecidableEq Ident]
 variable [Inhabited Ident]
 
-variable (imod : Module' Ident I)
-variable (smod : Module' Ident S)
+variable (imod : Module Ident I)
+variable (smod : Module Ident S)
 
 variable [mm : MatchInterface imod smod]
 
@@ -287,7 +289,7 @@ def refines :=
       indistinguishable imod smod init_i init_s →
       comp_refines imod smod (fun a b => indistinguishable imod smod a b ∧ R a b) init_i init_s
 
-notation:35 x " ⊑_{" f:35 "} " y:34 => refines_φ x y f
+notation:35 x " ⊑_{" R:35 "} " y:34 => refines_φ x y R
 notation:35 x " ⊑ " y:34 => refines x y
 
 omit [Inhabited Ident] in
@@ -312,14 +314,16 @@ theorem refines_φ_refines {φ} :
 
 end Refinement
 
+end Module
+
 instance {n} : OfNat (InstIdent Nat) n where
   ofNat := .internal n
 
 instance {n} : OfNat (InternalPort Nat) n where
   ofNat := ⟨ .top, n ⟩
 
-abbrev Module := Module' Nat
+abbrev NatModule := Module Nat
 
-abbrev StringModule := Module' String
+abbrev StringModule := Module String
 
 end DataflowRewriter

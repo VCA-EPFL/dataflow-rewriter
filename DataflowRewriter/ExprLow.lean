@@ -33,8 +33,8 @@ namespace ExprLow
 variable {Ident}
 variable [DecidableEq Ident]
 
-@[drunfold] def build_module' (ε : IdentMap Ident ((T: Type _) × Module' Ident T))
-    : ExprLow Ident → Option ((T: Type _) × Module' Ident T)
+@[drunfold] def build_module' (ε : IdentMap Ident ((T: Type _) × Module Ident T))
+    : ExprLow Ident → Option ((T: Type _) × Module Ident T)
   | .base i e => do
     let mod ← ε.find? e
     return ⟨ mod.1, mod.2.renamePorts (λ ⟨ _, y ⟩ => ⟨ .internal i, y ⟩ ) ⟩
@@ -52,10 +52,49 @@ variable [DecidableEq Ident]
     let b <- build_module' ε b;
     return ⟨a.1 × b.1, a.2.product b.2⟩
 
-@[drunfold] def build_module (ε : IdentMap Ident ((T : Type _) × Module' Ident T))
+@[drunfold] def build_module (ε : IdentMap Ident (Σ (T : Type _), Module Ident T))
     (e : ExprLow Ident)
     (h : (build_module' ε e).isSome = true := by rfl)
-    : (T : Type _) × Module' Ident T := build_module' ε e |>.get h
+    : (T : Type _) × Module Ident T := build_module' ε e |>.get h
+
+theorem build_module_modify {ε : IdentMap Ident (Σ (T : Type), Module Ident T)} {expr} {m : (Σ (T : Type), Module Ident T)} {i : Ident} :
+  (build_module' ε expr).isSome → (build_module' (ε.modify i (λ _ _ => m)) expr).isSome := by sorry
+
+section Refinement
+
+universe v w
+
+variable {Ident : Type w}
+variable [DecidableEq Ident]
+variable [Inhabited Ident]
+
+variable (ε : IdentMap Ident ((T : Type) × Module Ident T))
+variable (iexpr : ExprLow Ident)
+variable (hiexpr : (build_module' ε iexpr).isSome)
+
+variable {S : Type v}
+variable (smod : Module Ident S)
+
+variable [MatchInterface (build_module ε iexpr hiexpr).2 smod]
+
+def refines_φ (R : (build_module ε iexpr hiexpr).1 → S → Prop) :=
+  (build_module ε iexpr hiexpr).2 ⊑_{R} smod
+
+def refines := ∃ R, (build_module ε iexpr hiexpr).2 ⊑_{R} smod
+
+notation:35 x " ⊑ₑ_{" f:35 "} " y:34 => refines_φ x y f
+notation:35 x " ⊑ₑ " y:34 => refines x y
+
+theorem substitution {T ident mod} {mod' : Module Ident T}
+        [MatchInterface (build_module (ε.modify ident (λ _ _ => ⟨T, mod'⟩)) iexpr (build_module_modify hiexpr)).2 smod]
+        [MatchInterface mod mod']
+        (R : (build_module ε iexpr hiexpr).1 → S → Prop) :
+  (build_module ε iexpr hiexpr).2 ⊑ smod →
+  ε.find? ident = some ⟨ T, mod ⟩ →
+  mod ⊑ mod' →
+  (build_module (ε.modify ident (λ _ _ => ⟨T, mod'⟩)) iexpr (build_module_modify hiexpr)).2 ⊑ smod := by sorry
+
+end Refinement
 
 end ExprLow
 end DataflowRewriter

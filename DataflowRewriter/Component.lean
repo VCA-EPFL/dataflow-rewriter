@@ -9,13 +9,13 @@ import DataflowRewriter.Simp
 
 namespace DataflowRewriter.Module
 
-@[drunfold] def io (T : Type) : Module (List T) :=
+@[drunfold] def io (T : Type) : NatModule (List T) :=
   { inputs := [(0, ⟨ T, λ s t s' => s' = t :: s ⟩)].toAssocList,
     internals := [],
     outputs := [(0, ⟨ T, λ s t s' => s = s' ++ [t] ⟩)].toAssocList
   }
 
-@[drunfold] def merge_inputs {S} (mod : Module S) (in1 in2 : InternalPort Nat) : Option (Module S)  := do
+@[drunfold] def merge_inputs {S} (mod : NatModule S) (in1 in2 : InternalPort Nat) : Option (NatModule S)  := do
   let in1_t ← mod.inputs.find? in1;
   let in2_t ← mod.inputs.find? in2;
   let rmin2 := mod.inputs.erase in2;
@@ -26,7 +26,7 @@ namespace DataflowRewriter.Module
          outputs := mod.outputs,
          internals := mod.internals }
 
-@[drunfold] def merge_outputs {S} (mod : Module S) (out1 out2 : InternalPort Nat) : Option (Module S)  := do
+@[drunfold] def merge_outputs {S} (mod : NatModule S) (out1 out2 : InternalPort Nat) : Option (NatModule S)  := do
   let out1_t ← mod.outputs.find? out1;
   let out2_t ← mod.outputs.find? out2;
   let rmout2 := mod.outputs.erase out2;
@@ -37,7 +37,7 @@ namespace DataflowRewriter.Module
              inputs := mod.inputs,
              internals := mod.internals }
 
-@[drunfold] def merge T : Module (List T) :=
+@[drunfold] def merge T : NatModule (List T) :=
       { inputs := [(0, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
                    (1, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
         outputs := [(0, ⟨ T, λ oldList oldElement newList => 
@@ -46,7 +46,7 @@ namespace DataflowRewriter.Module
         internals := []
       }
 
-@[drunfold] def fork T : Module (List T) :=
+@[drunfold] def fork T : NatModule (List T) :=
       { inputs := [(0, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
         outputs := [ (0, ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)
                    , (1, ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)
