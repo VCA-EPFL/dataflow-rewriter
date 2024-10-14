@@ -134,7 +134,7 @@ namespace Module
 /--
 The empty module, which should also be the `default` module.
 -/
-@[drunfold] def empty {Ident S : Type _} : Module Ident S := {inputs := ∅, outputs := ∅, internals:= ∅}
+@[drunfold] def empty {Ident : Type _} S : Module Ident S := {inputs := ∅, outputs := ∅, internals:= ∅}
 
 theorem empty_is_default {Ident S} : @empty Ident S = default := Eq.refl _
 
@@ -364,8 +364,8 @@ theorem refines_φ_refines {φ} :
 end Refinement
 
 theorem empty_refines {Ident S I₁ I₂} [DecidableEq Ident] {smod : Module Ident S} :
-  @empty Ident I₁ ⊑ smod →
-  @empty Ident I₂ ⊑ smod := by sorry
+  empty I₁ ⊑ smod →
+  empty I₂ ⊑ smod := by sorry
 
 end Module
 
