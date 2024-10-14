@@ -6,6 +6,7 @@ Authors: Yann Herklotz
 
 import DataflowRewriter.Module
 import DataflowRewriter.Simp
+import DataflowRewriter.HVector
 
 namespace DataflowRewriter
 
@@ -33,32 +34,96 @@ namespace ExprLow
 variable {Ident}
 variable [DecidableEq Ident]
 
-@[drunfold] def build_module' (ε : IdentMap Ident ((T: Type _) × Module Ident T))
-    : ExprLow Ident → Option ((T: Type _) × Module Ident T)
-  | .base i e => do
-    let mod ← ε.find? e
-    return ⟨ mod.1, mod.2.renamePorts (λ ⟨ _, y ⟩ => ⟨ .internal i, y ⟩ ) ⟩
+def get_types (ε : IdentMap Ident (Σ T, Module Ident T)) (i : Ident) : Type* :=
+  (ε.find? i) |>.map Sigma.fst |>.getD PUnit
+
+def ident_list : ExprLow Ident → List Ident
+  | .base i e => [e]
+  | .input _ _ e
+  | .output _ _ e
+  | .connect _ _ e => e.ident_list
+  | .product a b => a.ident_list ++ b.ident_list
+
+abbrev EType ε (e : ExprLow Ident) := (HVector (get_types ε) e.ident_list)
+
+@[drunfold] def build_module' (ε : IdentMap Ident ((T: Type) × Module Ident T))
+    : (e : ExprLow Ident) → Option (Module Ident (EType ε e))
+  | .base i e =>
+    match h : ε.find? e with
+    | some mod =>
+      have H : mod.1 = get_types ε e := by
+        simp [Batteries.AssocList.find?_eq] at h
+        rcases h with ⟨ l, r ⟩
+        simp_all [get_types]
+      some ((H ▸ mod.2).liftD)
+    | none => none
   | .input a b e' => do
     let e ← build_module' ε e'
-    return ⟨ e.1, e.2.renameToInput (λ p => if p == a then ⟨ .top, b ⟩ else p) ⟩
+    return e.renameToInput (λ p => if p == a then ⟨ .top, b ⟩ else p)
   | .output a b e' => do
     let e ← build_module' ε e'
-    return ⟨ e.1, e.2.renameToOutput (λ p => if p == a then ⟨ .top, b ⟩ else p) ⟩
+    return e.renameToOutput (λ p => if p == a then ⟨ .top, b ⟩ else p)
   | .connect o i e' => do
     let e ← build_module' ε e'
-    return ⟨e.1, e.2.connect' o i⟩
+    return e.connect' o i
   | .product a b => do
-    let a <- build_module' ε a;
-    let b <- build_module' ε b;
-    return ⟨a.1 × b.1, a.2.product b.2⟩
+    let a ← build_module' ε a;
+    let b ← build_module' ε b;
+    return a.productD b
 
-@[drunfold] def build_module (ε : IdentMap Ident (Σ (T : Type _), Module Ident T))
+@[drunfold] def build_moduleP (ε : IdentMap Ident (Σ T, Module Ident T))
     (e : ExprLow Ident)
     (h : (build_module' ε e).isSome = true := by rfl)
-    : (T : Type _) × Module Ident T := build_module' ε e |>.get h
+    : Module Ident (EType ε e) := build_module' ε e |>.get h
 
-theorem build_module_modify {ε : IdentMap Ident (Σ (T : Type), Module Ident T)} {expr} {m : (Σ (T : Type), Module Ident T)} {i : Ident} :
-  (build_module' ε expr).isSome → (build_module' (ε.modify i (λ _ _ => m)) expr).isSome := by sorry
+@[drunfold] def build_module (ε : IdentMap Ident (Σ T, Module Ident T))
+    (e : ExprLow Ident)
+    : Module Ident (EType ε e) := build_module' ε e |>.getD Module.empty
+
+@[drunfold] abbrev build_module_expr (ε : IdentMap Ident (Σ T, Module Ident T))
+    (e : ExprLow Ident)
+    : Module Ident (EType ε e) := build_module ε e
+
+notation:25 "[e| " e ", " ε " ]" => build_module_expr ε e
+notation:25 "[T| " e ", " ε " ]" => EType ε e
+
+-- theorem build_module_replace {ε : IdentMap Ident (Σ (T : Type), Module Ident T)} {expr} {m : (Σ (T : Type), Module Ident T)} {i : Ident} :
+--   (build_module' ε expr).isSome → (build_module' (ε.replace i m) expr).isSome := by sorry
+
+def _root_.DataflowRewriter.IdentMap.replace_env (ε : IdentMap Ident (Σ (T : Type _), Module Ident T)) {ident mod}
+  (h : ε.mem ident mod) mod' :=
+  (ε.replace ident mod')
+
+notation:25 "{" ε " | " h " := " mod' "}" => IdentMap.replace_env ε h mod'
+
+theorem find?_modify {modIdent ident m m'} {ε : IdentMap Ident (Σ (T : Type _), Module Ident T)}
+  (h : ε.mem ident m') :
+  Batteries.AssocList.find? modIdent ε = none →
+  Batteries.AssocList.find? modIdent ({ε | h := m}) = none := by sorry
+
+instance
+  {ε : IdentMap Ident (Σ (T : Type _), Module Ident T)}
+  {S ident iexpr} {mod : Σ T : Type _, Module Ident T}
+  {mod' : Σ T : Type _, Module Ident T} {smod : Module Ident S}
+  {h : ε.mem ident mod}
+  [MatchInterface mod.2 mod'.2]
+  [MatchInterface ([e| iexpr, ε ]) smod]
+  : MatchInterface ([e| iexpr, {ε | h := mod'} ]) smod := by sorry
+
+theorem build_module'.dep_rewrite {instIdent} : ∀ {modIdent : Ident} {ε a} (Hfind : ε.find? modIdent = a), (Option.rec (motive := fun x =>
+          Batteries.AssocList.find? modIdent ε = x →
+            Option (Module Ident ([T| base instIdent modIdent, ε ])))
+          (fun h_1 => none)
+          (fun val h_1 => some (build_module'.proof_2 ε modIdent val h_1 ▸ val.snd).liftD)
+          (Batteries.AssocList.find? modIdent ε)
+          (Eq.refl (Batteries.AssocList.find? modIdent ε))) =
+        (Option.rec (motive := fun x =>
+            a = x →
+              Option (Module Ident ([T| base instIdent modIdent, ε ])))
+            (fun h_1 => none)
+            (fun val h_1 => some (build_module'.proof_2 ε modIdent val (Hfind ▸ h_1) ▸ val.snd).liftD)
+            a
+            (Eq.refl a)) := by intro a b c d; cases d; rfl
 
 section Refinement
 
@@ -68,31 +133,47 @@ variable {Ident : Type w}
 variable [DecidableEq Ident]
 variable [Inhabited Ident]
 
-variable (ε : IdentMap Ident ((T : Type) × Module Ident T))
-variable (iexpr : ExprLow Ident)
-variable (hiexpr : (build_module' ε iexpr).isSome)
+variable (ε : IdentMap Ident ((T : Type _) × Module Ident T))
 
 variable {S : Type v}
 variable (smod : Module Ident S)
 
-variable [MatchInterface (build_module ε iexpr hiexpr).2 smod]
+#check Option.rec
 
-def refines_φ (R : (build_module ε iexpr hiexpr).1 → S → Prop) :=
-  (build_module ε iexpr hiexpr).2 ⊑_{R} smod
-
-def refines := ∃ R, (build_module ε iexpr hiexpr).2 ⊑_{R} smod
-
-notation:35 x " ⊑ₑ_{" f:35 "} " y:34 => refines_φ x y f
-notation:35 x " ⊑ₑ " y:34 => refines x y
-
-theorem substitution {T ident mod} {mod' : Module Ident T}
-        [MatchInterface (build_module (ε.modify ident (λ _ _ => ⟨T, mod'⟩)) iexpr (build_module_modify hiexpr)).2 smod]
-        [MatchInterface mod mod']
-        (R : (build_module ε iexpr hiexpr).1 → S → Prop) :
-  (build_module ε iexpr hiexpr).2 ⊑ smod →
-  ε.find? ident = some ⟨ T, mod ⟩ →
-  mod ⊑ mod' →
-  (build_module (ε.modify ident (λ _ _ => ⟨T, mod'⟩)) iexpr (build_module_modify hiexpr)).2 ⊑ smod := by sorry
+-- set_option debug.skipKernelTC true in
+set_option pp.proofs true in
+set_option pp.deepTerms true in
+variable {T T'}
+         {mod : Module Ident T}
+         {mod' : Module Ident T'}
+         [MatchInterface mod mod'] in
+theorem substitution (iexpr : ExprLow Ident)
+        (_ : MatchInterface ([e| iexpr, ε ]) smod)
+        {ident} (h : ε.mem ident ⟨ T, mod ⟩) :
+    mod ⊑ mod' →
+    [e| iexpr, ε ] ⊑ smod →
+    [e| iexpr, {ε | h := ⟨ T', mod' ⟩} ] ⊑ smod := by
+  unfold build_module_expr
+  induction iexpr with
+  | base instIdent modIdent =>
+    intro Hmod Hbase
+    dsimp [build_module_expr, build_module, build_module']
+    cases Hfind : ((Batteries.AssocList.find? modIdent ε)) with
+    | none =>
+      have Hfind' := find?_modify (m := ⟨T', mod'⟩) h Hfind
+      unfold DataflowRewriter.ExprLow.build_module'.match_1
+      simp only [build_module'.dep_rewrite Hfind', Option.getD]
+      rename_i Match
+      dsimp [build_module_expr, build_module, build_module'] at Hbase Match
+      unfold DataflowRewriter.ExprLow.build_module'.match_1 at Hbase Match
+      simp [build_module'.dep_rewrite Hfind] at Hbase Match
+      apply Module.empty_refines
+      assumption
+    | some curr_mod => sorry
+  | input iport name e iH => sorry
+  | output iport name e iH => sorry
+  | product e₁ e₂ iH₁ iH₂ => sorry
+  | connect p1 p2 e iH => sorry
 
 end Refinement
 

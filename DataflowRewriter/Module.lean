@@ -11,6 +11,7 @@ import Qq
 import DataflowRewriter.Simp
 import DataflowRewriter.List
 import DataflowRewriter.AssocList
+import DataflowRewriter.HVector
 
 open Batteries (AssocList)
 
@@ -137,11 +138,13 @@ The empty module, which should also be the `default` module.
 
 theorem empty_is_default {Ident S} : @empty Ident S = default := Eq.refl _
 
-variable {Ident : Type _}
+universe i
+
+variable {Ident : Type i}
 variable [DecidableEq Ident]
 variable [Inhabited Ident]
 
-@[drunfold] def liftL {S S'} (x: (T : Type _) × (S → T → S → Prop))
+@[drunfold] def liftL {S S' : Type _} (x: (T : Type _) × (S → T → S → Prop))
     : (T : Type _) × (S × S' → T → S × S' → Prop) :=
   ⟨ x.1, λ (a,b) ret (a',b') => x.2 a ret a' ∧ b = b' ⟩
 
@@ -154,6 +157,30 @@ variable [Inhabited Ident]
 
 @[drunfold] def liftR' {S S'} (x:  S' → S' → Prop) : S × S' → S × S' → Prop :=
   λ (a,b) (a',b') => x b b' ∧ a = a'
+
+@[drunfold] def liftLD {α : Type _} {l₁ l₂ : List α} {f} (x: (T : Type _) × (HVector f l₁ → T → HVector f l₁ → Prop))
+    : (T : Type _) × (HVector f (l₁ ++ l₂) → T → HVector f (l₁ ++ l₂) → Prop) :=
+  ⟨ x.1, λ a ret a' => x.2 a.left ret a'.left ∧ a.right = a'.right ⟩
+
+@[drunfold] def liftRD {α : Type _} {l₁ l₂ : List α} {f} (x: (T : Type _) × (HVector f l₂ → T → HVector f l₂ → Prop))
+    : (T : Type _) × (HVector f (l₁ ++ l₂) → T → HVector f (l₁ ++ l₂) → Prop) :=
+  ⟨ x.1, λ a ret a' => x.2 a.right ret a'.right ∧ a.left = a'.left ⟩
+
+@[drunfold] def liftLD' {α : Type _} {l₁ l₂ : List α} {f} (x: HVector f l₁ → HVector f l₁ → Prop)
+    : HVector f (l₁ ++ l₂) → HVector f (l₁ ++ l₂) → Prop :=
+  λ a a' => x a.left a'.left ∧ a.right = a'.right
+
+@[drunfold] def liftRD' {α : Type _} {l₁ l₂ : List α} {f} (x: HVector f l₂ → HVector f l₂ → Prop)
+    : HVector f (l₁ ++ l₂) → HVector f (l₁ ++ l₂) → Prop :=
+  λ a a' => x a.right a'.right ∧ a.left = a'.left
+
+@[drunfold] def liftSingle.{u} {α} {a : α} {f} (x: Σ (T : Type u), (f a → T → f a → Prop))
+    : Σ (T : Type u), HVector f [a] → T → HVector f [a] → Prop :=
+  ⟨ x.1, λ | .cons a .nil, t, .cons a' .nil => x.2 a t a' ⟩
+
+@[drunfold] def liftSingle' {α} {a : α} {f} (x: f a → f a → Prop)
+    : HVector f [a] → HVector f [a] → Prop :=
+  λ | .cons a .nil, .cons a' .nil => x a a'
 
 /--
 `connect'` will produce a new rule that fuses an input with an output, with a
@@ -175,7 +202,19 @@ precondition that the input and output type must match.
     internals := mod1.internals.map liftL' ++ mod2.internals.map liftR'
   }
 
-@[drunfold] def renamePorts {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
+@[drunfold] def productD {α} {l₁ l₂ : List α} {f} (mod1 : Module Ident (HVector f l₁)) (mod2: Module Ident (HVector f l₂)) : Module Ident (HVector f (l₁ ++ l₂)) :=
+  { inputs := (mod1.inputs.mapVal (λ _ => liftLD)).append (mod2.inputs.mapVal (λ _ => liftRD)),
+    outputs := (mod1.outputs.mapVal (λ _ => liftLD)).append (mod2.outputs.mapVal (λ _ => liftRD)),
+    internals := mod1.internals.map liftLD' ++ mod2.internals.map liftRD'
+  }
+
+@[drunfold] def liftD {α} {e : α} {f} (mod : Module Ident (f e)) : Module Ident (HVector f [e]) :=
+  { inputs := mod.inputs.mapVal λ _ => liftSingle,
+    outputs := mod.outputs.mapVal λ _ => liftSingle,
+    internals := mod.internals.map liftSingle'
+  }
+
+@[drunfold] def renamePorts {S : Type _} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
   { inputs := mod.inputs.modifyKeys f,
     outputs := mod.outputs.modifyKeys f,
     internals := mod.internals
@@ -195,20 +234,30 @@ precondition that the input and output type must match.
 
 end Module
 
+section Match
+
 /-
 The following definition lives in `Type`, I'm not sure if a type class can live
 in `Prop` even though it seems to be accepted.
 -/
 
-variable {Ident} [DecidableEq Ident] [Inhabited Ident] in
+variable {Ident}
+variable [DecidableEq Ident]
+variable {I S}
 
 /--
 Match two interfaces of two modules, which implies that the types of all the
 input and output rules match.
 -/
-class MatchInterface {I S} (imod : Module Ident I) (smod : Module Ident S) where
+class MatchInterface (imod : Module Ident I) (smod : Module Ident S) : Prop where
   input_types : ∀ (ident : Ident), (imod.inputs.getIO ident).1 = (smod.inputs.getIO ident).1
   output_types : ∀ (ident : Ident), (imod.outputs.getIO ident).1 = (smod.outputs.getIO ident).1
+
+theorem match_interface_empty {smod : Module Ident S} [MatchInterface (@Module.empty Ident I) smod]
+  : ∀ I', MatchInterface (@Module.empty Ident I') smod := sorry
+
+end Match
+
 
 /--
 State that there exists zero or more internal rule executions to reach a final
@@ -282,14 +331,13 @@ def refines_φ (R : I → S → Prop) :=
     R init_i init_s →
     comp_refines imod smod R init_i init_s
 
-def refines :=
-  ∃ (R : I → S → Prop),
-    ∀ (init_i : I) (init_s : S),
-      R init_i init_s →
-      indistinguishable imod smod init_i init_s →
-      comp_refines imod smod (fun a b => indistinguishable imod smod a b ∧ R a b) init_i init_s
-
 notation:35 x " ⊑_{" R:35 "} " y:34 => refines_φ x y R
+
+omit mm in
+def refines :=
+  ∃ (mm : MatchInterface imod smod) (R : I → S → Prop),
+    imod ⊑_{fun x y => indistinguishable imod smod x y ∧ R x y} smod
+
 notation:35 x " ⊑ " y:34 => refines x y
 
 omit [Inhabited Ident] in
@@ -298,21 +346,26 @@ theorem refines_φ_refines {φ} :
   imod ⊑_{φ} smod →
   imod ⊑ smod := by
   intro Hind Href
-  exists φ
-  intro init_i init_s Hphi Hindis
-  specialize Href init_i init_s Hphi
-  rcases Href with ⟨ Hin, Hout, Hint ⟩; constructor
-  · intro ident mid_i v Hcont Hrule
-    specialize Hin ident mid_i v Hcont Hrule
-    tauto
-  · intro ident mid_i v Hcont Hrule
-    specialize Hout ident mid_i v Hcont Hrule
-    tauto
-  · intro rule mid_i Hcont Hrule
-    specialize Hint rule mid_i Hcont Hrule
-    tauto
+  -- exists φ
+  -- intro init_i init_s ⟨ Hphi, Hindis ⟩
+  -- specialize Href init_i init_s Hindis
+  -- rcases Href with ⟨ Hin, Hout, Hint ⟩; constructor
+  -- · intro ident mid_i v Hcont Hrule
+  --   specialize Hin ident mid_i v Hcont Hrule
+  --   tauto
+  -- · intro ident mid_i v Hcont Hrule
+  --   specialize Hout ident mid_i v Hcont Hrule
+  --   tauto
+  -- · intro rule mid_i Hcont Hrule
+  --   specialize Hint rule mid_i Hcont Hrule
+  --   tauto
+  sorry
 
 end Refinement
+
+theorem empty_refines {Ident S I₁ I₂} [DecidableEq Ident] {smod : Module Ident S} :
+  @empty Ident I₁ ⊑ smod →
+  @empty Ident I₂ ⊑ smod := by sorry
 
 end Module
 
