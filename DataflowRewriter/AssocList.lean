@@ -8,6 +8,9 @@ import Batteries
 
 namespace Batteries.AssocList
 
+deriving instance DecidableEq for AssocList
+deriving instance Repr for AssocList
+
 def append {α β} (a b : AssocList α β) : AssocList α β :=
   match a with
   | .nil => b

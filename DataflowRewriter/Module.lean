@@ -15,8 +15,6 @@ import DataflowRewriter.HVector
 
 open Batteries (AssocList)
 
-deriving instance Repr for AssocList
-
 namespace DataflowRewriter
 
 /-- A function `f : α → β` is called injective if `f x = f y` implies `x = y`. -/
@@ -28,28 +26,28 @@ An instance may refer to an internal instance by name, or it may refer to the
 current (top-level) module.
 -/
 inductive InstIdent (Ident : Type _) where
-  | top : InstIdent Ident
-  | internal : Ident → InstIdent Ident
-  deriving Inhabited, Ord, Hashable, Repr, DecidableEq
+| top : InstIdent Ident
+| internal : Ident → InstIdent Ident
+deriving Inhabited, Ord, Hashable, Repr, DecidableEq
 
 instance {Ident} [ToString Ident] : ToString (InstIdent Ident) where
   toString
-    | .top => "io"
-    | .internal i => toString i
+  | .top => "io"
+  | .internal i => toString i
 
 namespace InstIdent
 
 def elem {Ident} [BEq Ident] (instances : List Ident) : InstIdent Ident → Bool
-  | .top => false
-  | .internal i => instances.contains i
+| .top => false
+| .internal i => instances.contains i
 
 def isTop {Ident} : InstIdent Ident → Bool
-  | .top => true
-  | _ => false
+| .top => true
+| _ => false
 
 def isInternal {Ident} : InstIdent Ident → Bool
-  | .internal .. => true
-  | _ => false
+| .internal .. => true
+| _ => false
 
 end InstIdent
 
@@ -60,7 +58,7 @@ instance `inst` it belongs to and a port `name` of that instance.
 structure InternalPort (Ident : Type _) where
   inst : InstIdent Ident
   name : Ident
-  deriving Repr, Hashable, Ord, Inhabited, DecidableEq
+deriving Repr, Hashable, Ord, Inhabited, DecidableEq
 
 /--
 If only an identifier is provided, it can be coerced into an `InternalPort
@@ -72,6 +70,16 @@ instance {Ident} [Inhabited Ident] : Coe Ident (InternalPort Ident) where
 
 abbrev IdentMap Ident α := AssocList Ident α
 abbrev IdentSet Ident := Finset Ident
+
+namespace IdentMap
+
+def replace_env {Ident α} [DecidableEq Ident] (ε : IdentMap Ident α) {ident mod}
+  (h : ε.mem ident mod) mod' :=
+  (ε.replace ident mod')
+
+notation:25 "{" ε " | " h " := " mod' "}" => replace_env ε h mod'
+
+end IdentMap
 
 /--
 Mapping from `Ident` to any type `α`.  This was chosen to be an AssocList
@@ -129,7 +137,7 @@ structure Module (Ident S : Type _) where
   inputs : PortMap Ident (Σ T : Type, (S → T → S → Prop))
   outputs : PortMap Ident (Σ T : Type, (S → T → S → Prop))
   internals : List (S → S → Prop)
-  deriving Inhabited
+deriving Inhabited
 
 -- mklenses Module
 -- open Module.l
@@ -279,12 +287,12 @@ State that there exists zero or more internal rule executions to reach a final
 state from an initial state.
 -/
 inductive existSR {Ident S : Type _} (mod : Module Ident S) : S → S → Prop where
-  | done : ∀ init, existSR mod init init
-  | step : ∀ init mid final rule,
-      rule ∈ mod.internals →
-      rule init mid →
-      existSR mod mid final →
-      existSR mod init final
+| done : ∀ init, existSR mod init init
+| step : ∀ init mid final rule,
+    rule ∈ mod.internals →
+    rule init mid →
+    existSR mod mid final →
+    existSR mod init final
 
 theorem existSR_reflexive {Ident S} {mod : Module Ident S} {s} :
   existSR mod s s := existSR.done s
