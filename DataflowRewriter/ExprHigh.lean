@@ -140,12 +140,18 @@ abstraction, which replaces a subgraph by a single node.  The `newInputs` and
 `newOutputs` maps are used to map ports from the subgraph to ports of the node
 that will replace it.
 -/
-@[drunfold] def abstract (e : ExprHigh Ident) (instances : List Ident) (i i' : Ident) : ExprHigh Ident :=
+@[drunfold] def abstract (e : ExprHigh Ident) (i i' : Ident) : ExprHigh Ident :=
+  { e with modules := e.modules.cons i i' }
+
+@[drunfold] def abstract' (e : ExprHigh Ident) (instances : List Ident) (i i' : Ident) : ExprHigh Ident :=
   { e with modules := .cons i i' <| e.modules.filter λ a _ => a ∉ instances }
 
-@[drunfold] def concretise (e : ExprHigh Ident) (instances : IdentMap Ident Ident)
+@[drunfold] def concretise' (e : ExprHigh Ident) (instances : IdentMap Ident Ident)
     (i : Ident) : ExprHigh Ident :=
   { e with modules := e.modules.erase i |>.append instances }
+
+@[drunfold] def concretise (e : ExprHigh Ident) (i : Ident) : ExprHigh Ident :=
+  { e with modules := e.modules.erase i }
 
 @[drunfold] def modify (e : ExprHigh Ident) (i i' : Ident) : ExprHigh Ident :=
   { e with modules := e.modules.mapVal λ _ b => if b = i then i' else b }
@@ -202,12 +208,22 @@ theorem substitution₄ {I S mod mod' i i' g} :
 theorem substitution₅ {S mod l i i' g n m} :
   ε.find? i' = some ⟨ S, mod ⟩ →
   [Ge| g.subgraph l n m, ε ] ⊑ mod →
-  [Ge| g, ε ] ⊑ ([Ge| g.abstract l i i', ε ]) := by sorry
+  [Ge| g, ε ] ⊑ ([Ge| g.abstract' l i i', ε ]) := by sorry
 
 theorem substitution₆ {S mod l i i' g n m o} :
   ε.find? i' = some ⟨ S, mod ⟩ →
   mod ⊑ ([Ge| g.subgraph l n m, ε ]) →
-  [Ge| g.concretise o i, ε ] ⊑ ([Ge| g, ε ]) := by sorry
+  [Ge| g.concretise' o i, ε ] ⊑ ([Ge| g, ε ]) := by sorry
+
+theorem substitution₇ {S mod i i' g'} {g : ExprHigh Ident} :
+  ε.find? i' = some ⟨ S, mod ⟩ →
+  mod ⊑ ([Ge| g', ε ]) →
+  [Ge| g.abstract i i', ε ] ⊑ ([Ge| g.inlineD g', ε ]) := by sorry
+
+theorem substitution₈ {S mod i i' g'} {g : ExprHigh Ident} :
+  ε.find? i' = some ⟨ S, mod ⟩ →
+  [Ge| g', ε ] ⊑ mod →
+  [Ge| g.inlineD g', ε ] ⊑ ([Ge| g.abstract i i', ε ]) := by sorry
 
 theorem substitution₂ {I} (mod : Module Ident I) g i ident :
   ident ∉ ε.keysList →
