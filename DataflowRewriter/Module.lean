@@ -253,9 +253,6 @@ class MatchInterface (imod : Module Ident I) (smod : Module Ident S) : Prop wher
   input_types : ∀ (ident : Ident), (imod.inputs.getIO ident).1 = (smod.inputs.getIO ident).1
   output_types : ∀ (ident : Ident), (imod.outputs.getIO ident).1 = (smod.outputs.getIO ident).1
 
-theorem match_interface_empty {smod : Module Ident S} [MatchInterface (@Module.empty Ident I) smod]
-  : ∀ I', MatchInterface (@Module.empty Ident I') smod := sorry
-
 end Match
 
 
@@ -273,8 +270,8 @@ inductive existSR {Ident S : Type _} (mod : Module Ident S) : S → S → Prop w
 
 theorem existSR_transitive {Ident S} (mod : Module Ident S) :
   ∀ s₁ s₂ s₃,
-    existSR mod s₁ s₂ → 
-    existSR mod s₂ s₃ → 
+    existSR mod s₁ s₂ →
+    existSR mod s₂ s₃ →
     existSR mod s₁ s₃ := by
   intro s₁ s₂ s₃ He1 He2
   induction He1 generalizing s₃; assumption
@@ -370,8 +367,8 @@ theorem refines_φ_refines {φ} :
     specialize Hint rule mid_i Hcont Hrule
     tauto
 
-set_option pp.proofs true in
-theorem multistep : 
+omit [Inhabited Ident] in
+theorem refines_φ_multistep :
   ∀ φ, imod ⊑_{φ} smod →
   ∀ i_init s_init,
     φ i_init s_init →
@@ -381,16 +378,14 @@ theorem multistep :
       ∧ φ i_mid s_mid := by
   intros φ Href i_init s_init Hphi i_mid Hexist
   induction Hexist generalizing s_init
-  · rename_i i_init; exists s_init; tauto
+  · exists s_init; tauto
   · rename_i init mid final rule Hin Hrule Hexists iH
     unfold refines_φ at Href
     rcases Href _ _ Hphi with ⟨ Hinp, Hout, Hint ⟩
     rcases Hint _ _ Hin Hrule with ⟨ s_mid, Hexist, Hphi' ⟩
-    specialize iH _ Hphi'
-    rcases iH with ⟨ s_mid', Hexists, Hphi ⟩
-    exists s_mid'; and_intros
-    apply existSR_transitive
-    all_goals assumption
+    rcases iH _ Hphi' with ⟨ s_mid', Hexists, Hphi ⟩
+    exists s_mid'
+    all_goals solve_by_elim [existSR_transitive]
 
 set_option pp.proofs true in
 omit [Inhabited Ident] in
@@ -399,28 +394,42 @@ theorem refines_φ_transitive {J} (smod' : Module Ident J) {φ₁ φ₂}
   [MatchInterface smod' smod]:
   imod ⊑_{φ₁} smod' →
   smod' ⊑_{φ₂} smod →
-  imod ⊑_{fun a b => ∃ c, φ₁ a c ∧ φ₂ c b} smod := by 
+  imod ⊑_{fun a b => ∃ c, φ₁ a c ∧ φ₂ c b} smod := by
   intros h1 h2
-  unfold refines_φ at *
   intro init_i init_s HR
   rcases HR with ⟨ init_j, Hφ₁, Hφ₂ ⟩
   rcases h1 _ _ Hφ₁ with ⟨ h1inp, h1out, h1int ⟩
+  rcases h2 _ _ Hφ₂ with ⟨ h2inp, h2out, h2int ⟩
   constructor
-  · clear h1out h1int
+  · clear h1out h1int h2out h2int
     intro ident mid_i v Hcont Hrule
-    specialize h1inp ident mid_i v Hcont Hrule
-    rcases h1inp with ⟨ mid_mid_j, mid_j, hrule, hexists, hphi ⟩
-    specialize h2 _ _ hphi
-    specialize h2inp ident mid_j ((MatchInterface.input_types ident).mp v) (by sorry) 
-    rcases h2inp with ⟨ mid_mid_s, mid_s, hrule', hexists', hphi' ⟩
-    refine ⟨ mid_mid_s, mid_s, ?and1, ?and2, ?and3 ⟩
-    case and1 => convert hrule'; simp
-    case and2 => assumption
-    case and3 => 
-      refine ⟨ mid_j, mid_mid_j, ?and4, ?and5, ?and6 ⟩
-      · assumption
-      · assumption
-      · assumption
+    specialize h1inp _ _ _ Hcont Hrule
+    rcases h1inp with ⟨ mid_mid_j, mid_j, hrule₁, hexists₁, hphi₁ ⟩
+    specialize h2inp _ _ _ sorry hrule₁
+    rcases h2inp with ⟨ mid_mid_s, mid_s, hrule₂, hexists₂, hphi₂ ⟩
+    rcases refines_φ_multistep _ _ _ h2 _ _ hphi₂ _ hexists₁ with ⟨ mid_s₃, hexists₃, hphi₃ ⟩
+    refine ⟨ ?_, mid_s₃, ?inp.and1, ?inp.and2, mid_j, ?_, ?_ ⟩
+    case and1 => convert hrule₂; simp
+    case and2 => solve_by_elim [existSR_transitive]
+    all_goals assumption
+  · clear h1inp h1int h2inp h2int
+    intro ident mid_i v Hcont Hrule
+    specialize h1out _ _ _ Hcont Hrule
+    rcases h1out with ⟨ mid_mid_j, mid_j, hrule₁, hexists₁, hphi₁ ⟩
+    specialize h2out _ _ _ sorry hrule₁
+    rcases h2out with ⟨ mid_mid_s, mid_s, hrule₂, hexists₂, hphi₂ ⟩
+    rcases refines_φ_multistep _ _ _ h2 _ _ hphi₂ _ hexists₁ with ⟨ mid_s₃, hexists₃, hphi₃ ⟩
+    refine ⟨ ?_, mid_s₃, ?out.and1, ?out.and2, mid_j, ?_, ?_ ⟩
+    case and1 => convert hrule₂; simp
+    case and2 => solve_by_elim [existSR_transitive]
+    all_goals assumption
+  · clear h1inp h1out h2inp h2out
+    intro rule mid_i ruleIn Hrule
+    specialize h1int rule mid_i ruleIn Hrule
+    rcases h1int with ⟨ mid_j, hexist₁, hphi₁ ⟩
+    have Href := refines_φ_multistep _ _ _ h2 _ _ Hφ₂ _ hexist₁
+    rcases Href with ⟨ mid_s, hexist₂, hphi₂ ⟩
+    refine ⟨ mid_s, hexist₂, ?_, by exact hphi₁, by exact hphi₂ ⟩
 
 theorem refines_transitive {J} (imod' : Module Ident J):
   imod ⊑ imod' →
@@ -431,7 +440,7 @@ theorem refines_transitive {J} (imod' : Module Ident J):
   rcases h2 with ⟨ mm2, R2, h2 ⟩
   constructor <;> try assumption
   exists (fun a b => ∃ c, R1 a c ∧ R2 c b); dsimp
-  
+  sorry
 
 end Refinement
 
