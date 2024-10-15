@@ -34,6 +34,16 @@ namespace ExprLow
 variable {Ident}
 variable [DecidableEq Ident]
 
+@[drunfold] def modify (i i' : Ident) : ExprLow Ident → ExprLow Ident
+| .base inst typ => if typ = i then .base inst i' else .base inst typ
+| .input x y e' => modify i i' e' |> .input x y
+| .output x y e' => modify i i' e' |> .output x y
+| .connect x y e' => modify i i' e' |> .connect x y
+| .product e₁ e₂ =>
+  let e₁' := modify i i' e₁
+  let e₂' := modify i i' e₂
+  .product e₁' e₂'
+
 def get_types (ε : IdentMap Ident (Σ T, Module Ident T)) (i : Ident) : Type* :=
   (ε.find? i) |>.map Sigma.fst |>.getD PUnit
 
@@ -170,7 +180,7 @@ set_option pp.deepTerms true in
 variable {T T'}
          {mod : Module Ident T}
          {mod' : Module Ident T'} in
-theorem substitution (iexpr : ExprLow Ident) {ident} (h : ε.mem ident ⟨ T, mod ⟩) :
+theorem substite_env (iexpr : ExprLow Ident) {ident} (h : ε.mem ident ⟨ T, mod ⟩) :
     mod ⊑ mod' →
     [e| iexpr, ε ] ⊑ ([e| iexpr, {ε | h := ⟨ T', mod' ⟩} ]) := by
   unfold build_module_expr
@@ -195,6 +205,22 @@ theorem substitution (iexpr : ExprLow Ident) {ident} (h : ε.mem ident ⟨ T, mo
   | output iport name e iH => sorry
   | product e₁ e₂ iH₁ iH₂ => sorry
   | connect p1 p2 e iH => sorry
+
+theorem substition {I I' i i' mod mod' iexpr} :
+    ε.find? i = some ⟨ I, mod ⟩ →
+    ε.find? i' = some ⟨ I', mod' ⟩ →
+    mod ⊑ mod' →
+    [e| iexpr, ε ] ⊑ ([e| iexpr.modify i i', ε ]) := by
+  unfold build_module_expr
+  induction iexpr generalizing i i' mod mod' with
+  | base inst typ =>
+    intro hfind₁ hfind₂ Href
+    dsimp [drunfold]
+    by_cases h : typ = i
+    · subst typ
+      rw [hfind₁]; dsimp [drunfold]
+
+  | _ => sorry
 
 end Refinement
 
