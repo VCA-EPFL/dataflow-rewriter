@@ -148,14 +148,14 @@ theorem find?_modify3 {modIdent ident m m' m''} {ε : IdentMap Ident (Σ (T : Ty
   Batteries.AssocList.find? modIdent ε = some m'' →
   Batteries.AssocList.find? modIdent ({ε | h := m}) = some m'' := by sorry
 
-instance
-  {ε : IdentMap Ident (Σ (T : Type _), Module Ident T)}
-  {S ident iexpr} {mod : Σ T : Type _, Module Ident T}
-  {mod' : Σ T : Type _, Module Ident T} {smod : Module Ident S}
-  {h : ε.mem ident mod}
-  [MatchInterface mod.2 mod'.2]
-  [MatchInterface ([e| iexpr, ε ]) smod]
-  : MatchInterface ([e| iexpr, {ε | h := mod'} ]) smod := by sorry
+-- instance
+--   {ε : IdentMap Ident (Σ (T : Type _), Module Ident T)}
+--   {S ident iexpr} {mod : Σ T : Type _, Module Ident T}
+--   {mod' : Σ T : Type _, Module Ident T} {smod : Module Ident S}
+--   {h : ε.mem ident mod}
+--   [MatchInterface mod.2 mod'.2]
+--   [MatchInterface ([e| iexpr, ε ]) smod]
+--   : MatchInterface ([e| iexpr, {ε | h := mod'} ]) smod := by sorry
 
 section Refinement
 
@@ -175,11 +175,8 @@ set_option pp.proofs true in
 set_option pp.deepTerms true in
 variable {T T'}
          {mod : Module Ident T}
-         {mod' : Module Ident T'}
-         [MatchInterface mod mod'] in
-theorem substitution (iexpr : ExprLow Ident)
-        (_ : MatchInterface ([e| iexpr, ε ]) smod)
-        {ident} (h : ε.mem ident ⟨ T, mod ⟩) :
+         {mod' : Module Ident T'} in
+theorem substitution (iexpr : ExprLow Ident) {ident} (h : ε.mem ident ⟨ T, mod ⟩) :
     mod ⊑ mod' →
     [e| iexpr, ε ] ⊑ ([e| iexpr, {ε | h := ⟨ T', mod' ⟩} ]) := by
   unfold build_module_expr
@@ -198,8 +195,7 @@ theorem substitution (iexpr : ExprLow Ident)
         have Hfind' := find?_modify2 (m := ⟨ T', mod' ⟩) h
         rw [Hfind']; simp
         -- rw [Hfind] at Hbase; simp at Hbase
-
-
+        sorry
       · sorry
   | input iport name e iH => sorry
   | output iport name e iH => sorry

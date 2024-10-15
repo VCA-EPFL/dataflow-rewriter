@@ -104,7 +104,9 @@ instance {T} : MatchInterface (merge_sem' T).snd (threemerge' T) where
     · have h' := keysNotInMap h; dsimp [drunfold, AssocList.keysList] at h' ⊢
       simp at h'; let ⟨ ha, hb, hc ⟩ := h'; clear h'
       simp only [Batteries.AssocList.find?_eq, Batteries.AssocList.toList]
-      simp (discharger := simp; omega) [List.find?_cons_of_neg]
+      rcases ident with ⟨ i1, i2 ⟩;
+      repeat (rw [List.find?_cons_of_neg]; rotate_left; simp; intros; subst_vars; solve_by_elim)
+      rfl
   output_types := by
     intro ident;
     by_cases h : (Batteries.AssocList.contains ↑ident (merge_sem' T).snd.outputs)
@@ -112,7 +114,9 @@ instance {T} : MatchInterface (merge_sem' T).snd (threemerge' T) where
     · have h' := keysNotInMap h; dsimp [drunfold, AssocList.keysList] at h' ⊢
       simp at h'
       simp only [Batteries.AssocList.find?_eq, Batteries.AssocList.toList]
-      simp (discharger := simp; omega) [List.find?_cons_of_neg]
+      rcases ident with ⟨ i1, i2 ⟩;
+      repeat (rw [List.find?_cons_of_neg]; rotate_left; simp; intros; subst_vars; solve_by_elim)
+      rfl
 
 theorem sigma_rw {S T : Type _} {m m' : Σ (y : Type _), S → y → T → Prop} {x : S} {y : T} {v : m.fst}
         (h : m = m' := by reduce; rfl) :

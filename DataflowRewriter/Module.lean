@@ -19,6 +19,10 @@ deriving instance Repr for AssocList
 
 namespace DataflowRewriter
 
+/-- A function `f : α → β` is called injective if `f x = f y` implies `x = y`. -/
+def Injective {α β} (f : α → β) : Prop :=
+  ∀ ⦃a₁ a₂⦄, f a₁ = f a₂ → a₁ = a₂
+
 /--
 An instance may refer to an internal instance by name, or it may refer to the
 current (top-level) module.
@@ -88,7 +92,8 @@ Get an IO port using external IO ports, i.e. `InternalPort Ident` with the
 instance set to `top`.
 -/
 @[drunfold] def getIO.{u₁, u₂} {S : Type u₁}
-    (l: PortMap Ident (Σ T : Type u₂, (S → T → S → Prop))) (n : Ident)
+    (l: PortMap Ident (Σ T : Type u₂, (S → T → S → Prop)))
+    (n : InternalPort Ident)
     : Σ T : Type u₂, (S → T → S → Prop) :=
   l.find? ↑n |>.getD (⟨ PUnit, λ _ _ _ => True ⟩)
 
@@ -250,8 +255,8 @@ Match two interfaces of two modules, which implies that the types of all the
 input and output rules match.
 -/
 class MatchInterface (imod : Module Ident I) (smod : Module Ident S) : Prop where
-  input_types : ∀ (ident : Ident), (imod.inputs.getIO ident).1 = (smod.inputs.getIO ident).1
-  output_types : ∀ (ident : Ident), (imod.outputs.getIO ident).1 = (smod.outputs.getIO ident).1
+  input_types : ∀ (ident : InternalPort Ident), (imod.inputs.getIO ident).1 = (smod.inputs.getIO ident).1
+  output_types : ∀ (ident : InternalPort Ident), (imod.outputs.getIO ident).1 = (smod.outputs.getIO ident).1
 
 instance : MatchInterface (@Module.empty Ident S) (Module.empty I) where
   input_types := by simp [Module.empty, PortMap.getIO]
@@ -421,13 +426,13 @@ theorem refines_reflexive : imod ⊑ imod := by
 
 omit [Inhabited Ident] in
 theorem refines_φ_multistep :
-  ∀ φ, imod ⊑_{φ} smod →
-  ∀ i_init s_init,
-    φ i_init s_init →
-    ∀ i_mid, existSR imod i_init i_mid →
-    ∃ s_mid,
-      existSR smod s_init s_mid
-      ∧ φ i_mid s_mid := by
+    ∀ φ, imod ⊑_{φ} smod →
+    ∀ i_init s_init,
+      φ i_init s_init →
+      ∀ i_mid, existSR imod i_init i_mid →
+      ∃ s_mid,
+        existSR smod s_init s_mid
+        ∧ φ i_mid s_mid := by
   intros φ Href i_init s_init Hphi i_mid Hexist
   induction Hexist generalizing s_init
   · exists s_init; tauto
@@ -444,9 +449,9 @@ omit [Inhabited Ident] in
 theorem refines_φ_transitive {J} (smod' : Module Ident J) {φ₁ φ₂}
   [MatchInterface imod smod']
   [MatchInterface smod' smod]:
-  imod ⊑_{φ₁} smod' →
-  smod' ⊑_{φ₂} smod →
-  imod ⊑_{fun a b => ∃ c, φ₁ a c ∧ φ₂ c b} smod := by
+    imod ⊑_{φ₁} smod' →
+    smod' ⊑_{φ₂} smod →
+    imod ⊑_{fun a b => ∃ c, φ₁ a c ∧ φ₂ c b} smod := by
   intros h1 h2
   intro init_i init_s HR
   rcases HR with ⟨ init_j, Hφ₁, Hφ₂ ⟩
@@ -485,9 +490,9 @@ theorem refines_φ_transitive {J} (smod' : Module Ident J) {φ₁ φ₂}
 
 omit [Inhabited Ident] mm in
 theorem refines_transitive {J} (imod' : Module Ident J):
-  imod ⊑ imod' →
-  imod' ⊑ smod →
-  imod ⊑ smod := by
+    imod ⊑ imod' →
+    imod' ⊑ smod →
+    imod ⊑ smod := by
   intro h1 h2
   rcases h1 with ⟨ mm1, R1, h1 ⟩
   rcases h2 with ⟨ mm2, R2, h2 ⟩
@@ -508,6 +513,13 @@ theorem refines_transitive {J} (imod' : Module Ident J):
   rw [this]
   apply refines_φ_transitive imod smod imod'
   assumption; assumption
+
+omit [Inhabited Ident] mm in
+theorem refines_renamePorts {f}:
+    Injective f →
+    imod ⊑ smod →
+    imod.renamePorts f ⊑ smod.renamePorts f := by
+  intros hinj href; sorry
 
 end Refinement
 
