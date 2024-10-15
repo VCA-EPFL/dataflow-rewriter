@@ -138,6 +138,16 @@ theorem find?_modify {modIdent ident m m'} {ε : IdentMap Ident (Σ (T : Type _)
   Batteries.AssocList.find? modIdent ε = none →
   Batteries.AssocList.find? modIdent ({ε | h := m}) = none := by sorry
 
+theorem find?_modify2 {modIdent m m'} {ε : IdentMap Ident (Σ (T : Type _), Module Ident T)}
+  (h : ε.mem modIdent m') :
+  Batteries.AssocList.find? modIdent ({ε | h := m}) = m := by sorry
+
+theorem find?_modify3 {modIdent ident m m' m''} {ε : IdentMap Ident (Σ (T : Type _), Module Ident T)}
+  (h : ε.mem ident m') :
+  modIdent ≠ ident →
+  Batteries.AssocList.find? modIdent ε = some m'' →
+  Batteries.AssocList.find? modIdent ({ε | h := m}) = some m'' := by sorry
+
 instance
   {ε : IdentMap Ident (Σ (T : Type _), Module Ident T)}
   {S ident iexpr} {mod : Σ T : Type _, Module Ident T}
@@ -184,7 +194,13 @@ theorem substitution (iexpr : ExprLow Ident)
       rw [Hfind'] -- simp does not work
       rw [Hfind] at Hbase
       simp_all
-    | some curr_mod => sorry
+    | some curr_mod =>
+      by_cases h : modIdent = ident
+      · subst_vars
+        have Hfind' := find?_modify2 (m := ⟨ T', mod' ⟩) h
+        rw [Hfind']; simp
+        sorry
+      · sorry
   | input iport name e iH => sorry
   | output iport name e iH => sorry
   | product e₁ e₂ iH₁ iH₂ => sorry
