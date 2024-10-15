@@ -50,7 +50,7 @@ namespace ExprHigh
 
 variable {Ident : Type _}
 
-def lower (e : ExprHigh Ident) : Option (ExprLow Ident) :=
+@[drunfold] def lower (e : ExprHigh Ident) : Option (ExprLow Ident) :=
   match e.modules.toList with
   | x :: xs =>
     let prod_expr :=
@@ -69,7 +69,7 @@ variable [Inhabited Ident]
 Extract a subgraph using a list of `Ident`, and maps to name the new inputs and
 new outputs that are formed.
 -/
-def subgraph (e : ExprHigh Ident) (instances : List Ident)
+@[drunfold] def subgraph (e : ExprHigh Ident) (instances : List Ident)
     (newInputs newOutputs : IdentMap Ident (InternalPort Ident)) : ExprHigh Ident :=
   { inPorts := (e.inPorts.filter (λ _ b => b.inst.elem instances)).append newInputs,
     outPorts := (e.outPorts.filter (λ _ b => b.inst.elem instances)).append newOutputs,
@@ -82,7 +82,7 @@ def subgraph (e : ExprHigh Ident) (instances : List Ident)
 /--
 The rest of the circuit after a subgraph is extracted.
 -/
-def subgraph_shell (e : ExprHigh Ident) (instances : List Ident)
+@[drunfold] def subgraph_shell (e : ExprHigh Ident) (instances : List Ident)
     (newInputs newOutputs : IdentMap Ident (InternalPort Ident)) : ExprHigh Ident :=
   e.subgraph (e.modules.keysList.diff instances)
     (newOutputs.mapVal λ _ v =>
@@ -94,7 +94,7 @@ def subgraph_shell (e : ExprHigh Ident) (instances : List Ident)
 Partitions the graph into a subgraph_shell, and the subgraph itself, which can
 be combined using inlining.
 -/
-def partition (e : ExprHigh Ident) (instances : List Ident)
+@[drunfold] def partition (e : ExprHigh Ident) (instances : List Ident)
     (newInputs newOutputs : IdentMap Ident (InternalPort Ident))
     : ExprHigh Ident × ExprHigh Ident :=
   (e.subgraph_shell instances newInputs newOutputs,
@@ -105,7 +105,7 @@ This is an alternative definition of `subgraph_shell` that switches `newInputs`
 and `newOutputs` so that it matches the notion of inputs and outputs of the
 `subgraph_shell`.
 -/
-def subgraph'' (e : ExprHigh Ident) (instances : List Ident)
+@[drunfold] def subgraph'' (e : ExprHigh Ident) (instances : List Ident)
     (newInputs newOutputs : IdentMap Ident (InternalPort Ident)) : ExprHigh Ident :=
   e.subgraph (e.modules.keysList.diff instances) newInputs newOutputs
 
@@ -113,7 +113,7 @@ def subgraph'' (e : ExprHigh Ident) (instances : List Ident)
 Inline (or merge) one graph into another.  This is symmetric, and forms
 connections based on the names of the inputs and outputs.
 -/
-def inline (e e' : ExprHigh Ident) : Option (ExprHigh Ident) := do
+@[drunfold] def inline (e e' : ExprHigh Ident) : Option (ExprHigh Ident) := do
   let new_input_connections ←
     e'.inPorts.foldlM (λ conns i port => do
                          let outP ← e.outPorts.find? i
@@ -131,7 +131,7 @@ def inline (e e' : ExprHigh Ident) : Option (ExprHigh Ident) := do
                           ++ e'.connections
          }
 
-def inlineD (e e' : ExprHigh Ident) : ExprHigh Ident :=
+@[drunfold] def inlineD (e e' : ExprHigh Ident) : ExprHigh Ident :=
   e.inline e' |>.getD default
 
 /--
@@ -140,37 +140,29 @@ abstraction, which replaces a subgraph by a single node.  The `newInputs` and
 `newOutputs` maps are used to map ports from the subgraph to ports of the node
 that will replace it.
 -/
-def abstract (e : ExprHigh Ident) (i i' : Ident)
-    (newInputs newOutputs : IdentMap (InternalPort Ident) Ident) : ExprHigh Ident :=
-  { inPorts := (e.inPorts.mapVal (λ _ b => match newInputs.find? b with
-                                           | some newName => ⟨.internal i', newName⟩
-                                           | none => b)),
-    outPorts := (e.outPorts.mapVal (λ _ b => match newOutputs.find? b with
-                                             | some newName => ⟨.internal i', newName⟩
-                                             | none => b)),
-    modules := e.modules.cons i i'
-    connections :=
-      e.connections.map λ a =>
-        match newOutputs.find? a.1, newInputs.find? a.2 with
-        | some a', some b' => ⟨⟨.internal i', a'⟩, ⟨.internal i', b'⟩⟩
-        | some a', none => ⟨⟨.internal i', a'⟩, a.2⟩
-        | none, some b' => ⟨a.1, ⟨.internal i', b'⟩⟩
-        | none, none => a
-  }
+@[drunfold] def abstract (e : ExprHigh Ident) (instances : List Ident) (i i' : Ident) : ExprHigh Ident :=
+  { e with modules := .cons i i' <| e.modules.filter λ a _ => a ∉ instances }
+
+@[drunfold] def concretise (e : ExprHigh Ident) (instances : IdentMap Ident Ident)
+    (i : Ident) : ExprHigh Ident :=
+  { e with modules := e.modules.erase i |>.append instances }
+
+@[drunfold] def modify (e : ExprHigh Ident) (i i' : Ident) : ExprHigh Ident :=
+  { e with modules := e.modules.mapVal λ _ b => if b = i then i' else b }
 
 section Semantics
 
 variable (ε : IdentMap Ident ((T: Type) × Module Ident T))
 
-def build_module' (e : ExprHigh Ident) : Option (Σ T, Module Ident T) :=
+@[drunfold] def build_module' (e : ExprHigh Ident) : Option (Σ T, Module Ident T) :=
   e.lower.bind (·.build_module ε)
 
-def build_moduleP (e : ExprHigh Ident)
+@[drunfold] def build_moduleP (e : ExprHigh Ident)
     (h : (build_module' ε e).isSome = true := by rfl)
     : Σ T, Module Ident T :=
   e.build_module' ε |>.get h
 
-def build_module (e : ExprHigh Ident) : Σ T, Module Ident T :=
+@[drunfold] def build_module (e : ExprHigh Ident) : Σ T, Module Ident T :=
   e.build_module' ε |>.getD ⟨ Unit, Module.empty _ ⟩
 
 @[drunfold] abbrev build_module_expr (ε : IdentMap Ident (Σ T, Module Ident T))
@@ -191,12 +183,31 @@ section Refinement
 variable (ε : IdentMap Ident ((T : Type _) × Module Ident T))
 
 /-
-This one should be straight-forward due to `ExprLow.substitution`.
+This one should be straight-forward due to `ExprLow.substitute_env`.
 -/
 theorem substitution₁ {I S} (mod : Module Ident I) (mod' : Module Ident S) g
     ident (h : ε.mem ident ⟨ I, mod ⟩) :
   mod ⊑ mod' →
   [Ge| g, ε ] ⊑ ([Ge| g, {ε | h := ⟨ S, mod' ⟩} ]) := by sorry
+
+/-
+This one should be straight-forward due to `ExprLow.substitution`.
+-/
+theorem substitution₄ {I S mod mod' i i' g} :
+  ε.find? i = some ⟨ I, mod ⟩ →
+  ε.find? i' = some ⟨ S, mod' ⟩ →
+  mod ⊑ mod' →
+  [Ge| g, ε ] ⊑ ([Ge| g.modify i i', ε ]) := by sorry
+
+theorem substitution₅ {S mod l i i' g n m} :
+  ε.find? i' = some ⟨ S, mod ⟩ →
+  [Ge| g.subgraph l n m, ε ] ⊑ mod →
+  [Ge| g, ε ] ⊑ ([Ge| g.abstract l i i', ε ]) := by sorry
+
+theorem substitution₆ {S mod l i i' g n m o} :
+  ε.find? i' = some ⟨ S, mod ⟩ →
+  mod ⊑ ([Ge| g.subgraph l n m, ε ]) →
+  [Ge| g.concretise o i, ε ] ⊑ ([Ge| g, ε ]) := by sorry
 
 theorem substitution₂ {I} (mod : Module Ident I) g i ident :
   ident ∉ ε.keysList →
