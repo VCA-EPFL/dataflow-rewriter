@@ -203,7 +203,7 @@ theorem substitution₂ {I} (mod : Module Ident I) g i ident :
   [Ge| i, ε ] ⊑ mod →
   [Ge| g.inlineD i, ε ] ⊑ ([Ge| g, ε.cons ident ⟨ I, mod ⟩ ]) := by sorry
 
-theorem substitution3 {I} (mod : Module Ident I) g i ident :
+theorem substitution₃ {I} (mod : Module Ident I) g i ident :
   ident ∉ ε.keysList →
   mod ⊑ ([Ge| i, ε ]) →
   [Ge| g, ε.cons ident ⟨ I, mod ⟩ ] ⊑ ([Ge| g.inlineD i, ε ]) := by sorry
