@@ -65,6 +65,10 @@ def lower (e : ExprHigh Ident) : Option (ExprLow Ident) :=
 variable [DecidableEq Ident]
 variable [Inhabited Ident]
 
+/--
+Extract a subgraph using a list of `Ident`, and maps to name the new inputs and
+new outputs that are formed.
+-/
 def subgraph (e : ExprHigh Ident) (instances : List Ident)
     (newInputs newOutputs : IdentMap Ident (InternalPort Ident)) : ExprHigh Ident :=
   { inPorts := (e.inPorts.filter (λ _ b => b.inst.elem instances)).append newInputs,
@@ -75,6 +79,9 @@ def subgraph (e : ExprHigh Ident) (instances : List Ident)
         a.input.inst.elem instances && a.output.inst.elem instances
   }
 
+/--
+The rest of the circuit after a subgraph is extracted.
+-/
 def subgraph_shell (e : ExprHigh Ident) (instances : List Ident)
     (newInputs newOutputs : IdentMap Ident (InternalPort Ident)) : ExprHigh Ident :=
   e.subgraph (e.modules.keysList.diff instances)
@@ -83,16 +90,29 @@ def subgraph_shell (e : ExprHigh Ident) (instances : List Ident)
     (newInputs.mapVal λ _ v =>
       (e.connections.find? λ | ⟨ _, i ⟩ => v = i).getD default |>.output)
 
+/--
+Partitions the graph into a subgraph_shell, and the subgraph itself, which can
+be combined using inlining.
+-/
 def partition (e : ExprHigh Ident) (instances : List Ident)
     (newInputs newOutputs : IdentMap Ident (InternalPort Ident))
     : ExprHigh Ident × ExprHigh Ident :=
   (e.subgraph_shell instances newInputs newOutputs,
    e.subgraph instances newInputs newOutputs)
 
+/--
+This is an alternative definition of `subgraph_shell` that switches `newInputs`
+and `newOutputs` so that it matches the notion of inputs and outputs of the
+`subgraph_shell`.
+-/
 def subgraph'' (e : ExprHigh Ident) (instances : List Ident)
     (newInputs newOutputs : IdentMap Ident (InternalPort Ident)) : ExprHigh Ident :=
   e.subgraph (e.modules.keysList.diff instances) newInputs newOutputs
 
+/--
+Inline (or merge) one graph into another.  This is symmetric, and forms
+connections based on the names of the inputs and outputs.
+-/
 def inline (e e' : ExprHigh Ident) : Option (ExprHigh Ident) := do
   let new_input_connections ←
     e'.inPorts.foldlM (λ conns i port => do
@@ -113,6 +133,30 @@ def inline (e e' : ExprHigh Ident) : Option (ExprHigh Ident) := do
 
 def inlineD (e e' : ExprHigh Ident) : ExprHigh Ident :=
   e.inline e' |>.getD default
+
+/--
+Instead of using subgraph extraction and inlining, one could also use
+abstraction, which replaces a subgraph by a single node.  The `newInputs` and
+`newOutputs` maps are used to map ports from the subgraph to ports of the node
+that will replace it.
+-/
+def abstract (e : ExprHigh Ident) (i i' : Ident)
+    (newInputs newOutputs : IdentMap (InternalPort Ident) Ident) : ExprHigh Ident :=
+  { inPorts := (e.inPorts.mapVal (λ _ b => match newInputs.find? b with
+                                           | some newName => ⟨.internal i', newName⟩
+                                           | none => b)),
+    outPorts := (e.outPorts.mapVal (λ _ b => match newOutputs.find? b with
+                                             | some newName => ⟨.internal i', newName⟩
+                                             | none => b)),
+    modules := e.modules.cons i i'
+    connections :=
+      e.connections.map λ a =>
+        match newOutputs.find? a.1, newInputs.find? a.2 with
+        | some a', some b' => ⟨⟨.internal i', a'⟩, ⟨.internal i', b'⟩⟩
+        | some a', none => ⟨⟨.internal i', a'⟩, a.2⟩
+        | none, some b' => ⟨a.1, ⟨.internal i', b'⟩⟩
+        | none, none => a
+  }
 
 section Semantics
 
