@@ -348,6 +348,19 @@ def refines :=
 notation:35 x " ⊑ " y:34 => refines x y
 
 omit [Inhabited Ident] in
+theorem indistinguishable_transitive {J} (jmod : Module Ident J)
+        [MatchInterface imod jmod] [MatchInterface jmod smod] :
+  ∀ i_init j_init s_init,
+    indistinguishable imod jmod i_init j_init →
+    indistinguishable jmod smod j_init s_init →
+    indistinguishable imod smod i_init s_init := by
+  intro i_init j_init s_init Hind₁ Hind₂
+  rcases Hind₁ with ⟨ Hind₁_in, Hind₁_out ⟩
+  rcases Hind₂ with ⟨ Hind₂_in, Hind₂_out ⟩
+  stop constructor
+  -- · intro ident new_i v Hcont Hrule
+
+omit [Inhabited Ident] in
 theorem refines_φ_refines {φ} :
   (∀ i_init s_init, φ i_init s_init → indistinguishable imod smod i_init s_init) →
   imod ⊑_{φ} smod →
@@ -431,6 +444,7 @@ theorem refines_φ_transitive {J} (smod' : Module Ident J) {φ₁ φ₂}
     rcases Href with ⟨ mid_s, hexist₂, hphi₂ ⟩
     refine ⟨ mid_s, hexist₂, ?_, by exact hphi₁, by exact hphi₂ ⟩
 
+#check refines_φ_transitive
 theorem refines_transitive {J} (imod' : Module Ident J):
   imod ⊑ imod' →
   imod' ⊑ smod →
@@ -439,8 +453,21 @@ theorem refines_transitive {J} (imod' : Module Ident J):
   rcases h1 with ⟨ mm1, R1, h1 ⟩
   rcases h2 with ⟨ mm2, R2, h2 ⟩
   constructor <;> try assumption
-  exists (fun a b => ∃ c, R1 a c ∧ R2 c b); dsimp
-  sorry
+  exists (fun a b => ∃ c, (imod.indistinguishable imod' a c ∧ R1 a c)
+                        ∧ (imod'.indistinguishable smod c b ∧ R2 c b)); dsimp
+  have : (fun x y => imod.indistinguishable smod x y ∧
+             ∃ c, (imod.indistinguishable imod' x c ∧ R1 x c)
+                ∧ (imod'.indistinguishable smod c y ∧ R2 c y))
+           = (fun x y => ∃ c, (fun x y => imod.indistinguishable imod' x y ∧ R1 x y) x c
+                            ∧ (fun x y => imod'.indistinguishable smod x y ∧ R2 x y) c y) := by
+    ext x y
+    constructor; tauto
+    intro ⟨ c, ha, hb ⟩
+    constructor; rotate_left; tauto
+    apply indistinguishable_transitive imod smod imod' <;> tauto
+  rw [this]
+  apply refines_φ_transitive imod smod imod'
+  assumption; assumption
 
 end Refinement
 
