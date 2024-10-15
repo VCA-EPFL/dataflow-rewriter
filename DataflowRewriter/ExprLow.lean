@@ -219,7 +219,8 @@ theorem substition {I I' i i' mod mod' iexpr} :
     by_cases h : typ = i
     · subst typ
       rw [hfind₁]; dsimp [drunfold]
-
+      sorry
+    · sorry
   | _ => sorry
 
 end Refinement
