@@ -253,8 +253,21 @@ class MatchInterface (imod : Module Ident I) (smod : Module Ident S) : Prop wher
   input_types : ∀ (ident : Ident), (imod.inputs.getIO ident).1 = (smod.inputs.getIO ident).1
   output_types : ∀ (ident : Ident), (imod.outputs.getIO ident).1 = (smod.outputs.getIO ident).1
 
-end Match
+instance : MatchInterface (@Module.empty Ident S) (Module.empty I) where
+  input_types := by simp [Module.empty, PortMap.getIO]
+  output_types := by simp [Module.empty, PortMap.getIO]
 
+instance {m : Module Ident S} : MatchInterface m m where
+  input_types := by intros; rfl
+  output_types := by intros; rfl
+
+theorem MatchInterface_transitive {I J S} {imod : Module Ident I} {smod : Module Ident S} (jmod : Module Ident J) :
+  MatchInterface imod jmod →
+  MatchInterface jmod smod →
+  MatchInterface imod smod := by
+  intro ⟨ a, b ⟩ ⟨ c, d ⟩; constructor <;> simp [*]
+
+end Match
 
 /--
 State that there exists zero or more internal rule executions to reach a final
@@ -268,6 +281,9 @@ inductive existSR {Ident S : Type _} (mod : Module Ident S) : S → S → Prop w
       existSR mod mid final →
       existSR mod init final
 
+theorem existSR_reflexive {Ident S} {mod : Module Ident S} {s} :
+  existSR mod s s := existSR.done s
+
 theorem existSR_transitive {Ident S} (mod : Module Ident S) :
   ∀ s₁ s₂ s₃,
     existSR mod s₁ s₂ →
@@ -275,7 +291,6 @@ theorem existSR_transitive {Ident S} (mod : Module Ident S) :
     existSR mod s₁ s₃ := by
   intro s₁ s₂ s₃ He1 He2
   induction He1 generalizing s₃; assumption
-  rename_i init mid final rule Hin Hrule He2' iH
   constructor; all_goals solve_by_elim
 
 namespace Module
@@ -348,6 +363,11 @@ def refines :=
 notation:35 x " ⊑ " y:34 => refines x y
 
 omit [Inhabited Ident] in
+theorem indistinguishable_reflexive i_init :
+  indistinguishable imod imod i_init i_init := by
+  constructor <;> (intros; solve_by_elim)
+
+omit [Inhabited Ident] in
 theorem indistinguishable_transitive {J} (jmod : Module Ident J)
         [MatchInterface imod jmod] [MatchInterface jmod smod] :
   ∀ i_init j_init s_init,
@@ -359,6 +379,19 @@ theorem indistinguishable_transitive {J} (jmod : Module Ident J)
   rcases Hind₂ with ⟨ Hind₂_in, Hind₂_out ⟩
   stop constructor
   -- · intro ident new_i v Hcont Hrule
+
+omit [Inhabited Ident] in
+theorem refines_φ_reflexive : imod ⊑_{Eq} imod := by
+  intro init_i init_s heq; subst_vars
+  constructor
+  · intro ident mid_i v hcont hrule
+    refine ⟨ mid_i, mid_i, hrule, existSR.done _, rfl ⟩
+  · intro ident mid_i v hcont hrule
+    refine ⟨ mid_i, mid_i, hrule, existSR.done _, rfl ⟩
+  · intro ident mid_i hcont hrule
+    refine ⟨ mid_i, ?_, rfl ⟩
+    constructor <;> try assumption
+    exact .done _
 
 omit [Inhabited Ident] in
 theorem refines_φ_refines {φ} :
@@ -379,6 +412,12 @@ theorem refines_φ_refines {φ} :
   · intro rule mid_i Hcont Hrule
     specialize Hint rule mid_i Hcont Hrule
     tauto
+
+omit [Inhabited Ident] mm in
+theorem refines_reflexive : imod ⊑ imod := by
+  apply refines_φ_refines (φ := Eq) (smod := imod)
+  intros; subst_vars; apply indistinguishable_reflexive
+  apply refines_φ_reflexive
 
 omit [Inhabited Ident] in
 theorem refines_φ_multistep :
@@ -444,7 +483,7 @@ theorem refines_φ_transitive {J} (smod' : Module Ident J) {φ₁ φ₂}
     rcases Href with ⟨ mid_s, hexist₂, hphi₂ ⟩
     refine ⟨ mid_s, hexist₂, ?_, by exact hphi₁, by exact hphi₂ ⟩
 
-#check refines_φ_transitive
+omit [Inhabited Ident] mm in
 theorem refines_transitive {J} (imod' : Module Ident J):
   imod ⊑ imod' →
   imod' ⊑ smod →
@@ -452,6 +491,7 @@ theorem refines_transitive {J} (imod' : Module Ident J):
   intro h1 h2
   rcases h1 with ⟨ mm1, R1, h1 ⟩
   rcases h2 with ⟨ mm2, R2, h2 ⟩
+  have mm3 := MatchInterface_transitive imod' mm1 mm2
   constructor <;> try assumption
   exists (fun a b => ∃ c, (imod.indistinguishable imod' a c ∧ R1 a c)
                         ∧ (imod'.indistinguishable smod c b ∧ R2 c b)); dsimp

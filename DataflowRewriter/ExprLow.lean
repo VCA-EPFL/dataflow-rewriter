@@ -71,7 +71,7 @@ abbrev EType ε (e : ExprLow Ident) := HVector (get_types ε) e.ident_list
     let b ← build_moduleD ε b;
     return a.productD b
 
-theorem build_module'.dep_rewrite {instIdent} : ∀ {modIdent : Ident} {ε a} (Hfind : ε.find? modIdent = a), 
+theorem build_module'.dep_rewrite {instIdent} : ∀ {modIdent : Ident} {ε a} (Hfind : ε.find? modIdent = a),
   (Option.rec (motive := fun x =>
     Batteries.AssocList.find? modIdent ε = x →
       Option (Module Ident (EType ε (base instIdent modIdent))))
@@ -181,25 +181,25 @@ theorem substitution (iexpr : ExprLow Ident)
         (_ : MatchInterface ([e| iexpr, ε ]) smod)
         {ident} (h : ε.mem ident ⟨ T, mod ⟩) :
     mod ⊑ mod' →
-    [e| iexpr, ε ] ⊑ smod →
-    [e| iexpr, {ε | h := ⟨ T', mod' ⟩} ] ⊑ smod := by
+    [e| iexpr, ε ] ⊑ ([e| iexpr, {ε | h := ⟨ T', mod' ⟩} ]) := by
   unfold build_module_expr
   induction iexpr with
   | base instIdent modIdent =>
-    intro Hmod Hbase
-    dsimp [build_module_expr, build_module, build_module'] at Hbase ⊢
-    cases Hfind : ((Batteries.AssocList.find? modIdent ε)) with
+    intro Hmod
+    dsimp [build_module_expr, build_module, build_module']
+    cases Hfind : Batteries.AssocList.find? modIdent ε with
     | none =>
       have Hfind' := find?_modify (m := ⟨T', mod'⟩) h Hfind
       rw [Hfind'] -- simp does not work
-      rw [Hfind] at Hbase
-      simp_all
+      apply Module.refines_reflexive
     | some curr_mod =>
       by_cases h : modIdent = ident
       · subst_vars
         have Hfind' := find?_modify2 (m := ⟨ T', mod' ⟩) h
         rw [Hfind']; simp
-        sorry
+        -- rw [Hfind] at Hbase; simp at Hbase
+
+
       · sorry
   | input iport name e iH => sorry
   | output iport name e iH => sorry
