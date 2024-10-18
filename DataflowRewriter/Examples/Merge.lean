@@ -15,6 +15,7 @@ import DataflowRewriter.Component
 import DataflowRewriter.KernelRefl
 import DataflowRewriter.Reduce
 import DataflowRewriter.List
+import DataflowRewriter.ExprHigh
 
 open Batteries (AssocList)
 

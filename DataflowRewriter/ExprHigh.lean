@@ -143,6 +143,15 @@ that will replace it.
 @[drunfold] def abstract (e : ExprHigh Ident) (i i' : Ident) : ExprHigh Ident :=
   { e with modules := e.modules.cons i i' }
 
+@[drunfold] def abstract'' (e : ExprHigh Ident) (i i' : Ident) (inputs outputs : List Ident) : ExprHigh Ident :=
+  { e with modules := e.modules.cons i i'
+           inPorts := e.inPorts.filter λ k _ => k ∉ outputs
+           outPorts := e.outPorts.filter λ k _ => k ∉ inputs
+           connections :=
+             e.connections ++ (inputs.mapM (λ la => do let l ← e.outPorts.find? la; some (⟨l, ⟨.internal i, la⟩⟩ : Connection Ident))).getD []
+                           ++ (outputs.mapM (λ la => do let l ← e.inPorts.find? la; some (⟨⟨.internal i, la⟩, l⟩ : Connection Ident))).getD []
+  }
+
 @[drunfold] def abstract' (e : ExprHigh Ident) (instances : List Ident) (i i' : Ident) : ExprHigh Ident :=
   { e with modules := .cons i i' <| e.modules.filter λ a _ => a ∉ instances }
 
@@ -225,6 +234,20 @@ theorem substitution₈ {S mod i i' g'} {g : ExprHigh Ident} :
   [Ge| g', ε ] ⊑ mod →
   [Ge| g.inlineD g', ε ] ⊑ ([Ge| g.abstract i i', ε ]) := by sorry
 
+/-
+`i` and `o` need to be constrained to have unique names w.r.t. the graph.
+-/
+theorem substitution₉ {l i o g g₁ g₂} :
+  g.partition l i o = (g₁, g₂) →
+  [Ge| g, ε ] ⊑ ([Ge| g₁.inlineD g₂, ε ]) := by sorry
+
+/-
+`i` and `o` need to be constrained to have unique names w.r.t. the graph.
+-/
+theorem substitution₁₀ {l i o g g₁ g₂} :
+  g.partition l i o = (g₁, g₂) →
+  [Ge| g₁.inlineD g₂, ε ] ⊑ ([Ge| g, ε ]) := by sorry
+
 theorem substitution₂ {I} (mod : Module Ident I) g i ident :
   ident ∉ ε.keysList →
   [Ge| i, ε ] ⊑ mod →
@@ -264,6 +287,23 @@ def higher : ExprLow Ident → ExprHigh Ident
   ⟨ e₁'.1.append e₂'.1, e₁'.2.append e₂'.2, e₁'.3.append e₂'.3, e₁'.4.append e₂'.4 ⟩
 
 end ExprLow
+
+namespace Module
+
+variable {Ident : Type _}
+
+def liftGraph {S} (m : Module Ident S) (inst typ : Ident) : ExprHigh Ident :=
+  { modules := [(inst, typ)].toAssocList
+    inPorts := m.inputs.foldl (λ | (nm : IdentMap Ident (InternalPort Ident)), ⟨.top, b⟩, _ =>
+                                  nm.cons b ⟨.internal inst, b⟩
+                                 | nm, _, _ => nm) ∅
+    outPorts := m.outputs.foldl (λ | (nm : IdentMap Ident (InternalPort Ident)), ⟨.top, b⟩, _ =>
+                                     nm.cons b ⟨.internal inst, b⟩
+                                   | nm, _, _ => nm) ∅
+    connections := []
+  }
+
+end Module
 
 declare_syntax_cat dot_value
 declare_syntax_cat dot_stmnt
@@ -585,5 +625,7 @@ def delabExprHigh : Delab := do
 --                   { input := { inst := "merge2", name := "inp2" }, output := { inst := "merge1", name := "out" } }] } : ExprHigh)
 
 end mergemod
+
+
 
 end DataflowRewriter
