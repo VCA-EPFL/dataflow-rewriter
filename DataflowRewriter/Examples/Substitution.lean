@@ -89,7 +89,7 @@ def partition'' := partition.fst.inlineD ((threemerge Nat).liftGraph "imerge3" "
 
 #reduce ((threemerge Nat).liftGraph "imerge3" "merge3")
 
-#reduce partition''
+#eval partition''
 
 /- generated from threemerge -/
 

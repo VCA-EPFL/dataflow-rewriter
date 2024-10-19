@@ -113,26 +113,24 @@ and `newOutputs` so that it matches the notion of inputs and outputs of the
 Inline (or merge) one graph into another.  This is symmetric, and forms
 connections based on the names of the inputs and outputs.
 -/
-@[drunfold] def inline (e e' : ExprHigh Ident) : Option (ExprHigh Ident) := do
-  let new_input_connections ←
-    e'.inPorts.foldlM (λ conns i port => do
-                         let outP ← e.outPorts.find? i
-                         return Connection.mk port outP :: conns) []
-  let new_output_connections ←
-    e'.outPorts.foldlM (λ conns i port => do
-                          let inpP ← e.inPorts.find? i
-                          return Connection.mk inpP port :: conns) []
-  return { inPorts := e.inPorts.filter λ a _ => a ∉ e'.outPorts.keysList,
-           outPorts := e.outPorts.filter λ a _ => a ∉ e'.inPorts.keysList,
-           modules := e.modules.append e'.modules,
-           connections := e.connections
-                          ++ new_input_connections
-                          ++ new_output_connections
-                          ++ e'.connections
-         }
+@[drunfold] def inline (e e' : ExprHigh Ident) : ExprHigh Ident :=
+  let new_input_connections :=
+    e'.inPorts.foldl (λ conns i port =>
+                         match e.outPorts.find? i with | some outP => Connection.mk port outP :: conns | _ => conns) []
+  let new_output_connections :=
+    e'.outPorts.foldl (λ conns i port =>
+                         match e.inPorts.find? i with | some inpP => Connection.mk inpP port :: conns | _ => conns) []
+  { inPorts := e.inPorts.filter (λ a _ => a ∉ e'.outPorts.keysList) |>.append (e'.inPorts.filter (λ a _ => a ∉ e.outPorts.keysList)),
+    outPorts := e.outPorts.filter (λ a _ => a ∉ e'.inPorts.keysList) |>.append (e'.outPorts.filter (λ a _ => a ∉ e.inPorts.keysList)),
+    modules := e.modules.append e'.modules,
+    connections := e.connections
+                   ++ new_input_connections
+                   ++ new_output_connections
+                   ++ e'.connections
+  }
 
 @[drunfold] def inlineD (e e' : ExprHigh Ident) : ExprHigh Ident :=
-  e.inline e' |>.getD default
+  e.inline e'
 
 /--
 Instead of using subgraph extraction and inlining, one could also use
@@ -245,6 +243,13 @@ theorem substitution₉ {l i o g g₁ g₂} :
 `i` and `o` need to be constrained to have unique names w.r.t. the graph.
 -/
 theorem substitution₁₀ {l i o g g₁ g₂} :
+  g.partition l i o = (g₁, g₂) →
+  [Ge| g₁.inlineD g₂, ε ] ⊑ ([Ge| g, ε ]) := by sorry
+
+/-
+`i` and `o` need to be constrained to have unique names w.r.t. the graph.
+-/
+theorem substitution₁₁ {l i o g g₁ g₂} :
   g.partition l i o = (g₁, g₂) →
   [Ge| g₁.inlineD g₂, ε ] ⊑ ([Ge| g, ε ]) := by sorry
 
