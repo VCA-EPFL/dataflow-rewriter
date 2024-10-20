@@ -227,23 +227,16 @@ precondition that the input and output type must match.
     internals := mod.internals.map liftSingle'
   }
 
-@[drunfold] def renamePorts {S : Type _} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
-  { inputs := mod.inputs.modifyKeys f,
-    outputs := mod.outputs.modifyKeys f,
-    internals := mod.internals
+@[drunfold] def mapPorts {S : Type _} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
+  { mod with inputs := mod.inputs.mapKey f,
+             outputs := mod.outputs.mapKey f,
   }
 
-@[drunfold] def renameToInput {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
-  { inputs := mod.inputs.modifyKeys f,
-    outputs := mod.outputs,
-    internals := mod.internals
-  }
+@[drunfold] def mapInputPorts {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
+  { mod with inputs := mod.inputs.mapKey f }
 
-@[drunfold] def renameToOutput {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
-  { inputs := mod.inputs,
-    outputs := mod.outputs.modifyKeys f,
-    internals := mod.internals
-  }
+@[drunfold] def mapOutputPorts {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
+  { mod with outputs := mod.outputs.mapKey f }
 
 end Module
 
@@ -522,12 +515,12 @@ theorem refines_transitive {J} (imod' : Module Ident J):
   apply refines_φ_transitive imod smod imod'
   assumption; assumption
 
-omit [Inhabited Ident] mm in
-theorem refines_renamePorts {f}:
-    Injective f →
-    imod ⊑ smod →
-    imod.renamePorts f ⊑ smod.renamePorts f := by
-  intros hinj href; sorry
+-- omit [Inhabited Ident] mm in
+-- theorem refines_renamePorts {f}:
+--     Injective f →
+--     imod ⊑ smod →
+--     imod.renamePorts f ⊑ smod.renamePorts f := by
+--   intros hinj href; sorry
 
 end Refinement
 

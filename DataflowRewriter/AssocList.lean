@@ -17,8 +17,7 @@ def append {α β} (a b : AssocList α β) : AssocList α β :=
   | .cons x y xs =>
     .cons x y <| xs.append b
 
-def modifyKeys {α β} (map : AssocList α β) (f : α → α) : AssocList α β :=
-  map.foldl (λ new_map k v => new_map.cons (f k) v) ∅
+instance {α β} : Append (AssocList α β) := ⟨ append ⟩
 
 def keysList {α β} (map : AssocList α β) : List α :=
   map.toList.map (·.fst)
@@ -54,5 +53,25 @@ theorem map_keys_list {α β γ} [DecidableEq α] {ident} {l : AssocList α β} 
     refine ⟨ ident, val.snd, ?_ ⟩
     and_intros <;> try rfl
     apply map_keys_list'; assumption
+
+theorem mapKey_toList {α β} {l : AssocList α β} {f : α → α} :
+  l.mapKey f = (l.toList.map (λ | (a, b) => (f a, b))).toAssocList := by
+  induction l <;> simp [*]
+
+theorem contains_none {α β} [DecidableEq α] {m : AssocList α β} {ident} :
+    ¬ m.contains ident →
+    m.find? ident = none := by
+  intros H; rw [Batteries.AssocList.contains_eq] at H
+  rw [Batteries.AssocList.find?_eq]
+  rw [Option.map_eq_none', List.find?_eq_none]; intros x H
+  rcases x with ⟨ a, b⟩
+  simp at *; unfold Not; intros; apply H
+  subst_vars; assumption
+
+theorem contains_some {α β} [DecidableEq α] {m : AssocList α β} {ident} :
+    m.contains ident →
+    (m.find? ident).isSome := by
+  intros H; rw [Batteries.AssocList.contains_eq] at H; simp at H; rcases H with ⟨ a, H ⟩
+  simp [*]; constructor; assumption
 
 end Batteries.AssocList

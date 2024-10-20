@@ -68,24 +68,6 @@ attribute [dmod] Batteries.AssocList.find? BEq.beq
 
 opaque merge_sem_merge_sem' T : merge_sem T = merge_sem' T := by rfl
 
-theorem AssocList_contains_none {S : Type _}
-    (m : PortMap Ident ((T : Type) × (S → T → S → Prop))) ident :
-    ¬ m.contains ident →
-    m.find? ident = none := by
-  intros H; rw [Batteries.AssocList.contains_eq] at H
-  rw [Batteries.AssocList.find?_eq]
-  rw [Option.map_eq_none', List.find?_eq_none]; intros x H
-  rcases x with ⟨ a, ⟨ b, c ⟩⟩
-  simp at *; unfold Not; intros; apply H
-  subst_vars; assumption
-
-theorem AssocList_contains_some {S : Type _}
-    (m : PortMap Ident ((T : Type) × (S → T → S → Prop))) ident :
-    m.contains ident →
-    (m.find? ident).isSome := by
-  intros H; rw [Batteries.AssocList.contains_eq] at H; simp at H; rcases H with ⟨ a, b, H ⟩
-  simp [*]; tauto
-
 @[simp] theorem any_map {α β} {f : α → β} {l : List α} {p : β → Bool} : (l.map f).any p = l.any (p ∘ f) := by
   induction l with simp | cons _ _ ih => rw [ih]
 

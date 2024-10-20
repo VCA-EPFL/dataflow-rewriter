@@ -10,6 +10,64 @@ import DataflowRewriter.HVector
 
 namespace DataflowRewriter
 
+structure PortMapping (Ident) where
+  input : PortMap Ident (InternalPort Ident)
+  output : PortMap Ident (InternalPort Ident)
+deriving Repr, Inhabited, DecidableEq
+
+namespace PortMapping
+
+variable {Ident}
+
+def append (a b : PortMapping Ident) :=
+  PortMapping.mk (a.input ++ b.input) (a.output ++ b.output)
+
+instance : Append (PortMapping Ident) := ⟨append⟩
+
+instance : EmptyCollection (PortMapping Ident) := ⟨⟨∅, ∅⟩⟩
+
+end PortMapping
+
+namespace Module
+
+section
+
+variable {S Ident}
+variable [DecidableEq Ident]
+
+def renamePorts (m : Module Ident S) (p : PortMapping Ident) : Module Ident S :=
+  m.mapInputPorts (λ k => p.input.find? k |>.getD k)
+  |>.mapOutputPorts (λ k => p.output.find? k |>.getD k)
+
+end
+
+section
+
+variable {S Ident}
+
+theorem mapInputPorts_id {m : Module Ident S} :
+  m.mapInputPorts id = m := by
+  unfold mapInputPorts
+  rw [Batteries.AssocList.mapKey_toList]; simp
+
+theorem mapOutputPorts_id {m : Module Ident S} :
+  m.mapOutputPorts id = m := by
+  unfold mapOutputPorts
+  rw [Batteries.AssocList.mapKey_toList]; simp
+
+variable [DecidableEq Ident]
+
+theorem renamePorts_empty {m : Module Ident S} :
+  m.renamePorts ∅ = m := by
+  unfold renamePorts
+  have : (fun k => (Batteries.AssocList.find? k (∅ : PortMapping Ident).output).getD k) = id := by rfl
+  have : (fun k => (Batteries.AssocList.find? k (∅ : PortMapping Ident).input).getD k) = id := by rfl
+  simp only [*, mapInputPorts_id, mapOutputPorts_id]
+
+end
+
+end Module
+
 /--
 ExprLow is an inductive definition of a circuit, inspired by a definition by
 Tony Law [?].  The main difference is th edadition of input and output
@@ -22,12 +80,16 @@ additional state to be able to communicate from an input to the input for the
 module.
 -/
 inductive ExprLow Ident where
-| base : Ident → Ident → ExprLow Ident
-| input : InternalPort Ident → Ident → ExprLow Ident → ExprLow Ident
-| output : InternalPort Ident → Ident → ExprLow Ident → ExprLow Ident
+| base : PortMapping Ident → Ident → ExprLow Ident
 | product : ExprLow Ident → ExprLow Ident → ExprLow Ident
 | connect : InternalPort Ident → InternalPort Ident → ExprLow Ident → ExprLow Ident
-deriving Repr, Hashable, Ord, Inhabited, DecidableEq
+deriving Repr, Inhabited, DecidableEq
+
+inductive NamedExprLow Ident where
+| input : InternalPort Ident → Ident → NamedExprLow Ident → NamedExprLow Ident
+| output : InternalPort Ident → Ident → NamedExprLow Ident → NamedExprLow Ident
+| base : ExprLow Ident → NamedExprLow Ident
+deriving Repr, Inhabited, DecidableEq
 
 namespace ExprLow
 
@@ -36,27 +98,47 @@ variable [DecidableEq Ident]
 
 @[drunfold] def modify (i i' : Ident) : ExprLow Ident → ExprLow Ident
 | .base inst typ => if typ = i then .base inst i' else .base inst typ
-| .input x y e' => modify i i' e' |> .input x y
-| .output x y e' => modify i i' e' |> .output x y
 | .connect x y e' => modify i i' e' |> .connect x y
 | .product e₁ e₂ =>
-  let e₁' := modify i i' e₁
-  let e₂' := modify i i' e₂
+  let e₁' := e₁.modify i i'
+  let e₂' := e₂.modify i i'
   .product e₁' e₂'
 
-def get_types (ε : IdentMap Ident (Σ T, Module Ident T)) (i : Ident) : Type* :=
+@[drunfold] def replace (e e_sub e_new : ExprLow Ident) : ExprLow Ident :=
+  if e = e_sub then e_new else
+  match e with
+  | .base inst typ => e
+  | .connect x y e_sub' => .connect x y (e_sub'.replace e_sub e_new)
+  | .product e_sub₁ e_sub₂ =>
+    .product (e_sub₁.replace e_sub e_new) (e_sub₂.replace e_sub e_new)
+
+@[drunfold]
+def abstract (e e_sub : ExprLow Ident) (i_inst : PortMapping Ident) (i_typ : Ident) : ExprLow Ident :=
+  .base i_inst i_typ |> e.replace e_sub
+
+@[drunfold]
+def concretise (e e_sub : ExprLow Ident) (i_inst : PortMapping Ident) (i_typ : Ident) : ExprLow Ident :=
+  .base i_inst i_typ |> (e.replace · e_sub)
+
+@[drunfold]
+def calc_mapping : ExprLow Ident → PortMapping Ident
+| .base inst typ => inst
+| .connect _x _y e => e.calc_mapping
+| .product e₁ e₂ => e₁.calc_mapping ++ e₂.calc_mapping
+
+variable (ε : IdentMap Ident (Σ T : Type _, Module Ident T))
+
+@[drunfold] def get_types (i : Ident) : Type _ :=
   (ε.find? i) |>.map Sigma.fst |>.getD PUnit
 
-def ident_list : ExprLow Ident → List Ident
+@[drunfold] def ident_list : ExprLow Ident → List Ident
 | .base i e => [e]
-| .input _ _ e
-| .output _ _ e
 | .connect _ _ e => e.ident_list
 | .product a b => a.ident_list ++ b.ident_list
 
 abbrev EType ε (e : ExprLow Ident) := HVector (get_types ε) e.ident_list
 
-@[drunfold] def build_moduleD (ε : IdentMap Ident ((T: Type) × Module Ident T))
+@[drunfold] def build_moduleD
     : (e : ExprLow Ident) → Option (Module Ident (EType ε e))
 | .base i e =>
   match h : ε.find? e with
@@ -67,18 +149,12 @@ abbrev EType ε (e : ExprLow Ident) := HVector (get_types ε) e.ident_list
       simp_all [get_types]
     some ((H ▸ mod.2).liftD)
   | none => none
-| .input a b e' => do
-  let e ← build_moduleD ε e'
-  return e.renameToInput (λ p => if p == a then ⟨ .top, b ⟩ else p)
-| .output a b e' => do
-  let e ← build_moduleD ε e'
-  return e.renameToOutput (λ p => if p == a then ⟨ .top, b ⟩ else p)
 | .connect o i e' => do
-  let e ← build_moduleD ε e'
+  let e ← e'.build_moduleD
   return e.connect' o i
 | .product a b => do
-  let a ← build_moduleD ε a;
-  let b ← build_moduleD ε b;
+  let a ← a.build_moduleD;
+  let b ← b.build_moduleD;
   return a.productD b
 
 theorem build_moduleD.dep_rewrite {instIdent} : ∀ {modIdent : Ident} {ε a} (Hfind : ε.find? modIdent = a),
@@ -95,44 +171,79 @@ theorem build_moduleD.dep_rewrite {instIdent} : ∀ {modIdent : Ident} {ε a} (H
     a
     (Eq.refl a)) := by intro a b c d; cases d; rfl
 
-@[drunfold] def build_module' (ε : IdentMap Ident ((T: Type) × Module Ident T))
+@[drunfold] def build_module'
     : (e : ExprLow Ident) → Option (Σ T, Module Ident T)
 | .base i e => do
   let mod ← ε.find? e
-  return ⟨ _, mod.2.renamePorts λ ⟨ _, y ⟩ => ⟨ .internal i, y ⟩ ⟩
-| .input a b e' => do
-  let e ← build_module' ε e'
-  return ⟨ _, e.2.renameToInput (λ p => if p == a then ⟨ .top, b ⟩ else p) ⟩
-| .output a b e' => do
-  let e ← build_module' ε e'
-  return ⟨ _, e.2.renameToOutput (λ p => if p == a then ⟨ .top, b ⟩ else p) ⟩
+  return ⟨ _, mod.2.renamePorts i ⟩
 | .connect o i e' => do
-  let e ← build_module' ε e'
+  let e ← e'.build_module'
   return ⟨ _, e.2.connect' o i ⟩
 | .product a b => do
-  let a ← build_module' ε a;
-  let b ← build_module' ε b;
+  let a ← a.build_module'
+  let b ← b.build_module'
   return ⟨ _, a.2.product b.2 ⟩
 
-@[drunfold] def build_moduleP (ε : IdentMap Ident (Σ T, Module Ident T))
+@[drunfold] def build_moduleP
     (e : ExprLow Ident)
     (h : (build_module' ε e).isSome = true := by rfl)
     : Σ T, Module Ident T := e.build_module' ε |>.get h
 
-@[drunfold] def build_module (ε : IdentMap Ident (Σ T, Module Ident T))
+@[drunfold] def build_module
     (e : ExprLow Ident)
     : Σ T, Module Ident T := e.build_module' ε |>.getD ⟨ Unit, Module.empty _ ⟩
 
-@[drunfold] abbrev build_module_expr (ε : IdentMap Ident (Σ T, Module Ident T))
+@[drunfold] abbrev build_module_expr
     (e : ExprLow Ident)
     : Module Ident (e.build_module ε).1 := (e.build_module ε).2
 
-@[drunfold] abbrev build_module_type (ε : IdentMap Ident (Σ T, Module Ident T))
+@[drunfold] abbrev build_module_type
     (e : ExprLow Ident)
     : Type _ := (e.build_module ε).1
 
 notation:25 "[e| " e ", " ε " ]" => build_module_expr ε e
 notation:25 "[T| " e ", " ε " ]" => build_module_type ε e
+
+def all (P : Ident → Bool) : ExprLow Ident → Bool
+| base f typ => P typ
+| connect o i e => e.all P
+| product e₁ e₂ => e₁.all P && e₂.all P
+
+def any (P : Ident → Bool) : ExprLow Ident → Bool
+| base f typ => P typ
+| connect o i e => e.any P
+| product e₁ e₂ => e₁.any P || e₂.any P
+
+def wf : ExprLow Ident → Bool := all (λ typ => ε.contains typ)
+
+def excludes (ident : Ident) : ExprLow Ident → Bool := all (· ≠ ident)
+
+variable {ε}
+
+theorem wf_builds_module {e} : wf ε e → (e.build_module' ε).isSome := by
+  induction e with
+  | base inst typ =>
+    intro hwf; dsimp [wf, all] at hwf
+    simp only [drunfold]
+    have := Batteries.AssocList.contains_some hwf
+    rw [Option.isSome_iff_exists] at this; cases this
+    simp only [*]; rfl
+  | connect i o e ih =>
+    intro hwf; dsimp [wf, all] at hwf
+    specialize ih hwf
+    simp only [drunfold]; rw [Option.isSome_iff_exists] at ih; cases ih
+    simp only [*]; rfl
+  | product e₁ e₂ ihe₁ ihe₂ =>
+    intro hwf; dsimp [wf, all] at hwf; rw [Bool.and_eq_true] at hwf; cases hwf; rename_i ha hb
+    specialize ihe₁ ha; specialize ihe₂ hb
+    simp only [drunfold]; rw [Option.isSome_iff_exists] at ihe₁ ihe₂
+    cases ihe₁; cases ihe₂
+    simp only [*]; rfl
+
+theorem build_module_unfold_1 {m r i} :
+  ε.find? i = some m →
+  build_module ε (.base r i) = ⟨ m.fst, m.snd.renamePorts r ⟩ := by
+  intro h; simp only [drunfold]; rw [h]; simp
 
 -- theorem build_module_replace {ε : IdentMap Ident (Σ (T : Type), Module Ident T)} {expr} {m : (Σ (T : Type), Module Ident T)} {i : Ident} :
 --   (build_module' ε expr).isSome → (build_module' (ε.replace i m) expr).isSome := by sorry
@@ -174,6 +285,17 @@ variable (ε : IdentMap Ident ((T : Type _) × Module Ident T))
 variable {S : Type v}
 variable (smod : Module Ident S)
 
+theorem refines_product {e₁ e₂ e₁' e₂'} :
+    [e| e₁, ε ] ⊑ ([e| e₁', ε ]) →
+    [e| e₂, ε ] ⊑ ([e| e₂', ε ]) →
+    [e| e₁.product e₂, ε ] ⊑ ([e| e₁'.product e₂', ε ]) := by
+  intro ref1 ref2; sorry
+
+theorem refines_connect {e e' o i} :
+    [e| e, ε ] ⊑ ([e| e', ε ]) →
+    [e| e.connect o i, ε ] ⊑ ([e| e'.connect o i, ε ]) := by
+  intro ref; sorry
+
 -- set_option debug.skipKernelTC true in
 set_option pp.proofs true in
 set_option pp.deepTerms true in
@@ -201,8 +323,6 @@ theorem substite_env (iexpr : ExprLow Ident) {ident} (h : ε.mem ident ⟨ T, mo
         -- rw [Hfind] at Hbase; simp at Hbase
         sorry
       · sorry
-  | input iport name e iH => sorry
-  | output iport name e iH => sorry
   | product e₁ e₂ iH₁ iH₂ => sorry
   | connect p1 p2 e iH => sorry
 
@@ -222,6 +342,55 @@ theorem substition {I I' i i' mod mod' iexpr} :
       sorry
     · sorry
   | _ => sorry
+
+theorem abstract_refines {iexpr expr_pat i} :
+    ε.find? i = some ⟨ _, [e| expr_pat, ε ] ⟩ →
+    iexpr.wf ε →
+    [e| iexpr, ε ] ⊑ ([e| iexpr.abstract expr_pat ∅ i, ε ]) := by
+  unfold build_module_expr; intro hfind;
+  induction iexpr with
+  | base inst typ =>
+    intro hwf
+    dsimp [drunfold, Option.bind, Option.getD] at *
+    by_cases h : .base inst typ = expr_pat
+    · rw [h];
+      have : (if expr_pat = expr_pat then .base ∅ i else expr_pat) = .base ∅ i := by simp
+      rw [this]; clear this; simp [drunfold, Option.bind]
+      rw [hfind]; simp
+      have : ∃ m, Batteries.AssocList.find? typ ε = some m := by
+        simp only [wf, all] at hwf
+        simp only [←Option.isSome_iff_exists, Batteries.AssocList.contains_some, hwf]
+      rcases this with ⟨ m, hb ⟩; rw [hb]; simp
+      subst_vars
+      simp [drunfold, Option.bind, Option.getD, hb]
+      rw [hb]; simp
+      rw [Module.renamePorts_empty]; apply Module.refines_reflexive
+    · have : (if base inst typ = expr_pat then base ∅ i else base inst typ) = base inst typ := by
+        simp [h]
+      rw [this]; clear this
+      have : ∃ m, Batteries.AssocList.find? typ ε = some m := by
+        simp only [wf, all] at hwf
+        simp only [←Option.isSome_iff_exists, Batteries.AssocList.contains_some, hwf]
+      cases this; rename_i a ha
+      dsimp [drunfold]; rw [ha]; simp [Module.refines_reflexive]
+  | product e₁ e₂ ihe₁ ihe₂ =>
+    simp [abstract, replace]
+    intro hwf
+    generalize H : (if e₁.product e₂ = expr_pat then base ∅ i
+        else (e₁.replace expr_pat (base ∅ i)).product (e₂.replace expr_pat (base ∅ i))) = y
+    split at H <;> subst y <;> rename_i h
+    · subst_vars
+      rw [build_module_unfold_1 hfind, Module.renamePorts_empty]
+      apply Module.refines_reflexive
+    · apply refines_product <;> [apply ihe₁ ; apply ihe₂] <;> simp_all [wf, all]
+  | connect x y e ih =>
+    simp [abstract, replace]
+    intro hwf
+    generalize h : (if connect x y e = expr_pat then base ∅ i else connect x y (e.replace expr_pat (base ∅ i))) = y
+    split at h <;> subst_vars
+    · rw [build_module_unfold_1 hfind, Module.renamePorts_empty]
+      apply Module.refines_reflexive
+    · solve_by_elim [refines_connect]
 
 end Refinement
 
