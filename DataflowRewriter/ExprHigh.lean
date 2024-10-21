@@ -46,19 +46,85 @@ namespace ExprHigh
 variable {Ident : Type _}
 variable [DecidableEq Ident]
 
+@[drunfold] def lower' (el : ExprLow Ident) (e : ExprHigh Ident) : ExprLow Ident :=
+  let prod_expr :=
+    e.modules.toList.foldl (λ expr val =>
+        -- return .product (.base (int.toPortMapping val.1) val.2) expr)
+        .product (Function.uncurry .base val.snd) expr) el
+  e.connections.foldl (λ expr conn => .connect conn.output conn.input expr) prod_expr
+
 @[drunfold] def lower (e : ExprHigh Ident) : Option (ExprLow Ident) :=
   match e.modules.toList with
-  | x :: xs =>
-    let prod_expr :=
-      xs.foldl (λ expr val =>
-          -- return .product (.base (int.toPortMapping val.1) val.2) expr)
-          .product (Function.uncurry .base val.snd) expr)
-        <| Function.uncurry .base x.snd
-    return e.connections.foldl (λ expr conn => .connect conn.output conn.input expr) prod_expr
+  | x :: xs => some <| {e with modules := xs.toAssocList}.lower' (Function.uncurry .base x.snd)
   | _ => none
 
+end ExprHigh
+
+class FreshIdent (Ident : Type _) where
+  next : Nat → Ident
+
+instance : FreshIdent String where
+  next n := "mod" ++ toString n
+
+instance : FreshIdent Nat where
+  next := id
+
+namespace ExprLow
+
+variable {Ident : Type _}
 variable [DecidableEq Ident]
 variable [Inhabited Ident]
+
+def higher' [FreshIdent Ident] (fresh : Nat) : ExprLow Ident → (ExprHigh Ident × Nat)
+| .base a b =>
+  (ExprHigh.mk [(a.ofPortMapping.getD (FreshIdent.next fresh), (a, b))].toAssocList ∅, fresh + 1)
+| .connect o i e =>
+  let (e', fresh') := e.higher' fresh
+  ({e' with connections := e'.connections.cons ⟨ o, i ⟩}, fresh')
+| .product e₁ e₂ =>
+  let (e₁', fresh₁) := e₁.higher' fresh
+  let (e₂', fresh₂) := e₂.higher' fresh₁
+  (⟨ e₁'.1.append e₂'.1, e₁'.2.append e₂'.2 ⟩, fresh₂)
+
+def higher [Inhabited Ident] [FreshIdent Ident] (e: ExprLow Ident) : ExprHigh Ident :=
+  e.higher' default |>.fst
+
+end ExprLow
+
+namespace ExprHigh
+
+variable {Ident : Type _}
+variable [DecidableEq Ident]
+variable [Inhabited Ident]
+
+@[drunfold] def reorder (g : ExprHigh Ident) (sub : List Ident) : ExprHigh Ident :=
+  let m1 := g.modules.filter (λ k v => k ∈ sub)
+  let m2 := g.modules.filter (λ k v => k ∉ sub)
+  {g with modules := m1 ++ m2}
+
+@[drunfold] def extract (g : ExprHigh Ident) (sub : List Ident) : ExprHigh Ident :=
+  ⟨ g.modules.filter (λ k v => k ∈ sub)
+  , g.connections.filter (λ | ⟨o, i⟩ => o.inst.elem sub && i.inst.elem sub)
+  ⟩
+
+@[drunfold] def rest (g : ExprHigh Ident) (sub : List Ident) : ExprHigh Ident :=
+  ⟨ g.modules.filter (λ k v => k ∉ sub)
+  , g.connections.filter (λ | ⟨o, i⟩ => !(o.inst.elem sub && i.inst.elem sub))
+  ⟩
+
+@[drunfold] def replace [FreshIdent Ident]
+  (g : ExprHigh Ident) (sub : List Ident) (g' : ExprHigh Ident)
+  : Option (ExprHigh Ident) := do
+  let e_sub ← g.extract sub |>.lower
+  let g_lower := g.rest sub |>.lower' e_sub
+  let g'_lower ← g'.lower
+  g_lower.replace e_sub g'_lower |>.higher
+
+@[drunfold]
+def rename [FreshIdent Ident]
+    (typ : Ident) (p : PortMapping Ident) (g : ExprHigh Ident) : Option (ExprHigh Ident) := do
+  let g_lower ← g.lower
+  g_lower.rename typ p |>.higher
 
 section Semantics
 
@@ -88,120 +154,14 @@ notation:25 "[GT| " e ", " ε " ]" => build_module_type ε e
 
 end Semantics
 
-section Refinement
-
-variable (ε : IdentMap Ident ((T : Type _) × Module Ident T))
-
-/-
-This one should be straight-forward due to `ExprLow.substitute_env`.
--/
-theorem substitution₁ {I S} (mod : Module Ident I) (mod' : Module Ident S) g
-    ident (h : ε.mem ident ⟨ I, mod ⟩) :
-  mod ⊑ mod' →
-  [Ge| g, ε ] ⊑ ([Ge| g, {ε | h := ⟨ S, mod' ⟩} ]) := by sorry
-
-/-
-This one should be straight-forward due to `ExprLow.substitution`.
--/
-theorem substitution₄ {I S mod mod' i i' g} :
-  ε.find? i = some ⟨ I, mod ⟩ →
-  ε.find? i' = some ⟨ S, mod' ⟩ →
-  mod ⊑ mod' →
-  [Ge| g, ε ] ⊑ ([Ge| g.modify i i', ε ]) := by sorry
-
-theorem substitution₅ {S mod l i i' g n m} :
-  ε.find? i' = some ⟨ S, mod ⟩ →
-  [Ge| g.subgraph l n m, ε ] ⊑ mod →
-  [Ge| g, ε ] ⊑ ([Ge| g.abstract' l i i', ε ]) := by sorry
-
-theorem substitution₆ {S mod l i i' g n m o} :
-  ε.find? i' = some ⟨ S, mod ⟩ →
-  mod ⊑ ([Ge| g.subgraph l n m, ε ]) →
-  [Ge| g.concretise' o i, ε ] ⊑ ([Ge| g, ε ]) := by sorry
-
-theorem substitution₇ {S mod i i' g'} {g : ExprHigh Ident} :
-  ε.find? i' = some ⟨ S, mod ⟩ →
-  mod ⊑ ([Ge| g', ε ]) →
-  [Ge| g.abstract i i', ε ] ⊑ ([Ge| g.inlineD g', ε ]) := by sorry
-
-theorem substitution₈ {S mod i i' g'} {g : ExprHigh Ident} :
-  ε.find? i' = some ⟨ S, mod ⟩ →
-  [Ge| g', ε ] ⊑ mod →
-  [Ge| g.inlineD g', ε ] ⊑ ([Ge| g.abstract i i', ε ]) := by sorry
-
-/-
-`i` and `o` need to be constrained to have unique names w.r.t. the graph.
--/
-theorem substitution₉ {l i o g g₁ g₂} :
-  g.partition l i o = (g₁, g₂) →
-  [Ge| g, ε ] ⊑ ([Ge| g₁.inlineD g₂, ε ]) := by sorry
-
-/-
-`i` and `o` need to be constrained to have unique names w.r.t. the graph.
--/
-theorem substitution₁₀ {l i o g g₁ g₂} :
-  g.partition l i o = (g₁, g₂) →
-  [Ge| g₁.inlineD g₂, ε ] ⊑ ([Ge| g, ε ]) := by sorry
-
-/-
-`i` and `o` need to be constrained to have unique names w.r.t. the graph.
--/
-theorem substitution₁₁ {l i o g g₁ g₂} :
-  g.partition l i o = (g₁, g₂) →
-  [Ge| g₁.inlineD g₂, ε ] ⊑ ([Ge| g, ε ]) := by sorry
-
-theorem substitution₂ {I} (mod : Module Ident I) g i ident :
-  ident ∉ ε.keysList →
-  [Ge| i, ε ] ⊑ mod →
-  [Ge| g.inlineD i, ε ] ⊑ ([Ge| g, ε.cons ident ⟨ I, mod ⟩ ]) := by sorry
-
-theorem substitution₃ {I} (mod : Module Ident I) g i ident :
-  ident ∉ ε.keysList →
-  mod ⊑ ([Ge| i, ε ]) →
-  [Ge| g, ε.cons ident ⟨ I, mod ⟩ ] ⊑ ([Ge| g.inlineD i, ε ]) := by sorry
-
-theorem substitution (g i i' : ExprHigh Ident) :
-  [Ge| i, ε ] ⊑ ([Ge| i', ε ]) →
-  [Ge| g.inlineD i, ε ] ⊑ ([Ge| g.inlineD i', ε ]) := by sorry
-
-end Refinement
-
 end ExprHigh
-
-class FreshIdent (Ident : Type _) where
-  next : Ident → Ident
-
-namespace ExprLow
-
-variable {Ident : Type _}
-
-def higher' [FreshIdent Ident] (fresh : Ident) : ExprLow Ident → (ExprHigh Ident × Ident)
-| .base a b => (ExprHigh.mk [(fresh, (a, b))].toAssocList ∅, FreshIdent.next fresh)
-| .connect o i e =>
-  let (e', fresh') := e.higher' fresh
-  ({e' with connections := e'.connections.cons ⟨ o, i ⟩}, fresh')
-| .product e₁ e₂ =>
-  let (e₁', fresh₁) := e₁.higher' fresh
-  let (e₂', fresh₂) := e₂.higher' fresh₁
-  (⟨ e₁'.1.append e₂'.1, e₁'.2.append e₂'.2 ⟩, fresh₂)
-
-def higher [Inhabited Ident] [FreshIdent Ident] (e: ExprLow Ident) : ExprHigh Ident :=
-  e.higher' default |>.fst
-
-end ExprLow
 
 namespace Module
 
 variable {Ident : Type _}
 
-def liftGraph {S} (m : Module Ident S) (inst typ : Ident) : ExprHigh Ident :=
-  { modules := [(inst, typ)].toAssocList
-    inPorts := m.inputs.foldl (λ | (nm : IdentMap Ident (InternalPort Ident)), ⟨.top, b⟩, _ =>
-                                  nm.cons b ⟨.internal inst, b⟩
-                                 | nm, _, _ => nm) ∅
-    outPorts := m.outputs.foldl (λ | (nm : IdentMap Ident (InternalPort Ident)), ⟨.top, b⟩, _ =>
-                                     nm.cons b ⟨.internal inst, b⟩
-                                   | nm, _, _ => nm) ∅
+def liftGraph {S} (m : Module Ident S) (p : PortMapping Ident) (inst typ : Ident) : ExprHigh Ident :=
+  { modules := [(inst, p, typ)].toAssocList
     connections := []
   }
 
@@ -215,6 +175,7 @@ declare_syntax_cat dot_attr
 syntax str : dot_value
 syntax num : dot_value
 syntax ident : dot_value
+syntax ("t" <|> "f") : dot_value
 
 syntax ident " = " dot_value : dot_attr
 syntax (dot_attr),* : dot_attr_list
@@ -239,6 +200,17 @@ def findStx (n : Name) (stx : Array Syntax) : Option Nat := do
   out
 
 open Lean in
+def findStxBool (n : Name) (stx : Array Syntax) : Option Bool := do
+  let mut out := none
+  for pair in stx do
+    if pair[0].getId = n then
+      out := match pair[2] with
+             | `(dot_value| true) => .some .true
+             | `(dot_value| false) => .some .false
+             | _ => .none
+  out
+
+open Lean in
 def findStxStr (n : Name) (stx : Array Syntax) : MetaM (Option String) := do
   let mut out := none
   for pair in stx do
@@ -253,105 +225,129 @@ def toInstIdent {α} [Inhabited α] (n : String) (h : Std.HashMap String α) : I
   | "io" => .top
   | s => .internal h[s]!
 
+def parseInternalPort (s : String) : Option (InternalPort String) :=
+  match s.splitOn "." with
+  | [single] => some ⟨.top, single⟩
+  | [first, second] => some ⟨.internal first, second⟩
+  | _ => none
+
+open Lean Qq in
+def reifyInternalPort : InternalPort String → Q(InternalPort String)
+| ⟨ .top, s ⟩ =>
+  let s' : Q(String) := .lit (.strVal s)
+  q(InternalPort.mk .top $s')
+| ⟨ .internal a, b ⟩ =>
+  let a' : Q(String) := .lit (.strVal a)
+  let b' : Q(String) := .lit (.strVal b)
+  q(InternalPort.mk (.internal $a') $b')
+
+open Lean Qq in
+def reifyInternalPort' {u : Level} {α : Q(Type $u)} : InternalPort Q($α) → Q(InternalPort $α)
+| ⟨ .top, s ⟩ => q(InternalPort.mk .top $s)
+| ⟨ .internal a, b ⟩ => q(InternalPort.mk (.internal $a) $b)
+
+-- open Lean Qq in
+-- def reifyPortMapping (p : PortMapping String) : Q(PortMapping String) :=
+--   q(@PortMapping.mk String )
+
+def updatePortMappingInput (s : Std.HashMap String (PortMapping String × String))
+  : InternalPort String → Std.HashMap String (PortMapping String × String)
+| ⟨.top, _⟩ => s
+| ⟨.internal i, x⟩ =>
+  let (a, b) := s[i]!
+  s.insert i ({a with input := a.input.cons ⟨.top, x⟩ ⟨.internal i, x⟩}, b)
+
+def updatePortMappingOutput (s : Std.HashMap String (PortMapping String × String))
+  : InternalPort String → Std.HashMap String (PortMapping String × String)
+| ⟨.top, _⟩ => s
+| ⟨.internal i, x⟩ =>
+  let (a, b) := s[i]!
+  s.insert i ({a with output := a.output.cons ⟨.top, x⟩ ⟨.internal i, x⟩}, b)
+
+open Lean Qq in
+def mkAssocListExpr {u : Level} {α β : Q(Type $u)}
+  : Batteries.AssocList Q($α) Q($β) → Q(Batteries.AssocList $α $β)
+| .cons a b r => let r' := mkAssocListExpr r; q(.cons $a $b $r')
+| .nil => q(.nil)
+
+open Lean Qq in
+def mkPortMapping {u : Level} {α : Q(Type $u)} : PortMapping Q($α) → Q(PortMapping $α)
+| ⟨ a, b ⟩ =>
+  let a' := a.mapKey reifyInternalPort' |>.mapVal (λ _ => reifyInternalPort') |> mkAssocListExpr
+  let b' := b.mapKey reifyInternalPort' |>.mapVal (λ _ => reifyInternalPort') |> mkAssocListExpr
+  q(@PortMapping.mk $α $a' $b')
+
 open Lean Qq in
 @[term_elab dot_graph]
 def dotGraphElab : TermElab := λ stx _typ? => do
-  let mut instMap : Std.HashMap Name (InstIdent String) := ∅
-  let mut instTypeMap : Std.HashMap String String := ∅
-  -- let mut modMap : Std.HashMap String Nat := ∅
+  let mut instMap : Std.HashMap Name (InstIdent String × Bool) := ∅
+  let mut instTypeMap : Std.HashMap String (PortMapping String × String) := ∅
   let mut conns : List (Connection String) := []
   for stmnt in stx[1][0].getArgs do
     let low_stmnt := stmnt.getArgs[0]!
     match low_stmnt with
-    -- | `(dot_stmnt| $i:ident $[[$[$el:dot_attr],*]]? ) =>
     | `(dot_stmnt| $i:ident $[[$[$el:dot_attr],*]]? ) =>
       let some el := el
         | throwErrorAt i "No `mod` attribute found at node"
       let some modId ← findStxStr `mod el
         | throwErrorAt i "No `mod` attribute found at node"
       let mut modInst : InstIdent String := .top
+      let mut modCluster : Bool := findStxBool `cluster el |>.getD false
       unless modId == "io" do
         modInst := .internal i.getId.toString
-        -- let (b, modMap') := modMap.containsThenInsertIfNew modId idx'
-        -- if !b then
-        --   modMap := modMap'
-      let (b, map') := instMap.containsThenInsertIfNew i.getId modInst
+      let (b, map') := instMap.containsThenInsertIfNew i.getId (modInst, modCluster)
       if !b then
         instMap := map'
-        -- instMap := instMap.insert i.getId idx
-        -- revInstMap := revInstMap.insert idx i.getId
-        unless modId == "io" do instTypeMap := instTypeMap.insert i.getId.toString modId
+        unless modId == "io" do instTypeMap := instTypeMap.insert i.getId.toString (∅, modId)
       else
         logWarning s!"Multiple references to {i.getId} found"
-      -- logInfo m!"{el.map (·.get! 1 |>.raw.getArgs.get! 0)}"
     | `(dot_stmnt| $a:ident -> $b:ident $[[$[$el:dot_attr],*]]? ) =>
       let some el := el
         | throwErrorAt (mkListNode #[a, b]) "No `mod` attribute found at node"
-      let mut out ← (findStxStr `out el) -- | throwErrorAt (mkListNode el) "No input found"
-      let mut inp ← (findStxStr `inp el) -- | throwErrorAt (mkListNode el) "No output found"
-      if out.isNone && instMap[a.getId]!.isTop then out := some "0"
-      if inp.isNone && instMap[b.getId]!.isTop then inp := some "0"
+      let mut out ← (findStxStr `out el)
+      let mut inp ← (findStxStr `inp el)
+      if out.isNone && instMap[a.getId]!.fst.isTop then out := some a.getId.toString
+      if inp.isNone && instMap[b.getId]!.fst.isTop then inp := some b.getId.toString
       let some out' := out | throwErrorAt (mkListNode el) "No output found"
       let some inp' := inp | throwErrorAt (mkListNode el) "No input found"
-      -- logInfo m!"out = {out}, in = {inp}"
-      conns := ⟨ ⟨ instMap[a.getId]!, out' ⟩, ⟨ instMap[b.getId]!, inp' ⟩ ⟩ :: conns
+      let some outPort := parseInternalPort out'
+        | throwErrorAt (mkListNode el) "Output port format incorrect"
+      let some inPort := parseInternalPort inp'
+        | throwErrorAt (mkListNode el) "Input port format incorrect"
+      let outPort' := if instMap[a.getId]!.snd then outPort else ⟨instMap[a.getId]!.fst, outPort.name⟩
+      let inPort' := if instMap[b.getId]!.snd then inPort else ⟨instMap[b.getId]!.fst, inPort.name⟩
+      conns := ⟨ outPort', inPort' ⟩ :: conns
+      instTypeMap := updatePortMappingOutput instTypeMap outPort'
+      instTypeMap := updatePortMappingInput instTypeMap inPort'
     | _ => pure ()
-  -- logInfo m!"{lst}"
-  let internalConns :=
-    conns.filterMap (fun | ⟨ ⟨ .internal nx, x ⟩, ⟨ .internal ny, y ⟩⟩ =>
-                           .some ((nx, x), (ny, y))
-                         | _ => .none)
-  let inputConns :=
-    conns.filterMap (fun | ⟨ ⟨ .top, x ⟩, ⟨ .internal ny, y ⟩⟩ => .some (x, (ny, y))
-                         | _ => .none)
-  let outputConns :=
-    conns.filterMap (fun | ⟨ ⟨ .internal nx, x ⟩, ⟨ .top, y⟩⟩ => .some ((nx, x), y)
-                         | _ => .none)
   let connExpr : Q(List (Connection String)) ←
-    mkListLit q(Connection String) (← internalConns.mapM (λ ⟨ ⟨ a, b ⟩, ⟨ c, d ⟩ ⟩ => do
-      let idents : Array Q(String) := #[a, b, c, d].map (.strVal · |> .lit)
-      let inPort : Q(InternalPort String) :=
-        q(InternalPort.mk (.internal $(idents[0]!)) $(idents[1]!))
-      let outPort : Q(InternalPort String) :=
-        q(InternalPort.mk (.internal $(idents[2]!)) $(idents[3]!))
-      mkAppM ``Connection.mk #[inPort, outPort]))
-  let inputPorts : Q(List (String × InternalPort String)) ←
-    mkListLit q(String × InternalPort String) (← inputConns.mapM (λ ⟨ a, ⟨ c, d ⟩ ⟩ => do
-      let idents : Array Q(String) := #[a, c, d].map (.strVal · |> .lit)
-      let ioPort := idents[0]!
-      let outPort : Q(InternalPort String) :=
-        q(InternalPort.mk (.internal $(idents[1]!)) $(idents[2]!))
-      return q(($ioPort, $outPort))))
-  let outputPorts : Q(List (String × InternalPort String)) ←
-    mkListLit q(String × InternalPort String) (← outputConns.mapM (λ ⟨ ⟨ a, b ⟩, d ⟩ => do
-      let idents : Array Q(String) := #[a, b, d].map (.strVal · |> .lit)
-      let ioPort := idents[2]!
-      let outPort : Q(InternalPort String) :=
-        q(InternalPort.mk (.internal $(idents[0]!)) $(idents[1]!))
-      return q(($ioPort, $outPort))))
-  let modList : Q(List (String × String)) ←
-    mkListLit (← mkAppM ``Prod #[mkConst ``String, mkConst ``String])
-      (← instTypeMap.toList.mapM (fun (a, b) =>
-        mkAppM ``Prod.mk #[.lit (.strVal a), .lit (.strVal b)]))
-  let modListMap : Q(IdentMap String String) := q(List.toAssocList $modList)
-  return q(ExprHigh.mk $modListMap (List.toAssocList $inputPorts)
-                       (List.toAssocList $outputPorts) $connExpr)
+    mkListLit q(Connection String) (← conns.mapM (λ ⟨ a, b ⟩ => do
+      mkAppM ``Connection.mk #[reifyInternalPort a, reifyInternalPort b]))
+  let modList : Q(List (String × (PortMapping String × String))) ←
+    mkListLit q(String × (PortMapping String × String))
+      (instTypeMap.toList.map (fun (a, (p, b)) =>
+        let a' : Q(String) := .lit (.strVal a)
+        let b' : Q(String) := .lit (.strVal b)
+        let p' : Q(PortMapping String) := mkPortMapping <| p.map ((λ x => .lit (.strVal x)) : String → Q(String))
+        q(($a', ($p', $b')))))
+  let modListMap : Q(IdentMap String (PortMapping String × String)) := q(List.toAssocList $modList)
+  return q(ExprHigh.mk $modListMap $connExpr)
 
-open Lean.PrettyPrinter Delaborator SubExpr
+-- open Lean.PrettyPrinter Delaborator SubExpr
 
-namespace mergemod
+-- namespace mergemod
 
 def mergeHigh : ExprHigh String :=
   [graph|
-    src0 [mod="io"];
-    snk0 [mod="io"];
+    src0 [mod="src"];
+    snk0 [mod="snk"];
 
     fork1 [mod="fork"];
     fork2 [mod="fork"];
     merge1 [mod="merge"];
     merge2 [mod="merge"];
 
-    src0 -> fork1 [inp="0"];
+    src0 -> fork1 [out="0",inp="0"];
 
     fork1 -> fork2 [out="0",inp="0"];
 
@@ -361,112 +357,129 @@ def mergeHigh : ExprHigh String :=
 
     merge1 -> merge2 [out="0",inp="1"];
 
-    merge2 -> snk0 [out="0"];
+    merge2 -> snk0 [out="0",inp="0"];
   ]
 
-#eval mergeHigh.lower.get rfl |>.higher
+#reduce mergeHigh
+
+def threemerge T : StringModule (List T) :=
+  { inputs := [(⟨.internal "merge1", "0"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
+               (⟨.internal "merge1", "1"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
+               (⟨.internal "merge2", "1"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
+    outputs := [(⟨.internal "merge2", "0"⟩, ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)].toAssocList,
+    internals := []
+  }
+
+#eval mergeHigh.replace ["merge1", "merge2"] ((threemerge Nat).liftGraph ∅ "m" "merge3") |>.get rfl
+  |>.rename "merge3" (⟨[ (⟨.internal "merge2", "0"⟩, ⟨.internal "mod0", "2"⟩)
+                       , (⟨.internal "merge1", "0"⟩, ⟨.internal "mod0", "0"⟩)
+                       , (⟨.internal "merge1", "1"⟩, ⟨.internal "mod0", "1"⟩)].toAssocList,
+                       [ (⟨.internal "merge2", "0"⟩, ⟨.internal "mod0", "0"⟩) ].toAssocList ⟩)
+  |> IO.println
+
+-- #eval mergeHigh.lower.get rfl |>.higher
 
 
-open Lean Meta PrettyPrinter Delaborator SubExpr in
-def unexpandStrProdList : Syntax → UnexpandM (TSyntax `DataflowRewriter.dot_stmnt_list)
-| `([$[($as:str, $bs:str)],*]) =>
-  `(dot_stmnt_list| $[ $(as.map (mkIdent <| ·.getString.toName)):ident [mod=$bs:str] ; ]* )
-| _ => throw ()
+-- open Lean Meta PrettyPrinter Delaborator SubExpr in
+-- def unexpandStrProdList : Syntax → UnexpandM (TSyntax `DataflowRewriter.dot_stmnt_list)
+-- | `([$[($as:str, $bs:str)],*]) =>
+--   `(dot_stmnt_list| $[ $(as.map (mkIdent <| ·.getString.toName)):ident [mod=$bs:str] ; ]* )
+-- | _ => throw ()
 
-open Lean Meta PrettyPrinter Delaborator SubExpr in
-def unexpandStrInpList : Syntax → UnexpandM (TSyntax `DataflowRewriter.dot_stmnt_list)
-| `([$[($as:str, { inst := $bs:str, name := $cs:str })],*]) =>
-  let as' := as.map (mkIdent <| ·.getString.toName)
-  let bs' := bs.map (mkIdent <| ·.getString.toName)
-  `(dot_stmnt_list| $[ $as':ident -> $bs':ident [inp=$cs:str] ; ]* )
-| _ => throw ()
+-- open Lean Meta PrettyPrinter Delaborator SubExpr in
+-- def unexpandStrInpList : Syntax → UnexpandM (TSyntax `DataflowRewriter.dot_stmnt_list)
+-- | `([$[($as:str, { inst := $bs:str, name := $cs:str })],*]) =>
+--   let as' := as.map (mkIdent <| ·.getString.toName)
+--   let bs' := bs.map (mkIdent <| ·.getString.toName)
+--   `(dot_stmnt_list| $[ $as':ident -> $bs':ident [inp=$cs:str] ; ]* )
+-- | _ => throw ()
 
-open Lean Meta PrettyPrinter Delaborator SubExpr in
-def unexpandStrOutList : Syntax → UnexpandM (TSyntax `DataflowRewriter.dot_stmnt_list)
-| `([$[($as:str, { inst := $bs:str, name := $cs:str })],*]) =>
-  let as' := as.map (mkIdent <| ·.getString.toName)
-  let bs' := bs.map (mkIdent <| ·.getString.toName)
-  `(dot_stmnt_list| $[ $bs':ident -> $as':ident [out = $cs:str] ; ]* )
-| _ => throw ()
+-- open Lean Meta PrettyPrinter Delaborator SubExpr in
+-- def unexpandStrOutList : Syntax → UnexpandM (TSyntax `DataflowRewriter.dot_stmnt_list)
+-- | `([$[($as:str, { inst := $bs:str, name := $cs:str })],*]) =>
+--   let as' := as.map (mkIdent <| ·.getString.toName)
+--   let bs' := bs.map (mkIdent <| ·.getString.toName)
+--   `(dot_stmnt_list| $[ $bs':ident -> $as':ident [out = $cs:str] ; ]* )
+-- | _ => throw ()
 
-open Lean Meta PrettyPrinter Delaborator SubExpr in
-def unexpandStrConnsList : Syntax → UnexpandM (TSyntax `DataflowRewriter.dot_stmnt_list)
-| `([$[{ output := { inst := $as:str, name := $bs:str }
-         , input := { inst := $cs:str, name := $ds:str }}],*]) =>
-  let as' := as.map (mkIdent <| ·.getString.toName)
-  let cs' := cs.map (mkIdent <| ·.getString.toName)
-  `(dot_stmnt_list| $[ $as':ident -> $cs':ident [out = $bs:str, inp = $ds:str] ; ]* )
-| _ => throw ()
+-- open Lean Meta PrettyPrinter Delaborator SubExpr in
+-- def unexpandStrConnsList : Syntax → UnexpandM (TSyntax `DataflowRewriter.dot_stmnt_list)
+-- | `([$[{ output := { inst := $as:str, name := $bs:str }
+--          , input := { inst := $cs:str, name := $ds:str }}],*]) =>
+--   let as' := as.map (mkIdent <| ·.getString.toName)
+--   let cs' := cs.map (mkIdent <| ·.getString.toName)
+--   `(dot_stmnt_list| $[ $as':ident -> $cs':ident [out = $bs:str, inp = $ds:str] ; ]* )
+-- | _ => throw ()
 
-open Lean Meta PrettyPrinter Delaborator SubExpr in
-def runUnexpander {α} (f : Syntax → UnexpandM α) (s : Syntax) : DelabM α := do
-  match f s |>.run (← getRef) |>.run () with
-  | EStateM.Result.ok stx _ => return stx
-  | _ => failure
+-- open Lean Meta PrettyPrinter Delaborator SubExpr in
+-- def runUnexpander {α} (f : Syntax → UnexpandM α) (s : Syntax) : DelabM α := do
+--   match f s |>.run (← getRef) |>.run () with
+--   | EStateM.Result.ok stx _ => return stx
+--   | _ => failure
 
-open Lean Meta PrettyPrinter Delaborator SubExpr in
-def combineDotStmntList (a b : TSyntax `DataflowRewriter.dot_stmnt_list) : DelabM (TSyntax `DataflowRewriter.dot_stmnt_list) :=
-  match a, b with
-  | `(dot_stmnt_list| $[$a ;]*), `(dot_stmnt_list| $[$b ;]*) =>
-    `(dot_stmnt_list| $[$a ;]* $[$b ;]*)
-  | _, _ => failure
+-- open Lean Meta PrettyPrinter Delaborator SubExpr in
+-- def combineDotStmntList (a b : TSyntax `DataflowRewriter.dot_stmnt_list) : DelabM (TSyntax `DataflowRewriter.dot_stmnt_list) :=
+--   match a, b with
+--   | `(dot_stmnt_list| $[$a ;]*), `(dot_stmnt_list| $[$b ;]*) =>
+--     `(dot_stmnt_list| $[$a ;]* $[$b ;]*)
+--   | _, _ => failure
 
-open Lean Meta PrettyPrinter Delaborator SubExpr in
-@[delab app.DataflowRewriter.ExprHigh.mk]
-def delabExprHigh : Delab := do
-  let modList ← withNaryArg 0 <| withNaryArg 2 do
-    runUnexpander unexpandStrProdList (← delab)
-  let inPorts ← withNaryArg 1 <| withNaryArg 2 do
-    runUnexpander unexpandStrInpList (← delab)
-  let outPorts ← withNaryArg 2 <| withNaryArg 2 do
-    runUnexpander unexpandStrOutList (← delab)
-  let conns ← withNaryArg 3 do
-    runUnexpander unexpandStrConnsList (← delab)
-  let combined ← #[inPorts, outPorts, conns].foldlM combineDotStmntList modList
-  `([graph| $combined ])
+-- open Lean Meta PrettyPrinter Delaborator SubExpr in
+-- @[delab app.DataflowRewriter.ExprHigh.mk]
+-- def delabExprHigh : Delab := do
+--   let modList ← withNaryArg 0 <| withNaryArg 2 do
+--     runUnexpander unexpandStrProdList (← delab)
+--   let inPorts ← withNaryArg 1 <| withNaryArg 2 do
+--     runUnexpander unexpandStrInpList (← delab)
+--   let outPorts ← withNaryArg 2 <| withNaryArg 2 do
+--     runUnexpander unexpandStrOutList (← delab)
+--   let conns ← withNaryArg 3 do
+--     runUnexpander unexpandStrConnsList (← delab)
+--   let combined ← #[inPorts, outPorts, conns].foldlM combineDotStmntList modList
+--   `([graph| $combined ])
 
-#eval [graph|
-    src0 [mod="io"];
-    snk0 [mod="io"];
+-- #eval [graph|
+--     src0 [mod="io"];
+--     snk0 [mod="io"];
 
-    fork1 [mod="fork"];
-    fork2 [mod="fork"];
-    merge1 [mod="merge"];
-    merge2 [mod="merge"];
+--     fork1 [mod="fork"];
+--     fork2 [mod="fork"];
+--     merge1 [mod="merge"];
+--     merge2 [mod="merge"];
 
-    src0 -> fork1 [inp="inp"];
+--     src0 -> fork1 [inp="inp"];
 
-    fork1 -> fork2 [out="out1",inp="inp"];
+--     fork1 -> fork2 [out="out1",inp="inp"];
 
-    fork1 -> merge1 [out="out2",inp="inp1"];
-    fork2 -> merge1 [out="out1",inp="inp2"];
-    fork2 -> merge2 [out="out2",inp="inp1"];
+--     fork1 -> merge1 [out="out2",inp="inp1"];
+--     fork2 -> merge1 [out="out1",inp="inp2"];
+--     fork2 -> merge2 [out="out2",inp="inp1"];
 
-    merge1 -> merge2 [out="out",inp="inp2"];
+--     merge1 -> merge2 [out="out",inp="inp2"];
 
-    merge2 -> snk0 [out="out"];
-  ]
-#check [graph|
-    src0 [mod="io"];
-    snk0 [mod="io"];
+--     merge2 -> snk0 [out="out"];
+--   ]
+-- #check [graph|
+--     src0 [mod="io"];
+--     snk0 [mod="io"];
 
-    fork1 [mod="fork"];
-    fork2 [mod="fork"];
-    merge1 [mod="merge"];
-    merge2 [mod="merge"];
+--     fork1 [mod="fork"];
+--     fork2 [mod="fork"];
+--     merge1 [mod="merge"];
+--     merge2 [mod="merge"];
 
-    src0 -> fork1 [inp="inp"];
+--     src0 -> fork1 [inp="inp"];
 
-    fork1 -> fork2 [out="out1",inp="inp"];
+--     fork1 -> fork2 [out="out1",inp="inp"];
 
-    fork1 -> merge1 [out="out2",inp="inp1"];
-    fork2 -> merge1 [out="out1",inp="inp2"];
-    fork2 -> merge2 [out="out2",inp="inp1"];
+--     fork1 -> merge1 [out="out2",inp="inp1"];
+--     fork2 -> merge1 [out="out1",inp="inp2"];
+--     fork2 -> merge2 [out="out2",inp="inp1"];
 
-    merge1 -> merge2 [out="out",inp="inp2"];
+--     merge1 -> merge2 [out="out",inp="inp2"];
 
-    merge2 -> snk0 [out="out"];
-  ]
+--     merge2 -> snk0 [out="out"];
+--   ]
 
 -- def mergeHighSubgraph := mergeHigh.subgraph ["merge1"] (RBMap.ofList [("merge1_a", ⟨"merge1", "inp1"⟩), ("merge1_b", ⟨"merge1", "inp2"⟩)] _)
 --   (RBMap.ofList [("merge1_c", ⟨"merge1", "out"⟩)] _)

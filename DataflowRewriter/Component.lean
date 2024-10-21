@@ -40,8 +40,8 @@ namespace DataflowRewriter.Module
 @[drunfold] def merge T : NatModule (List T) :=
       { inputs := [(0, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
                    (1, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
-        outputs := [(0, ⟨ T, λ oldList oldElement newList => 
-                           ∃ i, newList = oldList.remove i 
+        outputs := [(0, ⟨ T, λ oldList oldElement newList =>
+                           ∃ i, newList = oldList.remove i
                              ∧ oldElement = oldList.get i ⟩)].toAssocList,
         internals := []
       }

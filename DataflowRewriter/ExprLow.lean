@@ -26,6 +26,25 @@ instance : Append (PortMapping Ident) := ⟨append⟩
 
 instance : EmptyCollection (PortMapping Ident) := ⟨⟨∅, ∅⟩⟩
 
+def ofPortMapping [DecidableEq Ident] (p : PortMapping Ident) : Option Ident :=
+  match p.input with
+  | .cons ⟨.top, _⟩ ⟨.internal i, _⟩ _ =>
+    if p.input.all (λ | ⟨.top, a⟩, ⟨.internal i', b⟩ => a = b && i = i'
+                      | _, _ => false)
+       && p.output.all (λ | ⟨.top, a⟩, ⟨.internal i', b⟩ => a = b && i = i'
+                          | _, _ => false)
+    then some i
+    else none
+  | _ => none
+
+private def mapInternalPort {α β} (f : α → β) : InternalPort α → InternalPort β
+| ⟨ .top, a ⟩ => ⟨ .top, f a ⟩
+| ⟨ .internal b, a ⟩ => ⟨ .internal (f b), f a ⟩
+
+def map {α β} (f : α → β) : PortMapping α → PortMapping β
+| ⟨ a, b ⟩ => ⟨a.mapKey (λ k => mapInternalPort f k) |>.mapVal (λ _ v => mapInternalPort f v)
+              , b.mapKey (λ k => mapInternalPort f k) |>.mapVal (λ _ v => mapInternalPort f v)⟩
+
 end PortMapping
 
 structure Interface (Ident) where
@@ -36,8 +55,10 @@ namespace Interface
 
 variable {Ident}
 
-def isBaseModule (i : Interface Ident) : Bool :=
-  i.input.all (·.inst.isTop) && i.output.all (·.inst.isTop)
+def allInst (f : InstIdent Ident → Bool) (i : Interface Ident) : Bool :=
+  i.input.all (·.inst |> f) && i.output.all (·.inst |> f)
+
+def isBaseModule (i : Interface Ident) : Bool := i.allInst (·.isTop)
 
 def toPortMapping (i : Interface Ident) (ident : Ident) : PortMapping Ident :=
   if i.isBaseModule
@@ -150,6 +171,43 @@ def abstract (e e_sub : ExprLow Ident) (i_inst : PortMapping Ident) (i_typ : Ide
 @[drunfold]
 def concretise (e e_sub : ExprLow Ident) (i_inst : PortMapping Ident) (i_typ : Ident) : ExprLow Ident :=
   .base i_inst i_typ |> (e.replace · e_sub)
+
+/--
+Assume that the input is currently not mapped.
+-/
+@[drunfold]
+def renameInput (typ : Ident) (a b : InternalPort Ident) : ExprLow Ident → ExprLow Ident
+| .base map typ' =>
+  if typ = typ' then
+    .base {map with input := map.input.erase a |>.cons a b} typ
+  else
+    .base map typ'
+| .connect o i e =>
+  let e' := e.renameInput typ a b
+  if i = a then .connect o b e' else .connect o i e'
+| .product e₁ e₂ =>
+  .product (e₁.renameInput typ a b) (e₂.renameInput typ a b)
+
+/--
+Assume that the input is currently not mapped.
+-/
+@[drunfold]
+def renameOutput (typ : Ident) (a b : InternalPort Ident) : ExprLow Ident → ExprLow Ident
+| .base map typ' =>
+  if typ = typ' then
+    .base {map with output := map.output.erase a |>.cons a b} typ
+  else
+    .base map typ'
+| .connect o i e =>
+  let e' := e.renameOutput typ a b
+  if o = a then .connect b i e' else .connect o i e'
+| .product e₁ e₂ =>
+  .product (e₁.renameOutput typ a b) (e₂.renameOutput typ a b)
+
+@[drunfold]
+def rename (typ : Ident) (p : PortMapping Ident) (e : ExprLow Ident) : ExprLow Ident :=
+  p.input.foldl (λ e' k v => e'.renameInput typ k v) e
+  |> p.output.foldl (λ e' k v => e'.renameOutput typ k v)
 
 @[drunfold]
 def calc_mapping : ExprLow Ident → PortMapping Ident
