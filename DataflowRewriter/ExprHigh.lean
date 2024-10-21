@@ -20,148 +20,45 @@ input that connects directly to the output.  Instead, these always have to pass
 by an internal module.
 -/
 structure ExprHigh (Ident : Type _) where
-  modules     : IdentMap Ident Ident
-  inPorts     : IdentMap Ident (InternalPort Ident)
-  outPorts    : IdentMap Ident (InternalPort Ident)
+  modules     : IdentMap Ident (PortMapping Ident × Ident)
   connections : List (Connection Ident)
 deriving Repr, DecidableEq, Inhabited
 
+structure NamedExprHigh (Ident : Type _) where
+  graph       : ExprHigh Ident
+  inPorts     : IdentMap Ident (InternalPort Ident)
+  outPorts    : IdentMap Ident (InternalPort Ident)
+
 instance (Ident) [ToString Ident] : ToString (ExprHigh Ident) where
   toString a :=
-    let instances :=
-      a.modules.foldl (λ s inst mod => s ++ s!"\n {inst} [mod = \"{mod}\"];") ""
-    let inPorts :=
-      a.inPorts.foldl
-        (λ s i port => s ++ s!"\n {i} -> {port.inst}"
-                         ++ s!" [inp = \"{port.name}\"];") ""
-    let outPorts :=
-      a.outPorts.foldl
-        (λ s i port => s ++ s!"\n {port.inst} -> {i} "
-                         ++ s!"[out = \"{port.name}\"];") ""
+    -- let instances :=
+    --   a.modules.foldl (λ s inst mod => s ++ s!"\n {inst} [mod = \"{mod}\"];") ""
     let connections :=
       a.connections.foldl
         (λ s => λ | ⟨ oport, iport ⟩ =>
                     s ++ s!"\n {oport.inst} -> {iport.inst} "
                       ++ s!"[out = \"{oport.name}\","
                       ++ s!" inp = \"{iport.name}\"];") ""
-    s!"[graph| {instances} {connections}\n ]"
+    s!"[graph| {connections}\n ]"
 
 namespace ExprHigh
 
 variable {Ident : Type _}
+variable [DecidableEq Ident]
 
 @[drunfold] def lower (e : ExprHigh Ident) : Option (ExprLow Ident) :=
   match e.modules.toList with
   | x :: xs =>
     let prod_expr :=
-      xs.foldl (λ expr val => .product (.base val.1 val.2) expr) (.base x.1 x.2)
-    let conn_expr :=
-      e.connections.foldl (λ expr conn => .connect conn.output conn.input expr) prod_expr
-    let in_ports_conn :=
-      e.inPorts.foldl (λ expr i port => .input port i expr) conn_expr
-    some <| e.outPorts.foldl (λ expr i port => .output port i expr) in_ports_conn
+      xs.foldl (λ expr val =>
+          -- return .product (.base (int.toPortMapping val.1) val.2) expr)
+          .product (Function.uncurry .base val.snd) expr)
+        <| Function.uncurry .base x.snd
+    return e.connections.foldl (λ expr conn => .connect conn.output conn.input expr) prod_expr
   | _ => none
 
 variable [DecidableEq Ident]
 variable [Inhabited Ident]
-
-/--
-Extract a subgraph using a list of `Ident`, and maps to name the new inputs and
-new outputs that are formed.
--/
-@[drunfold] def subgraph (e : ExprHigh Ident) (instances : List Ident)
-    (newInputs newOutputs : IdentMap Ident (InternalPort Ident)) : ExprHigh Ident :=
-  { inPorts := (e.inPorts.filter (λ _ b => b.inst.elem instances)).append newInputs,
-    outPorts := (e.outPorts.filter (λ _ b => b.inst.elem instances)).append newOutputs,
-    modules := e.modules.filter (λ b _ => b ∈ instances),
-    connections :=
-      e.connections.filter λ a =>
-        a.input.inst.elem instances && a.output.inst.elem instances
-  }
-
-/--
-The rest of the circuit after a subgraph is extracted.
--/
-@[drunfold] def subgraph_shell (e : ExprHigh Ident) (instances : List Ident)
-    (newInputs newOutputs : IdentMap Ident (InternalPort Ident)) : ExprHigh Ident :=
-  e.subgraph (e.modules.keysList.diff instances)
-    (newOutputs.mapVal λ _ v =>
-      (e.connections.find? λ | ⟨ o, _ ⟩ => v = o).getD default |>.input)
-    (newInputs.mapVal λ _ v =>
-      (e.connections.find? λ | ⟨ _, i ⟩ => v = i).getD default |>.output)
-
-/--
-Partitions the graph into a subgraph_shell, and the subgraph itself, which can
-be combined using inlining.
--/
-@[drunfold] def partition (e : ExprHigh Ident) (instances : List Ident)
-    (newInputs newOutputs : IdentMap Ident (InternalPort Ident))
-    : ExprHigh Ident × ExprHigh Ident :=
-  (e.subgraph_shell instances newInputs newOutputs,
-   e.subgraph instances newInputs newOutputs)
-
-/--
-This is an alternative definition of `subgraph_shell` that switches `newInputs`
-and `newOutputs` so that it matches the notion of inputs and outputs of the
-`subgraph_shell`.
--/
-@[drunfold] def subgraph'' (e : ExprHigh Ident) (instances : List Ident)
-    (newInputs newOutputs : IdentMap Ident (InternalPort Ident)) : ExprHigh Ident :=
-  e.subgraph (e.modules.keysList.diff instances) newInputs newOutputs
-
-/--
-Inline (or merge) one graph into another.  This is symmetric, and forms
-connections based on the names of the inputs and outputs.
--/
-@[drunfold] def inline (e e' : ExprHigh Ident) : ExprHigh Ident :=
-  let new_input_connections :=
-    e'.inPorts.foldl (λ conns i port =>
-                         match e.outPorts.find? i with | some outP => Connection.mk port outP :: conns | _ => conns) []
-  let new_output_connections :=
-    e'.outPorts.foldl (λ conns i port =>
-                         match e.inPorts.find? i with | some inpP => Connection.mk inpP port :: conns | _ => conns) []
-  { inPorts := e.inPorts.filter (λ a _ => a ∉ e'.outPorts.keysList) |>.append (e'.inPorts.filter (λ a _ => a ∉ e.outPorts.keysList)),
-    outPorts := e.outPorts.filter (λ a _ => a ∉ e'.inPorts.keysList) |>.append (e'.outPorts.filter (λ a _ => a ∉ e.inPorts.keysList)),
-    modules := e.modules.append e'.modules,
-    connections := e.connections
-                   ++ new_input_connections
-                   ++ new_output_connections
-                   ++ e'.connections
-  }
-
-@[drunfold] def inlineD (e e' : ExprHigh Ident) : ExprHigh Ident :=
-  e.inline e'
-
-/--
-Instead of using subgraph extraction and inlining, one could also use
-abstraction, which replaces a subgraph by a single node.  The `newInputs` and
-`newOutputs` maps are used to map ports from the subgraph to ports of the node
-that will replace it.
--/
-@[drunfold] def abstract (e : ExprHigh Ident) (i i' : Ident) : ExprHigh Ident :=
-  { e with modules := e.modules.cons i i' }
-
-@[drunfold] def abstract'' (e : ExprHigh Ident) (i i' : Ident) (inputs outputs : List Ident) : ExprHigh Ident :=
-  { e with modules := e.modules.cons i i'
-           inPorts := e.inPorts.filter λ k _ => k ∉ outputs
-           outPorts := e.outPorts.filter λ k _ => k ∉ inputs
-           connections :=
-             e.connections ++ (inputs.mapM (λ la => do let l ← e.outPorts.find? la; some (⟨l, ⟨.internal i, la⟩⟩ : Connection Ident))).getD []
-                           ++ (outputs.mapM (λ la => do let l ← e.inPorts.find? la; some (⟨⟨.internal i, la⟩, l⟩ : Connection Ident))).getD []
-  }
-
-@[drunfold] def abstract' (e : ExprHigh Ident) (instances : List Ident) (i i' : Ident) : ExprHigh Ident :=
-  { e with modules := .cons i i' <| e.modules.filter λ a _ => a ∉ instances }
-
-@[drunfold] def concretise' (e : ExprHigh Ident) (instances : IdentMap Ident Ident)
-    (i : Ident) : ExprHigh Ident :=
-  { e with modules := e.modules.erase i |>.append instances }
-
-@[drunfold] def concretise (e : ExprHigh Ident) (i : Ident) : ExprHigh Ident :=
-  { e with modules := e.modules.erase i }
-
-@[drunfold] def modify (e : ExprHigh Ident) (i i' : Ident) : ExprHigh Ident :=
-  { e with modules := e.modules.mapVal λ _ b => if b = i then i' else b }
 
 section Semantics
 
@@ -271,25 +168,25 @@ end Refinement
 
 end ExprHigh
 
+class FreshIdent (Ident : Type _) where
+  next : Ident → Ident
+
 namespace ExprLow
 
 variable {Ident : Type _}
 
-def higher : ExprLow Ident → ExprHigh Ident
-| .base a b => ExprHigh.mk [(a, b)].toAssocList ∅ ∅ ∅
-| .input p i e =>
-  let e' := higher e
-  {e' with inPorts := e'.inPorts.cons i p}
-| .output p o e =>
-  let e' := higher e
-  {e' with outPorts := e'.outPorts.cons o p}
+def higher' [FreshIdent Ident] (fresh : Ident) : ExprLow Ident → (ExprHigh Ident × Ident)
+| .base a b => (ExprHigh.mk [(fresh, (a, b))].toAssocList ∅, FreshIdent.next fresh)
 | .connect o i e =>
-  let e' := higher e
-  {e' with connections := e'.connections.cons ⟨ o, i ⟩}
+  let (e', fresh') := e.higher' fresh
+  ({e' with connections := e'.connections.cons ⟨ o, i ⟩}, fresh')
 | .product e₁ e₂ =>
-  let e₁' := higher e₁
-  let e₂' := higher e₂
-  ⟨ e₁'.1.append e₂'.1, e₁'.2.append e₂'.2, e₁'.3.append e₂'.3, e₁'.4.append e₂'.4 ⟩
+  let (e₁', fresh₁) := e₁.higher' fresh
+  let (e₂', fresh₂) := e₂.higher' fresh₁
+  (⟨ e₁'.1.append e₂'.1, e₁'.2.append e₂'.2 ⟩, fresh₂)
+
+def higher [Inhabited Ident] [FreshIdent Ident] (e: ExprLow Ident) : ExprHigh Ident :=
+  e.higher' default |>.fst
 
 end ExprLow
 

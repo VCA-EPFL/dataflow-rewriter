@@ -60,6 +60,10 @@ structure InternalPort (Ident : Type _) where
   name : Ident
 deriving Repr, Hashable, Ord, Inhabited, DecidableEq
 
+instance {Ident} [ToString Ident] : ToString (InternalPort Ident) where
+  toString | ⟨.internal a, b⟩ => toString a ++ " " ++ toString b
+           | ⟨.top, b⟩ => toString b
+
 /--
 If only an identifier is provided, it can be coerced into an `InternalPort
 Ident` by using `InstIdent.top` as the instance name, creating a port for the
@@ -156,6 +160,10 @@ universe i
 variable {Ident : Type i}
 variable [DecidableEq Ident]
 variable [Inhabited Ident]
+
+def disjoint {S T} (mod1 : Module Ident S) (mod2 : Module Ident T) :=
+  mod1.inputs.keysList ∩ mod2.inputs.keysList = ∅
+  ∧ mod1.outputs.keysList ∩ mod2.outputs.keysList = ∅
 
 @[drunfold] def liftL {S S' : Type _} (x: (T : Type _) × (S → T → S → Prop))
     : (T : Type _) × (S × S' → T → S × S' → Prop) :=
@@ -272,6 +280,24 @@ theorem MatchInterface_transitive {I J S} {imod : Module Ident I} {smod : Module
   MatchInterface jmod smod →
   MatchInterface imod smod := by
   intro ⟨ a, b ⟩ ⟨ c, d ⟩; constructor <;> simp [*]
+
+instance MatchInterface_product {I J S T} {imod : Module Ident I} {tmod : Module Ident T}
+         {smod : Module Ident S} (jmod : Module Ident J) [MatchInterface imod tmod]
+         [MatchInterface smod jmod] :
+         MatchInterface (imod.product smod) (tmod.product jmod) where
+  input_types := by
+    rename_i inst1 inst2; intro ident; simp [Module.product]
+    rcases inst1 with ⟨ inst1_in, _ ⟩
+    rcases inst2 with ⟨ inst2_in, _ ⟩
+    specialize inst1_in ident; specialize inst2_in ident
+    by_cases h : ident ∈ imod.inputs.keysList
+    · unfold PortMap.getIO at *
+      apply Batteries.AssocList.keysList_find2 at h
+      rw [Option.isSome_iff_exists] at h; rcases h with ⟨ val, hfind ⟩
+      rw [Batteries.AssocList.append_find_left]
+      all_goals sorry
+    · sorry
+  output_types := sorry
 
 end Match
 
@@ -515,6 +541,24 @@ theorem refines_transitive {J} (imod' : Module Ident J):
   apply refines_φ_transitive imod smod imod'
   assumption; assumption
 
+omit [Inhabited Ident] mm in
+theorem refines_product {J K} (imod' : Module Ident J) (smod' : Module Ident K):
+    -- imod.disjoint smod →
+    imod ⊑ imod' →
+    smod ⊑ smod' →
+    imod.product smod ⊑ imod'.product smod' := by
+  -- intro hdisj
+  intro href1 href2
+  rcases href1 with ⟨m, R, ref⟩
+  rcases href2 with ⟨m2, R2, ref2⟩
+  refine ⟨ inferInstance, (λ a b => R a.1 b.1 ∧ R2 a.2 b.2), ?_ ⟩
+  sorry
+
+omit [Inhabited Ident] mm in
+theorem refines_connect {o i} :
+    imod ⊑ smod →
+    imod.connect' o i ⊑ smod.connect' o i := by sorry
+
 -- omit [Inhabited Ident] mm in
 -- theorem refines_renamePorts {f}:
 --     Injective f →
@@ -535,5 +579,7 @@ instance {n} : OfNat (InternalPort Nat) n where
 abbrev NatModule := Module Nat
 
 abbrev StringModule := Module String
+
+abbrev TModule Ident := Σ T, Module Ident T
 
 end DataflowRewriter

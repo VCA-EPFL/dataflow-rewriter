@@ -28,6 +28,25 @@ instance : EmptyCollection (PortMapping Ident) := ⟨⟨∅, ∅⟩⟩
 
 end PortMapping
 
+structure Interface (Ident) where
+  input : List (InternalPort Ident)
+  output : List (InternalPort Ident)
+
+namespace Interface
+
+variable {Ident}
+
+def isBaseModule (i : Interface Ident) : Bool :=
+  i.input.all (·.inst.isTop) && i.output.all (·.inst.isTop)
+
+def toPortMapping (i : Interface Ident) (ident : Ident) : PortMapping Ident :=
+  if i.isBaseModule
+  then ⟨(i.input.map (λ a => (a, InternalPort.mk (.internal ident) a.name))).toAssocList,
+        (i.output.map (λ a => (a, InternalPort.mk (.internal ident) a.name))).toAssocList⟩
+  else ∅
+
+end Interface
+
 namespace Module
 
 section
@@ -38,6 +57,9 @@ variable [DecidableEq Ident]
 def renamePorts (m : Module Ident S) (p : PortMapping Ident) : Module Ident S :=
   m.mapInputPorts (λ k => p.input.find? k |>.getD k)
   |>.mapOutputPorts (λ k => p.output.find? k |>.getD k)
+
+def toInterface (m : Module Ident S): Interface Ident :=
+  ⟨m.inputs.keysList, m.outputs.keysList⟩
 
 end
 
@@ -67,6 +89,15 @@ theorem renamePorts_empty {m : Module Ident S} :
 end
 
 end Module
+
+namespace IdentMap
+
+variable {Ident}
+
+def toInterface (i : IdentMap Ident (TModule Ident)) : IdentMap Ident (Interface Ident) :=
+  i.mapVal (λ _ x => x.snd |>.toInterface)
+
+end IdentMap
 
 /--
 ExprLow is an inductive definition of a circuit, inspired by a definition by
@@ -240,6 +271,15 @@ theorem wf_builds_module {e} : wf ε e → (e.build_module' ε).isSome := by
     cases ihe₁; cases ihe₂
     simp only [*]; rfl
 
+theorem wf_replace {e e_pat e'} : wf ε e → wf ε e' → wf ε (e.replace e_pat e') := by
+  intro h wfe'; revert h
+  induction e <;> (intros; simp [replace]; split <;> (try solve_by_elim) <;> simp_all [wf, all])
+
+theorem wf_abstract {e e_pat a b} : wf ε e → ε.contains b → wf ε (e.abstract e_pat a b) := by
+  unfold abstract; intros wf1 hcont
+  apply wf_replace; assumption
+  simp only [wf, all]; assumption
+
 theorem build_module_unfold_1 {m r i} :
   ε.find? i = some m →
   build_module ε (.base r i) = ⟨ m.fst, m.snd.renamePorts r ⟩ := by
@@ -286,15 +326,41 @@ variable {S : Type v}
 variable (smod : Module Ident S)
 
 theorem refines_product {e₁ e₂ e₁' e₂'} :
+    wf ε e₁ → wf ε e₂ → wf ε e₁' → wf ε e₂' →
     [e| e₁, ε ] ⊑ ([e| e₁', ε ]) →
     [e| e₂, ε ] ⊑ ([e| e₂', ε ]) →
     [e| e₁.product e₂, ε ] ⊑ ([e| e₁'.product e₂', ε ]) := by
-  intro ref1 ref2; sorry
+  intro wf1 wf2 wf3 wf4 ref1 ref2
+  simp only [drunfold] at *
+  apply wf_builds_module at wf1
+  apply wf_builds_module at wf2
+  apply wf_builds_module at wf3
+  apply wf_builds_module at wf4
+  simp only [Option.isSome_iff_exists] at *
+  rcases wf1 with ⟨ m₁, wf1 ⟩
+  rcases wf2 with ⟨ m₂, wf2 ⟩
+  rcases wf3 with ⟨ m₁', wf3 ⟩
+  rcases wf4 with ⟨ m₂', wf4 ⟩
+  rw [wf1, wf2, wf3, wf4]
+  rw [wf1, wf3] at ref1
+  rw [wf2, wf4] at ref2
+  simp at ref1 ref2 ⊢
+  clear wf1 wf2 wf3 wf4
+  solve_by_elim [Module.refines_product]
 
 theorem refines_connect {e e' o i} :
+    wf ε e → wf ε e' →
     [e| e, ε ] ⊑ ([e| e', ε ]) →
     [e| e.connect o i, ε ] ⊑ ([e| e'.connect o i, ε ]) := by
-  intro ref; sorry
+  intro wf1 wf2 ref
+  apply wf_builds_module at wf1
+  apply wf_builds_module at wf2
+  simp only [Option.isSome_iff_exists] at *
+  rcases wf1 with ⟨ m₁, wf1 ⟩
+  rcases wf2 with ⟨ m₂, wf2 ⟩
+  simp only [build_module_expr, build_module, build_module'] at *
+  rw [wf1,wf2] at ref ⊢
+  simp; solve_by_elim [Module.refines_connect]
 
 -- set_option debug.skipKernelTC true in
 set_option pp.proofs true in
@@ -382,7 +448,17 @@ theorem abstract_refines {iexpr expr_pat i} :
     · subst_vars
       rw [build_module_unfold_1 hfind, Module.renamePorts_empty]
       apply Module.refines_reflexive
-    · apply refines_product <;> [apply ihe₁ ; apply ihe₂] <;> simp_all [wf, all]
+    · unfold abstract at ihe₁ ihe₂
+      have : wf ε (e₁.replace expr_pat (base ∅ i)) := by
+        apply wf_abstract; simp_all [wf, all]
+        apply Batteries.AssocList.contains_some3; assumption
+      have : wf ε (e₂.replace expr_pat (base ∅ i)) := by
+        apply wf_abstract; simp_all [wf, all]
+        apply Batteries.AssocList.contains_some3; assumption
+      have : wf ε e₁ := by simp_all [wf, all]
+      have : wf ε e₂ := by simp_all [wf, all]
+      apply refines_product <;> (try assumption)
+      <;> [apply ihe₁ ; apply ihe₂] <;> simp_all [wf, all]
   | connect x y e ih =>
     simp [abstract, replace]
     intro hwf
@@ -390,7 +466,78 @@ theorem abstract_refines {iexpr expr_pat i} :
     split at h <;> subst_vars
     · rw [build_module_unfold_1 hfind, Module.renamePorts_empty]
       apply Module.refines_reflexive
-    · solve_by_elim [refines_connect]
+    · have : wf ε (connect x y (e.replace expr_pat (base ∅ i))) := by
+        simp [wf, all]
+        convert_to wf ε (e.replace expr_pat (base ∅ i));
+        simp [wf, all]
+        apply wf_replace; assumption; simp only [wf, all]
+        skip; apply Batteries.AssocList.contains_some2; rw [hfind]; rfl
+      solve_by_elim [refines_connect]
+
+theorem abstract_refines2 {iexpr expr_pat i} :
+    ε.find? i = some ⟨ _, [e| expr_pat, ε ] ⟩ →
+    iexpr.wf ε →
+    [e| iexpr.abstract expr_pat ∅ i, ε ] ⊑ ([e| iexpr, ε ]) := by
+  unfold build_module_expr; intro hfind;
+  induction iexpr with
+  | base inst typ =>
+    intro hwf
+    dsimp [drunfold, Option.bind, Option.getD] at *
+    by_cases h : .base inst typ = expr_pat
+    · rw [h];
+      have : (if expr_pat = expr_pat then .base ∅ i else expr_pat) = .base ∅ i := by simp
+      rw [this]; clear this; simp [drunfold, Option.bind]
+      rw [hfind]; simp
+      have : ∃ m, Batteries.AssocList.find? typ ε = some m := by
+        simp only [wf, all] at hwf
+        simp only [←Option.isSome_iff_exists, Batteries.AssocList.contains_some, hwf]
+      rcases this with ⟨ m, hb ⟩; rw [hb]; simp
+      subst_vars
+      simp [drunfold, Option.bind, Option.getD, hb]
+      rw [hb]; simp
+      rw [Module.renamePorts_empty]; apply Module.refines_reflexive
+    · have : (if base inst typ = expr_pat then base ∅ i else base inst typ) = base inst typ := by
+        simp [h]
+      rw [this]; clear this
+      have : ∃ m, Batteries.AssocList.find? typ ε = some m := by
+        simp only [wf, all] at hwf
+        simp only [←Option.isSome_iff_exists, Batteries.AssocList.contains_some, hwf]
+      cases this; rename_i a ha
+      dsimp [drunfold]; rw [ha]; simp [Module.refines_reflexive]
+  | product e₁ e₂ ihe₁ ihe₂ =>
+    simp [abstract, replace]
+    intro hwf
+    generalize H : (if e₁.product e₂ = expr_pat then base ∅ i
+        else (e₁.replace expr_pat (base ∅ i)).product (e₂.replace expr_pat (base ∅ i))) = y
+    split at H <;> subst y <;> rename_i h
+    · subst_vars
+      rw [build_module_unfold_1 hfind, Module.renamePorts_empty]
+      apply Module.refines_reflexive
+    · unfold abstract at ihe₁ ihe₂
+      have : wf ε (e₁.replace expr_pat (base ∅ i)) := by
+        apply wf_abstract; simp_all [wf, all]
+        apply Batteries.AssocList.contains_some3; assumption
+      have : wf ε (e₂.replace expr_pat (base ∅ i)) := by
+        apply wf_abstract; simp_all [wf, all]
+        apply Batteries.AssocList.contains_some3; assumption
+      have : wf ε e₁ := by simp_all [wf, all]
+      have : wf ε e₂ := by simp_all [wf, all]
+      apply refines_product <;> (try assumption)
+      <;> [apply ihe₁ ; apply ihe₂] <;> simp_all [wf, all]
+  | connect x y e ih =>
+    simp [abstract, replace]
+    intro hwf
+    generalize h : (if connect x y e = expr_pat then base ∅ i else connect x y (e.replace expr_pat (base ∅ i))) = y
+    split at h <;> subst_vars
+    · rw [build_module_unfold_1 hfind, Module.renamePorts_empty]
+      apply Module.refines_reflexive
+    · have : wf ε (connect x y (e.replace expr_pat (base ∅ i))) := by
+        simp [wf, all]
+        convert_to wf ε (e.replace expr_pat (base ∅ i));
+        simp [wf, all]
+        apply wf_replace; assumption; simp only [wf, all]
+        skip; apply Batteries.AssocList.contains_some2; rw [hfind]; rfl
+      solve_by_elim [refines_connect]
 
 end Refinement
 
