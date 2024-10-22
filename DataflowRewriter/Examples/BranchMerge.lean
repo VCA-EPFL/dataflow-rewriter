@@ -5,32 +5,34 @@ Authors: Yann Herklotz
 -/
 
 import DataflowRewriter.Module
-import DataflowRewriter.Graph
+import DataflowRewriter.ExprHigh
+import DataflowRewriter.Component
 
 namespace DataflowRewriter
 
 section BranchMerge
 
   @[simp]
-  def queue T : Module (List T) :=
-   { inputs := [⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩],
-     outputs := [⟨ T, λ oldList oldElement newList =>  newList ++ [oldElement] = oldList ⟩],
+
+  def queue T : Module String (List T) :=
+   { inputs := [( ⟨ .top, "enq"⟩ ,⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
+     outputs := [(⟨ .top, "deq"⟩, ⟨ T, λ oldList oldElement newList =>  newList ++ [oldElement] = oldList ⟩)].toAssocList,
      internals := []
   }
 
-  @[simp]
-  def merger T R : Module (List T × List R) :=
-   { inputs := [⟨ T, λ (oldListT,oldListR) newElementT (newListT, newListR) => newListT = newElementT ::  oldListT ∧ newListR = oldListR ⟩,
-                ⟨ R, λ (oldListT,oldListR) newElementR (newListT, newListR) => newListR = newElementR ::  oldListR ∧ newListT = oldListT ⟩,
-   ],
-     outputs := [⟨ T × R , λ (oldListT,oldListR) (elementT, elementR) (newListT, newListR) =>
-       newListT ++ [elementT] = oldListT ∧
-       newListR ++ [elementR] = oldListR
-        ⟩],
-     internals := []}
+  -- @[simp]
+  -- def merger T R : Module String (List T × List R) :=
+  --  { inputs := [⟨ T, λ (oldListT,oldListR) newElementT (newListT, newListR) => newListT = newElementT ::  oldListT ∧ newListR = oldListR ⟩,
+  --               ⟨ R, λ (oldListT,oldListR) newElementR (newListT, newListR) => newListR = newElementR ::  oldListR ∧ newListT = oldListT ⟩,
+  --  ],
+  --    outputs := [⟨ T × R , λ (oldListT,oldListR) (elementT, elementR) (newListT, newListR) =>
+  --      newListT ++ [elementT] = oldListT ∧
+  --      newListR ++ [elementR] = oldListR
+  --       ⟩],
+  --    internals := []}
 
   @[simp]
-  def pipelined_m TagT (m : Module Q) (wf :  m.outputs.length = 1) :=
+  def pipelined_m TagT (m : Module String Q) (wf :  m.outputs.length = 1) :=
     merge_outputs (product m (queue TagT)) ⟨0, by simp⟩  ⟨1, by simp; omega⟩
 
   -- We should start thinking about moving things in component libraries
