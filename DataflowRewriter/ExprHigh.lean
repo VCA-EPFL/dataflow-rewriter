@@ -539,8 +539,4 @@ def threemerge T : StringModule (List T) :=
 --                   { input := { inst := "merge1", name := "inp1" }, output := { inst := "fork1", name := "out2" } },
 --                   { input := { inst := "merge2", name := "inp2" }, output := { inst := "merge1", name := "out" } }] } : ExprHigh)
 
-end mergemod
-
-
-
 end DataflowRewriter
