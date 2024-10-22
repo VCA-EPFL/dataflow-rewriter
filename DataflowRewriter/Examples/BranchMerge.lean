@@ -5,8 +5,8 @@ Authors: Yann Herklotz
 -/
 
 import DataflowRewriter.Module
-import DataflowRewriter.ExprHigh
 import DataflowRewriter.Component
+import DataflowRewriter.ExprHigh
 
 namespace DataflowRewriter
 
