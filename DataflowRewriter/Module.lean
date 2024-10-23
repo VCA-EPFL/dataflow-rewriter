@@ -467,10 +467,11 @@ theorem refines_φ_multistep :
   intros φ Href i_init s_init Hphi i_mid Hexist
   induction Hexist generalizing s_init
   · exists s_init; tauto
-  · rename_i init mid final rule Hin Hrule Hexists iH
+  · rename I → I → Prop => rule
+    rename ∀ _, _ => iH
     unfold refines_φ at Href
     rcases Href _ _ Hphi with ⟨ Hinp, Hout, Hint ⟩
-    rcases Hint _ _ Hin Hrule with ⟨ s_mid, Hexist, Hphi' ⟩
+    rcases Hint _ _ ‹_› ‹_› with ⟨ s_mid, Hexist, Hphi' ⟩
     rcases iH _ Hphi' with ⟨ s_mid', Hexists, Hphi ⟩
     exists s_mid'
     all_goals solve_by_elim [existSR_transitive]
