@@ -302,6 +302,8 @@ def dotGraphElab : TermElab := λ stx _typ? => do
       else
         logWarning s!"Multiple references to {i.getId} found"
     | `(dot_stmnt| $a:ident -> $b:ident $[[$[$el:dot_attr],*]]? ) =>
+      unless a.getId ∈ instMap do throwErrorAt a "Instance has not been declared"
+      unless b.getId ∈ instMap do throwErrorAt b "Instance has not been declared"
       let some el := el
         | throwErrorAt (mkListNode #[a, b]) "No `mod` attribute found at node"
       let mut out ← (findStxStr `out el)
