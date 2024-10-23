@@ -19,7 +19,7 @@ partial def reallyReduce (e : Expr) (explicitOnly skipTypes skipProofs skipArgs 
       else if (← (pure skipProofs <&&> isProof e)) then
         return e
       else
-        let e ← if useElabWhnf then 
+        let e ← if useElabWhnf then
                    whnf e
                  else ofExceptKernelException <| Kernel.whnf (← getEnv) (← getLCtx) e
         match e with
@@ -39,7 +39,7 @@ partial def reallyReduce (e : Expr) (explicitOnly skipTypes skipProofs skipArgs 
             return mkRawNatLit (args[0]!.rawNatLit?.get! + 1)
           else
             return mkAppN f args
-        | Expr.lam ..        => lambdaTelescope e fun xs b => do 
+        | Expr.lam ..        => lambdaTelescope e fun xs b => do
           if skipArgs then mkLambdaFVars xs (← visit b)
           else
             let ctx ← getLCtx
@@ -47,7 +47,7 @@ partial def reallyReduce (e : Expr) (explicitOnly skipTypes skipProofs skipArgs 
               let e' ← visit (ctx'.getFVar! e).type
               return ctx'.modifyLocalDecl e.fvarId! fun l => l.setType e') ctx
             withLCtx ctx' #[] do mkLambdaFVars xs (← visit b)
-        | Expr.forallE ..    => forallTelescope e fun xs b => do 
+        | Expr.forallE ..    => forallTelescope e fun xs b => do
           if skipArgs then mkForallFVars xs (← visit b)
           else
             let ctx ← getLCtx
@@ -76,7 +76,7 @@ where
       let e ← Term.levelMVarToParam (← instantiateMVars e)
       -- TODO: add options or notation for setting the following parameters
       withTheReader Core.Context (fun ctx => { ctx with options := ctx.options.setBool `smartUnfolding false }) do
-        let e ← withTransparency (mode := TransparencyMode.all) <| reallyReduce e false false false false
+        let e ← withTransparency (mode := TransparencyMode.all) <| reallyReduce e false false true false true
         logInfoAt tk e
 
 #reduce (proofs := true) (types := true) 1 + 1 = 2 → True

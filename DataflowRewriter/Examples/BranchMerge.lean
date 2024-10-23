@@ -49,12 +49,14 @@ section BranchMerge
         bag -> deq [inp ="deq", out="deq"];
         enq -> m[inp ="inp", out="enq"];
     ]
-  #check Module.join
 
   def test  TagT T (m: Σ S, StringModule S) :=
    bagged.build_module [("m", m), ("bag", ⟨_,Module.bagS (T × TagT)⟩), ("join", ⟨_,(Module.join T TagT).stringify⟩)].toAssocList
 
-  #reduce (types := true) fun S TagT T input output internals =>
+   set_option pp.maxSteps 1000
+
+  seal List.get List.remove in
+  #reallyReduce fun S TagT T input output internals =>
     test TagT T ⟨S, ({ inputs := [(⟨ .top, "inp"⟩ , input)].toAssocList,
                        outputs := [(⟨ .top, "out"⟩ , output)].toAssocList,
                        internals := internals })⟩
