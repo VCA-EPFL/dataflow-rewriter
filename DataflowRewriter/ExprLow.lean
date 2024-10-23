@@ -37,13 +37,9 @@ def ofPortMapping [DecidableEq Ident] (p : PortMapping Ident) : Option Ident :=
     else none
   | _ => none
 
-private def mapInternalPort {α β} (f : α → β) : InternalPort α → InternalPort β
-| ⟨ .top, a ⟩ => ⟨ .top, f a ⟩
-| ⟨ .internal b, a ⟩ => ⟨ .internal (f b), f a ⟩
-
 def map {α β} (f : α → β) : PortMapping α → PortMapping β
-| ⟨ a, b ⟩ => ⟨a.mapKey (λ k => mapInternalPort f k) |>.mapVal (λ _ v => mapInternalPort f v)
-              , b.mapKey (λ k => mapInternalPort f k) |>.mapVal (λ _ v => mapInternalPort f v)⟩
+| ⟨ a, b ⟩ => ⟨a.mapKey (λ k => k.map f) |>.mapVal (λ _ v => v.map f)
+              , b.mapKey (λ k => k.map f ) |>.mapVal (λ _ v => v.map f)⟩
 
 end PortMapping
 

@@ -60,6 +60,10 @@ structure InternalPort (Ident : Type _) where
   name : Ident
 deriving Repr, Hashable, Ord, Inhabited, DecidableEq
 
+def InternalPort.map {α β} (f : α → β) : InternalPort α → InternalPort β
+| ⟨ .top, a ⟩ => ⟨ .top, f a ⟩
+| ⟨ .internal b, a ⟩ => ⟨ .internal (f b), f a ⟩
+
 instance {Ident} [ToString Ident] : ToString (InternalPort Ident) where
   toString | ⟨.internal a, b⟩ => toString a ++ " " ++ toString b
            | ⟨.top, b⟩ => toString b
@@ -568,6 +572,15 @@ theorem refines_connect {o i} :
 
 end Refinement
 
+def mapIdent {Ident Ident' T} (inpR outR: Ident → Ident') (m : Module Ident T)
+ : Module Ident' T :=
+  {
+    inputs := m.inputs.mapKey (InternalPort.map inpR),
+    outputs := m.outputs.mapKey (InternalPort.map outR),
+    internals := m.internals
+  }
+
+
 end Module
 
 instance {n} : OfNat (InstIdent Nat) n where
@@ -579,6 +592,9 @@ instance {n} : OfNat (InternalPort Nat) n where
 abbrev NatModule := Module Nat
 
 abbrev StringModule := Module String
+
+@[drunfold] def NatModule.stringify {T} (m : NatModule T) : StringModule T :=
+       m |>.mapIdent (λ x =>  "inp"++ toString x) (λ x => "out" ++ toString x)
 
 abbrev TModule Ident := Σ T, Module Ident T
 
