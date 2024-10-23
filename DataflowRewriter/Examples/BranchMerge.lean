@@ -62,31 +62,30 @@ section BranchMerge
                        internals := internals })⟩
 
 
-  -- @[drunfold]
-  -- def tagged_ooo_h : ExprHigh String :=
-  -- [graph|
-  --     enq [mod="io"];
-  --     deq [mod="io"];
+@[drunfold]
+def tagged_ooo_h : ExprHigh String :=
+[graph|
+    enq [mod="io"];
+    deq [mod="io"];
 
-  --     tagger [mod="tag"];
-  --     bag [mod="bag"];
-  --     join [mod="join"];
+    tagger [mod="tag"];
+    bagged [mod="bag"];
+    join [mod="join"];
 
-  --     -- Match tag and input
-  --     -- Top-level inputs: The second input to join which is unbound
-  --     tagger -> join [inp = "inp0", out = "out0"];
-  --     enq -> join [out = "enq", inp = "inp1"];
+    -- Match tag and input
+    -- Top-level inputs: The second input to join which is unbound
+    tagger -> join [inp = "inp0", out = "out0"];
+    enq -> join [out = "enq", inp = "inp1"];
 
-  --     -- Feed the pair to the bag
-  --     join -> bagged [inp = "enq", out = "out0"];
+    -- Feed the pair to the bag
+    join -> bagged [inp = "enq", out = "out0"];
 
-  --     -- Output of the bag complete inside the tagger
-  --     bagged -> tagger [inp = "inp0", out = "deq"];
+    -- Output of the bag complete inside the tagger
+    bagged -> tagger [inp = "inp0", out = "deq"];
 
-
-  --     -- Top-level outputs: Second output of the tagger, the untagged value which is unbound
-  --     tagger -> deq [out = "out1", inp = "deq"];
-  --   ]
+    -- Top-level outputs: Second output of the tagger, the untagged value which is unbound
+    tagger -> deq [out = "out1", inp = "deq"];
+  ]
 
 end BranchMerge
 
