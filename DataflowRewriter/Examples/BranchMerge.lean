@@ -47,40 +47,44 @@ section BranchMerge
         joiner -> bag [inp = "enq", out = "out"];
         -- Connecting with the exporting interface
         bag -> deq [inp ="deq", out="deq"];
-        enq -> m[inp ="in", out="enq"];
+        enq -> m[inp ="inp", out="enq"];
     ]
   #check Module.join
 
   def test  TagT T (m: Σ S, StringModule S) :=
    bagged.build_module [("m", m), ("bag", ⟨_,Module.bagS (T × TagT)⟩), ("join", ⟨_,(Module.join T TagT).stringify⟩)].toAssocList
 
+  #reduce (types := true) fun S TagT T input output internals =>
+    test TagT T ⟨S, ({ inputs := [(⟨ .top, "inp"⟩ , input)].toAssocList,
+                       outputs := [(⟨ .top, "out"⟩ , output)].toAssocList,
+                       internals := internals })⟩
 
 
-  @[drunfold]
-  def tagged_ooo_h : ExprHigh String :=
-  [graph|
-      enq [mod="io"];
-      deq [mod="io"];
+  -- @[drunfold]
+  -- def tagged_ooo_h : ExprHigh String :=
+  -- [graph|
+  --     enq [mod="io"];
+  --     deq [mod="io"];
 
-      tagger [mod="tag"];
-      bag [mod="bag"];
-      join [mod="join"];
+  --     tagger [mod="tag"];
+  --     bag [mod="bag"];
+  --     join [mod="join"];
 
-      -- Match tag and input
-      -- Top-level inputs: The second input to join which is unbound
-      tagger -> join [inp = "inp0", out = "out0"];
-      enq -> join [out = "enq", inp = "inp1"];
+  --     -- Match tag and input
+  --     -- Top-level inputs: The second input to join which is unbound
+  --     tagger -> join [inp = "inp0", out = "out0"];
+  --     enq -> join [out = "enq", inp = "inp1"];
 
-      -- Feed the pair to the bag
-      join -> bagged [inp = "enq", out = "out0"];
+  --     -- Feed the pair to the bag
+  --     join -> bagged [inp = "enq", out = "out0"];
 
-      -- Output of the bag complete inside the tagger
-      bagged -> tagger [inp = "inp0", out = "deq"];
+  --     -- Output of the bag complete inside the tagger
+  --     bagged -> tagger [inp = "inp0", out = "deq"];
 
 
-      -- Top-level outputs: Second output of the tagger, the untagged value which is unbound
-      tagger -> deq [out = "out1", inp = "deq"];
-    ]
+  --     -- Top-level outputs: Second output of the tagger, the untagged value which is unbound
+  --     tagger -> deq [out = "out1", inp = "deq"];
+  --   ]
 
 end BranchMerge
 
