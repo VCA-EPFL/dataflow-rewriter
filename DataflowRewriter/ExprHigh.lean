@@ -252,18 +252,40 @@ def reifyInternalPort' {u : Level} {α : Q(Type $u)} : InternalPort Q($α) → Q
 --   q(@PortMapping.mk String )
 
 def updatePortMappingInput (s : Std.HashMap String (PortMapping String × String))
-  : InternalPort String → Std.HashMap String (PortMapping String × String)
-| ⟨.top, _⟩ => s
-| ⟨.internal i, x⟩ =>
+  (inCluster : Bool)
+  (inPort : InternalPort String)
+  : Bool → InternalPort String → Std.HashMap String (PortMapping String × String)
+| _, co@⟨.top, n⟩ =>
+  match (inCluster, inPort) with
+  | (true, ci@⟨.internal x, y⟩) =>
+    let (a, b) := s[x]!
+    s.insert x ({a with output := a.output.cons ci co}, b)
+  | (false, ⟨.internal x, y⟩) =>
+    let (a, b) := s[x]!
+    s.insert x ({a with output := a.output.cons ⟨.top, y⟩ co}, b)
+  | _ => s
+| false, c@⟨.internal i, x⟩ =>
   let (a, b) := s[i]!
-  s.insert i ({a with input := a.input.cons ⟨.top, x⟩ ⟨.internal i, x⟩}, b)
+  s.insert i ({a with input := a.input.cons ⟨.top, x⟩ c}, b)
+| true, ⟨.internal _, _⟩ => s
 
 def updatePortMappingOutput (s : Std.HashMap String (PortMapping String × String))
-  : InternalPort String → Std.HashMap String (PortMapping String × String)
-| ⟨.top, _⟩ => s
-| ⟨.internal i, x⟩ =>
+  (inCluster : Bool)
+  (inPort : InternalPort String)
+  : Bool → InternalPort String → Std.HashMap String (PortMapping String × String)
+| _, co@⟨.top, n⟩ =>
+  match (inCluster, inPort) with
+  | (true, ci@⟨.internal x, y⟩) =>
+    let (a, b) := s[x]!
+    s.insert x ({a with input := a.input.cons ci co}, b)
+  | (false, ⟨.internal x, y⟩) =>
+    let (a, b) := s[x]!
+    s.insert x ({a with input := a.input.cons ⟨.top, y⟩ co}, b)
+  | _ => s
+| false, c@⟨.internal i, x⟩ =>
   let (a, b) := s[i]!
-  s.insert i ({a with output := a.output.cons ⟨.top, x⟩ ⟨.internal i, x⟩}, b)
+  s.insert i ({a with output := a.output.cons ⟨.top, x⟩ c}, b)
+| true, ⟨.internal _, _⟩ => s
 
 open Lean Qq in
 def mkAssocListExpr {u : Level} {α β : Q(Type $u)}
@@ -299,29 +321,45 @@ def dotGraphElab : TermElab := λ stx _typ? => do
       let (b, map') := instMap.containsThenInsertIfNew i.getId (modInst, modCluster)
       if !b then
         instMap := map'
+        -- IO "modules" are not added to the instTypeMap.
         unless modId == "io" do instTypeMap := instTypeMap.insert i.getId.toString (∅, modId)
       else
         logWarning s!"Multiple references to {i.getId} found"
     | `(dot_stmnt| $a:ident -> $b:ident $[[$[$el:dot_attr],*]]? ) =>
-      unless a.getId ∈ instMap do throwErrorAt a "Instance has not been declared"
-      unless b.getId ∈ instMap do throwErrorAt b "Instance has not been declared"
+      -- Error checking to report it early if the instance is not present in the
+      -- hashmap.
+      let some aInst := instMap[a.getId]? | throwErrorAt a "Instance has not been declared"
+      let some bInst := instMap[b.getId]? | throwErrorAt b "Instance has not been declared"
+      if aInst.fst = .top && bInst.fst = .top then
+        throwErrorAt a "Both the input and output are IO ports"
       let some el := el
         | throwErrorAt (mkListNode #[a, b]) "No `mod` attribute found at node"
       let mut out ← (findStxStr `out el)
       let mut inp ← (findStxStr `inp el)
-      if out.isNone && instMap[a.getId]!.fst.isTop then out := some a.getId.toString
-      if inp.isNone && instMap[b.getId]!.fst.isTop then inp := some b.getId.toString
+      -- If no port name is provided and the port is a top-level port, then use
+      -- the instance name as the port name.
+      if out.isNone && aInst.fst.isTop then out := some a.getId.toString
+      if inp.isNone && bInst.fst.isTop then inp := some b.getId.toString
       let some out' := out | throwErrorAt (mkListNode el) "No output found"
       let some inp' := inp | throwErrorAt (mkListNode el) "No input found"
       let some outPort := parseInternalPort out'
         | throwErrorAt (mkListNode el) "Output port format incorrect"
       let some inPort := parseInternalPort inp'
         | throwErrorAt (mkListNode el) "Input port format incorrect"
-      let outPort' := if instMap[a.getId]!.snd then outPort else ⟨instMap[a.getId]!.fst, outPort.name⟩
-      let inPort' := if instMap[b.getId]!.snd then inPort else ⟨instMap[b.getId]!.fst, inPort.name⟩
-      conns := ⟨ outPort', inPort' ⟩ :: conns
-      instTypeMap := updatePortMappingOutput instTypeMap outPort'
-      instTypeMap := updatePortMappingInput instTypeMap inPort'
+      -- If the instance is a cluster do not modify the name, otherwise as the
+      -- instance as a prefix.
+      let outPort' := if aInst.snd then outPort else ⟨aInst.fst, outPort.name⟩
+      let inPort' := if bInst.snd then inPort else ⟨bInst.fst, inPort.name⟩
+      -- If one of the end points is an external port then do not add a
+      -- connection into the graph.
+      unless aInst.fst = .top || bInst.fst = .top do
+        conns := ⟨ outPort', inPort' ⟩ :: conns
+        instTypeMap := updatePortMappingOutput instTypeMap bInst.snd inPort' aInst.snd outPort'
+        instTypeMap := updatePortMappingInput instTypeMap aInst.snd outPort' bInst.snd inPort'
+      if aInst.fst = .top then
+        instTypeMap := updatePortMappingOutput instTypeMap bInst.snd inPort' aInst.snd outPort'
+      if bInst.fst = .top then
+        instTypeMap := updatePortMappingInput instTypeMap aInst.snd outPort' bInst.snd inPort'
     | _ => pure ()
   let connExpr : Q(List (Connection String)) ←
     mkListLit q(Connection String) (← conns.mapM (λ ⟨ a, b ⟩ => do
@@ -331,7 +369,7 @@ def dotGraphElab : TermElab := λ stx _typ? => do
       (instTypeMap.toList.map (fun (a, (p, b)) =>
         let a' : Q(String) := .lit (.strVal a)
         let b' : Q(String) := .lit (.strVal b)
-        let p' : Q(PortMapping String) := mkPortMapping <| p.map ((λ x => .lit (.strVal x)) : String → Q(String))
+        let p' : Q(PortMapping String) := mkPortMapping <| p.map (.strVal · |> .lit)
         q(($a', ($p', $b')))))
   let modListMap : Q(IdentMap String (PortMapping String × String)) := q(List.toAssocList $modList)
   return q(ExprHigh.mk $modListMap $connExpr)

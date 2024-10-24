@@ -41,14 +41,17 @@ section BranchMerge
         bag [mod="bag"];
         joiner [mod="join"];
         -- Producing the tagged values
-        m -> joiner[inp="inp0", out="out"];
-        enqT -> joiner[inp="inp1", out="deq"];
+        m -> joiner [out="out", inp="inp0"];
         -- Push into the bag
-        joiner -> bag [inp = "enq", out = "out"];
+        joiner -> bag [out = "out0", inp = "enq"];
         -- Connecting with the exporting interface
-        bag -> deq [inp ="deq", out="deq"];
-        enq -> m[inp ="inp", out="enq"];
+        bag -> deq [out="deq"];
+        enq -> m [inp ="inp"];
+        enqT -> joiner [inp="inp1"];
     ]
+
+#reduce bagged
+#reduce bagged.lower
 
   def test  TagT T (m: Σ S, StringModule S) :=
    bagged.build_module [("m", m), ("bag", ⟨_,Module.bagS (T × TagT)⟩), ("join", ⟨_,(Module.join T TagT).stringify⟩)].toAssocList
@@ -57,8 +60,23 @@ example y : (fun S TagT T input output internals =>
   test TagT T ⟨S, ({ inputs := [(⟨ .top, "inp"⟩ , input)].toAssocList,
                      outputs := [(⟨ .top, "out"⟩ , output)].toAssocList,
                      internals := internals })⟩) = y := by
-  dsimp only [test,drunfold,seval,Batteries.AssocList.toList,bagged,Function.uncurry,Module.mapIdent,List.toAssocList,List.foldl,Batteries.AssocList.find?,Option.pure_def,Option.bind_eq_bind,Option.bind_some,Module.renamePorts,Batteries.AssocList.mapKey,InternalPort.map,toString,Nat.repr,Nat.toDigits,Nat.toDigitsCore,Nat.digitChar,List.asString,Option.bind,Batteries.AssocList.mapVal,Batteries.AssocList.erase,Batteries.AssocList.eraseP,beq_self_eq_true,Option.getD,cond,beq_self_eq_true, beq_iff_eq, InternalPort.mk.injEq, String.reduceEq, and_false, imp_self]
+  dsimp only [test,drunfold,seval,Batteries.AssocList.toList,bagged,Function.uncurry,Module.mapIdent,List.toAssocList,List.foldl,Batteries.AssocList.find?,Option.pure_def,Option.bind_eq_bind,Option.bind_some,Module.renamePorts,Batteries.AssocList.mapKey,InternalPort.map,toString,Nat.repr,Nat.toDigits,Nat.toDigitsCore,Nat.digitChar,List.asString,Option.bind,Batteries.AssocList.mapVal,Batteries.AssocList.erase,Batteries.AssocList.eraseP,beq_self_eq_true,Option.getD,cond,beq_self_eq_true, beq_iff_eq, InternalPort.mk.injEq, String.reduceEq, and_false, imp_self,BEq.beq]
+  simp only [seval,InternalPort.mk.injEq, and_false, decide_False, decide_True]
   -- nearly there
+  sorry
+
+structure A where
+  a : String
+  b : String
+deriving DecidableEq
+example x : (({ a := "", b := "b" } : A) == { a := "", b := "c" }) = x := by
+  simp [BEq.beq]
+
+example y : (fun f : Nat → Nat => ∀ (wf : Nat = Nat), ∃ b, (match ({ a := "", b := "b" } : A) == { a := "", b := "c" } with
+             | true => wf.mp 1
+             | false => wf.mpr 2) = f b) y := by
+  -- simp
+  simp [BEq.beq]
   sorry
 
 @[drunfold]
