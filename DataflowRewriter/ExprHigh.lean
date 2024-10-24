@@ -401,6 +401,7 @@ def mergeHigh : ExprHigh String :=
     merge2 -> snk0 [out="0",inp="0"];
   ]
 
+namespace Testing
 
 def threemerge T : StringModule (List T) :=
   { inputs := [(⟨.internal "merge1", "0"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
@@ -579,7 +580,7 @@ def threemerge T : StringModule (List T) :=
 --                   { input := { inst := "merge1", name := "inp1" }, output := { inst := "fork1", name := "out2" } },
 --                   { input := { inst := "merge2", name := "inp2" }, output := { inst := "merge1", name := "out" } }] } : ExprHigh)
 
-
+end Testing
 
 
 end DataflowRewriter

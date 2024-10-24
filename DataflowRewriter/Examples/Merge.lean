@@ -48,18 +48,18 @@ seal _root_.List.get _root_.List.remove in
 
 opaque threemerge_threemerge' T : threemerge T = threemerge' T := by rfl
 
+#check AssocList.replace
 @[drunfold] def mergeLow : ExprLow Nat :=
-  let merge1 := .base 1 0
-  let merge2 := .base 2 0
+  let merge1 := .base ({ input := ∅, output := .cons ⟨.top, 0⟩ ⟨.internal 1, 0⟩ ∅ }) 0
+  -- We now have to remap inputs using the portmapping
+  let merge2 := .base ({ input := .cons ⟨.top, 0⟩ ⟨.internal 2, 0⟩ ∅
+                               |> .cons ⟨.top, 1⟩ ⟨.top, 2⟩
+                       , output := ∅ }) 0
   .product merge1 merge2
-  |> .connect ⟨1, 0⟩ ⟨2, 0⟩
-  |> .input ⟨1, 0⟩ 0
-  |> .input ⟨1, 1⟩ 1
-  |> .input ⟨2, 1⟩ 2
-  |> .output ⟨2, 0⟩ 0
+  |> .connect ⟨.internal 1, 0⟩ ⟨.internal 2, 0⟩
 
 def merge_sem (T: Type _) :=
-  mergeLow.build_module [(0, ⟨List T, Module.merge T⟩)].toAssocList
+  mergeLow.build_module [(0, ⟨List T, NatModule.merge T⟩)].toAssocList
 
 seal List.get List.remove in
 @[drunfold] def merge_sem' (T:Type) : ((X:Type) × NatModule X) := by precompute merge_sem T
@@ -142,24 +142,24 @@ theorem correct_threeway_merge'' {T: Type _} [DecidableEq T]:
       rw [sigma_rw] at Himod
       dsimp at Himod
       let ⟨ Hl, Hr ⟩ := Himod; clear Himod; subst_vars
+      have Hφ : φ (v :: x1, x'2) (v :: y) := by
+        simp [*, φ] at HPerm ⊢; assumption
+      constructor; constructor; and_intros
+      all_goals first | rfl | apply existSR.done | assumption
+    · dsimp at *
+      rw [sigma_rw] at Himod
+      dsimp at Himod
+      let ⟨ Hl, Hr ⟩ := Himod; clear Himod; subst_vars
+      have Hφ : φ (v :: x1, x'2) (v :: y) := by
+        simp [*, φ] at HPerm ⊢; assumption
+      constructor; constructor; and_intros
+      all_goals first | rfl | apply existSR.done | assumption
+    · dsimp at *
+      rw [sigma_rw] at Himod
+      dsimp at Himod
+      let ⟨ Hl, Hr ⟩ := Himod; clear Himod; subst_vars
       have Hφ : φ (x'1, v :: x2) (v :: y) :=
         List.Perm.symm (List.perm_cons_append_cons v (List.Perm.symm HPerm))
-      constructor; constructor; and_intros
-      all_goals first | rfl | apply existSR.done | assumption
-    · dsimp at *
-      rw [sigma_rw] at Himod
-      dsimp at Himod
-      let ⟨ Hl, Hr ⟩ := Himod; clear Himod; subst_vars
-      have Hφ : φ (v :: x1, x'2) (v :: y) := by
-        simp [*, φ] at HPerm ⊢; assumption
-      constructor; constructor; and_intros
-      all_goals first | rfl | apply existSR.done | assumption
-    · dsimp at *
-      rw [sigma_rw] at Himod
-      dsimp at Himod
-      let ⟨ Hl, Hr ⟩ := Himod; clear Himod; subst_vars
-      have Hφ : φ (v :: x1, x'2) (v :: y) := by
-        simp [*, φ] at HPerm ⊢; assumption
       constructor; constructor; and_intros
       all_goals first | rfl | apply existSR.done | assumption
   · intro ident mid_i v Hcontains Hi

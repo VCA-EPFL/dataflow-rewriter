@@ -8,7 +8,7 @@ import DataflowRewriter.Module
 import DataflowRewriter.Simp
 import DataflowRewriter.ExprHigh
 
-namespace DataflowRewriter.Module
+namespace DataflowRewriter.NatModule
 
 @[drunfold] def io (T : Type) : NatModule (List T) :=
   { inputs := [(0, ⟨ T, λ s tt s' => s' = tt :: s ⟩)].toAssocList,
@@ -79,32 +79,35 @@ namespace DataflowRewriter.Module
           outputs := [(0,⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)].toAssocList,
           internals := []}
 
+@[drunfold] def tag_complete_spec (TagT : Type 0) [_i: DecidableEq TagT] (T : Type 0) : NatModule (List TagT × (TagT → Option T)) :=
+  { inputs := [
+        -- Complete computation
+        (0,⟨ TagT × T, λ (oldOrder, oldMap) (tag,el) (newOrder, newMap) =>
+          -- Tag must be used, but no value ready, otherwise block:
+          (List.elem tag oldOrder ∧ oldMap tag = none) ∧
+          newMap = (λ idx => if idx == tag then some el else oldMap idx) ∧ newOrder = oldOrder⟩)
+      ].toAssocList,
+    outputs := [
+        -- Allocate fresh tag
+      (0,⟨ TagT, λ (oldOrder, oldMap) (tag) (newOrder, newMap) =>
+        -- Tag must be unused otherwise block (alternatively we
+        -- could an implication to say undefined behavior):
+        (!List.elem tag oldOrder ∧ oldMap tag = none) ∧
+        newMap = oldMap ∧ newOrder = tag :: oldOrder⟩),
+        -- Dequeue + free tag
+      (1,⟨ T, λ (oldorder, oldmap) el (neworder, newmap) =>
+        -- tag must be used otherwise, but no value brought, undefined behavior:
+        ∃ l tag , oldorder = l ++ [tag] ∧ oldmap tag = some el ∧
+        newmap = (λ idx => if idx == tag then none else oldmap idx) ∧ neworder = l ⟩),
+        ].toAssocList,
+    internals := []
+  }
+
+end DataflowRewriter.NatModule
+
+namespace DataflowRewriter.StringModule
 
 @[drunfold] def bagS T : StringModule (List T) :=
-       bag T |>.mapIdent (λ x => "enq") (λ x => "deq")
+  NatModule.bag T |>.mapIdent (λ x => "enq") (λ x => "deq")
 
-
-@[drunfold] def tag_complete_spec (TagT : Type 0) [_i: DecidableEq TagT] (T : Type 0) : NatModule (List TagT × (TagT → Option T)) :=
-        { inputs := [
-          -- Complete computation
-          (0,⟨ TagT × T, λ (oldOrder, oldMap) (tag,el) (newOrder, newMap) =>
-            -- Tag must be used, but no value ready, otherwise block:
-            (List.elem tag oldOrder ∧ oldMap tag = none) ∧
-            newMap = (λ idx => if idx == tag then some el else oldMap idx) ∧ newOrder = oldOrder⟩)
-        ].toAssocList,
-          outputs := [
-            -- Allocate fresh tag
-          (0,⟨ TagT, λ (oldOrder, oldMap) (tag) (newOrder, newMap) =>
-            -- Tag must be unused otherwise block (alternatively we
-            -- could an implication to say undefined behavior):
-            (!List.elem tag oldOrder ∧ oldMap tag = none) ∧
-            newMap = oldMap ∧ newOrder = tag :: oldOrder⟩),
-            -- Dequeue + free tag
-          (1,⟨ T, λ (oldorder, oldmap) el (neworder, newmap) =>
-            -- tag must be used otherwise, but no value brought, undefined behavior:
-            ∃ l tag , oldorder = l ++ [tag] ∧ oldmap tag = some el ∧
-            newmap = (λ idx => if idx == tag then none else oldmap idx) ∧ neworder = l ⟩),
-            ].toAssocList,
-          internals := []}
-
-end DataflowRewriter.Module
+end DataflowRewriter.StringModule

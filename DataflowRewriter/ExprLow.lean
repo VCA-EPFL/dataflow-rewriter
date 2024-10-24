@@ -78,6 +78,9 @@ def renamePorts (m : Module Ident S) (p : PortMapping Ident) : Module Ident S :=
 def toInterface (m : Module Ident S): Interface Ident :=
   ⟨m.inputs.keysList, m.outputs.keysList⟩
 
+def toPortMapping (m : Module Ident S) (i : Ident) : PortMapping Ident :=
+  m.toInterface.toPortMapping i
+
 end
 
 section
@@ -138,6 +141,9 @@ inductive NamedExprLow Ident where
 | output : InternalPort Ident → Ident → NamedExprLow Ident → NamedExprLow Ident
 | base : ExprLow Ident → NamedExprLow Ident
 deriving Repr, Inhabited, DecidableEq
+
+def Module.toBaseExprLow {Ident S} (m : Module Ident S) (inst typ : Ident) : ExprLow Ident :=
+  .base (m.toPortMapping inst) typ
 
 namespace ExprLow
 
