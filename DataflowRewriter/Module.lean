@@ -207,6 +207,12 @@ def disjoint {S T} (mod1 : Module Ident S) (mod2 : Module Ident T) :=
     : HVector f [a] → HVector f [a] → Prop :=
   λ | .cons a .nil, .cons a' .nil => x a a'
 
+def connect'' {Ti To S} (ruleO : S → To → S → Prop) (ruleI : S → Ti → S → Prop) : S → S → Prop :=
+  (λ st st' =>
+        ∀ wf : To = Ti,
+          ∃ consumed_output output, ruleO st output consumed_output
+            ∧ ruleI consumed_output (wf.mp output) st')
+
 /--
 `connect'` will produce a new rule that fuses an input with an output, with a
 precondition that the input and output type must match.
@@ -214,12 +220,7 @@ precondition that the input and output type must match.
 @[drunfold] def connect' {S : Type _} (mod : Module Ident S) (o i : InternalPort Ident) : Module Ident S :=
   { inputs := mod.inputs.erase i ,
     outputs :=  mod.outputs.erase o,
-    internals :=
-      (λ st st' =>
-        ∀ wf : (mod.inputs.getInternalPort i).1 = (mod.outputs.getInternalPort o).1,
-          ∃ consumed_output output, (mod.outputs.getInternalPort o).2 st output consumed_output
-            ∧ (mod.inputs.getInternalPort i).2 consumed_output (wf.mpr output) st')
-      :: mod.internals }
+    internals := connect'' (mod.outputs.getInternalPort o).2 (mod.inputs.getInternalPort i).2 :: mod.internals }
 
 @[drunfold] def product {S S'} (mod1 : Module Ident S) (mod2: Module Ident S') : Module Ident (S × S') :=
   { inputs := (mod1.inputs.mapVal (λ _ => liftL)).append (mod2.inputs.mapVal (λ _ => liftR)),

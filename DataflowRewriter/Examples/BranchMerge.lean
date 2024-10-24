@@ -53,18 +53,44 @@ section BranchMerge
 #reduce bagged
 #reduce bagged.lower
 
+#check Module.connect''
+theorem connect_r {C : Type} {x y x' y' : Σ (T : Type), C → T → C → Prop} (h : x' = x) (h' : y' = y) :
+    @Module.connect'' y.1 x.1 C x.2 y.2 = @Module.connect'' y'.1 x'.1 C x'.2 y'.2 := by
+  intros; subst_vars; rfl
+
   def test  TagT T (m: Σ S, StringModule S) :=
    bagged.build_module [("m", m), ("bag", ⟨_,Module.bagS (T × TagT)⟩), ("join", ⟨_,(Module.join T TagT).stringify⟩)].toAssocList
-
+set_option pp.proofs true in
 example y : (fun S TagT T input output internals =>
   test TagT T ⟨S, ({ inputs := [(⟨ .top, "inp"⟩ , input)].toAssocList,
                      outputs := [(⟨ .top, "out"⟩ , output)].toAssocList,
                      internals := internals })⟩) = y := by
   dsimp only [test,drunfold,seval,Batteries.AssocList.toList,bagged,Function.uncurry,Module.mapIdent,List.toAssocList,List.foldl,Batteries.AssocList.find?,Option.pure_def,Option.bind_eq_bind,Option.bind_some,Module.renamePorts,Batteries.AssocList.mapKey,InternalPort.map,toString,Nat.repr,Nat.toDigits,Nat.toDigitsCore,Nat.digitChar,List.asString,Option.bind,Batteries.AssocList.mapVal,Batteries.AssocList.erase,Batteries.AssocList.eraseP,beq_self_eq_true,Option.getD,cond,beq_self_eq_true, beq_iff_eq, InternalPort.mk.injEq, String.reduceEq, and_false, imp_self,BEq.beq]
-  simp only [seval,InternalPort.mk.injEq, and_false, decide_False, decide_True, and_true]
+  simp (config := {decide := true,maxSteps := 10000000,ground := true,autoUnfold := true}) only [seval,InternalPort.mk.injEq, and_false, decide_False, decide_True, and_true]
+  set_option pp.piBinderTypes  true in set_option pp.letVarTypes true in set_option pp.structureInstances false in set_option pp.fieldNotation false in set_option pp.funBinderTypes true in set_option pp.explicit true in set_option pp.deepTerms true in set_option pp.maxSteps 1000000000 in trace_state
+  conv in Module.connect'' _ _ =>
+    · rw [connect_r]; rfl
+      tactic => simp; rfl
+      tactic => simp; rfl
+  conv in _ :: Module.connect'' _ _ :: _ =>
+    · arg 2; rw [connect_r]; rfl
+      · tactic => simp; rfl
+      · tactic => simp; rfl
 
-  -- nearly there
   sorry
+
+structure A where
+  a : String
+  b : String
+deriving DecidableEq
+
+axiom f : (T : Type) → (t : T) → Prop
+example l (h : l = match A.mk "a" "b" == A.mk "a" "b" with | true => @Sigma.mk Type (fun T => T) Nat 1 | false => @Sigma.mk Type (fun T => T) String "") : f l.1 l.2 := by
+  subst l
+  simp
+
+abbrev Y := InternalPort String
+abbrev X (S : Type _) : Type _ := (Σ (T : Type), (S → T → S → Prop))
 
 structure A where
   a : String
