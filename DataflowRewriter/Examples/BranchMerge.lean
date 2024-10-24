@@ -72,13 +72,6 @@ example y : (fun S TagT T input output internals =>
   conv in _ :: Module.connect'' _ _ :: _ => arg 2; rw [connect_r]; rfl
   sorry
 
-example y : (fun f : Nat → Nat => ∀ (wf : Nat = Nat), ∃ b, (match ({ a := "", b := "b" } : A) == { a := "", b := "c" } with
-             | true => wf.mp 1
-             | false => wf.mpr 2) = f b) y := by
-  -- simp
-  simp [BEq.beq]
-  sorry
-
 @[drunfold]
 def tagged_ooo_h : ExprHigh String :=
 [graph|
