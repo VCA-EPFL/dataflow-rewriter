@@ -27,6 +27,9 @@ rev = "nightly-testing-2024-10-10"
 [[lean_lib]]
 name = "DataflowRewriter"
 
+[[lean_lib]]
+name = "DataflowRewriterTest"
+
 [[lean_exe]]
 name = "«dataflow-rewriter»"
 root = "Main"
