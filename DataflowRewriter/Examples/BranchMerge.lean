@@ -53,12 +53,13 @@ section BranchMerge
   def test  TagT T (m: Σ S, StringModule S) :=
    bagged.build_module [("m", m), ("bag", ⟨_,Module.bagS (T × TagT)⟩), ("join", ⟨_,(Module.join T TagT).stringify⟩)].toAssocList
 
-  -- seal List.get List.remove in
-  -- #reallyReduce fun S TagT T input output internals =>
-  --   test TagT T ⟨S, ({ inputs := [(⟨ .top, "inp"⟩ , input)].toAssocList,
-  --                      outputs := [(⟨ .top, "out"⟩ , output)].toAssocList,
-  --                      internals := internals })⟩
-
+example y : (fun S TagT T input output internals =>
+  test TagT T ⟨S, ({ inputs := [(⟨ .top, "inp"⟩ , input)].toAssocList,
+                     outputs := [(⟨ .top, "out"⟩ , output)].toAssocList,
+                     internals := internals })⟩) = y := by
+  dsimp only [test,drunfold,seval,Batteries.AssocList.toList,bagged,Function.uncurry,Module.mapIdent,List.toAssocList,List.foldl,Batteries.AssocList.find?,Option.pure_def,Option.bind_eq_bind,Option.bind_some,Module.renamePorts,Batteries.AssocList.mapKey,InternalPort.map,toString,Nat.repr,Nat.toDigits,Nat.toDigitsCore,Nat.digitChar,List.asString,Option.bind,Batteries.AssocList.mapVal,Batteries.AssocList.erase,Batteries.AssocList.eraseP,beq_self_eq_true,Option.getD,cond,beq_self_eq_true, beq_iff_eq, InternalPort.mk.injEq, String.reduceEq, and_false, imp_self]
+  -- nearly there
+  sorry
 
 @[drunfold]
 def tagged_ooo_h : ExprHigh String :=

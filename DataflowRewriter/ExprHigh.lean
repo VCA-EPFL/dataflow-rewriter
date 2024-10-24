@@ -175,7 +175,6 @@ declare_syntax_cat dot_attr
 syntax str : dot_value
 syntax num : dot_value
 syntax ident : dot_value
-syntax ("t" <|> "f") : dot_value
 
 syntax ident " = " dot_value : dot_attr
 syntax (dot_attr),* : dot_attr_list
@@ -199,14 +198,16 @@ def findStx (n : Name) (stx : Array Syntax) : Option Nat := do
       out := some (TSyntax.mk pair[2][0]).getNat
   out
 
+#check true
+
 open Lean in
 def findStxBool (n : Name) (stx : Array Syntax) : Option Bool := do
   let mut out := none
   for pair in stx do
     if pair[0].getId = n then
       out := match pair[2] with
-             | `(dot_value| true) => .some .true
-             | `(dot_value| false) => .some .false
+             | `(dot_value| true) => .some true
+             | `(dot_value| false) => .some false
              | _ => .none
   out
 

@@ -8,3 +8,35 @@ import Lean
 
 register_simp_attr dmod
 register_simp_attr drunfold
+
+-- def fromExpr? (e : Expr) : SimpM (Option String) := do
+--   return getStringValue? et
+
+open Lean Meta Simp
+
+-- simproc ↓ decideDecidable (Bool.rec _ _ c) := fun e => do
+--   let_expr f@Bool.rec _ a b c ← e | return .continue
+--   let r ← simp c
+--   return .done r
+
+-- @[inline] def reduceBoolPred (declName : Name) (arity : Nat) (op : String → String → Bool) (e : Expr) : SimpM DStep := do
+--   unless e.isAppOfArity declName arity do return .continue
+--   let some n ← Expr.fromExpr? e.appFn!.appArg! | return .continue
+--   let some m ← fromExpr? e.appArg! | return .continue
+--   return .done <| toExpr (op n m)
+
+
+-- structure A where
+--   a : String
+--   b : String
+-- deriving DecidableEq
+
+-- example b : (match ({ a := "", b := "b" } : A) == { a := "", b := "c" } with
+--              | true => 1
+--              | false => 2) = b := by
+--   -- simp
+--   have : (({ a := "", b := "b" } : A) == { a := "", b := "c" }) = false := by decide
+--   unfold _example.match_1
+--   simp [_example.match_1]
+
+--   sorry
