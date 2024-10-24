@@ -432,23 +432,16 @@ theorem substition {I I' i i' mod mod' iexpr} :
       rw [this]; simp [drunfold,Module.refines_reflexive]
   | product e₁ e₂ ihe₁ ihe₂ =>
     intro hwf hf₁ hf₂ href
-    apply refines_product
-    · simp [all, wf] at hwf ⊢; simp [hwf]
-    · simp [all, wf] at hwf ⊢; simp [hwf]
-    · have : e₁.wf ε := by simp_all [all,wf]
-      apply wf_modify_expression
-      simp only [*]; simp
-      assumption
-    · have : e₂.wf ε := by simp_all [all,wf]
-      apply wf_modify_expression
-      simp only [*]; simp
-      assumption
-    · have : e₁.wf ε := by simp_all [all,wf]
-      solve_by_elim
-    · have : e₂.wf ε := by simp_all [all,wf]
-      solve_by_elim
-  | _ => sorry
-
+    have e₁wf : e₁.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
+    have e₂wf : e₂.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
+    have some_isSome : (ε.find? i').isSome := by simp only [*]; simp
+    apply refines_product <;> solve_by_elim [wf_modify_expression]
+  | connect o i e =>
+    intro hwf hfind₁ hfind₂ href
+    simp only [modify]
+    have e₁wf : e.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
+    have some_isSome : (ε.find? i').isSome := by simp only [*]; simp
+    apply refines_connect <;> solve_by_elim [wf_modify_expression]
 
 set_option debug.byAsSorry true
 theorem abstract_refines {iexpr expr_pat i} :

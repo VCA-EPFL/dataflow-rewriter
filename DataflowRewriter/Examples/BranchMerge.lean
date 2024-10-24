@@ -13,7 +13,6 @@ namespace DataflowRewriter
 
 section BranchMerge
 
-
   -- TODO how to do polymorphic definition, here [out] is hardcoded and should be parametrized?
   -- TODO refer to other graph with proper namespacing, semantics either inline or do environment business
   -- TODO potentially woudl it be possible to automatically construct the environment if I use nonstrings.
