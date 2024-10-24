@@ -70,28 +70,7 @@ example y : (fun S TagT T input output internals =>
   set_option pp.piBinderTypes  true in set_option pp.letVarTypes true in set_option pp.structureInstances false in set_option pp.fieldNotation false in set_option pp.funBinderTypes true in set_option pp.explicit true in set_option pp.deepTerms true in set_option pp.maxSteps 1000000000 in trace_state
   conv in Module.connect'' _ _ => rw [connect_r]; rfl
   conv in _ :: Module.connect'' _ _ :: _ => arg 2; rw [connect_r]; rfl
-
   sorry
-
-structure A where
-  a : String
-  b : String
-deriving DecidableEq
-
-axiom f : (T : Type) → (t : T) → Prop
-example l (h : l = match A.mk "a" "b" == A.mk "a" "b" with | true => @Sigma.mk Type (fun T => T) Nat 1 | false => @Sigma.mk Type (fun T => T) String "") : f l.1 l.2 := by
-  subst l
-  simp
-
-abbrev Y := InternalPort String
-abbrev X (S : Type _) : Type _ := (Σ (T : Type), (S → T → S → Prop))
-
-structure A where
-  a : String
-  b : String
-deriving DecidableEq
-example x : (({ a := "", b := "b" } : A) == { a := "", b := "c" }) = x := by
-  simp [BEq.beq]
 
 example y : (fun f : Nat → Nat => ∀ (wf : Nat = Nat), ∃ b, (match ({ a := "", b := "b" } : A) == { a := "", b := "c" } with
              | true => wf.mp 1
