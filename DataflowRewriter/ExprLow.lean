@@ -81,6 +81,10 @@ def toInterface (m : Module Ident S): Interface Ident :=
 def toPortMapping (m : Module Ident S) (i : Ident) : PortMapping Ident :=
   m.toInterface.toPortMapping i
 
+theorem refines_renamePorts {I S} {imod : Module Ident I} {smod : Module Ident S} {f}:
+  imod ⊑ smod →
+  imod.renamePorts f ⊑ smod.renamePorts f := by sorry
+
 end
 
 section
@@ -331,6 +335,16 @@ theorem wf_builds_module {e} : wf ε e → (e.build_module' ε).isSome := by
     cases ihe₁; cases ihe₂
     simp only [*]; rfl
 
+theorem wf_modify_expression {e : ExprLow Ident} {i i'}:
+  (ε.find? i').isSome →
+  e.wf ε →
+  (e.modify i i').wf ε := by sorry
+
+theorem build_base_in_env {T inst i mod} :
+  ε.find? i = some ⟨ T, mod ⟩ →
+  build_module' ε (base inst i) = some ⟨ T, mod.renamePorts inst ⟩ := by
+  intro h; dsimp [drunfold]; rw [h]; rfl
+
 theorem wf_replace {e e_pat e'} : wf ε e → wf ε e' → wf ε (e.replace e_pat e') := by
   intro h wfe'; revert h
   induction e <;> (intros; simp [replace]; split <;> (try solve_by_elim) <;> simp_all [wf, all])
@@ -344,33 +358,6 @@ theorem build_module_unfold_1 {m r i} :
   ε.find? i = some m →
   build_module ε (.base r i) = ⟨ m.fst, m.snd.renamePorts r ⟩ := by
   intro h; simp only [drunfold]; rw [h]; simp
-
--- theorem build_module_replace {ε : IdentMap Ident (Σ (T : Type), Module Ident T)} {expr} {m : (Σ (T : Type), Module Ident T)} {i : Ident} :
---   (build_module' ε expr).isSome → (build_module' (ε.replace i m) expr).isSome := by sorry
-
-theorem find?_modify {modIdent ident m m'} {ε : IdentMap Ident (Σ (T : Type _), Module Ident T)}
-  (h : ε.mem ident m') :
-  Batteries.AssocList.find? modIdent ε = none →
-  Batteries.AssocList.find? modIdent ({ε | h := m}) = none := by sorry
-
-theorem find?_modify2 {modIdent m m'} {ε : IdentMap Ident (Σ (T : Type _), Module Ident T)}
-  (h : ε.mem modIdent m') :
-  Batteries.AssocList.find? modIdent ({ε | h := m}) = m := by sorry
-
-theorem find?_modify3 {modIdent ident m m' m''} {ε : IdentMap Ident (Σ (T : Type _), Module Ident T)}
-  (h : ε.mem ident m') :
-  modIdent ≠ ident →
-  Batteries.AssocList.find? modIdent ε = some m'' →
-  Batteries.AssocList.find? modIdent ({ε | h := m}) = some m'' := by sorry
-
--- instance
---   {ε : IdentMap Ident (Σ (T : Type _), Module Ident T)}
---   {S ident iexpr} {mod : Σ T : Type _, Module Ident T}
---   {mod' : Σ T : Type _, Module Ident T} {smod : Module Ident S}
---   {h : ε.mem ident mod}
---   [MatchInterface mod.2 mod'.2]
---   [MatchInterface ([e| iexpr, ε ]) smod]
---   : MatchInterface ([e| iexpr, {ε | h := mod'} ]) smod := by sorry
 
 section Refinement
 
@@ -422,37 +409,8 @@ theorem refines_connect {e e' o i} :
   rw [wf1,wf2] at ref ⊢
   simp; solve_by_elim [Module.refines_connect]
 
--- set_option debug.skipKernelTC true in
-set_option pp.proofs true in
-set_option pp.deepTerms true in
-variable {T T'}
-         {mod : Module Ident T}
-         {mod' : Module Ident T'} in
-theorem substite_env (iexpr : ExprLow Ident) {ident} (h : ε.mem ident ⟨ T, mod ⟩) :
-    mod ⊑ mod' →
-    [e| iexpr, ε ] ⊑ ([e| iexpr, {ε | h := ⟨ T', mod' ⟩} ]) := by
-  unfold build_module_expr
-  induction iexpr with
-  | base instIdent modIdent =>
-    intro Hmod
-    dsimp [build_module_expr, build_module, build_module']
-    cases Hfind : Batteries.AssocList.find? modIdent ε with
-    | none =>
-      have Hfind' := find?_modify (m := ⟨T', mod'⟩) h Hfind
-      rw [Hfind'] -- simp does not work
-      apply Module.refines_reflexive
-    | some curr_mod =>
-      by_cases h : modIdent = ident
-      · subst_vars
-        have Hfind' := find?_modify2 (m := ⟨ T', mod' ⟩) h
-        rw [Hfind']; simp
-        -- rw [Hfind] at Hbase; simp at Hbase
-        sorry
-      · sorry
-  | product e₁ e₂ iH₁ iH₂ => sorry
-  | connect p1 p2 e iH => sorry
-
 theorem substition {I I' i i' mod mod' iexpr} :
+    iexpr.wf ε →
     ε.find? i = some ⟨ I, mod ⟩ →
     ε.find? i' = some ⟨ I', mod' ⟩ →
     mod ⊑ mod' →
@@ -460,15 +418,39 @@ theorem substition {I I' i i' mod mod' iexpr} :
   unfold build_module_expr
   induction iexpr generalizing i i' mod mod' with
   | base inst typ =>
-    intro hfind₁ hfind₂ Href
+    intro hwf hfind₁ hfind₂ Href
     dsimp [drunfold]
     by_cases h : typ = i
     · subst typ
       rw [hfind₁]; dsimp [drunfold]
-      sorry
-    · sorry
+      have : (if i = i then ExprLow.base inst i' else .base inst i) = .base inst i' := by
+        simp only [↓reduceIte]
+      rw [this, build_base_in_env hfind₂]; simp
+      solve_by_elim [Module.refines_renamePorts]
+    · have : (if typ = i then ExprLow.base inst i' else .base inst typ) = .base inst typ := by
+        simp only [↓reduceIte, h]
+      rw [this]; simp [drunfold,Module.refines_reflexive]
+  | product e₁ e₂ ihe₁ ihe₂ =>
+    intro hwf hf₁ hf₂ href
+    apply refines_product
+    · simp [all, wf] at hwf ⊢; simp [hwf]
+    · simp [all, wf] at hwf ⊢; simp [hwf]
+    · have : e₁.wf ε := by simp_all [all,wf]
+      apply wf_modify_expression
+      simp only [*]; simp
+      assumption
+    · have : e₂.wf ε := by simp_all [all,wf]
+      apply wf_modify_expression
+      simp only [*]; simp
+      assumption
+    · have : e₁.wf ε := by simp_all [all,wf]
+      solve_by_elim
+    · have : e₂.wf ε := by simp_all [all,wf]
+      solve_by_elim
   | _ => sorry
 
+
+set_option debug.byAsSorry true
 theorem abstract_refines {iexpr expr_pat i} :
     ε.find? i = some ⟨ _, [e| expr_pat, ε ] ⟩ →
     iexpr.wf ε →

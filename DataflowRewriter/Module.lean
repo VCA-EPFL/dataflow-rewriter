@@ -569,13 +569,6 @@ theorem refines_connect {o i} :
     imod ⊑ smod →
     imod.connect' o i ⊑ smod.connect' o i := by sorry
 
--- omit [Inhabited Ident] mm in
--- theorem refines_renamePorts {f}:
---     Injective f →
---     imod ⊑ smod →
---     imod.renamePorts f ⊑ smod.renamePorts f := by
---   intros hinj href; sorry
-
 end Refinement
 
 def mapIdent {Ident Ident' T} (inpR outR: Ident → Ident') (m : Module Ident T)
