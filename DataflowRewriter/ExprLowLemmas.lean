@@ -191,7 +191,7 @@ theorem refines_connect {e e' o i} :
   rw [wf1,wf2] at ref ⊢
   solve_by_elim [Module.refines_connect]
 
-theorem substition {I I' i i' mod mod' iexpr} :
+theorem substition' {I I' i i' mod mod' iexpr} :
     iexpr.wf ε →
     ε.find? i = some ⟨ I, mod ⟩ →
     ε.find? i' = some ⟨ I', mod' ⟩ →
@@ -225,7 +225,40 @@ theorem substition {I I' i i' mod mod' iexpr} :
     have some_isSome : (ε.find? i').isSome := by simp only [*]; simp
     apply refines_connect <;> solve_by_elim [wf_modify_expression]
 
-set_option debug.byAsSorry true
+theorem substition {I I' i i' mod mod' iexpr} :
+    iexpr.wf ε →
+    ε.find? i = some ⟨ I, mod ⟩ →
+    ε.find? i' = some ⟨ I', mod' ⟩ →
+    mod' ⊑ mod →
+    [e| iexpr.modify i i', ε ] ⊑ ([e| iexpr, ε ]) := by
+  unfold build_module_expr
+  induction iexpr generalizing i i' mod mod' with
+  | base inst typ =>
+    intro hwf hfind₁ hfind₂ Href
+    dsimp [drunfold]
+    by_cases h : typ = i
+    · subst typ
+      rw [hfind₁]; dsimp [drunfold]
+      have : (if i = i then ExprLow.base inst i' else .base inst i) = .base inst i' := by
+        simp only [↓reduceIte]
+      rw [this, build_base_in_env hfind₂]; simp
+      solve_by_elim [Module.refines_renamePorts]
+    · have : (if typ = i then ExprLow.base inst i' else .base inst typ) = .base inst typ := by
+        simp only [↓reduceIte, h]
+      rw [this]; simp [drunfold,Module.refines_reflexive]
+  | product e₁ e₂ ihe₁ ihe₂ =>
+    intro hwf hf₁ hf₂ href
+    have e₁wf : e₁.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
+    have e₂wf : e₂.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
+    have some_isSome : (ε.find? i').isSome := by simp only [*]; simp
+    apply refines_product <;> solve_by_elim [wf_modify_expression]
+  | connect o i e =>
+    intro hwf hfind₁ hfind₂ href
+    simp only [modify]
+    have e₁wf : e.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
+    have some_isSome : (ε.find? i').isSome := by simp only [*]; simp
+    apply refines_connect <;> solve_by_elim [wf_modify_expression]
+
 theorem abstract_refines {iexpr expr_pat i} :
     ε.find? i = some ⟨ _, [e| expr_pat, ε ] ⟩ →
     iexpr.wf ε →
@@ -355,6 +388,55 @@ theorem abstract_refines2 {iexpr expr_pat i} :
         apply wf_replace; assumption; simp only [wf, all]
         skip; apply Batteries.AssocList.contains_some2; rw [hfind]; rfl
       solve_by_elim [refines_connect]
+
+theorem replacement {iexpr e_new e_pat} :
+    iexpr.wf ε → e_new.wf ε → e_pat.wf ε →
+    [e| e_new, ε ] ⊑ ([e| e_pat, ε ]) →
+    [e| iexpr.replace e_pat e_new, ε ] ⊑ ([e| iexpr, ε ]) := by
+  unfold build_module_expr
+  induction iexpr with
+  | base inst typ =>
+    intro hwf₁ hwf₂ hwf₃ Href
+    dsimp [drunfold]
+    by_cases h : base inst typ = e_pat
+    · subst e_pat
+      have : (if base inst typ = base inst typ then e_new else base inst typ) = e_new := by
+        simp only [↓reduceIte]
+      rw [this]
+      dsimp [wf, all] at hwf₁
+      solve_by_elim [Module.refines_renamePorts]
+    · have : (if base inst typ = e_pat then e_new else base inst typ) = .base inst typ := by
+        simp only [↓reduceIte, h]
+      rw [this]; simp [drunfold,Module.refines_reflexive]
+  | product e₁ e₂ ihe₁ ihe₂ =>
+    intro hwf hf₁ hf₂ href
+    have e₁wf : e₁.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
+    have e₂wf : e₂.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
+    dsimp [replace]
+    by_cases h : e₁.product e₂ = e_pat
+    · subst e_pat
+      have : (if e₁.product e₂ = e₁.product e₂ then e_new
+        else (e₁.replace (e₁.product e₂) e_new).product (e₂.replace (e₁.product e₂) e_new)) = e_new := by
+        simp only [↓reduceIte]
+      rwa [this]
+    · have : (if e₁.product e₂ = e_pat then e_new else (e₁.replace e_pat e_new).product (e₂.replace e_pat e_new))
+        = (e₁.replace e_pat e_new).product (e₂.replace e_pat e_new) := by
+        simp only [↓reduceIte,h]
+      rw [this]; clear this
+      apply refines_product <;> solve_by_elim [wf_modify_expression,wf_replace]
+  | connect o i e =>
+    intro hwf hfind₁ hfind₂ href
+    dsimp only [replace]
+    have e₁wf : e.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
+    by_cases h : connect o i e = e_pat
+    · subst_vars
+      have : (if connect o i e = connect o i e then e_new else connect o i (e.replace (connect o i e) e_new)) = e_new := by
+        simp only [↓reduceIte]
+      rwa [this]
+    · have : (if connect o i e = e_pat then e_new else connect o i (e.replace e_pat e_new)) = connect o i (e.replace e_pat e_new) := by
+        simp only [↓reduceIte,h]
+      rw [this]
+      apply refines_connect <;> solve_by_elim [wf_modify_expression,wf_replace]
 
 end Refinement
 
