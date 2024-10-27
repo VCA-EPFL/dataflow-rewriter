@@ -5,7 +5,6 @@ Authors: Yann Herklotz
 -/
 
 import Lean
-import Mathlib
 
 namespace List
 
@@ -33,6 +32,6 @@ theorem perm_erase {α : Type _} [DecidableEq α] (l₁ l₂ : List α) i:
     · simp [*] at *; apply List.Perm.swap
   | trans _ _ H1 H2 =>
     rename_i l₃ _ _
-    trans; apply H1; simp [*]
+    apply Perm.trans; apply H1; simp [*]
 
 end List

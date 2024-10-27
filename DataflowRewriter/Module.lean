@@ -8,10 +8,12 @@ import Lean
 import Leanses
 import Qq
 
+import DataflowRewriter.Basic
 import DataflowRewriter.Simp
 import DataflowRewriter.List
 import DataflowRewriter.AssocList
 import DataflowRewriter.HVector
+import DataflowRewriter.Tactic
 
 open Batteries (AssocList)
 
@@ -21,118 +23,32 @@ namespace DataflowRewriter
 def Injective {α β} (f : α → β) : Prop :=
   ∀ ⦃a₁ a₂⦄, f a₁ = f a₂ → a₁ = a₂
 
-/--
-An instance may refer to an internal instance by name, or it may refer to the
-current (top-level) module.
--/
-inductive InstIdent (Ident : Type _) where
-| top : InstIdent Ident
-| internal : Ident → InstIdent Ident
-deriving Inhabited, Ord, Hashable, Repr, DecidableEq
-
-instance {Ident} [ToString Ident] : ToString (InstIdent Ident) where
-  toString
-  | .top => "io"
-  | .internal i => toString i
-
-namespace InstIdent
-
-def elem {Ident} [BEq Ident] (instances : List Ident) : InstIdent Ident → Bool
-| .top => false
-| .internal i => instances.contains i
-
-def isTop {Ident} : InstIdent Ident → Bool
-| .top => true
-| _ => false
-
-def isInternal {Ident} : InstIdent Ident → Bool
-| .internal .. => true
-| _ => false
-
-end InstIdent
-
-/--
-Internal port parametrised by the `Ident` identifier type.  A port consist of an
-instance `inst` it belongs to and a port `name` of that instance.
--/
-structure InternalPort (Ident : Type _) where
-  inst : InstIdent Ident
-  name : Ident
-deriving Repr, Hashable, Ord, Inhabited, DecidableEq
-
-def InternalPort.map {α β} (f : α → β) : InternalPort α → InternalPort β
-| ⟨ .top, a ⟩ => ⟨ .top, f a ⟩
-| ⟨ .internal b, a ⟩ => ⟨ .internal (f b), f a ⟩
-
-instance {Ident} [ToString Ident] : ToString (InternalPort Ident) where
-  toString | ⟨.internal a, b⟩ => toString a ++ " " ++ toString b
-           | ⟨.top, b⟩ => toString b
-
-/--
-If only an identifier is provided, it can be coerced into an `InternalPort
-Ident` by using `InstIdent.top` as the instance name, creating a port for the
-top-level module.
--/
-instance {Ident} [Inhabited Ident] : Coe Ident (InternalPort Ident) where
-  coe a := ⟨InstIdent.top, a⟩
-
-abbrev IdentMap Ident α := AssocList Ident α
-abbrev IdentSet Ident := Finset Ident
-
-namespace IdentMap
-
-def replace_env {Ident α} [DecidableEq Ident] (ε : IdentMap Ident α) {ident mod}
-  (h : ε.mem ident mod) mod' :=
-  (ε.replace ident mod')
-
-notation:25 "{" ε " | " h " := " mod' "}" => replace_env ε h mod'
-
-end IdentMap
-
-/--
-Mapping from `Ident` to any type `α`.  This was chosen to be an AssocList
-because it seems like it is the simplest data-structure for performing
-reduction.  `RBMap` currently does not work for `whnf` reduction due to
-exponential reduction behaviour in `Meta.whnf`.
--/
-abbrev PortMap Ident α := AssocList (InternalPort Ident) α
-
 namespace PortMap
 
 variable {Ident}
 variable [DecidableEq Ident]
-variable [Inhabited Ident]
 
 /--
 Get an IO port using external IO ports, i.e. `InternalPort Ident` with the
 instance set to `top`.
 -/
 @[drunfold] def getIO.{u₁, u₂} {S : Type u₁}
-    (l: PortMap Ident (Σ T : Type u₂, (S → T → S → Prop)))
+    (l : PortMap Ident (Σ T : Type u₂, (S → T → S → Prop)))
     (n : InternalPort Ident)
     : Σ T : Type u₂, (S → T → S → Prop) :=
   l.find? ↑n |>.getD (⟨ PUnit, λ _ _ _ => True ⟩)
 
 theorem getIO_none {S} (m : PortMap Ident ((T : Type) × (S → T → S → Prop)))
-        (ident : Ident) :
-  m.find? ↑ident = none ->
+        (ident : InternalPort Ident) :
+  m.find? ident = none ->
   m.getIO ident = ⟨ PUnit, λ _ _ _ => True ⟩ := by
   intros H; simp only [PortMap.getIO, H]; simp
 
 theorem getIO_some {S} (m : PortMap Ident ((T : Type) × (S → T → S → Prop)))
-        (ident : Ident) t :
-  m.find? ↑ident = some t ->
+        (ident : InternalPort Ident) t :
+  m.find? ident = some t ->
   m.getIO ident = t := by
   intros H; simp only [PortMap.getIO, H]; simp
-
-/--
-Get any internal port from the `PortMap`.
--/
-@[drunfold] def getInternalPort.{u₁, u₂} {S : Type u₁}
-    (l: PortMap Ident (Σ T : Type u₂, (S → T → S → Prop)))
-    (n : InternalPort Ident)
-    : Σ T : Type u₂, (S → T → S → Prop) :=
-  l.find? n |>.getD (⟨ PUnit, λ _ _ _ => True ⟩)
 
 end PortMap
 
@@ -159,11 +75,12 @@ The empty module, which should also be the `default` module.
 
 theorem empty_is_default {Ident S} : @empty Ident S = default := Eq.refl _
 
+section
+
 universe i
 
 variable {Ident : Type i}
 variable [DecidableEq Ident]
-variable [Inhabited Ident]
 
 def disjoint {S T} (mod1 : Module Ident S) (mod2 : Module Ident T) :=
   mod1.inputs.keysList ∩ mod2.inputs.keysList = ∅
@@ -218,9 +135,9 @@ def connect'' {Ti To S} (ruleO : S → To → S → Prop) (ruleI : S → Ti → 
 precondition that the input and output type must match.
 -/
 @[drunfold] def connect' {S : Type _} (mod : Module Ident S) (o i : InternalPort Ident) : Module Ident S :=
-  { inputs := mod.inputs.erase i ,
-    outputs :=  mod.outputs.erase o,
-    internals := connect'' (mod.outputs.getInternalPort o).2 (mod.inputs.getInternalPort i).2 :: mod.internals }
+  { inputs := mod.inputs.eraseAll i ,
+    outputs :=  mod.outputs.eraseAll o,
+    internals := connect'' (mod.outputs.getIO o).2 (mod.inputs.getIO i).2 :: mod.internals }
 
 theorem connect''_dep_rw {C : Type} {x y x' y' : Σ (T : Type), C → T → C → Prop} (h : x' = x := by simp; rfl) (h' : y' = y := by simp; rfl) :
     @Module.connect'' y.1 x.1 C x.2 y.2 = @Module.connect'' y'.1 x'.1 C x'.2 y'.2 := by
@@ -255,6 +172,52 @@ theorem connect''_dep_rw {C : Type} {x y x' y' : Σ (T : Type), C → T → C �
 @[drunfold] def mapOutputPorts {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
   { mod with outputs := mod.outputs.mapKey f }
 
+def renamePorts {S} (m : Module Ident S) (p : PortMapping Ident) : Module Ident S :=
+  m.mapInputPorts (λ k => p.input.find? k |>.getD k)
+  |>.mapOutputPorts (λ k => p.output.find? k |>.getD k)
+
+end
+
+section
+
+variable {Ident}
+variable {S}
+
+def toInterface (m : Module Ident S): Interface Ident :=
+  ⟨m.inputs.keysList, m.outputs.keysList⟩
+
+def toPortMapping (m : Module Ident S) (i : Ident) : PortMapping Ident :=
+  m.toInterface.toPortMapping i
+
+theorem mapInputPorts_id {m : Module Ident S} :
+  m.mapInputPorts id = m := by
+  unfold mapInputPorts
+  rw [Batteries.AssocList.mapKey_toList]; simp
+
+theorem mapOutputPorts_id {m : Module Ident S} :
+  m.mapOutputPorts id = m := by
+  unfold mapOutputPorts
+  rw [Batteries.AssocList.mapKey_toList]; simp
+
+variable [DecidableEq Ident]
+
+theorem renamePorts_empty {m : Module Ident S} :
+  m.renamePorts ∅ = m := by
+  unfold renamePorts
+  have : (fun k => (Batteries.AssocList.find? k (∅ : PortMapping Ident).output).getD k) = id := by rfl
+  have : (fun k => (Batteries.AssocList.find? k (∅ : PortMapping Ident).input).getD k) = id := by rfl
+  simp only [*, mapInputPorts_id, mapOutputPorts_id]
+
+def mapIdent {Ident Ident' T} (inpR outR: Ident → Ident') (m : Module Ident T)
+ : Module Ident' T :=
+  {
+    inputs := m.inputs.mapKey (InternalPort.map inpR),
+    outputs := m.outputs.mapKey (InternalPort.map outR),
+    internals := m.internals
+  }
+
+end
+
 end Module
 
 section Match
@@ -273,40 +236,83 @@ Match two interfaces of two modules, which implies that the types of all the
 input and output rules match.
 -/
 class MatchInterface (imod : Module Ident I) (smod : Module Ident S) : Prop where
-  input_types : ∀ (ident : InternalPort Ident), (imod.inputs.getIO ident).1 = (smod.inputs.getIO ident).1
-  output_types : ∀ (ident : InternalPort Ident), (imod.outputs.getIO ident).1 = (smod.outputs.getIO ident).1
+  inputs_present ident :
+    (imod.inputs.find? ident).isSome = (smod.inputs.find? ident).isSome
+  outputs_present ident :
+    (imod.outputs.find? ident).isSome = (smod.outputs.find? ident).isSome
+  input_types ident : (imod.inputs.getIO ident).1 = (smod.inputs.getIO ident).1
+  output_types ident : (imod.outputs.getIO ident).1 = (smod.outputs.getIO ident).1
 
-instance : MatchInterface (@Module.empty Ident S) (Module.empty I) where
-  input_types := by simp [Module.empty, PortMap.getIO]
-  output_types := by simp [Module.empty, PortMap.getIO]
+theorem MatchInterface_simpler {imod : Module Ident I} {smod : Module Ident S} :
+  (∀ ident, (imod.inputs.mapVal (λ _ => Sigma.fst)).find? ident = (smod.inputs.mapVal (λ _ => Sigma.fst)).find? ident) →
+  (∀ ident, (imod.outputs.mapVal (λ _ => Sigma.fst)).find? ident = (smod.outputs.mapVal (λ _ => Sigma.fst)).find? ident) →
+  MatchInterface imod smod := by sorry
 
-instance {m : Module Ident S} : MatchInterface m m where
-  input_types := by intros; rfl
-  output_types := by intros; rfl
+theorem MatchInterface_simpler2 {imod : Module Ident I} {smod : Module Ident S} {ident} :
+  MatchInterface imod smod →
+  (imod.inputs.mapVal (λ _ => Sigma.fst)).find? ident = (smod.inputs.mapVal (λ _ => Sigma.fst)).find? ident
+  ∧ (imod.outputs.mapVal (λ _ => Sigma.fst)).find? ident = (smod.outputs.mapVal (λ _ => Sigma.fst)).find? ident := by sorry
+
+theorem MatchInterface_simpler_iff {imod : Module Ident I} {smod : Module Ident S} :
+  MatchInterface imod smod ↔
+  (∀ ident, (imod.inputs.mapVal (λ _ => Sigma.fst)).find? ident = (smod.inputs.mapVal (λ _ => Sigma.fst)).find? ident
+  ∧ (imod.outputs.mapVal (λ _ => Sigma.fst)).find? ident = (smod.outputs.mapVal (λ _ => Sigma.fst)).find? ident) := by
+  constructor
+  · intros; solve_by_elim [MatchInterface_simpler2]
+  · intros ha; apply MatchInterface_simpler <;> intro ident <;> specializeAll ident
+    · apply ha.left
+    · apply ha.right
+
+instance : MatchInterface (@Module.empty Ident S) (Module.empty I) :=
+  ⟨ fun _ => rfl, fun _ => rfl, fun _ => rfl, fun _ => rfl ⟩
+
+instance {m : Module Ident S} : MatchInterface m m :=
+  ⟨ fun _ => rfl, fun _ => rfl, fun _ => rfl, fun _ => rfl ⟩
 
 theorem MatchInterface_transitive {I J S} {imod : Module Ident I} {smod : Module Ident S} (jmod : Module Ident J) :
   MatchInterface imod jmod →
   MatchInterface jmod smod →
   MatchInterface imod smod := by
-  intro ⟨ a, b ⟩ ⟨ c, d ⟩; constructor <;> simp [*]
+  intro ⟨ i, j, a, b ⟩ ⟨ k, w, c, d ⟩
+  constructor <;> (try simp [*]; done) <;> (intros; simp only [*])
+
+instance MatchInterface_connect {I S} {o i} {imod : Module Ident I} {smod : Module Ident S}
+         [mm : MatchInterface imod smod]
+         : MatchInterface (imod.connect' o i) (smod.connect' o i) := by
+  simp only [MatchInterface_simpler_iff] at *; intro ident; specializeAll ident
+  rcases mm with ⟨mm1, mm2⟩
+  dsimp [Module.connect']
+  constructor
+  · simp only [AssocList.eraseAll_map_comm]
+    by_cases h : i = ident <;> subst_vars
+    · simp only [AssocList.find?_eraseAll_eq]
+    · simpa (disch := assumption) only [AssocList.find?_eraseAll_neq]
+  · simp only [AssocList.eraseAll_map_comm]
+    by_cases h : o = ident <;> subst_vars
+    · simp only [AssocList.find?_eraseAll_eq]
+    · simpa (disch := assumption) only [AssocList.find?_eraseAll_neq]
+
+-- instance MatchInterface_mapInputPorts {I S} {o i} {imod : Module Ident I} {smod : Module Ident S}
+--          [MatchInterface imod smod]
+--          : MatchInterface (imod.mapInputPorts i) (smod.connect' o i) := by sorry
 
 instance MatchInterface_product {I J S T} {imod : Module Ident I} {tmod : Module Ident T}
          {smod : Module Ident S} (jmod : Module Ident J) [MatchInterface imod tmod]
          [MatchInterface smod jmod] :
-         MatchInterface (imod.product smod) (tmod.product jmod) where
-  input_types := by
-    rename_i inst1 inst2; intro ident; simp [Module.product]
-    rcases inst1 with ⟨ inst1_in, _ ⟩
-    rcases inst2 with ⟨ inst2_in, _ ⟩
-    specialize inst1_in ident; specialize inst2_in ident
-    by_cases h : ident ∈ imod.inputs.keysList
-    · unfold PortMap.getIO at *
-      apply Batteries.AssocList.keysList_find2 at h
-      rw [Option.isSome_iff_exists] at h; rcases h with ⟨ val, hfind ⟩
-      rw [Batteries.AssocList.append_find_left]
-      all_goals sorry
-    · sorry
-  output_types := sorry
+         MatchInterface (imod.product smod) (tmod.product jmod) := by sorry
+  -- input_types := by
+  --   rename_i inst1 inst2; intro ident; simp [Module.product]
+  --   rcases inst1 with ⟨ inst1_in, _ ⟩
+  --   rcases inst2 with ⟨ inst2_in, _ ⟩
+  --   specialize inst1_in ident; specialize inst2_in ident
+  --   by_cases h : ident ∈ imod.inputs.keysList
+  --   · unfold PortMap.getIO at *
+  --     apply Batteries.AssocList.keysList_find2 at h
+  --     rw [Option.isSome_iff_exists] at h; rcases h with ⟨ val, hfind ⟩
+  --     rw [Batteries.AssocList.append_find_left]
+  --     all_goals sorry
+  --   · sorry
+  -- output_types := sorry
 
 end Match
 
@@ -336,13 +342,12 @@ theorem existSR_transitive {Ident S} (mod : Module Ident S) :
 
 namespace Module
 
-section Refinement
+section Refinementφ
 
 variable {I : Type _}
 variable {S : Type _}
 variable {Ident : Type _}
 variable [DecidableEq Ident]
-variable [Inhabited Ident]
 
 variable (imod : Module Ident I)
 variable (smod : Module Ident S)
@@ -355,8 +360,8 @@ function for the inputs and outputs.  For now this might be general enough
 though.
 -/
 structure indistinguishable (init_i : I) (init_s : S) : Prop where
-  inputs_indistinguishable : ∀ (ident : Ident) new_i v,
-    imod.inputs.contains ↑ident →
+  inputs_indistinguishable : ∀ (ident : InternalPort Ident) new_i v,
+    imod.inputs.contains ident →
     (imod.inputs.getIO ident).2 init_i v new_i →
     ∃ new_s, (smod.inputs.getIO ident).2 init_s ((mm.input_types ident).mp v) new_s
   outputs_indistinguishable : ∀ ident new_i v,
@@ -389,26 +394,10 @@ structure comp_refines (R : I → S → Prop) (init_i : I) (init_s : S) : Prop w
         existSR smod init_s mid_s
         ∧ R mid_i mid_s
 
-def refines_φ (R : I → S → Prop) :=
-  ∀ (init_i : I) (init_s : S),
-    R init_i init_s →
-    comp_refines imod smod R init_i init_s
-
-notation:35 x " ⊑_{" R:35 "} " y:34 => refines_φ x y R
-
-omit mm in
-def refines :=
-  ∃ (mm : MatchInterface imod smod) (R : I → S → Prop),
-    imod ⊑_{fun x y => indistinguishable imod smod x y ∧ R x y} smod
-
-notation:35 x " ⊑ " y:34 => refines x y
-
-omit [Inhabited Ident] in
 theorem indistinguishable_reflexive i_init :
   indistinguishable imod imod i_init i_init := by
   constructor <;> (intros; solve_by_elim)
 
-omit [Inhabited Ident] in
 theorem indistinguishable_transitive {J} (jmod : Module Ident J)
         [MatchInterface imod jmod] [MatchInterface jmod smod] :
   ∀ i_init j_init s_init,
@@ -421,7 +410,13 @@ theorem indistinguishable_transitive {J} (jmod : Module Ident J)
   stop constructor
   -- · intro ident new_i v Hcont Hrule
 
-omit [Inhabited Ident] in
+def refines_φ (R : I → S → Prop) :=
+  ∀ (init_i : I) (init_s : S),
+    R init_i init_s →
+    comp_refines imod smod R init_i init_s
+
+notation:35 x " ⊑_{" R:35 "} " y:34 => refines_φ x y R
+
 theorem refines_φ_reflexive : imod ⊑_{Eq} imod := by
   intro init_i init_s heq; subst_vars
   constructor
@@ -434,33 +429,6 @@ theorem refines_φ_reflexive : imod ⊑_{Eq} imod := by
     constructor <;> try assumption
     exact .done _
 
-omit [Inhabited Ident] in
-theorem refines_φ_refines {φ} :
-  (∀ i_init s_init, φ i_init s_init → indistinguishable imod smod i_init s_init) →
-  imod ⊑_{φ} smod →
-  imod ⊑ smod := by
-  intro Hind Href
-  exists mm; exists φ
-  intro init_i init_s ⟨ Hphi, Hindis ⟩
-  specialize Href init_i init_s Hindis
-  rcases Href with ⟨ Hin, Hout, Hint ⟩; constructor
-  · intro ident mid_i v Hcont Hrule
-    specialize Hin ident mid_i v Hcont Hrule
-    tauto
-  · intro ident mid_i v Hcont Hrule
-    specialize Hout ident mid_i v Hcont Hrule
-    tauto
-  · intro rule mid_i Hcont Hrule
-    specialize Hint rule mid_i Hcont Hrule
-    tauto
-
-omit [Inhabited Ident] mm in
-theorem refines_reflexive : imod ⊑ imod := by
-  apply refines_φ_refines (φ := Eq) (smod := imod)
-  intros; subst_vars; apply indistinguishable_reflexive
-  apply refines_φ_reflexive
-
-omit [Inhabited Ident] in
 theorem refines_φ_multistep :
     ∀ φ, imod ⊑_{φ} smod →
     ∀ i_init s_init,
@@ -481,8 +449,6 @@ theorem refines_φ_multistep :
     exists s_mid'
     all_goals solve_by_elim [existSR_transitive]
 
-set_option pp.proofs true in
-omit [Inhabited Ident] in
 theorem refines_φ_transitive {J} (smod' : Module Ident J) {φ₁ φ₂}
   [MatchInterface imod smod']
   [MatchInterface smod' smod]:
@@ -525,7 +491,48 @@ theorem refines_φ_transitive {J} (smod' : Module Ident J) {φ₁ φ₂}
     rcases Href with ⟨ mid_s, hexist₂, hphi₂ ⟩
     refine ⟨ mid_s, hexist₂, ?_, by exact hphi₁, by exact hphi₂ ⟩
 
-omit [Inhabited Ident] mm in
+end Refinementφ
+
+section Refinement
+
+variable {I : Type _}
+variable {S : Type _}
+variable {Ident : Type _}
+variable [DecidableEq Ident]
+
+variable (imod : Module Ident I)
+variable (smod : Module Ident S)
+
+def refines :=
+  ∃ (mm : MatchInterface imod smod) (R : I → S → Prop),
+    imod ⊑_{fun x y => indistinguishable imod smod x y ∧ R x y} smod
+
+notation:35 x " ⊑ " y:34 => refines x y
+
+theorem refines_φ_refines [MatchInterface imod smod] {φ} :
+  (∀ i_init s_init, φ i_init s_init → indistinguishable imod smod i_init s_init) →
+  imod ⊑_{φ} smod →
+  imod ⊑ smod := by
+  intro Hind Href
+  exists inferInstance, φ
+  intro init_i init_s ⟨ Hphi, Hindis ⟩
+  specialize Href init_i init_s Hindis
+  rcases Href with ⟨ Hin, Hout, Hint ⟩; constructor
+  · intro ident mid_i v Hcont Hrule
+    specialize Hin ident mid_i v Hcont Hrule
+    tauto
+  · intro ident mid_i v Hcont Hrule
+    specialize Hout ident mid_i v Hcont Hrule
+    tauto
+  · intro rule mid_i Hcont Hrule
+    specialize Hint rule mid_i Hcont Hrule
+    tauto
+
+theorem refines_reflexive : imod ⊑ imod := by
+  apply refines_φ_refines (φ := Eq) (smod := imod)
+  intros; subst_vars; apply indistinguishable_reflexive
+  apply refines_φ_reflexive
+
 theorem refines_transitive {J} (imod' : Module Ident J):
     imod ⊑ imod' →
     imod' ⊑ smod →
@@ -551,7 +558,6 @@ theorem refines_transitive {J} (imod' : Module Ident J):
   apply refines_φ_transitive imod smod imod'
   assumption; assumption
 
-omit [Inhabited Ident] mm in
 theorem refines_product {J K} (imod' : Module Ident J) (smod' : Module Ident K):
     -- imod.disjoint smod →
     imod ⊑ imod' →
@@ -564,21 +570,15 @@ theorem refines_product {J K} (imod' : Module Ident J) (smod' : Module Ident K):
   refine ⟨ inferInstance, (λ a b => R a.1 b.1 ∧ R2 a.2 b.2), ?_ ⟩
   sorry
 
-omit [Inhabited Ident] mm in
 theorem refines_connect {o i} :
     imod ⊑ smod →
     imod.connect' o i ⊑ smod.connect' o i := by sorry
 
+theorem refines_renamePorts {I S} {imod : Module Ident I} {smod : Module Ident S} {f}:
+  imod ⊑ smod →
+  imod.renamePorts f ⊑ smod.renamePorts f := by sorry
+
 end Refinement
-
-def mapIdent {Ident Ident' T} (inpR outR: Ident → Ident') (m : Module Ident T)
- : Module Ident' T :=
-  {
-    inputs := m.inputs.mapKey (InternalPort.map inpR),
-    outputs := m.outputs.mapKey (InternalPort.map outR),
-    internals := m.internals
-  }
-
 
 end Module
 
@@ -593,7 +593,11 @@ abbrev NatModule := Module Nat
 abbrev StringModule := Module String
 
 @[drunfold] def NatModule.stringify {T} (m : NatModule T) : StringModule T :=
-       m |>.mapIdent (λ x =>  "inp"++ toString x) (λ x => "out" ++ toString x)
+  m |>.mapIdent (λ x =>  "inp"++ toString x) (λ x => "out" ++ toString x)
+
+def IdentMap.toInterface {Ident} (i : IdentMap Ident (Σ T, Module Ident T))
+  : IdentMap Ident (Interface Ident) :=
+  i.mapVal (λ _ x => x.snd |>.toInterface)
 
 abbrev TModule Ident := Σ T, Module Ident T
 

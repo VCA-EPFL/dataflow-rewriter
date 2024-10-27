@@ -6,7 +6,7 @@ Authors: Yann Herklotz
 
 import DataflowRewriter.Module
 import DataflowRewriter.Component
-import DataflowRewriter.ExprHigh
+import DataflowRewriter.ExprHighLemmas
 import DataflowRewriter.Reduce
 
 namespace DataflowRewriter
@@ -66,6 +66,7 @@ example y : (fun S TagT T input output internals =>
   conv in _ :: Module.connect'' _ _ :: _ => arg 2; rw [Module.connect''_dep_rw]; rfl
   sorry
 
+-- TODO: Remove join here
 @[drunfold]
 def tagged_ooo_h : ExprHigh String :=
 [graph|
