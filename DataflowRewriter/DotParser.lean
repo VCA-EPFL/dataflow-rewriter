@@ -131,6 +131,10 @@ def tryP {α} (p : Parser α) : Parser (Option α) :=
 def tryD {α} (a : α) (p : Parser α) : Parser α :=
   p <|> pure a
 
+def parseBool : Parser Bool :=
+  (skipString "true" *> pure true)
+  <|> (skipString "false" *> pure false)
+
 def parseAttr : Parser DotAttr := do
   let i ← parseId
   skipStringWs "="
@@ -169,7 +173,5 @@ def parseDotGraph : Parser DotGraph := do
 
 def dotGraph : Parser DotGraph := do
   ws *> skipStringWs "digraph" *> braces parseDotGraph <* eof
-
-#eval dotGraph.run "digraph { hello [ar=23];   hello2[ar=28]  ; 123 ->3 ; hello; }"
 
 end DataflowRewriter.Parser
