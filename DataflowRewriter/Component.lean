@@ -68,9 +68,9 @@ namespace DataflowRewriter.NatModule
                            newListL = newElement :: oldListL ∧ newListR = oldListR⟩)
                   , (1, ⟨ T', λ (oldListL,oldListR) newElement (newListL,newListR) =>
                            newListR = newElement :: oldListR ∧ newListL = oldListL⟩)].toAssocList,
-        outputs := [(0, ⟨ T, λ (oldListL,oldListR) oldElement (newListL,newListR) =>
-                           ∃ hL hR, oldListL = hL :: newListL ∧
-                                    oldListR = hR :: newListR ⟩)].toAssocList,
+        outputs := [(0, ⟨ T × T', λ (oldListL,oldListR) (oldElementL, oldElementR) (newListL,newListR) =>
+                           oldListL = oldElementL :: newListL ∧
+                           oldListR = oldElementR :: newListR ⟩)].toAssocList,
         internals := []
       }
 

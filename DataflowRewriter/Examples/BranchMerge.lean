@@ -68,6 +68,8 @@ def test2 (TagT T S : Type) (input output : (T : Type) × (S → T → S → Pro
     conv in Module.connect'' _ _ => rw [Module.connect''_dep_rw]; rfl
     conv in _ :: Module.connect'' _ _ :: _ => arg 2; rw [Module.connect''_dep_rw]; rfl
     unfold Module.connect''
+    dsimp
+
 
 #print test2
 
@@ -84,14 +86,14 @@ def tagged_ooo_h : ExprHigh String :=
 
     -- Match tag and input
     -- Top-level inputs: The second input to join which is unbound
-    tagger -> join [inp = "inp0", out = "out0"];
-    enq -> join [out = "enq", inp = "inp1"];
+    tagger -> join [out = "out0", inp = "inp1"];
+    enq -> join [out = "enq", inp = "inp0"];
 
     -- Feed the pair to the bag
-    join -> bagged [inp = "enq", out = "out0"];
+    join -> bagged [out = "out0", inp = "enq"];
 
     -- Output of the bag complete inside the tagger
-    bagged -> tagger [inp = "inp0", out = "deq"];
+    bagged -> tagger [out = "deq", inp = "inp0"];
 
     -- Top-level outputs: Second output of the tagger, the untagged value which is unbound
     tagger -> deq [out = "out1", inp = "deq"];
@@ -111,6 +113,7 @@ def test4  TagT [h: DecidableEq TagT] (T : Type) (m: Σ S, StringModule S)
     conv in _ :: Module.connect'' _ _ :: _ => arg 2; arg 2; rw [Module.connect''_dep_rw]; rfl
     unfold Module.connect''
     dsimp
+
 
 end BranchMerge
 
