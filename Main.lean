@@ -56,7 +56,14 @@ OPTIONS
 "
 
 def main (args : List String) : IO Unit := do
-  let parsed ← IO.ofExcept <| parseArgs args
+  let parsed ←
+    try IO.ofExcept <| parseArgs args
+    catch
+    | .userError s => do
+      IO.eprintln ("error: " ++ s)
+      IO.print helpText
+      IO.Process.exit 1
+    | e => throw e
   if parsed.help then
     IO.print helpText
     return
