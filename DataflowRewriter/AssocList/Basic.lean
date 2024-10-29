@@ -19,7 +19,7 @@ def append {α β} (a b : AssocList α β) : AssocList α β :=
 
 instance {α β} : Append (AssocList α β) := ⟨ append ⟩
 
-def eraseAllP {α β} (p : α → β → Bool) : AssocList α β → AssocList α β
+@[specialize, simp] def eraseAllP {α β} (p : α → β → Bool) : AssocList α β → AssocList α β
   | nil         => nil
   | cons k v es => bif p k v then eraseAllP p es else cons k v (eraseAllP p es)
 
