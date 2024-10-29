@@ -67,6 +67,7 @@ def test2 (TagT T S : Type) (input output : (T : Type) × (S → T → S → Pro
     simp (config := {decide := true,maxSteps := 10000000}) only [seval,InternalPort.mk.injEq, and_false, decide_False, decide_True, and_true]
     conv in Module.connect'' _ _ => rw [Module.connect''_dep_rw]; rfl
     conv in _ :: Module.connect'' _ _ :: _ => arg 2; rw [Module.connect''_dep_rw]; rfl
+    unfold Module.connect''
 
 #print test2
 
@@ -95,6 +96,21 @@ def tagged_ooo_h : ExprHigh String :=
     -- Top-level outputs: Second output of the tagger, the untagged value which is unbound
     tagger -> deq [out = "out1", inp = "deq"];
   ]
+
+def test3  TagT [h: DecidableEq TagT] T (m: Σ S, StringModule S) :=
+   tagged_ooo_h.build_module [("m", m), ("tag", ⟨_,(NatModule.tag_complete_spec TagT T).stringify⟩),("bag", ⟨_,StringModule.bagS (T × TagT)⟩), ("join", ⟨_,(NatModule.join T TagT).stringify⟩)].toAssocList
+
+
+def test4  TagT [h: DecidableEq TagT] (T : Type) (m: Σ S, StringModule S)
+  : (T : Type) × Module String T := by precomputeTac test3 TagT T m by
+    dsimp only [test3,drunfold,seval,Batteries.AssocList.toList,bagged,Function.uncurry,Module.mapIdent,List.toAssocList,List.foldl,Batteries.AssocList.find?,Option.pure_def,Option.bind_eq_bind,Option.bind_some,Module.renamePorts,Batteries.AssocList.mapKey,InternalPort.map,toString,Nat.repr,Nat.toDigits,Nat.toDigitsCore,Nat.digitChar,List.asString,Option.bind,Batteries.AssocList.mapVal,Batteries.AssocList.eraseAll,Batteries.AssocList.eraseP,beq_self_eq_true,Option.getD,cond,beq_self_eq_true, beq_iff_eq, InternalPort.mk.injEq, String.reduceEq, and_false, imp_self,BEq.beq]
+    simp (config := {decide := true,maxSteps := 10000000,ground := true,autoUnfold := true}) only [seval,InternalPort.mk.injEq, and_false, decide_False, decide_True, and_true]
+    set_option pp.piBinderTypes  true in set_option pp.letVarTypes true in set_option pp.structureInstances false in set_option pp.fieldNotation false in set_option pp.funBinderTypes true in set_option pp.explicit true in set_option pp.deepTerms true in set_option pp.maxSteps 1000000000 in trace_state
+    conv in Module.connect'' _ _ => rw [Module.connect''_dep_rw]; rfl
+    conv in _ :: Module.connect'' _ _ :: _ => arg 2; rw [Module.connect''_dep_rw]; rfl
+    conv in _ :: Module.connect'' _ _ :: _ => arg 2; arg 2; rw [Module.connect''_dep_rw]; rfl
+    unfold Module.connect''
+    dsimp
 
 end BranchMerge
 
