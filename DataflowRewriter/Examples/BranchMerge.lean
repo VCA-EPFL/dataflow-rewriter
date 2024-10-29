@@ -109,6 +109,8 @@ def test4 (TagT T S : Type) [h:DecidableEq TagT] (input output : (T : Type) × (
     -- conv in _ :: Module.connect'' _ _ :: _ => arg 2; arg 2; rw [Module.connect''_dep_rw]; rfl
     unfold Module.connect''
     dsimp
+    unfold Module.liftR' Module.liftL'
+    dsimp
 
 end BranchMerge
 
