@@ -7,6 +7,8 @@ Authors: Yann Herklotz
 import Lean
 import Qq
 
+import DataflowRewriter.Reduce
+
 open Lean Meta Elab Tactic
 
 /--
@@ -41,3 +43,58 @@ syntax (name := specializeAll) "specializeAll " term : tactic
       else
         return ()
   | _ => throwUnsupportedSyntax
+
+elab "precompute " t:term : tactic => Tactic.withMainContext do
+  let expr ← Term.elabTerm t none
+  Term.synthesizeSyntheticMVarsUsingDefault
+  let expr ← Lean.instantiateMVars expr
+  let expr ←
+    -- withTransparency .all <|
+      reallyReduce (skipArgs := false) (skipTypes := false) expr
+  (← Tactic.getMainGoal).assign expr
+
+/--
+Opaque definition used to lift any type into a `Prop`, so that it can be used as
+the goal in `TacticM` mode.
+-/
+@[irreducible] def Opaque {A : Sort _} (_ : A) : Prop := False
+
+open Qq in
+/--
+Run a tactic on an expression which must be a `Prop`.  The expression is set to
+be the current goal, then the tactic is executed.  The modified goal is then
+returned as the new expression.
+-/
+def evalTacticOnExprNoWrap (tac : Syntax) (e : Q(Prop)) : TacticM Q(Prop) := do
+  let s ← saveState
+  let l ← mkFreshExprMVar e
+  setGoals [l.mvarId!]
+  evalTactic tac
+  let new_e ← getMainTarget
+  restoreState s
+  return new_e
+
+open Qq in
+/--
+Run a tactic on an expression of any type.  This wraps the expression using
+`Opaque`, which transforms it into a `Prop` so that it can be set to the current
+goal.
+-/
+def evalTacticOnExpr (tac : Syntax) (e : Expr) : TacticM Expr := do
+  let e' ← mkAppOptM ``Opaque #[(← inferType e), e]
+  match ← evalTacticOnExprNoWrap tac e' with
+  | ~q(Opaque $e) => return e
+  | _ => throwError "Not in correct form"
+
+open Qq in
+elab "precomputeTac " t:term " by " tac:tacticSeq : tactic => Tactic.withMainContext do
+  let expr ← Term.elabTerm t none
+  Term.synthesizeSyntheticMVarsUsingDefault
+  let expr ← Lean.instantiateMVars expr
+  let exprType ← inferType expr
+  let opaqueExpr ← mkAppOptM ``Opaque #[exprType, expr]
+  let m ← mkFreshExprMVar opaqueExpr
+  let (l :: s) ← evalTacticAt tac m.mvarId!
+    | logError "No mvar returned"
+  let r := (← l.getDecl).type.getArg!' 1
+  (← getMainGoal).assign r

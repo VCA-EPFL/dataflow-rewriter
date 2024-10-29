@@ -55,15 +55,21 @@ section BranchMerge
 def test  TagT T (m: Σ S, StringModule S) :=
    bagged.build_module [("m", m), ("bag", ⟨_,StringModule.bagS (T × TagT)⟩), ("join", ⟨_,(NatModule.join T TagT).stringify⟩)].toAssocList
 
+#check test
+
+def test2 (TagT T : Type _) (m: Σ S, StringModule S) : (T : Type) × Module String T := by
+  precomputeTac test TagT T m by
+    dsimp only [test,drunfold,seval,Batteries.AssocList.toList,bagged,Function.uncurry,Module.mapIdent,List.toAssocList,List.foldl,Batteries.AssocList.find?,Option.pure_def,Option.bind_eq_bind,Option.bind_some,Module.renamePorts,Batteries.AssocList.mapKey,InternalPort.map,toString,Nat.repr,Nat.toDigits,Nat.toDigitsCore,Nat.digitChar,List.asString,Option.bind,Batteries.AssocList.mapVal,Batteries.AssocList.eraseAll,Batteries.AssocList.eraseP,beq_self_eq_true,Option.getD,cond,beq_self_eq_true, beq_iff_eq, InternalPort.mk.injEq, String.reduceEq, and_false, imp_self,BEq.beq]
+    simp (config := {decide := true,maxSteps := 10000000,ground := true,autoUnfold := true}) only [seval,InternalPort.mk.injEq, and_false, decide_False, decide_True, and_true]
+    set_option pp.piBinderTypes  true in set_option pp.letVarTypes true in set_option pp.structureInstances false in set_option pp.fieldNotation false in set_option pp.funBinderTypes true in set_option pp.explicit true in set_option pp.deepTerms true in set_option pp.maxSteps 1000000000 in trace_state
+    conv in Module.connect'' _ _ => rw [Module.connect''_dep_rw]; rfl
+    conv in _ :: Module.connect'' _ _ :: _ => arg 2; rw [Module.connect''_dep_rw]; rfl
+
 example y : (fun S TagT T input output internals =>
   test TagT T ⟨S, ({ inputs := [(⟨ .top, "inp"⟩ , input)].toAssocList,
                      outputs := [(⟨ .top, "out"⟩ , output)].toAssocList,
                      internals := internals })⟩) = y := by
-  dsimp only [test,drunfold,seval,Batteries.AssocList.toList,bagged,Function.uncurry,Module.mapIdent,List.toAssocList,List.foldl,Batteries.AssocList.find?,Option.pure_def,Option.bind_eq_bind,Option.bind_some,Module.renamePorts,Batteries.AssocList.mapKey,InternalPort.map,toString,Nat.repr,Nat.toDigits,Nat.toDigitsCore,Nat.digitChar,List.asString,Option.bind,Batteries.AssocList.mapVal,Batteries.AssocList.erase,Batteries.AssocList.eraseP,beq_self_eq_true,Option.getD,cond,beq_self_eq_true, beq_iff_eq, InternalPort.mk.injEq, String.reduceEq, and_false, imp_self,BEq.beq]
-  simp (config := {decide := true,maxSteps := 10000000,ground := true,autoUnfold := true}) only [seval,InternalPort.mk.injEq, and_false, decide_False, decide_True, and_true]
-  set_option pp.piBinderTypes  true in set_option pp.letVarTypes true in set_option pp.structureInstances false in set_option pp.fieldNotation false in set_option pp.funBinderTypes true in set_option pp.explicit true in set_option pp.deepTerms true in set_option pp.maxSteps 1000000000 in trace_state
-  conv in Module.connect'' _ _ => rw [Module.connect''_dep_rw]; rfl
-  conv in _ :: Module.connect'' _ _ :: _ => arg 2; rw [Module.connect''_dep_rw]; rfl
+
   sorry
 
 -- TODO: Remove join here
