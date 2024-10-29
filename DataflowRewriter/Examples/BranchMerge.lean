@@ -11,6 +11,11 @@ import DataflowRewriter.Reduce
 
 namespace DataflowRewriter
 
+attribute [drcompute] Batteries.AssocList.toList Function.uncurry Module.mapIdent List.toAssocList List.foldl Batteries.AssocList.find? Option.pure_def Option.bind_eq_bind Option.bind_some Module.renamePorts Batteries.AssocList.mapKey InternalPort.map toString Nat.repr Nat.toDigits Nat.toDigitsCore Nat.digitChar List.asString Option.bind Batteries.AssocList.mapVal Batteries.AssocList.eraseAll Batteries.AssocList.eraseP beq_self_eq_true Option.getD cond beq_self_eq_true  beq_iff_eq  InternalPort.mk.injEq  String.reduceEq  and_false  imp_self BEq.beq
+
+attribute [drdecide] InternalPort.mk.injEq and_false decide_False decide_True and_true Batteries.AssocList.eraseAllP  InternalPort.mk.injEq
+  and_false  decide_False  decide_True  reduceCtorEq  cond  List.map
+
 section BranchMerge
 
   -- TODO how to do polymorphic definition, here [out] is hardcoded and should be parametrized?
@@ -62,8 +67,8 @@ def test  TagT T S input output internals :=
 def test2 (TagT T S : Type) (input output : (T : Type) × (S → T → S → Prop))
   (internals : List (S → S → Prop)) : (T : Type) × Module String T := by
   precomputeTac test TagT T S input output internals by
-    dsimp only [test,drunfold,seval,Batteries.AssocList.toList,bagged,Function.uncurry,Module.mapIdent,List.toAssocList,List.foldl,Batteries.AssocList.find?,Option.pure_def,Option.bind_eq_bind,Option.bind_some,Module.renamePorts,Batteries.AssocList.mapKey,InternalPort.map,toString,Nat.repr,Nat.toDigits,Nat.toDigitsCore,Nat.digitChar,List.asString,Option.bind,Batteries.AssocList.mapVal,Batteries.AssocList.eraseAll,Batteries.AssocList.eraseAllP,beq_self_eq_true,Option.getD,cond,beq_self_eq_true, beq_iff_eq, InternalPort.mk.injEq, String.reduceEq, and_false, imp_self,BEq.beq]
-    simp (config := {decide := true,maxSteps := 10000000}) only [seval,InternalPort.mk.injEq, and_false, decide_False, decide_True, and_true]
+    dsimp only [test,drunfold,seval,drcompute]
+    simp only [seval,drdecide]
     conv in Module.connect'' _ _ => rw [Module.connect''_dep_rw]; rfl
     conv in _ :: Module.connect'' _ _ :: _ => arg 2; rw [Module.connect''_dep_rw]; rfl
     unfold Module.connect''
@@ -98,18 +103,14 @@ def test3 TagT [h: DecidableEq TagT] T S input output internals :=
 
 #reallyReduce test3
 
-
 def test4 (TagT T S : Type) [h:DecidableEq TagT] (input output : (T : Type) × (S → T → S → Prop))
   (internals : List (S → S → Prop))
   : (T : Type) × Module String T := by precomputeTac @test3 TagT h T S input output internals by
-    dsimp only [test3,test2,drunfold,seval,Batteries.AssocList.toList,bagged,Function.uncurry,Module.mapIdent,List.toAssocList,List.foldl,Batteries.AssocList.find?,Option.pure_def,Option.bind_eq_bind,Option.bind_some,Module.renamePorts,Batteries.AssocList.mapKey,InternalPort.map,toString,Nat.repr,Nat.toDigits,Nat.toDigitsCore,Nat.digitChar,List.asString,Option.bind,Batteries.AssocList.mapVal,Batteries.AssocList.eraseAll,Batteries.AssocList.eraseP,beq_self_eq_true,Option.getD,cond,beq_self_eq_true, beq_iff_eq, InternalPort.mk.injEq, String.reduceEq, and_false, imp_self,BEq.beq]
-    simp (config := {decide := true,maxSteps := 10000000,ground := true,autoUnfold := true}) only [seval,InternalPort.mk.injEq, and_false, decide_False, decide_True, and_true]
+    dsimp only [test3,test2,bagged,drunfold,seval,drcompute]
+    simp only [seval,drdecide]
     conv in Module.connect'' _ _ => rw [Module.connect''_dep_rw]; rfl
     conv in _ :: Module.connect'' _ _ :: _ => arg 2; rw [Module.connect''_dep_rw]; rfl
-    -- conv in _ :: Module.connect'' _ _ :: _ => arg 2; arg 2; rw [Module.connect''_dep_rw]; rfl
-    unfold Module.connect''
-    dsimp
-    unfold Module.liftR' Module.liftL'
+    unfold Module.connect'' Module.liftR' Module.liftL'
     dsimp
 
 end BranchMerge
