@@ -57,7 +57,7 @@ end PortMap
 inputs and outputs, which are maps from `Ident` to transition rules accept or
 return a value.
 -/
-structure Module (Ident S : Type _) where
+structure Module (Ident : Type _) (S : Type _) where
   inputs : PortMap Ident (Σ T : Type, (S → T → S → Prop))
   outputs : PortMap Ident (Σ T : Type, (S → T → S → Prop))
   internals : List (S → S → Prop)
@@ -124,7 +124,7 @@ def disjoint {S T} (mod1 : Module Ident S) (mod2 : Module Ident T) :=
     : HVector f [a] → HVector f [a] → Prop :=
   λ | .cons a .nil, .cons a' .nil => x a a'
 
-def connect'' {Ti To S} (ruleO : S → To → S → Prop) (ruleI : S → Ti → S → Prop) : S → S → Prop :=
+def connect'' {Ti To S : Type _} (ruleO : S → To → S → Prop) (ruleI : S → Ti → S → Prop) : S → S → Prop :=
   (λ st st' =>
         ∀ wf : To = Ti,
           ∃ consumed_output output, ruleO st output consumed_output
@@ -134,10 +134,14 @@ def connect'' {Ti To S} (ruleO : S → To → S → Prop) (ruleI : S → Ti → 
 `connect'` will produce a new rule that fuses an input with an output, with a
 precondition that the input and output type must match.
 -/
-@[drunfold] def connect' {S : Type _} (mod : Module Ident S) (o i : InternalPort Ident) : Module Ident S :=
-  { inputs := mod.inputs.eraseAll i ,
-    outputs :=  mod.outputs.eraseAll o,
-    internals := connect'' (mod.outputs.getIO o).2 (mod.inputs.getIO i).2 :: mod.internals }
+@[drunfold] def connect' {S : Type _} (mod : Module Ident S) (o i : InternalPort Ident) : Option (Module Ident S) := do
+  -- findEntry is needed instead of find because of the lack of cumulative
+  -- universes.
+  let (_, out) ← mod.outputs.findEntry? o
+  let (_, inp) ← mod.inputs.findEntry? i
+  return { inputs := mod.inputs.eraseAll i,
+           outputs :=  mod.outputs.eraseAll o,
+           internals := connect'' out.snd inp.snd :: mod.internals }
 
 theorem connect''_dep_rw {C : Type} {x y x' y' : Σ (T : Type), C → T → C → Prop} (h : x' = x := by simp; rfl) (h' : y' = y := by simp; rfl) :
     @Module.connect'' y.1 x.1 C x.2 y.2 = @Module.connect'' y'.1 x'.1 C x'.2 y'.2 := by
@@ -276,12 +280,19 @@ theorem MatchInterface_transitive {I J S} {imod : Module Ident I} {smod : Module
   intro ⟨ i, j, a, b ⟩ ⟨ k, w, c, d ⟩
   constructor <;> (try simp [*]; done) <;> (intros; simp only [*])
 
-instance MatchInterface_connect {I S} {o i} {imod : Module Ident I} {smod : Module Ident S}
-         [mm : MatchInterface imod smod]
-         : MatchInterface (imod.connect' o i) (smod.connect' o i) := by
+theorem MatchInterface_connect {I S} {o i} {imod imod' : Module Ident I} {smod smod' : Module Ident S}
+        [mm : MatchInterface imod smod]
+        (h : imod.connect' o i = some imod')
+        (h' : smod.connect' o i = some smod')
+        : MatchInterface imod' smod' := by
   simp only [MatchInterface_simpler_iff] at *; intro ident; specializeAll ident
   rcases mm with ⟨mm1, mm2⟩
-  dsimp [Module.connect']
+  dsimp [Module.connect'] at h h'
+  cases hc1 : (AssocList.findEntry? o imod.outputs) <;> rw [hc1] at h <;> try contradiction
+  cases hc2 : (AssocList.findEntry? i imod.inputs) <;> rw [hc2] at h <;> try contradiction
+  cases hc2' : (AssocList.findEntry? o smod.outputs) <;> rw [hc2'] at h' <;> try contradiction
+  cases hc1' : (AssocList.findEntry? i smod.inputs) <;> rw [hc1'] at h' <;> try contradiction
+  dsimp at *; injections; subst_vars
   constructor
   · simp only [AssocList.eraseAll_map_comm]
     by_cases h : i = ident <;> subst_vars
@@ -570,9 +581,11 @@ theorem refines_product {J K} (imod' : Module Ident J) (smod' : Module Ident K):
   refine ⟨ inferInstance, (λ a b => R a.1 b.1 ∧ R2 a.2 b.2), ?_ ⟩
   sorry
 
-theorem refines_connect {o i} :
+theorem refines_connect {o i imod' smod'} :
+    imod.connect' o i = some imod' →
+    smod.connect' o i = some smod' →
     imod ⊑ smod →
-    imod.connect' o i ⊑ smod.connect' o i := by sorry
+    imod' ⊑ smod' := by sorry
 
 theorem refines_renamePorts {I S} {imod : Module Ident I} {smod : Module Ident S} {f}:
   imod ⊑ smod →
@@ -593,7 +606,7 @@ abbrev NatModule := Module Nat
 abbrev StringModule := Module String
 
 @[drunfold] def NatModule.stringify {T} (m : NatModule T) : StringModule T :=
-  m |>.mapIdent (λ x =>  "inp"++ toString x) (λ x => "out" ++ toString x)
+  m |>.mapIdent (λ x => "inp" ++ toString x) (λ x => "out" ++ toString x)
 
 def IdentMap.toInterface {Ident} (i : IdentMap Ident (Σ T, Module Ident T))
   : IdentMap Ident (Interface Ident) :=

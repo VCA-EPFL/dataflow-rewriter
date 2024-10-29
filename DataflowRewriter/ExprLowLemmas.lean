@@ -14,10 +14,12 @@ def Module.toBaseExprLow {Ident S} (m : Module Ident S) (inst typ : Ident) : Exp
 
 namespace ExprLow
 
-variable {Ident}
+universe i u
+
+variable {Ident : Type i}
 variable [DecidableEq Ident]
 
-variable (ε : IdentMap Ident (Σ T : Type _, Module Ident T))
+variable (ε : IdentMap Ident (Σ T : Type u, Module Ident T))
 
 @[drunfold] def get_types (i : Ident) : Type _ :=
   (ε.find? i) |>.map Sigma.fst |>.getD PUnit
@@ -42,7 +44,7 @@ abbrev EType ε (e : ExprLow Ident) := HVector (get_types ε) e.ident_list
   | none => none
 | .connect o i e' => do
   let e ← e'.build_moduleD
-  return e.connect' o i
+  e.connect' o i
 | .product a b => do
   let a ← a.build_moduleD;
   let b ← b.build_moduleD;
@@ -69,7 +71,8 @@ theorem build_moduleD.dep_rewrite {instIdent} : ∀ {modIdent : Ident} {ε a} (H
   return ⟨ _, mod.2.renamePorts i ⟩
 | .connect o i e' => do
   let e ← e'.build_module'
-  return ⟨ _, e.2.connect' o i ⟩
+  -- Love the non-cumulative universe coding style
+  e.2.connect' o i |>.map (⟨_, ·⟩)
 | .product a b => do
   let a ← a.build_module'
   let b ← b.build_module'
@@ -82,7 +85,7 @@ theorem build_moduleD.dep_rewrite {instIdent} : ∀ {modIdent : Ident} {ε a} (H
 
 @[drunfold] def build_module
     (e : ExprLow Ident)
-    : Σ T, Module Ident T := e.build_module' ε |>.getD ⟨ Unit, Module.empty _ ⟩
+    : Σ T, Module Ident T := e.build_module' ε |>.getD ⟨ PUnit, Module.empty _ ⟩
 
 @[drunfold] abbrev build_module_expr
     (e : ExprLow Ident)
@@ -95,29 +98,110 @@ theorem build_moduleD.dep_rewrite {instIdent} : ∀ {modIdent : Ident} {ε a} (H
 notation:25 "[e| " e ", " ε " ]" => build_module_expr ε e
 notation:25 "[T| " e ", " ε " ]" => build_module_type ε e
 
-def wf : ExprLow Ident → Bool := all (λ typ => ε.contains typ)
+def isInternalInput (i : InternalPort Ident) (e : ExprLow Ident) : Bool :=
+  i ∉ ([e| e, ε ]).inputs.keysList
+
+def isInternalOutput (i : InternalPort Ident) (e : ExprLow Ident) : Bool :=
+  i ∉ ([e| e, ε ]).outputs.keysList
+
+def isExternalInput (i : InternalPort Ident) (e : ExprLow Ident) : Bool :=
+  i ∈ ([e| e, ε ]).inputs.keysList
+
+def isExternalOutput (i : InternalPort Ident) (e : ExprLow Ident) : Bool :=
+  i ∈ ([e| e, ε ]).outputs.keysList
+
+theorem isInternalInput'build_module_not_in {e : ExprLow Ident} {p typ p'}
+  {e_mod : Σ T : Type _, Module Ident T} :
+  e.isInternalInput ε p →
+  e.build_module' ε = .some e_mod →
+  (e.renameUnmappedInput typ p p').build_module' ε = .some e_mod := by
+  induction e generalizing e_mod with
+  | base map typ' =>
+    intro HInternal Hbuild
+    dsimp [renameUnmappedInput]
+    split
+    · rename_i h; simp [-Batteries.AssocList.find?_eq] at h; rcases h with ⟨hl, hr⟩
+      subst_vars
+      dsimp [isInternalInput,build_module_expr, build_module, build_module'] at HInternal Hbuild
+      cases h : Batteries.AssocList.find? typ' ε <;> simp only [h] at Hbuild
+      · contradiction
+      · simp at Hbuild; rw [h] at HInternal
+        dsimp at HInternal
+        dsimp [isInternalInput,build_module_expr, build_module, build_module']
+        rw [h]; simp; sorry
+    · assumption
+  | connect o i e iHe =>
+    intro HInternal Hbuild
+    dsimp [renameUnmappedInput]
+    dsimp [isInternalInput] at HInternal Hbuild
+    split <;> subst_vars
+    · sorry
+    · dsimp [build_module'] at Hbuild ⊢
+      cases h : build_module' ε e
+      · rw [h] at Hbuild; contradiction
+      · rw [h] at Hbuild; simp at Hbuild; rw [iHe]; simpa [Hbuild]
+        rename_i hh _; simp [hh] at HInternal
+        simp [isInternalInput]
+        dsimp [build_module_expr,build_module,build_module'] at HInternal
+        rw [h] at HInternal; simp at HInternal
+        dsimp [Module.connect'] at HInternal
+        sorry
+        assumption
+  | product e₁ e₂ ihe₁ ihe₂ =>
+    intro hInternal hbuild
+    dsimp [renameUnmappedInput,isInternalInput] at hInternal ⊢
+    dsimp [build_module'] at hbuild ⊢
+    cases h : build_module' ε e₁ <;> rw [h] at hbuild <;> try contradiction
+    cases h' : build_module' ε e₂ <;> rw [h'] at hbuild <;> try contradiction
+    dsimp [build_module_expr,build_module,build_module',Module.product] at hInternal
+    rw [h] at hInternal; rw [h'] at hInternal; simp at hInternal
+    rw [ihe₁]; rw [ihe₂]
+    assumption
+    any_goals assumption
+    sorry; sorry
+
+def wf' : ExprLow Ident → Bool := all (λ typ => ε.contains typ)
+
+@[drunfold] def wf (e : ExprLow Ident): Bool := e.build_module' ε |>.isSome
+
+@[drunfold] def match_interface (e₁ e₂ : ExprLow Ident) : Prop :=
+  (∀ i, ([e| e₁, ε ]).inputs.contains i ↔ ([e| e₂, ε ]).inputs.contains i)
+  ∧ (∀ i, ([e| e₁, ε ]).outputs.contains i ↔ ([e| e₂, ε ]).outputs.contains i)
 
 variable {ε}
 
-theorem wf_builds_module {e} : wf ε e → (e.build_module' ε).isSome := by
-  induction e with
-  | base inst typ =>
-    intro hwf; dsimp [wf, all] at hwf
-    simp only [drunfold]
-    have := Batteries.AssocList.contains_some hwf
-    rw [Option.isSome_iff_exists] at this; cases this
-    simp only [*]; rfl
-  | connect i o e ih =>
-    intro hwf; dsimp [wf, all] at hwf
-    specialize ih hwf
-    simp only [drunfold]; rw [Option.isSome_iff_exists] at ih; cases ih
-    simp only [*]; rfl
-  | product e₁ e₂ ihe₁ ihe₂ =>
-    intro hwf; dsimp [wf, all] at hwf; rw [Bool.and_eq_true] at hwf; cases hwf; rename_i ha hb
-    specialize ihe₁ ha; specialize ihe₂ hb
-    simp only [drunfold]; rw [Option.isSome_iff_exists] at ihe₁ ihe₂
-    cases ihe₁; cases ihe₂
-    simp only [*]; rfl
+-- theorem wf_builds_module {e} : wf' ε e → (e.build_module' ε).isSome := by
+--   induction e with
+--   | base inst typ =>
+--     intro hwf; dsimp [wf, all] at hwf
+--     simp only [drunfold]
+--     have := Batteries.AssocList.contains_some hwf
+--     rw [Option.isSome_iff_exists] at this; cases this
+--     simp only [*]; rfl
+--   | connect i o e ih =>
+--     intro hwf; dsimp [wf, all] at hwf
+--     specialize ih hwf
+--     simp only [drunfold]; rw [Option.isSome_iff_exists] at ih; cases ih; simp
+--     simp only [*]; rfl
+--   | product e₁ e₂ ihe₁ ihe₂ =>
+--     intro hwf; dsimp [wf, all] at hwf; rw [Bool.and_eq_true] at hwf; cases hwf; rename_i ha hb
+--     specialize ihe₁ ha; specialize ihe₂ hb
+--     simp only [drunfold]; rw [Option.isSome_iff_exists] at ihe₁ ihe₂
+--     cases ihe₁; cases ihe₂
+--     simp only [*]; rfl
+
+theorem match_interface_reflexive {e₁} :
+  match_interface ε e₁ e₁ := by
+  dsimp [match_interface]; and_intros <;> (intros; rfl)
+
+theorem match_interface_transitive {e₁ e₂ e₃} :
+  match_interface ε e₁ e₂ → match_interface ε e₂ e₃ → match_interface ε e₁ e₃ := by
+
+theorem match_interface_symmetric {e₁ e₂} :
+  match_interface ε e₁ e₂ → match_interface ε e₂ e₁ := by sorry
+
+theorem wf_builds_module {e : ExprLow Ident} : wf ε e → (e.build_module' ε).isSome := by
+  intro h; exact h
 
 theorem wf_modify_expression {e : ExprLow Ident} {i i'}:
   (ε.find? i').isSome →
@@ -129,14 +213,81 @@ theorem build_base_in_env {T inst i mod} :
   build_module' ε (base inst i) = some ⟨ T, mod.renamePorts inst ⟩ := by
   intro h; dsimp [drunfold]; rw [h]; rfl
 
-theorem wf_replace {e e_pat e'} : wf ε e → wf ε e' → wf ε (e.replace e_pat e') := by
+theorem wf'_replace {e e_pat e'} : wf' ε e → wf' ε e' → wf' ε (e.replace e_pat e') := by
   intro h wfe'; revert h
-  induction e <;> (intros; simp [replace]; split <;> (try solve_by_elim) <;> simp_all [wf, all])
+  induction e <;> (intros; simp [replace]; split <;> (try solve_by_elim) <;> simp_all [wf', all])
+
+theorem wf_connect {o i} {e : ExprLow Ident} : wf ε (.connect o i e) → wf ε e := by
+  dsimp [wf, drunfold, Option.bind]
+  intro h; split at h
+  · injections
+  · rw [‹build_module' ε e = _›]; rfl
+
+theorem wf_product₁ {e₁ e₂ : ExprLow Ident} : wf ε (.product e₁ e₂) → wf ε e₁ := by
+  dsimp [wf, drunfold, Option.bind]
+  intro h; split at h
+  · injections
+  · rw [‹build_module' ε e₁ = _›]; rfl
+
+theorem wf_product₂ {e₁ e₂ : ExprLow Ident} : wf ε (.product e₁ e₂) → wf ε e₂ := by
+  dsimp [wf, drunfold, Option.bind]
+  intro h; split at h
+  · injections
+  · dsimp at h; split at h
+    · injections
+    · rw [‹build_module' ε e₂ = _›]; rfl
+
+theorem match_interface_connect {e₁ e₂ o i} :
+  match_interface ε e₁ e₂ → match_interface ε (.connect o i e₁) (.connect o i e₂) := by sorry
+
+theorem match_interface_product {e₁ e₂} :
+  match_interface ε e₁ e₂ → match_interface ε e₂ e₁ := by sorry
+
+theorem replace_same_keys {e e_pat e'} :
+  wf ε e → wf ε e' →
+  match_interface ε e_pat e' →
+  match_interface ε e (e.replace e_pat e') := by
+  induction e with
+  | base map typ =>
+    intro hwf₁ hwf₂ hmatch
+    dsimp [replace]
+    by_cases h : base map typ = e_pat
+    · subst_vars
+      have : (if base map typ = base map typ then e' else base map typ) = e' := by
+        simp only [↓reduceIte]
+      rwa [this]
+    · have : (if base map typ = e_pat then e' else base map typ) = base map typ := by
+        simp only [↓reduceIte, h]
+      rw [this]; apply match_interface_reflexive
+  | connect o i e ihe =>
+    intro hwf₁ hwf₂ hmatch
+    dsimp [replace]
+    by_cases h : connect o i e = e_pat
+    · subst e_pat
+      have : (if connect o i e = connect o i e then e' else connect o i (e.replace (connect o i e) e')) = e' := by
+        simp only [↓reduceIte]
+      rwa [this]
+    · have : (if connect o i e = e_pat then e' else connect o i (e.replace e_pat e')) = connect o i (e.replace e_pat e') := by
+        simp only [↓reduceIte,h]
+      rw [this]
+      apply match_interface_connect; solve_by_elim [wf_connect]
+
+theorem wf_replace {e e_pat e'} : wf ε e → wf ε e' → wf ε (e.replace e_pat e') := by
+  induction e with
+  | base map typ =>
+    intros hwf₁ hwf₂; dsimp [drunfold]
+    dsimp only [wf] at hwf₁ hwf₂
+    split <;> assumption
+  | connect o i e ihe =>
+    intro hwf₁ hwf₂; dsimp only [wf] at hwf₁ hwf₂; simp [replace]
+    split <;> try assumption
+    have := ihe (wf_connect ‹_›) ‹_›
+  | _ => sorry
 
 theorem wf_abstract {e e_pat a b} : wf ε e → ε.contains b → wf ε (e.abstract e_pat a b) := by
   unfold abstract; intros wf1 hcont
   apply wf_replace; assumption
-  simp only [wf, all]; assumption
+  simp only [wf, all]
 
 theorem build_module_unfold_1 {m r i} :
   ε.find? i = some m →
