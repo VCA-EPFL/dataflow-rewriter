@@ -16,6 +16,7 @@ import DataflowRewriter.KernelRefl
 import DataflowRewriter.Reduce
 import DataflowRewriter.List
 import DataflowRewriter.ExprHighLemmas
+import DataflowRewriter.Tactic
 
 open Batteries (AssocList)
 
@@ -25,15 +26,6 @@ open Meta Elab
 namespace DataflowRewriter
 
 abbrev Ident := Nat
-
-elab "precompute " t:term : tactic => Tactic.withMainContext do
-  let expr ← Term.elabTerm t none
-  Term.synthesizeSyntheticMVarsUsingDefault
-  let expr ← Lean.instantiateMVars expr
-  let expr ←
-    -- withTransparency .all <|
-      reallyReduce (skipArgs := false) (skipTypes := false) expr
-  (← Tactic.getMainGoal).assign expr
 
 def threemerge T : NatModule (List T):=
   { inputs := [(0, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
