@@ -23,35 +23,6 @@ namespace DataflowRewriter
 def Injective {α β} (f : α → β) : Prop :=
   ∀ ⦃a₁ a₂⦄, f a₁ = f a₂ → a₁ = a₂
 
-namespace PortMap
-
-variable {Ident}
-variable [DecidableEq Ident]
-
-/--
-Get an IO port using external IO ports, i.e. `InternalPort Ident` with the
-instance set to `top`.
--/
-@[drunfold] def getIO.{u₁, u₂} {S : Type u₁}
-    (l : PortMap Ident (Σ T : Type u₂, (S → T → S → Prop)))
-    (n : InternalPort Ident)
-    : Σ T : Type u₂, (S → T → S → Prop) :=
-  l.find? ↑n |>.getD (⟨ PUnit, λ _ _ _ => True ⟩)
-
-theorem getIO_none {S} (m : PortMap Ident ((T : Type) × (S → T → S → Prop)))
-        (ident : InternalPort Ident) :
-  m.find? ident = none ->
-  m.getIO ident = ⟨ PUnit, λ _ _ _ => True ⟩ := by
-  intros H; simp only [PortMap.getIO, H]; simp
-
-theorem getIO_some {S} (m : PortMap Ident ((T : Type) × (S → T → S → Prop)))
-        (ident : InternalPort Ident) t :
-  m.find? ident = some t ->
-  m.getIO ident = t := by
-  intros H; simp only [PortMap.getIO, H]; simp
-
-end PortMap
-
 /--
 `Module` definition, which is our definition of circuit semantics.  It can have
 inputs and outputs, which are maps from `Ident` to transition rules accept or
@@ -81,10 +52,6 @@ universe i
 
 variable {Ident : Type i}
 variable [DecidableEq Ident]
-
-def disjoint {S T} (mod1 : Module Ident S) (mod2 : Module Ident T) :=
-  mod1.inputs.keysList ∩ mod2.inputs.keysList = ∅
-  ∧ mod1.outputs.keysList ∩ mod2.outputs.keysList = ∅
 
 @[drunfold] def liftL {S S' : Type _} (x: (T : Type _) × (S → T → S → Prop))
     : (T : Type _) × (S × S' → T → S × S' → Prop) :=
@@ -176,6 +143,24 @@ def renamePorts {S} (m : Module Ident S) (p : PortMapping Ident) : Module Ident 
   m.mapInputPorts (λ k => p.input.find? k |>.getD k)
   |>.mapOutputPorts (λ k => p.output.find? k |>.getD k)
 
+theorem find?_inputs_left {S T} {mod1 : Module Ident S} {mod2 : Module Ident T} {ident rule} :
+  mod1.inputs.find? ident = some rule →
+  (mod1.product mod2).inputs.find? ident = some (liftL rule) := by sorry
+
+theorem disjoint_find?_inputs_right {S T} {mod1 : Module Ident S} {mod2 : Module Ident T} {ident rule} :
+  ¬ mod1.inputs.contains ident →
+  mod2.inputs.find? ident = some rule →
+  (mod1.product mod2).inputs.find? ident = some (liftR rule) := by sorry
+
+theorem find?_outputs_left {S T} {mod1 : Module Ident S} {mod2 : Module Ident T} {ident rule} :
+  mod1.outputs.find? ident = some rule →
+  (mod1.product mod2).outputs.find? ident = some (liftL rule) := by sorry
+
+theorem find?_outputs_right {S T} {mod1 : Module Ident S} {mod2 : Module Ident T} {ident rule} :
+  ¬ mod1.outputs.contains ident →
+  mod2.outputs.find? ident = some rule →
+  (mod1.product mod2).outputs.find? ident = some (liftR rule) := by sorry
+
 end
 
 section
@@ -219,6 +204,10 @@ def mapIdent {Ident Ident' T} (inpR outR: Ident → Ident') (m : Module Ident T)
 end
 
 end Module
+
+structure Disjoint {Ident S T} [DecidableEq Ident] (mod1 : Module Ident S) (mod2 : Module Ident T) : Prop where
+  inputs_disjoint : mod1.inputs.disjoint_keys mod2.inputs
+  outputs_disjoint : mod1.outputs.disjoint_keys mod2.outputs
 
 section Match
 
@@ -276,6 +265,12 @@ theorem MatchInterface_transitive {I J S} {imod : Module Ident I} {smod : Module
   intro ⟨ i, j, a, b ⟩ ⟨ k, w, c, d ⟩
   constructor <;> (try simp [*]; done) <;> (intros; simp only [*])
 
+theorem MatchInterface_Disjoint {I J S K} {imod : Module Ident I} {smod : Module Ident S} {imod' : Module Ident J} {smod' : Module Ident K}
+  [MatchInterface imod smod]
+  [MatchInterface imod' smod'] :
+  Disjoint imod imod' →
+  Disjoint smod smod' := by sorry
+
 instance MatchInterface_connect {I S} {o i} {imod : Module Ident I} {smod : Module Ident S}
          [mm : MatchInterface imod smod]
          : MatchInterface (imod.connect' o i) (smod.connect' o i) := by
@@ -320,22 +315,22 @@ end Match
 State that there exists zero or more internal rule executions to reach a final
 state from an initial state.
 -/
-inductive existSR {Ident S : Type _} (mod : Module Ident S) : S → S → Prop where
-| done : ∀ init, existSR mod init init
+inductive existSR {S : Type _} (rules : List (S → S → Prop)) : S → S → Prop where
+| done : ∀ init, existSR rules init init
 | step : ∀ init mid final rule,
-    rule ∈ mod.internals →
+    rule ∈ rules →
     rule init mid →
-    existSR mod mid final →
-    existSR mod init final
+    existSR rules mid final →
+    existSR rules init final
 
-theorem existSR_reflexive {Ident S} {mod : Module Ident S} {s} :
-  existSR mod s s := existSR.done s
+theorem existSR_reflexive {S} {rules : List (S → S → Prop)} {s} :
+  existSR rules s s := existSR.done s
 
-theorem existSR_transitive {Ident S} (mod : Module Ident S) :
+theorem existSR_transitive {S} (rules : List (S → S → Prop)) :
   ∀ s₁ s₂ s₃,
-    existSR mod s₁ s₂ →
-    existSR mod s₂ s₃ →
-    existSR mod s₁ s₃ := by
+    existSR rules s₁ s₂ →
+    existSR rules s₂ s₃ →
+    existSR rules s₁ s₃ := by
   intro s₁ s₂ s₃ He1 He2
   induction He1 generalizing s₃; assumption
   constructor; all_goals solve_by_elim
@@ -365,33 +360,33 @@ structure indistinguishable (init_i : I) (init_s : S) : Prop where
     (imod.inputs.getIO ident).2 init_i v new_i →
     ∃ new_s, (smod.inputs.getIO ident).2 init_s ((mm.input_types ident).mp v) new_s
   outputs_indistinguishable : ∀ ident new_i v,
-    imod.outputs.contains ↑ident →
+    imod.outputs.contains ident →
     (imod.outputs.getIO ident).2 init_i v new_i →
     ∃ new_s, (smod.outputs.getIO ident).2 init_s ((mm.output_types ident).mp v) new_s
 
 structure comp_refines (R : I → S → Prop) (init_i : I) (init_s : S) : Prop where
   inputs :
     ∀ ident mid_i v,
-      imod.inputs.contains ↑ident →
+      imod.inputs.contains ident →
       (imod.inputs.getIO ident).2 init_i v mid_i →
       ∃ almost_mid_s mid_s,
         (smod.inputs.getIO ident).2 init_s ((mm.input_types ident).mp v) almost_mid_s
-        ∧ existSR smod almost_mid_s mid_s
+        ∧ existSR smod.internals almost_mid_s mid_s
         ∧ R mid_i mid_s
   outputs :
     ∀ ident mid_i v,
-      imod.outputs.contains ↑ident →
+      imod.outputs.contains ident →
       (imod.outputs.getIO ident).2 init_i v mid_i →
       ∃ almost_mid_s mid_s,
         (smod.outputs.getIO ident).2 init_s ((mm.output_types ident).mp v) almost_mid_s
-        ∧ existSR smod almost_mid_s mid_s
+        ∧ existSR smod.internals almost_mid_s mid_s
         ∧ R mid_i mid_s
   internals :
     ∀ rule mid_i,
       rule ∈ imod.internals →
       rule init_i mid_i →
       ∃ mid_s,
-        existSR smod init_s mid_s
+        existSR smod.internals init_s mid_s
         ∧ R mid_i mid_s
 
 theorem indistinguishable_reflexive i_init :
@@ -433,9 +428,9 @@ theorem refines_φ_multistep :
     ∀ φ, imod ⊑_{φ} smod →
     ∀ i_init s_init,
       φ i_init s_init →
-      ∀ i_mid, existSR imod i_init i_mid →
+      ∀ i_mid, existSR imod.internals i_init i_mid →
       ∃ s_mid,
-        existSR smod s_init s_mid
+        existSR smod.internals s_init s_mid
         ∧ φ i_mid s_mid := by
   intros φ Href i_init s_init Hphi i_mid Hexist
   induction Hexist generalizing s_init
@@ -509,6 +504,8 @@ def refines :=
 
 notation:35 x " ⊑ " y:34 => refines x y
 
+variable {imod smod}
+
 theorem refines_φ_refines [MatchInterface imod smod] {φ} :
   (∀ i_init s_init, φ i_init s_init → indistinguishable imod smod i_init s_init) →
   imod ⊑_{φ} smod →
@@ -558,17 +555,124 @@ theorem refines_transitive {J} (imod' : Module Ident J):
   apply refines_φ_transitive imod smod imod'
   assumption; assumption
 
-theorem refines_product {J K} (imod' : Module Ident J) (smod' : Module Ident K):
+theorem indistinguishability_product_left {J K} {i i₂ s s₂} {imod₂ : Module Ident J} {smod₂ : Module Ident K}
+  [MatchInterface imod smod]
+  [MatchInterface imod₂ smod₂]
+  [Nonempty J] :
+  Disjoint imod imod₂ →
+  (imod.product imod₂).indistinguishable (smod.product smod₂) (i, i₂) (s, s₂) →
+  imod.indistinguishable smod i s := by
+  intro hdisj hindist
+  have hdisj' : Disjoint smod smod₂ := MatchInterface_Disjoint hdisj
+  rcases hindist with ⟨hindist_input, hindist_output⟩
+  constructor
+  intro ident new_i v hcontains hrule
+  rcases ‹Nonempty J› with ⟨new_j⟩
+  specialize hindist_input ident (new_i, new_j)
+  all_goals sorry
+
+theorem indistinguishability_product_right {J K} {i i₂ s s₂} {imod₂ : Module Ident J} {smod₂ : Module Ident K}
+  [MatchInterface imod smod]
+  [MatchInterface imod₂ smod₂]
+  [Nonempty I] :
+  Disjoint imod imod₂ →
+  (imod.product imod₂).indistinguishable (smod.product smod₂) (i, i₂) (s, s₂) →
+  imod₂.indistinguishable smod₂ i₂ s₂ := by
+  intro hdisj hindist
+  rcases hindist with ⟨hindist_input, hindist_output⟩
+  constructor
+  intro ident new_j v hcontains hrule
+  rcases ‹Nonempty I› with ⟨new_i⟩
+  specialize hindist_input ident (new_i, new_j)
+  all_goals sorry
+
+@[reducible] def cast_first {β : Type _ → Type _} {a b : (Σ α, β α)} (h : a = b) : a.fst = b.fst := by
+  subst_vars; rfl
+
+theorem rw_rule_execution {S : Type _} {a b : Σ (T : Type _), S → T → S → Prop} {s s'} {v : a.fst} (h : a = b) :
+  a.snd s v s' ↔ b.snd s ((cast_first h).mp v) s' := by subst_vars; rfl
+
+-- theorem rw_rule_execution' {S : Type _} {a b c : Σ (T : Type _), S → T → S → Prop} {s s'} {v : b.fst} (h : b.fst = a.fst) (h' : a = b) :
+--   a.snd s (h.mp v) s' ↔ b.snd s (h'.mp (h' ▸ v)) s' := by subst_vars; rfl
+
+-- theorem rw_rule_execution2 {S : Type _} {a b : Σ (T : Type _), S → T → S → Prop} {s s'} {v : a.fst} (h : a.fst = b.fst) :
+--   a.snd s v s' ↔ a.snd s (h.mp v) s' := by
+--     rcases a with ⟨a₁, a₂⟩
+--     rcases b with ⟨b₁, b₂⟩
+--     dsimp at *
+--     simp at h;
+
+theorem refines_φ_product {J K} [Nonempty J] [Nonempty I] {imod₂ : Module Ident J} {smod₂ : Module Ident K}
+  [MatchInterface imod smod]
+  [MatchInterface imod₂ smod₂] {φ₁ φ₂} :
+    Disjoint imod imod₂ →
+    imod ⊑_{φ₁} smod →
+    imod₂ ⊑_{φ₂} smod₂ →
+    imod.product imod₂ ⊑_{λ a b => φ₁ a.1 b.1 ∧ φ₂ a.2 b.2} smod.product smod₂ := by
+  intro hdisj href₁ href₂
+  unfold refines_φ at *
+  intro ⟨init_i, init_i₂⟩ ⟨init_s,init_s₂⟩ hφ
+  specialize href₁ init_i init_s hφ.left
+  specialize href₂ init_i₂ init_s₂ hφ.right
+  constructor
+  · intro ident ⟨mid_i, mid_i₂⟩ hgetio hcontains hrule
+    rcases Option.isSome_iff_exists.mp (AssocList.contains_some hcontains) with ⟨rule, hruleIn⟩
+    rcases AssocList.append_find?2 hruleIn with hruleIn' | hruleIn'
+    case inl =>
+      rw [AssocList.find?_mapVal] at hruleIn'
+      cases h : AssocList.find? ident imod.inputs; rw [h] at hruleIn'; injection hruleIn'
+      rename_i rule'; rw [h] at hruleIn'; simp at hruleIn'; subst_vars
+      have cast2 : ((imod.product imod₂).inputs.getIO ident).fst = (imod.inputs.getIO ident).fst := by
+        dsimp [PortMap.getIO]; rw [hruleIn,h,liftL]; rfl
+      have cast_rule : (imod.product imod₂).inputs.getIO ident = liftL (imod.inputs.getIO ident) := by
+        dsimp [PortMap.getIO]; rw [hruleIn,h]; rfl
+      rw [rw_rule_execution cast_rule] at hrule
+      dsimp [liftL] at hrule; rcases hrule with ⟨hrule⟩; subst_vars
+      rcases href₁ with ⟨href_in, href_out, href_int⟩
+      clear href_out href_int
+      have hcontains₂ : AssocList.contains ident imod.inputs := by
+        apply AssocList.contains_some2; rw [h]; rfl
+      have hrule₂ : (imod.inputs.getIO ident).snd init_i (cast2.mp hgetio) mid_i := by
+        have : imod.inputs.getIO ident = rule' := by
+          dsimp [PortMap.getIO]; rw [h]; rfl
+        rw [rw_rule_execution this]
+        simp; convert hrule; exact this.symm; sorry
+      specialize href_in ident mid_i (cast2.mp hgetio) hcontains₂ hrule₂
+      rcases href_in with ⟨almost_mid_s, mid_s, hrule₃, hexists, hφ₃⟩
+      refine ⟨ (almost_mid_s, ‹_›), (mid_s, ‹_›), ?_, ?_, ?_, ?_ ⟩
+      · have s : (smod.product smod₂).inputs.getIO ident = liftL (smod.inputs.getIO ident) := by
+          sorry
+        rw [rw_rule_execution s]
+        dsimp [liftL]; refine ⟨?_, rfl⟩; convert hrule₃; simp
+        all_goals sorry
+      all_goals sorry
+    all_goals sorry
+  all_goals sorry
+
+theorem refines_product {J K} [Nonempty J] [Nonempty I] (imod₂ : Module Ident J) (smod₂ : Module Ident K):
+    Disjoint imod imod₂ →
     -- imod.disjoint smod →
-    imod ⊑ imod' →
-    smod ⊑ smod' →
-    imod.product smod ⊑ imod'.product smod' := by
+    imod ⊑ smod →
+    imod₂ ⊑ smod₂ →
+    imod.product imod₂ ⊑ smod.product smod₂ := by
   -- intro hdisj
-  intro href1 href2
-  rcases href1 with ⟨m, R, ref⟩
-  rcases href2 with ⟨m2, R2, ref2⟩
+  intro hdisj href₁ href₂
+  rcases href₁ with ⟨_, R, ref⟩
+  rcases href₂ with ⟨_, R2, ref₂⟩
+  have hdisj₂ := MatchInterface_Disjoint (smod' := smod₂) (smod := smod) ‹_›
   refine ⟨ inferInstance, (λ a b => R a.1 b.1 ∧ R2 a.2 b.2), ?_ ⟩
-  sorry
+  unfold refines_φ at *
+  intro ⟨init_i, init_i₂⟩ ⟨init_s,init_s₂⟩ hφ
+  specialize ref init_i init_s
+  specialize ref₂ init_i₂ init_s₂
+  have hφ₁ : (fun x y => imod.indistinguishable smod x y ∧ R x y) init_i init_s :=
+    ⟨indistinguishability_product_left hdisj hφ.left, hφ.right.left⟩
+  have hφ₂ : (fun x y => imod₂.indistinguishable smod₂ x y ∧ R2 x y) init_i₂ init_s₂ :=
+    ⟨indistinguishability_product_right hdisj hφ.left, hφ.right.right⟩
+  specialize ref hφ₁
+  specialize ref₂ hφ₂
+  all_goals sorry
+
 
 theorem refines_connect {o i} :
     imod ⊑ smod →

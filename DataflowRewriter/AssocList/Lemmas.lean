@@ -20,6 +20,21 @@ theorem append_find? {α β} [DecidableEq α] (a b : AssocList α β) (i) :
     by_cases h : k = i
     <;> simp_all [append, List.find?_cons_of_pos, List.find?_cons_of_neg]
 
+theorem append_find?2 {α β} [DecidableEq α] {a b : AssocList α β} {i x} :
+  (a.append b).find? i = some x →
+  a.find? i = some x ∨ b.find? i = some x := by
+  induction a with
+  | nil => simp [append]
+  | cons k v t ih =>
+    by_cases h : k = i
+    <;> simp_all [append, List.find?_cons_of_pos, List.find?_cons_of_neg]
+
+theorem find?_mapVal {α β γ} [DecidableEq α] {a : AssocList α β} {f : α → β → γ} {i}:
+  (a.mapVal f).find? i = (a.find? i).map (f i) := by
+  induction a with
+  | nil => simp
+  | cons k v a ih => dsimp [find?]; split <;> simp_all
+
 theorem disjoint_cons_left (α β γ) [DecidableEq α] {t : AssocList α β} {b : AssocList α γ} {a y} :
   (cons a y t).disjoint_keys b = true → t.disjoint_keys b = true := by
   unfold disjoint_keys; intros; simp [*]

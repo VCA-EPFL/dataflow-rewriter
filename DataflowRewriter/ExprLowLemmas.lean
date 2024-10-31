@@ -175,7 +175,8 @@ theorem refines_product {e₁ e₂ e₁' e₂'} :
   rw [wf1, wf2, wf3, wf4]
   rw [wf1, wf3] at ref1
   rw [wf2, wf4] at ref2
-  solve_by_elim [Module.refines_product]
+  sorry
+  -- solve_by_elim [Module.refines_product]
 
 theorem refines_connect {e e' o i} :
     wf ε e → wf ε e' →
