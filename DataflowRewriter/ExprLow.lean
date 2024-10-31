@@ -6,6 +6,7 @@ Authors: Yann Herklotz
 
 import DataflowRewriter.Simp
 import DataflowRewriter.Basic
+import DataflowRewriter.AssocList
 
 namespace DataflowRewriter
 
@@ -21,9 +22,9 @@ additional state to be able to communicate from an input to the input for the
 module.
 -/
 inductive ExprLow Ident where
-| base : PortMapping Ident → Ident → ExprLow Ident
-| product : ExprLow Ident → ExprLow Ident → ExprLow Ident
-| connect : InternalPort Ident → InternalPort Ident → ExprLow Ident → ExprLow Ident
+| base (map : PortMapping Ident) (typ : Ident)
+| product (l r : ExprLow Ident)
+| connect (o i : InternalPort Ident) (e : ExprLow Ident)
 deriving Repr, Inhabited, DecidableEq
 
 inductive NamedExprLow Ident where
@@ -32,10 +33,71 @@ inductive NamedExprLow Ident where
 | base : ExprLow Ident → NamedExprLow Ident
 deriving Repr, Inhabited, DecidableEq
 
+inductive PosTree Ident where
+| here (i : InternalPort Ident)
+| left (l : PosTree Ident)
+| right (r : PosTree Ident)
+| both (l r : PosTree Ident)
+
+inductive SExprLow Ident where
+| base (typ : Ident)
+| product (l r : ExprLow Ident)
+| connect (e : ExprLow Ident)
+
+inductive NamelessPort (Ident : Type _) where
+| bound (name : Nat)
+| top (name : Ident)
+deriving Repr, Hashable, Ord, Inhabited, DecidableEq
+
+structure NamelessMapping (Ident) where
+  input : PortMap Ident (NamelessPort Ident)
+  output : PortMap Ident (NamelessPort Ident)
+deriving Repr, Inhabited, DecidableEq
+
 namespace ExprLow
 
 variable {Ident}
 variable [DecidableEq Ident]
+
+@[drunfold] def build_mapping (map map' : PortMapping Ident) : Option (PortMapping Ident) := do
+  guard <| map.input.keysList = map'.input.keysList
+  guard <| map.output.keysList = map'.output.keysList
+  let inputMap ← map.input.foldlM
+    (λ (a : PortMap Ident (InternalPort Ident)) k v => do
+      let v' ← map'.input.find? k
+      return a.cons v v'
+    ) ∅
+  let outputMap ← map.output.foldlM
+    (λ (a : PortMap Ident (InternalPort Ident)) k v => do
+      let v' ← map'.output.find? k
+      return a.cons v v'
+    ) ∅
+  return ⟨inputMap, outputMap⟩
+
+@[drunfold] def beq : (e e' : ExprLow Ident) → Option (PortMapping Ident × PortMapping Ident)
+| .base map typ, .base map' typ' => do
+  guard <| typ = typ'
+  build_mapping map map' |>.map (Prod.mk · ∅)
+| .connect o i e, .connect o' i' e' => do
+  let (map, int_map) ← e.beq e'
+  let o_in_map ← map.output.find? o
+  let i_in_map ← map.input.find? i
+  guard <| o_in_map = o'
+  guard <| i_in_map = i'
+  return ( {map with input := map.input.eraseAll i, output := map.output.eraseAll o}
+         , {int_map with input := int_map.input.cons i i', output := int_map.output.cons o o'}
+         )
+| .product e₁ e₂, .product e₁' e₂' => do
+  let (map₁, int_map₁) ← e₁.beq e₁'
+  let (map₂, int_map₂) ← e₂.beq e₂'
+  guard <| map₁.input.disjoint_keys map₂.input
+  guard <| map₁.output.disjoint_keys map₂.output
+  guard <| int_map₁.output.disjoint_keys int_map₂.output
+  guard <| int_map₁.output.disjoint_keys int_map₂.output
+  return ( ⟨map₁.input.append map₂.input, map₁.output.append map₂.output⟩
+         , ⟨int_map₁.input.append int_map₂.input, int_map₁.output.append int_map₂.output⟩
+         )
+| _, _ => failure
 
 @[drunfold] def modify (i i' : Ident) : ExprLow Ident → ExprLow Ident
 | .base inst typ => if typ = i then .base inst i' else .base inst typ

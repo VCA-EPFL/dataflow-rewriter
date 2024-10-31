@@ -8,6 +8,7 @@ import Lean
 import Batteries
 
 import DataflowRewriter.AssocList.Basic
+import DataflowRewriter.Simp
 
 open Batteries (AssocList)
 
@@ -87,6 +88,35 @@ reduction.  `RBMap` currently does not work for `whnf` reduction due to
 exponential reduction behaviour in `Meta.whnf`.
 -/
 abbrev PortMap Ident α := AssocList (InternalPort Ident) α
+
+namespace PortMap
+
+variable {Ident}
+variable [DecidableEq Ident]
+
+/--
+Get an IO port using external IO ports, i.e. `InternalPort Ident` with the
+instance set to `top`.
+-/
+@[drunfold] def getIO.{u₁, u₂} {S : Type u₁}
+    (l : PortMap Ident (Σ T : Type u₂, (S → T → S → Prop)))
+    (n : InternalPort Ident)
+    : Σ T : Type u₂, (S → T → S → Prop) :=
+  l.find? n |>.getD (⟨ PUnit, λ _ _ _ => True ⟩)
+
+theorem getIO_none {S} (m : PortMap Ident ((T : Type) × (S → T → S → Prop)))
+        (ident : InternalPort Ident) :
+  m.find? ident = none ->
+  m.getIO ident = ⟨ PUnit, λ _ _ _ => True ⟩ := by
+  intros H; simp only [PortMap.getIO, H]; simp
+
+theorem getIO_some {S} (m : PortMap Ident ((T : Type) × (S → T → S → Prop)))
+        (ident : InternalPort Ident) t :
+  m.find? ident = some t ->
+  m.getIO ident = t := by
+  intros H; simp only [PortMap.getIO, H]; simp
+
+end PortMap
 
 structure PortMapping (Ident) where
   input : PortMap Ident (InternalPort Ident)
