@@ -86,7 +86,7 @@ structure NextNode (Ident) where
   typ : Ident
   connection : Connection Ident
 
-def followOutput (g : ExprHigh String) (inst output : String) : RewriteResult (NextNode String) := do
+def followOutput' (g : ExprHigh String) (inst output : String) : RewriteResult (NextNode String) := do
   let (pmap, _) ← ofOption (.error "instance not in modules")
     <| g.modules.find? inst
   let localOutputName ← ofOption (.error "port not in instance portmap")
@@ -96,5 +96,8 @@ def followOutput (g : ExprHigh String) (inst output : String) : RewriteResult (N
   let (inst, iport) ← ofOption (.error "input port not in modules")
     <| ExprHigh.findInputPort' localInputName g.modules
   ofOption (.error "instance not in modules") <| (g.modules.findEntry? inst).map (λ x => ⟨inst, iport, x.2.1, x.2.2, c⟩)
+
+def followOutput (g : ExprHigh String) (inst output : String) : Option (NextNode String) :=
+  (followOutput' g inst output).toOption
 
 end DataflowRewriter

@@ -9,17 +9,16 @@ import DataflowRewriter.ExprHighElaborator
 
 namespace DataflowRewriter.MergeRewrite
 
+/--
+The matcher takes in a dot graph and should return the cluster of nodes that
+form the subgraph as a list of instance names.
+-/
 def matcher (g : ExprHigh String) : RewriteResult (List String) := do
   let (.some list) ← g.modules.foldlM (λ nodes inst (pmap, typ) => do
       if nodes.isSome then return nodes
       unless typ = "merge" do return none
-      let nn ←
-        try followOutput g inst "out0"
-        catch
-          | .error s => return none
-          | .done => throw .done
-      unless nn.typ = "merge" do return none
-      unless nn.inputPort = "inp0" do return none
+      let (.some nn) := followOutput g inst "out0" | return none
+      unless nn.typ = "merge" && nn.inputPort = "inp0" do return none
       return some [inst, nn.inst]
     ) none | throw .done
   return list
