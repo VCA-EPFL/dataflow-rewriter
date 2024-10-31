@@ -123,6 +123,12 @@ structure PortMapping (Ident) where
   output : PortMap Ident (InternalPort Ident)
 deriving Repr, Inhabited, DecidableEq
 
+instance (Ident) [Repr Ident] : ToString (InternalPort Ident) where
+  toString i := repr i |>.pretty
+
+instance (Ident) [Repr Ident] : ToString (PortMapping Ident) where
+  toString i := repr i |>.pretty
+
 namespace PortMapping
 
 variable {Ident}
@@ -148,6 +154,9 @@ def ofPortMapping [DecidableEq Ident] (p : PortMapping Ident) : Option Ident :=
 def map {α β} (f : α → β) : PortMapping α → PortMapping β
 | ⟨ a, b ⟩ => ⟨a.mapKey (λ k => k.map f) |>.mapVal (λ _ v => v.map f)
               , b.mapKey (λ k => k.map f ) |>.mapVal (λ _ v => v.map f)⟩
+
+def inverse (p : PortMapping Ident) :=
+  {p with input := p.input.inverse, output := p.output.inverse}
 
 end PortMapping
 

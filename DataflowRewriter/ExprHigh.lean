@@ -29,22 +29,95 @@ structure NamedExprHigh (Ident : Type _) where
   inPorts     : IdentMap Ident (InternalPort Ident)
   outPorts    : IdentMap Ident (InternalPort Ident)
 
-instance (Ident) [ToString Ident] : ToString (ExprHigh Ident) where
-  toString a :=
-    -- let instances :=
-    --   a.modules.foldl (λ s inst mod => s ++ s!"\n {inst} [mod = \"{mod}\"];") ""
-    let connections :=
-      a.connections.foldl
-        (λ s => λ | ⟨ oport, iport ⟩ =>
-                    s ++ s!"\n {oport.inst} -> {iport.inst} "
-                      ++ s!"[out = \"{oport.name}\","
-                      ++ s!" inp = \"{iport.name}\"];") ""
-    s!"[graph| {connections}\n ]"
-
 namespace ExprHigh
 
 variable {Ident : Type _}
 variable [DecidableEq Ident]
+
+def findInputPort (p : InternalPort Ident) (i : IdentMap Ident (PortMapping Ident × Ident)) : Option Ident :=
+  i.foldl (λ a k v =>
+      match a with | some a' => a | none => do
+        guard <| (v.fst.input.filter (λ k' v' => p = v')).length > 0
+        return k
+    ) none
+
+def findInputPort' (p : InternalPort Ident) (i : IdentMap Ident (PortMapping Ident × Ident)) : Option (Ident × Ident) :=
+  i.foldl (λ a k v =>
+      match a with | some a' => a | none => do
+        let l ← v.fst.input.findEntryP? (λ k' v' => p = v')
+        return (k, l.fst.name)
+    ) none
+
+def findOutputPort (p : InternalPort Ident) (i : IdentMap Ident (PortMapping Ident × Ident)) : Option Ident :=
+  i.foldl (λ a k v =>
+      match a with | some a' => a | none => do
+        guard <| (v.fst.output.filter (λ k' v' => p = v')).length > 0
+        return k
+    ) none
+
+def findOutputPort' (p : InternalPort Ident) (i : IdentMap Ident (PortMapping Ident × Ident)) : Option (Ident × Ident) :=
+  i.foldl (λ a k v =>
+      match a with | some a' => a | none => do
+        let l ← v.fst.output.findEntryP? (λ k' v' => p = v')
+        return (k, l.fst.name)
+    ) none
+
+def normaliseModules (g : ExprHigh Ident) : Option (ExprHigh Ident) := do
+  let newModules ← g.modules.foldlM (λ nm k v => do
+      let inp := v.fst.input.mapVal (
+          λ | _, ⟨.internal inst, name⟩ =>
+              ⟨.internal k, name⟩
+            | _, v => v
+        )
+      let out := v.fst.output.mapVal (
+          λ | _, ⟨.internal inst, name⟩ =>
+              ⟨.internal k, name⟩
+            | _, v => v
+        )
+      return nm.cons k (⟨inp, out⟩, v.snd)
+    ) ∅
+  return {g with modules := newModules}
+
+def normaliseNames (g : ExprHigh Ident) : Option (ExprHigh Ident) := do
+  let newConnections ← g.connections.mapM (λ | ⟨i₁@⟨.internal _, n₁⟩, i₂@⟨.internal _, n₂⟩⟩ => do
+      let outInst ← findOutputPort i₁ g.modules
+      let inInst ← findInputPort i₂ g.modules
+      return Connection.mk ⟨.internal outInst, n₁⟩ ⟨.internal inInst, n₂⟩
+                                              | ⟨i₁@⟨.top, n₁⟩, i₂@⟨.internal _, n₂⟩⟩ => do
+      let inInst ← findInputPort i₂ g.modules
+      return Connection.mk ⟨.top, n₁⟩ ⟨.internal inInst, n₂⟩
+                                              | ⟨i₁@⟨.internal _, n₁⟩, i₂@⟨.top, n₂⟩⟩ => do
+      let outInst ← findOutputPort i₁ g.modules
+      return Connection.mk ⟨.internal outInst, n₁⟩ ⟨.top, n₂⟩
+                                              | c => pure c
+    )
+  {g with connections := newConnections}.normaliseModules
+
+instance (Ident) [DecidableEq Ident] [Repr Ident] [ToString Ident] : ToString (ExprHigh Ident) where
+  toString a :=
+    -- let instances :=
+    --   a.modules.foldl (λ s inst mod => s ++ s!"\n {inst} [mod = \"{mod}\"];") ""
+    match a.normaliseNames with
+    | some a =>
+      let modules :=
+        a.modules.foldl
+          (λ s k v =>
+            s ++ s!"  {k} [mod = \"{v.snd}\", label = \"{k}: {v.snd}\"]\n"
+            ) ""
+      let connections :=
+        a.connections.foldl
+          (λ s => λ | ⟨ oport, iport ⟩ =>
+                      s ++ s!"\n  {oport.inst} -> {iport.inst} "
+                        ++ s!"[out = \"{oport.name}\","
+                        ++ s!" inp = \"{iport.name}\","
+                        ++ s!" taillabel = \"{oport.name}\","
+                        ++ s!" headlabel = \"{iport.name}\","
+                        ++ "];") ""
+      s!"digraph \{
+{modules}
+{connections}
+}"
+    | none => repr a |>.pretty
 
 @[inline] def uncurry {α β γ} (f : α → β → γ) (v : α × β): γ :=
   f v.fst v.snd
@@ -92,6 +165,20 @@ def higher' [FreshIdent Ident] (fresh : Nat) : ExprLow Ident → (ExprHigh Ident
 def higher [Inhabited Ident] [FreshIdent Ident] (e: ExprLow Ident) : ExprHigh Ident :=
   e.higher' default |>.fst
 
+def higherS' (fresh : Nat) (fresh_prefix : String) : ExprLow String → (ExprHigh String × Nat)
+| .base a b =>
+  (ExprHigh.mk [(fresh_prefix ++ toString fresh, (a, b))].toAssocList ∅, fresh + 1)
+| .connect o i e =>
+  let (e', fresh') := e.higherS' fresh fresh_prefix
+  ({e' with connections := e'.connections.cons ⟨ o, i ⟩}, fresh')
+| .product e₁ e₂ =>
+  let (e₁', fresh₁) := e₁.higherS' fresh fresh_prefix
+  let (e₂', fresh₂) := e₂.higherS' fresh₁ fresh_prefix
+  (⟨ e₁'.1.append e₂'.1, e₁'.2.append e₂'.2 ⟩, fresh₂)
+
+def higherS (fresh_prefix : String) (e: ExprLow String) : ExprHigh String :=
+  e.higherS' 0 fresh_prefix |>.fst
+
 end ExprLow
 
 namespace ExprHigh
@@ -105,10 +192,14 @@ variable [Inhabited Ident]
   let m2 := g.modules.filter (λ k v => k ∉ sub)
   {g with modules := m1 ++ m2}
 
-@[drunfold] def extract (g : ExprHigh Ident) (sub : List Ident) : ExprHigh Ident :=
-  ⟨ g.modules.filter (λ k v => k ∈ sub)
-  , g.connections.filter (λ | ⟨o, i⟩ => o.inst.elem sub && i.inst.elem sub)
-  ⟩
+@[drunfold] def extract (g : ExprHigh Ident) (sub : List Ident) : Option (ExprHigh Ident) := do
+  let modules : IdentMap Ident (PortMapping Ident × Ident) ← sub.foldlM (λ a b => do
+      let l ← g.modules.find? b
+      return a.cons b l
+    ) ∅
+  return ⟨ modules
+         , g.connections.filter (λ | ⟨o, i⟩ => o.inst.elem sub && i.inst.elem sub)
+         ⟩
 
 @[drunfold] def rest (g : ExprHigh Ident) (sub : List Ident) : ExprHigh Ident :=
   ⟨ g.modules.filter (λ k v => k ∉ sub)
@@ -118,7 +209,7 @@ variable [Inhabited Ident]
 @[drunfold] def replace [FreshIdent Ident]
   (g : ExprHigh Ident) (sub : List Ident) (g' : ExprHigh Ident)
   : Option (ExprHigh Ident) := do
-  let e_sub ← g.extract sub |>.lower
+  let e_sub ← (← g.extract sub) |>.lower
   let g_lower := g.rest sub |>.lower' e_sub
   let g'_lower ← g'.lower
   g_lower.replace e_sub g'_lower |>.higher

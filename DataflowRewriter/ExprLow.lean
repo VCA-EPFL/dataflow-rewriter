@@ -6,7 +6,6 @@ Authors: Yann Herklotz
 
 import DataflowRewriter.Simp
 import DataflowRewriter.Basic
-import DataflowRewriter.AssocList
 
 namespace DataflowRewriter
 
@@ -59,45 +58,60 @@ namespace ExprLow
 variable {Ident}
 variable [DecidableEq Ident]
 
-@[drunfold] def build_mapping (map map' : PortMapping Ident) : Option (PortMapping Ident) := do
-  guard <| map.input.keysList = map'.input.keysList
-  guard <| map.output.keysList = map'.output.keysList
+def ofOption {α ε} (e : ε) : Option α → Except ε α
+| some o => .ok o
+| none => .error e
+
+@[drunfold] def build_mapping [Repr Ident] (map map' : PortMapping Ident) : Except String (PortMapping Ident) := do
+  unless map.input.keysList.isPerm map'.input.keysList do
+    throw s!"build_mapping error: input {map.input.keysList} is not a permutation of {map'.input.keysList}"
+  unless map.output.keysList.isPerm map'.output.keysList do
+    throw s!"build_mapping error: output {map.output.keysList} is not a permutation of {map'.output.keysList}"
   let inputMap ← map.input.foldlM
     (λ (a : PortMap Ident (InternalPort Ident)) k v => do
-      let v' ← map'.input.find? k
+      let v' ← ofOption s!"build_mapping error: input: could not find {k} in {map'}" <| map'.input.find? k
       return a.cons v v'
     ) ∅
   let outputMap ← map.output.foldlM
     (λ (a : PortMap Ident (InternalPort Ident)) k v => do
-      let v' ← map'.output.find? k
+      let v' ← ofOption s!"build_mapping error: output could not find {k} in {map'}" <| map'.output.find? k
       return a.cons v v'
     ) ∅
   return ⟨inputMap, outputMap⟩
 
-@[drunfold] def beq : (e e' : ExprLow Ident) → Option (PortMapping Ident × PortMapping Ident)
+@[drunfold] def beq [Repr Ident] : (e e' : ExprLow Ident) → Except String (PortMapping Ident × PortMapping Ident)
 | .base map typ, .base map' typ' => do
-  guard <| typ = typ'
+  unless typ = typ' do throw s!"beq error: types are not equal: {repr typ} vs {repr typ'}"
   build_mapping map map' |>.map (Prod.mk · ∅)
 | .connect o i e, .connect o' i' e' => do
   let (map, int_map) ← e.beq e'
-  let o_in_map ← map.output.find? o
-  let i_in_map ← map.input.find? i
-  guard <| o_in_map = o'
-  guard <| i_in_map = i'
+  let o_in_map ← ofOption "beq error: could not find output in map" <| map.output.find? o
+  let i_in_map ← ofOption "beq error: could not find input in map" <| map.input.find? i
+  unless o_in_map = o' do throw s!"beq error: o_in_map ({o_in_map}) ≠ o' ({o'})"
+  unless i_in_map = i' do throw s!"beq error: i_in_map ({i_in_map}) ≠ i' ({i'})"
   return ( {map with input := map.input.eraseAll i, output := map.output.eraseAll o}
          , {int_map with input := int_map.input.cons i i', output := int_map.output.cons o o'}
          )
 | .product e₁ e₂, .product e₁' e₂' => do
   let (map₁, int_map₁) ← e₁.beq e₁'
   let (map₂, int_map₂) ← e₂.beq e₂'
-  guard <| map₁.input.disjoint_keys map₂.input
-  guard <| map₁.output.disjoint_keys map₂.output
-  guard <| int_map₁.output.disjoint_keys int_map₂.output
-  guard <| int_map₁.output.disjoint_keys int_map₂.output
+  unless map₁.input.disjoint_keys map₂.input do throw "beq error: map₁.input not disjoint from map₂.input"
+  unless map₁.output.disjoint_keys map₂.output do throw "beq error: map₁.output not disjoint from map₂.output"
+  unless int_map₁.input.disjoint_keys int_map₂.input do throw "beq error: int_map₁.input not disjoint from int_map₂.input"
+  unless int_map₁.output.disjoint_keys int_map₂.output do do throw "beq error: int_map₁.output not disjoint from int_map₂.output"
   return ( ⟨map₁.input.append map₂.input, map₁.output.append map₂.output⟩
          , ⟨int_map₁.input.append int_map₂.input, int_map₁.output.append int_map₂.output⟩
          )
-| _, _ => failure
+| _, _ => throw "beq error: expressions are structurally not similar"
+
+@[drunfold] def allVars : ExprLow Ident → (List (InternalPort Ident) × List (InternalPort Ident))
+| .base map typ =>
+  (map.input.toList.map Prod.snd, map.output.toList.map Prod.snd)
+| .connect o i e => e.allVars
+| .product e₁ e₂ =>
+  let (e₁i, e₁o) := e₁.allVars
+  let (e₂i, e₂o) := e₂.allVars
+  (e₁i ++ e₂i, e₁o ++ e₂o)
 
 @[drunfold] def modify (i i' : Ident) : ExprLow Ident → ExprLow Ident
 | .base inst typ => if typ = i then .base inst i' else .base inst typ
@@ -127,38 +141,69 @@ def concretise (e e_sub : ExprLow Ident) (i_inst : PortMapping Ident) (i_typ : I
 Assume that the input is currently not mapped.
 -/
 @[drunfold]
-def renameInput (typ : Ident) (a b : InternalPort Ident) : ExprLow Ident → ExprLow Ident
+def renameUnmappedInput (typ : Ident) (a b : InternalPort Ident) : ExprLow Ident → ExprLow Ident
 | .base map typ' =>
-  if typ = typ' then
-    .base {map with input := map.input.erase a |>.cons a b} typ
+  if typ = typ' && (map.input.find? a).isNone then
+    .base {map with input := map.input |>.cons a b} typ
   else
     .base map typ'
 | .connect o i e =>
-  let e' := e.renameInput typ a b
+  let e' := e.renameUnmappedInput typ a b
   if i = a then .connect o b e' else .connect o i e'
 | .product e₁ e₂ =>
-  .product (e₁.renameInput typ a b) (e₂.renameInput typ a b)
+  .product (e₁.renameUnmappedInput typ a b) (e₂.renameUnmappedInput typ a b)
 
 /--
-Assume that the input is currently not mapped.
+Assume that the input is mapped.
 -/
 @[drunfold]
-def renameOutput (typ : Ident) (a b : InternalPort Ident) : ExprLow Ident → ExprLow Ident
+def renameMappedInput (a b : InternalPort Ident) : ExprLow Ident → ExprLow Ident
+| .base map typ =>
+  .base {map with input := map.input.mapVal (λ k v => if v = a then b else v)} typ
+| .connect o i e =>
+  let e' := e.renameMappedInput a b
+  if i = a then .connect o b e' else .connect o i e'
+| .product e₁ e₂ =>
+  .product (e₁.renameMappedInput a b) (e₂.renameMappedInput a b)
+
+/--
+Assume that the output is currently not mapped.
+-/
+@[drunfold]
+def renameUnmappedOutput (typ : Ident) (a b : InternalPort Ident) : ExprLow Ident → ExprLow Ident
 | .base map typ' =>
-  if typ = typ' then
-    .base {map with output := map.output.erase a |>.cons a b} typ
+  if typ = typ' && (map.output.find? a).isNone then
+    .base {map with output := map.output |>.cons a b} typ
   else
     .base map typ'
 | .connect o i e =>
-  let e' := e.renameOutput typ a b
+  let e' := e.renameUnmappedOutput typ a b
+  if i = a then .connect o b e' else .connect o i e'
+| .product e₁ e₂ =>
+  .product (e₁.renameUnmappedOutput typ a b) (e₂.renameUnmappedOutput typ a b)
+
+/--
+Assume that the output is mapped.
+-/
+@[drunfold]
+def renameMappedOutput (a b : InternalPort Ident) : ExprLow Ident → ExprLow Ident
+| .base map typ =>
+  .base {map with output := map.output.mapVal (λ k v => if v = a then b else v)} typ
+| .connect o i e =>
+  let e' := e.renameMappedOutput a b
   if o = a then .connect b i e' else .connect o i e'
 | .product e₁ e₂ =>
-  .product (e₁.renameOutput typ a b) (e₂.renameOutput typ a b)
+  .product (e₁.renameMappedOutput a b) (e₂.renameMappedOutput a b)
 
 @[drunfold]
 def rename (typ : Ident) (p : PortMapping Ident) (e : ExprLow Ident) : ExprLow Ident :=
-  p.input.foldl (λ e' k v => e'.renameInput typ k v) e
-  |> p.output.foldl (λ e' k v => e'.renameOutput typ k v)
+  p.input.foldl (λ e' k v => e'.renameUnmappedInput typ k v) e
+  |> p.output.foldl (λ e' k v => e'.renameUnmappedOutput typ k v)
+
+@[drunfold]
+def renameMapped (p : PortMapping Ident) (e : ExprLow Ident) : ExprLow Ident :=
+  p.input.foldl (λ e' k v => e'.renameMappedInput k v) e
+  |> p.output.foldl (λ e' k v => e'.renameMappedOutput k v)
 
 @[drunfold]
 def calc_mapping : ExprLow Ident → PortMapping Ident
