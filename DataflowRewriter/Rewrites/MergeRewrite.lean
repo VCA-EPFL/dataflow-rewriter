@@ -9,24 +9,6 @@ import DataflowRewriter.ExprHighElaborator
 
 namespace DataflowRewriter.MergeRewrite
 
-structure NextNode (Ident) where
-  inst : Ident
-  inputPort : Ident
-  portMap : PortMapping Ident
-  typ : Ident
-  connection : Connection Ident
-
-def followOutput (g : ExprHigh String) (inst output : String) : RewriteResult (NextNode String) := do
-  let (pmap, _) ← ofOption (.error "instance not in modules")
-    <| g.modules.find? inst
-  let localOutputName ← ofOption (.error "port not in instance portmap")
-    <| pmap.output.find? ⟨.top, output⟩
-  let c@⟨_, localInputName⟩ ← ofOption (.error "output not in connections")
-    <| g.connections.find? (λ c => c.output = localOutputName)
-  let (inst, iport) ← ofOption (.error "input port not in modules")
-    <| ExprHigh.findInputPort' localInputName g.modules
-  ofOption (.error "instance not in modules") <| (g.modules.findEntry? inst).map (λ x => ⟨inst, iport, x.2.1, x.2.2, c⟩)
-
 def matcher (g : ExprHigh String) : RewriteResult (List String) := do
   let (.some list) ← g.modules.foldlM (λ nodes inst (pmap, typ) => do
       if nodes.isSome then return nodes

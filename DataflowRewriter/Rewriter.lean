@@ -79,4 +79,22 @@ private def generate_renaming (fresh_prefix : String) (internals : List (Interna
   let e_renamed_sub' := e_sub'.renameMapped int_mapping'
   return g_lower.replace e_sub e_renamed_sub' |>.higherS fresh_prefix
 
+structure NextNode (Ident) where
+  inst : Ident
+  inputPort : Ident
+  portMap : PortMapping Ident
+  typ : Ident
+  connection : Connection Ident
+
+def followOutput (g : ExprHigh String) (inst output : String) : RewriteResult (NextNode String) := do
+  let (pmap, _) ← ofOption (.error "instance not in modules")
+    <| g.modules.find? inst
+  let localOutputName ← ofOption (.error "port not in instance portmap")
+    <| pmap.output.find? ⟨.top, output⟩
+  let c@⟨_, localInputName⟩ ← ofOption (.error "output not in connections")
+    <| g.connections.find? (λ c => c.output = localOutputName)
+  let (inst, iport) ← ofOption (.error "input port not in modules")
+    <| ExprHigh.findInputPort' localInputName g.modules
+  ofOption (.error "instance not in modules") <| (g.modules.findEntry? inst).map (λ x => ⟨inst, iport, x.2.1, x.2.2, c⟩)
+
 end DataflowRewriter
