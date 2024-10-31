@@ -212,7 +212,7 @@ theorem correct_threeway_merge'' {T: Type _} [DecidableEq T]:
 
 theorem correct_threeway_merge' {T: Type _} [DecidableEq T] :
     (merge_sem' T).snd ⊑ threemerge' T :=
-  Module.refines_φ_refines (merge_sem' T).snd (threemerge' T) φ_indistinguishable correct_threeway_merge''
+  Module.refines_φ_refines φ_indistinguishable correct_threeway_merge''
 
 instance {T} : MatchInterface (merge_sem T).snd (threemerge T) :=
   inferInstanceAs (MatchInterface (merge_sem' T).snd (threemerge' T))
