@@ -192,27 +192,26 @@ variable [Inhabited Ident]
   let m2 := g.modules.filter (λ k v => k ∉ sub)
   {g with modules := m1 ++ m2}
 
-@[drunfold] def extract (g : ExprHigh Ident) (sub : List Ident) : Option (ExprHigh Ident) := do
-  let modules : IdentMap Ident (PortMapping Ident × Ident) ← sub.foldlM (λ a b => do
+@[drunfold] def extract (g : ExprHigh Ident) (sub : List Ident)
+    : Option (ExprHigh Ident × ExprHigh Ident) := do
+  let modules ← sub.foldlM (λ a b => do
       let l ← g.modules.find? b
       return a.cons b l
     ) ∅
-  return ⟨ modules
-         , g.connections.filter (λ | ⟨o, i⟩ => o.inst.elem sub && i.inst.elem sub)
-         ⟩
+  let mergedPortMapping : PortMapping Ident :=
+    modules.foldl (λ pmap k v => pmap.append v.fst) ∅
+  let connections := g.connections.partition
+    (λ x => (mergedPortMapping.output.findEntryP? (λ _ k => k = x.output)).isSome
+            && (mergedPortMapping.input.findEntryP? (λ _ k => k = x.input)).isSome)
+  return (⟨ modules, connections.fst ⟩, ⟨ g.modules.filter (λ k _ => k ∉ sub), connections.snd ⟩)
 
-@[drunfold] def rest (g : ExprHigh Ident) (sub : List Ident) : ExprHigh Ident :=
-  ⟨ g.modules.filter (λ k v => k ∉ sub)
-  , g.connections.filter (λ | ⟨o, i⟩ => !(o.inst.elem sub && i.inst.elem sub))
-  ⟩
-
-@[drunfold] def replace [FreshIdent Ident]
-  (g : ExprHigh Ident) (sub : List Ident) (g' : ExprHigh Ident)
-  : Option (ExprHigh Ident) := do
-  let e_sub ← (← g.extract sub) |>.lower
-  let g_lower := g.rest sub |>.lower' e_sub
-  let g'_lower ← g'.lower
-  g_lower.replace e_sub g'_lower |>.higher
+-- @[drunfold] def replace [FreshIdent Ident]
+--   (g : ExprHigh Ident) (sub : List Ident) (g' : ExprHigh Ident)
+--   : Option (ExprHigh Ident) := do
+--   let e_sub ← (← g.extract sub) |>.lower
+--   let g_lower := g.rest sub |>.lower' e_sub
+--   let g'_lower ← g'.lower
+--   g_lower.replace e_sub g'_lower |>.higher
 
 @[drunfold]
 def rename [FreshIdent Ident]

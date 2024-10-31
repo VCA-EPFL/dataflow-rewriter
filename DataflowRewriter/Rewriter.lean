@@ -65,9 +65,9 @@ private def generate_renaming (fresh_prefix : String) (internals : List (Interna
 @[drunfold] def rewrite (fresh_prefix : String) (g : ExprHigh String) (rewrite : Rewrite String)
   : RewriteResult (ExprHigh String) := do
   let sub ← rewrite.pattern g
-  let e_sub ← ofOption (.error "could not lower subgraph: graph is empty") <|
-    (← ofOption (.error "could not extract graph") <| g.extract sub) |>.lower
-  let g_lower := g.rest sub |>.lower' e_sub
+  let (g₁, g₂) ← ofOption (.error "could not extract graph") <| g.extract sub
+  let e_sub ← ofOption (.error "could not lower subgraph: graph is empty") <| g₁ |>.lower
+  let g_lower := g₂ |>.lower' e_sub
   let (ext_mapping, _) ← liftError <| e_sub.beq rewrite.input_expr
   let e_sub' := rewrite.output_expr.renameMapped ext_mapping.inverse
   let (e_sub'_vars_i, e_sub'_vars_o) := e_sub'.allVars
