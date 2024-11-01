@@ -7,6 +7,7 @@ Authors: Yann Herklotz
 import DataflowRewriter.ExprHigh
 import DataflowRewriter.DotParser
 import DataflowRewriter.Rewriter
+import DataflowRewriter.Rewrites.MergeRewrite
 
 open DataflowRewriter
 
@@ -23,7 +24,7 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String) := do
   let (maps', conns) ← d.edges.foldlM (λ a (s1, s2, l) => do
       let inp := l.find? (·.key = "inp")
       let out := l.find? (·.key = "out")
-      match updateConnMaps a.fst a.snd s1 s2 (inp.map (·.value)) (out.map (·.value)) with
+      match updateConnMaps a.fst a.snd s1 s2 (out.map (·.value)) (inp.map (·.value)) with
       | .ok v => return v
       | .error s => throw s.toString
     ) (maps, [])
@@ -78,4 +79,10 @@ def main (args : List String) : IO Unit := do
   let exprHigh ← IO.ofExcept do
     let dotGraph ← Parser.dotGraph.run fileContents
     dotToExprHigh dotGraph
-  IO.println exprHigh
+  let rewritenExprHigh ← IO.ofExcept <|
+    rewrite_loop "rw" exprHigh [MergeRewrite.rewrite] 10000
+  match parsed.outputFile with
+  | some ofile =>
+    IO.FS.writeFile ofile (toString rewritenExprHigh)
+  | none =>
+    IO.println <| toString rewritenExprHigh

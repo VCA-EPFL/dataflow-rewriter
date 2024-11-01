@@ -79,6 +79,23 @@ private def generate_renaming (fresh_prefix : String) (internals : List (Interna
   let e_renamed_sub' := e_sub'.renameMapped int_mapping'
   return g_lower.replace e_sub e_renamed_sub' |>.higherS fresh_prefix
 
+/--
+Loops over the [rewrite] function, applying one rewrite exhaustively until
+moving on to the next.  Maybe we should add a timeout for each single rewrite as
+well, so that infinite loops in a single rewrite means the next one can still be
+started.
+-/
+def rewrite_loop (pref : String) (g : ExprHigh String)
+    : (rewrites : List (Rewrite String)) → Nat → RewriteResult (ExprHigh String)
+| _, 0 => return g
+| [], _ => return g
+| r :: rs, fuel' + 1 => do
+  let g' ← try rewrite (pref ++ toString fuel' ++ "_") g r
+            catch
+              | .done => rewrite_loop pref g rs fuel'
+              | .error s => throw <| .error s
+  rewrite_loop pref g' (r :: rs) fuel'
+
 structure NextNode (Ident) where
   inst : Ident
   inputPort : Ident

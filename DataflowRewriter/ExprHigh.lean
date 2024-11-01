@@ -307,8 +307,8 @@ def updateConnMaps (maps : InstMaps) (conns : List (Connection String))
   -- the instance name as the port name.
   if out.isNone && aInst.fst.isTop then out := some outInst
   if inp.isNone && bInst.fst.isTop then inp := some inInst
-  let some out' := out | throw <| .portError "No output found"
-  let some inp' := inp | throw <| .portError "No input found"
+  let some out' := out | throw <| .portError s!"No output found for: {aInst}"
+  let some inp' := inp | throw <| .portError s!"No input found for: {bInst}"
   let some outPort := parseInternalPort out'
     | throw <| .portError "Output port format incorrect"
   let some inPort := parseInternalPort inp'
