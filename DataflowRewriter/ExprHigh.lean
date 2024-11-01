@@ -194,7 +194,7 @@ variable [Inhabited Ident]
 
 @[drunfold] def extract (g : ExprHigh Ident) (sub : List Ident)
     : Option (ExprHigh Ident × ExprHigh Ident) := do
-  let modules ← sub.foldlM (λ a b => do
+  let modules : IdentMap Ident (PortMapping Ident × Ident) ← sub.foldlM (λ a b => do
       let l ← g.modules.find? b
       return a.cons b l
     ) ∅
@@ -203,7 +203,7 @@ variable [Inhabited Ident]
   let connections := g.connections.partition
     (λ x => (mergedPortMapping.output.findEntryP? (λ _ k => k = x.output)).isSome
             && (mergedPortMapping.input.findEntryP? (λ _ k => k = x.input)).isSome)
-  return (⟨ modules, connections.fst ⟩, ⟨ g.modules.filter (λ k _ => k ∉ sub), connections.snd ⟩)
+  return (⟨ modules.toList.reverse.toAssocList, connections.fst ⟩, ⟨ g.modules.filter (λ k _ => k ∉ sub), connections.snd ⟩)
 
 -- @[drunfold] def replace [FreshIdent Ident]
 --   (g : ExprHigh Ident) (sub : List Ident) (g' : ExprHigh Ident)

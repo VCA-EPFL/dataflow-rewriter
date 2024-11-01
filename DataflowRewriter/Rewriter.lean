@@ -87,13 +87,12 @@ started.
 -/
 def rewrite_loop (pref : String) (g : ExprHigh String)
     : (rewrites : List (Rewrite String)) → Nat → RewriteResult (ExprHigh String)
-| _, 0 => return g
-| [], _ => return g
+| _, 0 | [], _ => return g
 | r :: rs, fuel' + 1 => do
   let g' ← try rewrite (pref ++ toString fuel' ++ "_") g r
             catch
-              | .done => rewrite_loop pref g rs fuel'
-              | .error s => throw <| .error s
+            | .done => rewrite_loop pref g rs fuel'
+            | .error s => throw <| .error s
   rewrite_loop pref g' (r :: rs) fuel'
 
 structure NextNode (Ident) where

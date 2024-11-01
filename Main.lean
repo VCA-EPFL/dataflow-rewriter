@@ -8,6 +8,7 @@ import DataflowRewriter.ExprHigh
 import DataflowRewriter.DotParser
 import DataflowRewriter.Rewriter
 import DataflowRewriter.Rewrites.MergeRewrite
+import DataflowRewriter.Rewrites.ForkRewrite
 
 open DataflowRewriter
 
@@ -80,7 +81,7 @@ def main (args : List String) : IO Unit := do
     let dotGraph ← Parser.dotGraph.run fileContents
     dotToExprHigh dotGraph
   let rewritenExprHigh ← IO.ofExcept <|
-    rewrite_loop "rw" exprHigh [MergeRewrite.rewrite] 10000
+    rewrite_loop "rw" exprHigh [MergeRewrite.rewrite, ForkRewrite.rewrite] 100
   match parsed.outputFile with
   | some ofile =>
     IO.FS.writeFile ofile (toString rewritenExprHigh)

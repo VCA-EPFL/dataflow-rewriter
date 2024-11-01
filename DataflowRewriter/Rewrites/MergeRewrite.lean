@@ -23,7 +23,7 @@ def matcher (g : ExprHigh String) : RewriteResult (List String) := do
     ) none | throw .done
   return list
 
-@[drunfold] def mergeIn : ExprHigh String := [graph|
+@[drunfold] def mergeLhs : ExprHigh String := [graph|
     out0 [mod = "io"];
     inp0 [mod = "io"];
     inp1 [mod = "io"];
@@ -41,9 +41,27 @@ def matcher (g : ExprHigh String) : RewriteResult (List String) := do
     merge2 -> out0 [out = "out0"];
   ]
 
-def mergeInLower := mergeIn.lower.get rfl
+/--
+To get instances in a predictable order, it's a good idea to extract the whole
+graph once with the nodes in the order that you want to provide them in the
+pattern-matcher.  In this case we want merge1 to be listed before merge2.
+-/
+def mergeLhsOrdered := mergeLhs.extract ["merge1", "merge2"] |>.get rfl
 
-@[drunfold] def mergeOut : ExprHigh String := [graph|
+/--
+Graph extraction gives back two graphs, the subgraph and the rest of the graph.
+Here we just double check that the rest of the graph is empty, implying we
+extracted the whole graph.  The proof of `rfl` should always work for this.
+-/
+theorem double_check_empty_snd : mergeLhsOrdered.snd = ExprHigh.mk ∅ ∅ := by rfl
+
+/--
+We then use the extracted graph to lower to ExprLow, which ensures the right
+ordering of instances.
+-/
+def mergeLhsLower := mergeLhsOrdered.fst.lower.get rfl
+
+@[drunfold] def mergeRhs : ExprHigh String := [graph|
     out0 [mod = "io"];
     inp0 [mod = "io"];
     inp1 [mod = "io"];
@@ -58,12 +76,12 @@ def mergeInLower := mergeIn.lower.get rfl
     merge3 -> out0 [out = "out0"];
   ]
 
-def mergeOutLower := mergeOut.lower.get rfl
+def mergeRhsLower := mergeRhs.lower.get rfl
 
 def rewrite : Rewrite String :=
   { pattern := matcher,
-    input_expr := mergeInLower,
-    output_expr := mergeOutLower }
+    input_expr := mergeLhsLower,
+    output_expr := mergeRhsLower }
 
 namespace TestRewriter
 
