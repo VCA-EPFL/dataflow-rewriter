@@ -62,6 +62,20 @@ def findOutputPort' (p : InternalPort Ident) (i : IdentMap Ident (PortMapping Id
         return (k, l.fst.name)
     ) none
 
+def inputNodes (g : ExprHigh Ident) : List Ident :=
+  g.modules.foldl (λ inodes k v =>
+      if v.fst.input.any (λ _ k => k.inst.isTop)
+      then k :: inodes
+      else inodes
+    ) ∅
+
+def outputNodes (g : ExprHigh Ident) : List Ident :=
+  g.modules.foldl (λ inodes k v =>
+      if v.fst.output.any (λ _ k => k.inst.isTop)
+      then k :: inodes
+      else inodes
+    ) ∅
+
 def normaliseModules (g : ExprHigh Ident) : Option (ExprHigh Ident) := do
   let newModules ← g.modules.foldlM (λ nm k v => do
       let inp := v.fst.input.mapVal (
@@ -118,6 +132,12 @@ instance (Ident) [DecidableEq Ident] [Repr Ident] [ToString Ident] : ToString (E
 {connections}
 }"
     | none => repr a |>.pretty
+
+def invert (g : ExprHigh Ident) : ExprHigh Ident :=
+  let mods := g.modules.mapVal
+    (λ k v => ({v.fst with input := v.fst.output, output := v.fst.input}, v.snd))
+  let conns := g.connections.map (λ a => ⟨a.input, a.output⟩)
+  ⟨mods, conns⟩
 
 @[inline] def uncurry {α β γ} (f : α → β → γ) (v : α × β): γ :=
   f v.fst v.snd

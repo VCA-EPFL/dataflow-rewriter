@@ -104,6 +104,16 @@ def ofOption {α ε} (e : ε) : Option α → Except ε α
          )
 | _, _ => throw "beq error: expressions are structurally not similar"
 
+@[drunfold] def build_interface : ExprLow Ident → Interface Ident
+| .base map typ => map.toInterface
+| .connect o i e =>
+  let int := e.build_interface
+  ⟨int.input.erase i, int.output.erase o⟩
+| product e₁ e₂ =>
+  let int₁ := e₁.build_interface
+  let int₂ := e₂.build_interface
+  ⟨int₁.input ++ int₂.input, int₁.output ++ int₂.output⟩
+
 @[drunfold] def allVars : ExprLow Ident → (List (InternalPort Ident) × List (InternalPort Ident))
 | .base map typ =>
   (map.input.toList.map Prod.snd, map.output.toList.map Prod.snd)
@@ -136,6 +146,14 @@ def abstract (e e_sub : ExprLow Ident) (i_inst : PortMapping Ident) (i_typ : Ide
 @[drunfold]
 def concretise (e e_sub : ExprLow Ident) (i_inst : PortMapping Ident) (i_typ : Ident) : ExprLow Ident :=
   .base i_inst i_typ |> (e.replace · e_sub)
+
+def findBase (typ : Ident) : ExprLow Ident → Option (PortMapping Ident)
+| .base port typ' => if typ = typ' then some port else none
+| .connect o i e => e.findBase typ
+| .product e₁ e₂ =>
+  match e₁.findBase typ with
+  | some port => port
+  | none => e₂.findBase typ
 
 /--
 Assume that the input is currently not mapped.

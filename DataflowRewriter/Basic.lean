@@ -173,12 +173,19 @@ def allInst (f : InstIdent Ident → Bool) (i : Interface Ident) : Bool :=
 
 def isBaseModule (i : Interface Ident) : Bool := i.allInst (·.isTop)
 
+def toIdentityPortMapping (i : Interface Ident) : PortMapping Ident :=
+  ⟨(i.input.map (λ a => (a, a))).toAssocList,
+   (i.output.map (λ a => (a, a))).toAssocList⟩
+
 def toPortMapping (i : Interface Ident) (ident : Ident) : PortMapping Ident :=
   if i.isBaseModule
   then ⟨(i.input.map (λ a => (a, InternalPort.mk (.internal ident) a.name))).toAssocList,
         (i.output.map (λ a => (a, InternalPort.mk (.internal ident) a.name))).toAssocList⟩
-  else ∅
+  else i.toIdentityPortMapping
 
 end Interface
+
+def PortMapping.toInterface {Ident} (p : PortMapping Ident) : Interface Ident :=
+  ⟨p.input.keysList, p.output.keysList⟩
 
 end DataflowRewriter

@@ -5,6 +5,7 @@ Authors: Yann Herklotz
 -/
 
 import DataflowRewriter.ExprHigh
+import DataflowRewriter.ExprHighElaborator
 
 open Batteries (AssocList)
 
@@ -29,10 +30,19 @@ variable [DecidableEq Ident]
 
 @[simp] abbrev Pattern := ExprHigh Ident → RewriteResult (List Ident)
 
+structure Abstraction where
+  pattern : Pattern Ident
+  typ : Ident
+
+structure Concretisation where
+  expr : ExprLow Ident
+  typ : Ident
+
 structure Rewrite where
   pattern : Pattern Ident
   input_expr : ExprLow Ident
   output_expr : ExprLow Ident
+  abstractions : List (Abstraction Ident) := []
 
 variable {Ident}
 variable [Inhabited Ident]
@@ -47,7 +57,7 @@ def liftError {α} : Except String α → Except RewriteError α
 
 end Rewrite
 
-private def generate_renaming (fresh_prefix : String) (internals : List (InternalPort String)) :=
+def generate_renaming (fresh_prefix : String) (internals : List (InternalPort String)) :=
   go 0 ∅ ∅ internals
   where
     go (n : Nat) (nameMap : AssocList String String) (p : PortMap String (InternalPort String))
@@ -62,12 +72,20 @@ private def generate_renaming (fresh_prefix : String) (internals : List (Interna
     | ⟨.top, name⟩ :: b => go n nameMap p b
     | [] => p
 
-@[drunfold] def rewrite (fresh_prefix : String) (g : ExprHigh String) (rewrite : Rewrite String)
+/--
+Perform a rewrite in the graph by lowering it into an inductive expression using
+the right ordering, replacing it, and then reconstructing the graph.
+
+In the process, all names are generated again so that they are guaranteed to be
+fresh.  This could be unnecessary, however, currently the low-level expression
+language does not remember any names.
+-/
+@[drunfold] def Rewrite.run (fresh_prefix : String) (g : ExprHigh String) (rewrite : Rewrite String)
   : RewriteResult (ExprHigh String) := do
   let sub ← rewrite.pattern g
   let (g₁, g₂) ← ofOption (.error "could not extract graph") <| g.extract sub
-  let e_sub ← ofOption (.error "could not lower subgraph: graph is empty") <| g₁ |>.lower
-  let g_lower := g₂ |>.lower' e_sub
+  let e_sub ← ofOption (.error "could not lower subgraph: graph is empty") <| g₁.lower
+  let g_lower := g₂.lower' e_sub
   let (ext_mapping, _) ← liftError <| e_sub.beq rewrite.input_expr
   let e_sub' := rewrite.output_expr.renameMapped ext_mapping.inverse
   let (e_sub'_vars_i, e_sub'_vars_o) := e_sub'.allVars
@@ -75,9 +93,50 @@ private def generate_renaming (fresh_prefix : String) (internals : List (Interna
     ⟨ generate_renaming fresh_prefix (e_sub'_vars_i.filter (λ x => x ∉ ext_mapping.input.keysList))
     , generate_renaming fresh_prefix (e_sub'_vars_o.filter (λ x => x ∉ ext_mapping.output.keysList))
     ⟩
-  -- throw s!"{int_mapping'}"
   let e_renamed_sub' := e_sub'.renameMapped int_mapping'
   return g_lower.replace e_sub e_renamed_sub' |>.higherS fresh_prefix
+
+/--
+Abstract a subgraph into a separate node.  One can imagine that the node type is
+then a node in the environment which is referenced in the new graph.
+
+These two functions do not have to have any additional proofs, because the
+proofs that are already present in the framework should be enough.
+-/
+@[drunfold] def Abstraction.run (fresh_prefix : String) (g : ExprHigh String)
+  (abstraction : Abstraction String)
+  : RewriteResult (ExprHigh String × Concretisation String) := do
+  let sub ← abstraction.pattern g
+  let (g₁, g₂) ← ofOption (.error "could not extract graph") <| g.extract sub
+  let e_sub ← ofOption (.error "could not lower subgraph: graph is empty") <| g₁ |>.lower
+  let g_lower := g₂ |>.lower' e_sub
+  let portMapping := e_sub.build_interface.toIdentityPortMapping
+  let abstracted := g_lower.abstract e_sub portMapping abstraction.typ
+  return (abstracted.higherS fresh_prefix, ⟨e_sub, abstraction.typ⟩)
+
+/--
+Can be used to concretise the abstract node again.  Currently it assumes
+that it is unique in the graph (which could be checked explicitly).  In addition
+to that, it currently assumes that the internal signals of the concretisation
+are still fresh in the graph.
+-/
+@[drunfold] def Concretisation.run (fresh_prefix : String) (g : ExprHigh String)
+  (concretisation : Concretisation String) : RewriteResult (ExprHigh String) := do
+  let g_lower ← ofOption (.error "could not lower graph") <| g.lower
+  -- may need to uniquify the concretisation internal connections
+  let base ← ofOption (.error "Could not find base of concretisation")
+    <| g_lower.findBase concretisation.typ
+  return g_lower.concretise (concretisation.expr.renameMapped base) base concretisation.typ
+         |>.higherS fresh_prefix
+
+@[drunfold] def rewrite (fresh_prefix : String) (g : ExprHigh String) (rewrite : Rewrite String)
+  : RewriteResult (ExprHigh String) := do
+  let (g, c) ← rewrite.abstractions.foldlM (λ (g', c') a => do
+      let (g'', c'') ← a.run fresh_prefix g'
+      return (g'', c''::c')
+    ) (g, [])
+  let g ← rewrite.run fresh_prefix g
+  c.foldlM (λ g c => c.run fresh_prefix g) g
 
 /--
 Loops over the [rewrite] function, applying one rewrite exhaustively until
@@ -102,6 +161,10 @@ structure NextNode (Ident) where
   typ : Ident
   connection : Connection Ident
 
+/--
+Follow an output to the next node.  A similar function could be written to
+follow the input to the previous node.
+-/
 def followOutput' (g : ExprHigh String) (inst output : String) : RewriteResult (NextNode String) := do
   let (pmap, _) ← ofOption (.error "instance not in modules")
     <| g.modules.find? inst

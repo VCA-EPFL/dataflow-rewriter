@@ -95,7 +95,7 @@ def mergeHigh : ExprHigh String :=
     merge2 [mod="merge"];
     merge1 [mod="merge"];
 
-    src0 -> fork1 [inp="out0"];
+    src0 -> fork1 [inp="inp0"];
 
     fork1 -> fork2 [out="out0",inp="inp0"];
 
