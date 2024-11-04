@@ -158,6 +158,11 @@ def rhs : ExprHigh String := [graph|
 
 def rhsLower := rhs.lower.get rfl
 
+/--
+This rewrite adds abstractions to the definition, which provide patterns to
+extract parts of the graph.  The `type` given to each extracted node has to
+match the `type` of the node in LHS and RHS graphs.
+-/
 def rewrite : Rewrite String :=
   { abstractions := [⟨matchModLeft, "mod_left"⟩, ⟨matchModRight, "mod_right"⟩],
     pattern := matcher,
