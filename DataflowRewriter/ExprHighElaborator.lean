@@ -55,7 +55,7 @@ def findStxStr (n : Name) (stx : Array Syntax) : MetaM (Option String) := do
   for pair in stx do
     if pair[0].getId = n then
       let some out' := pair[2][0].isStrLit?
-        | throwErrorAt pair[2][0] "`mod` attribute is not a string"
+        | throwErrorAt pair[2][0] "`type` attribute is not a string"
       out := some out'
   return out
 
@@ -107,9 +107,9 @@ def dotGraphElab : TermElab := λ stx _typ? => do
     match low_stmnt with
     | `(dot_stmnt| $i:ident $[[$[$el:dot_attr],*]]? ) =>
       let some el := el
-        | throwErrorAt i "No `mod` attribute found at node"
-      let some modId ← findStxStr `mod el
-        | throwErrorAt i "No `mod` attribute found at node"
+        | throwErrorAt i "No `type` attribute found at node"
+      let some modId ← findStxStr `type el
+        | throwErrorAt i "No `type` attribute found at node"
       let mut modCluster : Bool := findStxBool `cluster el |>.getD false
       match updateNodeMaps ⟨instMap, instTypeMap⟩ i.getId.toString modId modCluster with
       | .ok ⟨a, b⟩ =>
@@ -121,7 +121,7 @@ def dotGraphElab : TermElab := λ stx _typ? => do
       -- Error checking to report it early if the instance is not present in the
       -- hashmap.
       let some el := el
-        | throwErrorAt (mkListNode #[a, b]) "No `mod` attribute found at node"
+        | throwErrorAt (mkListNode #[a, b]) "No `type` attribute found at node"
       let mut out ← (findStxStr `out el)
       let mut inp ← (findStxStr `inp el)
       match updateConnMaps ⟨instMap, instTypeMap⟩ conns a.getId.toString b.getId.toString out inp with
@@ -149,27 +149,27 @@ def dotGraphElab : TermElab := λ stx _typ? => do
 
 -- namespace mergemod
 
-def mergeHigh : ExprHigh String :=
-  [graph|
-    src0 [mod="src"];
-    snk0 [mod="snk"];
+-- def mergeHigh : ExprHigh String :=
+--   [graph|
+--     src0 [mod="src"];
+--     snk0 [mod="snk"];
 
-    fork1 [mod="fork"];
-    fork2 [mod="fork"];
-    merge1 [mod="merge"];
-    merge2 [mod="merge"];
+--     fork1 [mod="fork"];
+--     fork2 [mod="fork"];
+--     merge1 [mod="merge"];
+--     merge2 [mod="merge"];
 
-    src0 -> fork1 [out="0",inp="0"];
+--     src0 -> fork1 [out="0",inp="0"];
 
-    fork1 -> fork2 [out="0",inp="0"];
+--     fork1 -> fork2 [out="0",inp="0"];
 
-    fork1 -> merge1 [out="1",inp="0"];
-    fork2 -> merge1 [out="0",inp="1"];
-    fork2 -> merge2 [out="1",inp="0"];
+--     fork1 -> merge1 [out="1",inp="0"];
+--     fork2 -> merge1 [out="0",inp="1"];
+--     fork2 -> merge2 [out="1",inp="0"];
 
-    merge1 -> merge2 [out="0",inp="1"];
+--     merge1 -> merge2 [out="0",inp="1"];
 
-    merge2 -> snk0 [out="0",inp="0"];
-  ]
+--     merge2 -> snk0 [out="0",inp="0"];
+--   ]
 
 end DataflowRewriter

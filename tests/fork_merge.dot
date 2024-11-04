@@ -1,21 +1,21 @@
 digraph {
-    src0 [mod="io"];
-    snk0 [mod="io"];
+    "src0" [type="io"];
+    "snk0" [type="io"];
 
-    fork1 [mod="fork"];
-    fork2 [mod="fork"];
-    merge2 [mod="merge"];
-    merge1 [mod="merge"];
+    "fork1" [type="Fork"];
+    "fork2" [type="Fork"];
+    "merge2" [type="Merge"];
+    "merge1" [type="Merge"];
 
-    src0 -> fork1 [inp="inp0"];
+    "src0" -> "fork1" [inp="inp0"];
 
-    fork1 -> fork2 [out="out1",inp="inp0"];
+    "fork1" -> "fork2" [out="out1",inp="inp0"];
 
-    fork1 -> merge1 [out="out0",inp="inp0"];
-    fork2 -> merge1 [out="out0",inp="inp1"];
-    fork2 -> merge2 [out="out1",inp="inp1"];
+    "fork1" -> "merge1" [out="out0",inp="inp0"];
+    "fork2" -> "merge1" [out="out0",inp="inp1"];
+    "fork2" -> "merge2" [out="out1",inp="inp1"];
 
-    merge1 -> merge2 [out="out0",inp="inp0"];
+    "merge1" -> "merge2" [out="out0",inp="inp0"];
 
-    merge2 -> snk0 [out="out0"];
+    "merge2" -> "snk0" [out="out0"];
 }

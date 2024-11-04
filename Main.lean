@@ -8,13 +8,15 @@ import DataflowRewriter.ExprHigh
 import DataflowRewriter.DotParser
 import DataflowRewriter.Rewriter
 import DataflowRewriter.Rewrites.MergeRewrite
+import DataflowRewriter.Rewrites.ForkRewrite
+
 
 open DataflowRewriter
 
 def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String) := do
   let mut maps : InstMaps := ⟨ ∅, ∅ ⟩
   maps ← d.nodes.foldlM (λ a (s, l) => do
-      let some typ := l.find? (·.key = "mod")
+      let some typ := l.find? (·.key = "type")
         | throw "could not find instance type"
       let cluster := l.find? (·.key = "cluster") |>.getD ⟨"cluster", "false"⟩
       let .ok clusterB := Parser.parseBool.run cluster.value
@@ -80,7 +82,7 @@ def main (args : List String) : IO Unit := do
     let dotGraph ← Parser.dotGraph.run fileContents
     dotToExprHigh dotGraph
   let rewritenExprHigh ← IO.ofExcept <|
-    rewrite_loop "rw" exprHigh [MergeRewrite.rewrite] 100
+    rewrite_loop "rw" exprHigh [MergeRewrite.rewrite, ForkRewrite.rewrite] 100
   match parsed.outputFile with
   | some ofile =>
     IO.FS.writeFile ofile (toString rewritenExprHigh)

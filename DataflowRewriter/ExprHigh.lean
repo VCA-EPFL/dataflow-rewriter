@@ -102,7 +102,7 @@ instance (Ident) [DecidableEq Ident] [Repr Ident] [ToString Ident] : ToString (E
       let modules :=
         a.modules.foldl
           (λ s k v =>
-            s ++ s!"  {k} [mod = \"{v.snd}\", label = \"{k}: {v.snd}\"]\n"
+            s ++ s!"  {k} [type = \"{v.snd}\", label = \"{k}: {v.snd}\"]\n"
             ) ""
       let connections :=
         a.connections.foldl
@@ -140,7 +140,7 @@ class FreshIdent (Ident : Type _) where
   next : Nat → Ident
 
 instance : FreshIdent String where
-  next n := "mod" ++ toString n
+  next n := "type" ++ toString n
 
 instance : FreshIdent Nat where
   next := id
