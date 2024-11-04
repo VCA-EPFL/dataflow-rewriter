@@ -116,4 +116,180 @@ def followOutput' (g : ExprHigh String) (inst output : String) : RewriteResult (
 def followOutput (g : ExprHigh String) (inst output : String) : Option (NextNode String) :=
   (followOutput' g inst output).toOption
 
+/--
+Follow an output to the next node.  A similar function could be written to
+follow the input to the previous node.
+-/
+def followInput' (g : ExprHigh String) (inst input : String) : RewriteResult (NextNode String) := do
+  let (pmap, _) ← ofOption (.error "instance not in modules")
+    <| g.modules.find? inst
+  let localInputName ← ofOption (.error "port not in instance portmap")
+    <| pmap.input.find? ⟨.top, input⟩
+  let c@⟨localOutputName, _⟩ ← ofOption (.error "output not in connections")
+    <| g.connections.find? (λ c => c.input = localInputName)
+  let (inst, iport) ← ofOption (.error "input port not in modules")
+    <| ExprHigh.findOutputPort' localOutputName g.modules
+  ofOption (.error "instance not in modules") <| (g.modules.findEntry? inst).map (λ x => ⟨inst, iport, x.2.1, x.2.2, c⟩)
+
+def followInput (g : ExprHigh String) (inst input : String) : Option (NextNode String) :=
+  (followInput' g inst input).toOption
+
+def calcSucc (g : ExprHigh String) : Option (Std.HashMap String (Array String)) :=
+  g.modules.foldlM (λ succ k v => do
+      let a ← v.fst.output.foldlM (λ succ' (k' v' : InternalPort String) => do
+          if v'.inst.isTop then return succ'
+          let out ← followOutput g k k'.name
+          return succ'.push out.inst
+        ) ∅
+      return succ.insert k a
+    ) ∅
+
+/--
+Calculate a successor hashmap for a graph which includes a single root node and
+a single leaf node which connects to all inputs and all outputs respectively.
+It's much easier to work on this successor structure than on the unstructured
+graph.
+-/
+def fullCalcSucc (g : ExprHigh String) (rootNode : String := "_root_") (leafNode : String := "_leaf_") : Option (Std.HashMap String (Array String)) := do
+  let succ ← calcSucc g
+  let succ := succ.insert rootNode g.inputNodes.toArray
+  let succ := succ.insert leafNode ∅
+  return g.outputNodes.foldl (λ succ n => succ.insert n (succ[n]?.getD #[] |>.push leafNode) ) succ
+
+structure EvalLinkState where
+  ancestor : Std.HashMap String String
+  label : Std.HashMap String String
+deriving Repr
+
+def link (v w : String) (s : EvalLinkState) : EvalLinkState := {s with ancestor := s.ancestor.insert w v}
+
+def compress (v : String) (semi : Std.HashMap String Int) (s : EvalLinkState) : Nat → EvalLinkState
+| 0 => s
+| n+1 => Id.run do
+  let mut s' := s
+  if s'.ancestor[s'.ancestor[v]!]! ≠ "" then
+    s' := compress s'.ancestor[v]! semi s' n
+    if semi[s'.label[s'.ancestor[v]!]!]! < semi[s'.label[v]!]! then
+      s' := {s' with label := s'.label.insert v s'.label[s'.ancestor[v]!]!}
+    s' := {s' with ancestor := s'.ancestor.insert v s'.ancestor[s'.ancestor[v]!]!}
+  return s'
+
+def eval (fuel : Nat) (v : String) (semi : Std.HashMap String Int) (s : EvalLinkState) : String × EvalLinkState := Id.run do
+  if s.ancestor[v]! = "" then
+    return (v, s)
+  else
+    let s' := compress v semi s fuel
+    return (s'.label[v]!, s)
+
+structure DomState where
+  semi : Std.HashMap String Int
+  vertex : Array String
+  parent : Std.HashMap String String
+  pred : Std.HashMap String (Array String)
+  bucket : Std.HashMap String (Array String)
+  dom : Std.HashMap String String
+deriving Repr
+
+def DomState.dfs (fuel : Nat) (succ : Std.HashMap String (Array String)) (dom : DomState) (v : String) : DomState × Nat :=
+  go dom v 0 fuel
+  where
+    go (dom : DomState) (v : String) (n : Nat) : Nat → DomState × Nat
+    | 0 => (dom, n)
+    | fuel+1 => Id.run do
+      let mut n' := n + 1
+      let mut dom' := dom
+      dom' := {dom' with semi := dom'.semi.insert v n', vertex := dom'.vertex.set! n' v}
+      for w in succ[v]! do
+        if dom'.semi[w]! = 0 then
+          dom' := {dom' with parent := dom'.parent.insert w v }
+          (dom', n') := go dom' w n' fuel
+        dom' := {dom' with pred := dom'.pred.insert w (dom'.pred[w]!.push v)}
+      return (dom', n')
+
+/--
+Find dominators in a graph, taken from "A fast algorithm for finding dominators
+in a flowgraph" by T. Lengauer and R. E. Tarjan.
+
+Don't ask me how the algorithm works, but it seems to output reasonable results.
+-/
+def findDom (fuel : Nat) (g : ExprHigh String) := do
+  let mut n := 0
+  let mut dom : DomState := ⟨∅, ∅, ∅, ∅, ∅, ∅⟩
+  let mut succ ← fullCalcSucc g
+  let mut evalLabel : EvalLinkState := ⟨∅, ∅⟩
+  -- succ := succ.insert "_leaf_" ∅
+
+  -- Step 1
+  dom := {dom with vertex := dom.vertex.push ""}
+  for v in succ do
+    dom := {dom with pred := dom.pred.insert v.fst ∅
+                     semi := dom.semi.insert v.fst 0
+                     bucket := dom.bucket.insert v.fst ∅
+                     dom := dom.dom.insert v.fst ""
+                     parent := dom.parent.insert v.fst ""
+                     vertex := dom.vertex.push ""}
+    evalLabel := {evalLabel with ancestor := evalLabel.ancestor.insert v.fst ""
+                                 label := evalLabel.label.insert v.fst v.fst}
+  (dom, n) := dom.dfs fuel succ "_root_"
+  for i' in [0:n-1] do
+    let i := n - i'
+    let w := dom.vertex[i]!
+
+    -- Step 2
+    for v in dom.pred[w]! do
+      let (u, evalLabel') := eval fuel v dom.semi evalLabel
+      evalLabel := evalLabel'
+      if dom.semi[u]! < dom.semi[w]! then
+        dom := {dom with semi := dom.semi.insert w dom.semi[v]! }
+    let vert : String := dom.vertex[dom.semi[w]!.toNat]!
+    dom := {dom with bucket := dom.bucket.insert vert (dom.bucket[vert]!.push w)}
+    evalLabel := link dom.parent[w]! w evalLabel
+
+    -- Step 3
+    for v in dom.bucket[dom.parent[w]!]! do
+      let l := dom.bucket[dom.parent[w]!]!
+      dom := {dom with bucket := dom.bucket.insert dom.parent[w]! (l.filter (· ≠ v)) }
+      let (u, evalLabel') := eval fuel v dom.semi evalLabel
+      evalLabel := evalLabel'
+      dom := {dom with dom := dom.dom.insert v (if dom.semi[u]! < dom.semi[v]! then u else dom.parent[w]!)}
+
+  -- Step 4
+  for i in [2:n+1] do
+    let w := dom.vertex[i]!
+    if dom.dom[w]! ≠ dom.vertex[dom.semi[w]!.toNat]! then
+      dom := {dom with dom := dom.dom.insert w dom.dom[dom.dom[w]!]!}
+  dom := {dom with dom := dom.dom.insert "_root_" ""}
+  return dom.dom
+
+/--
+Find post dominators of a node by finding dominators on the inverted graph.
+-/
+def findPostDom (fuel : Nat) (g : ExprHigh String) :=
+  findDom fuel g.invert
+
+def findSCCNodes' (succ : Std.HashMap String (Array String)) (startN endN : String) : Option (List String):=
+  go (succ.size+1) ∅ [startN]
+  where
+    go (worklist : Nat) (visited : List String) : List String → Option (List String)
+    | [] => some visited
+    | x :: q => do
+      match worklist with
+      | 0 => none
+      | w+1 =>
+        let visited' := visited.cons x
+        if x = endN then
+          go w visited' q
+        else
+          let nextNodes ← succ[x]?.map (·.toList)
+          if "_leaf_" ∈ nextNodes then none
+          let nextNodes' := nextNodes.filter (· ∉ visited')
+          go w visited' (nextNodes' ++ q)
+
+/--
+Find all nodes in between two nodes by performing a DFS that checks that one has
+never reached an output node.
+-/
+def findSCCNodes (g : ExprHigh String) (startN endN : String) : Option (List String) := do
+  findSCCNodes' (← fullCalcSucc g) startN endN
+
 end DataflowRewriter
