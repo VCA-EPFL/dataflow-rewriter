@@ -110,10 +110,16 @@ def mergeHigh : ExprHigh String :=
 
 /--
 info: ok: digraph {
-  rw0_2 [mod = "merge3", label = "rw0_2: merge3"]
-  rw0_1 [mod = "fork", label = "rw0_1: fork"]
-  rw0_0 [mod = "fork", label = "rw0_0: fork"]
 
+  snk0 [mod = "io", label = "snk0: io"];
+  src0 [mod = "io", label = "src0: io"];
+  rw0_2 [mod = "merge3", label = "rw0_2: merge3"];
+  rw0_1 [mod = "fork", label = "rw0_1: fork"];
+  rw0_0 [mod = "fork", label = "rw0_0: fork"];
+
+
+  rw0_2 -> snk0 [out = "out0", taillabel = "out0"];
+  src0 -> rw0_0 [inp = "inp0", headlabel = "inp0"];
 
   rw0_0 -> rw0_1 [out = "out0", inp = "inp0", taillabel = "out0", headlabel = "inp0",];
   rw0_0 -> rw0_2 [out = "out1", inp = "inp0", taillabel = "out1", headlabel = "inp0",];
