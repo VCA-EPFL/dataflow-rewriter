@@ -113,10 +113,25 @@ instance (Ident) [DecidableEq Ident] [Repr Ident] [ToString Ident] : ToString (E
     --   a.modules.foldl (λ s inst mod => s ++ s!"\n {inst} [mod = \"{mod}\"];") ""
     match a.normaliseNames with
     | some a =>
+      let (io_decl, io_conn) := a.modules.foldl (λ (sdecl, sio) inst (pmap, typ) =>
+        let sdecl := (pmap.input ++ pmap.output).foldl (λ sdecl k v =>
+          if v.inst.isTop
+          then sdecl ++ s!"\n  {v.name} [mod = \"io\", label = \"{v.name}: io\"];"
+          else sdecl) sdecl
+        let sio := pmap.input.foldl (λ io_conn k v =>
+          if v.inst.isTop
+          then io_conn ++ s!"\n  {v.name} -> {inst} [inp = \"{k.name}\", headlabel = \"{k.name}\"];"
+          else io_conn) sio
+        let sio := pmap.output.foldl (λ io_conn k v =>
+          if v.inst.isTop
+          then io_conn ++ s!"\n  {inst} -> {v.name} [out = \"{k.name}\", taillabel = \"{k.name}\"];"
+          else io_conn) sio
+        (sdecl, sio)
+      ) ("", "")
       let modules :=
         a.modules.foldl
           (λ s k v =>
-            s ++ s!"  {k} [mod = \"{v.snd}\", label = \"{k}: {v.snd}\"]\n"
+            s ++ s!"  {k} [mod = \"{v.snd}\", label = \"{k}: {v.snd}\"];\n"
             ) ""
       let connections :=
         a.connections.foldl
@@ -128,7 +143,9 @@ instance (Ident) [DecidableEq Ident] [Repr Ident] [ToString Ident] : ToString (E
                         ++ s!" headlabel = \"{iport.name}\","
                         ++ "];") ""
       s!"digraph \{
+{io_decl}
 {modules}
+{io_conn}
 {connections}
 }"
     | none => repr a |>.pretty

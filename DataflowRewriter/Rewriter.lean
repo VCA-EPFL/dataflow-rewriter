@@ -160,6 +160,7 @@ structure NextNode (Ident) where
   portMap : PortMapping Ident
   typ : Ident
   connection : Connection Ident
+deriving Repr
 
 /--
 Follow an output to the next node.  A similar function could be written to
