@@ -116,14 +116,49 @@ theorem sigma_rw {S T : Type _} {m m' : Σ (y : Type _), S → y → T → Prop}
   m.snd x v y ↔ m'.snd x (h ▸ v) y := by
   constructor <;> (intros; subst h; assumption)
 
+theorem sigma_rw_simp {S T : Type _} {m m' : Σ (y : Type _), S → y → T → Prop} {x : S} {y : T} {v : m.fst}
+        (h : m = m' := by simp [drunfold,drcompute,seval]; rfl) :
+  m.snd x v y ↔ m'.snd x (h ▸ v) y := by
+  constructor <;> (intros; subst h; assumption)
+
 theorem φ_indistinguishable {Tag T} :
   ∀ x y, φ x y → Module.indistinguishable (rhsModule Tag T) (lhsModule Tag T) x y := by
-  unfold φ; intro x y H
+  unfold φ; intro ⟨x_fork, x_mux, x_join1, x_join2⟩ ⟨y_join, y_mux⟩ H
   constructor <;> intro ident new_i v Hcontains Hsem
   . have Hkeys := AssocList.keysInMap Hcontains; clear Hcontains
     fin_cases Hkeys
-    . simp [drunfold,drcompute,seval]
-      constructor; rw[sigma_rw]
+    . simp [drunfold,drcompute,seval] at Hsem ⊢
+      rw[sigma_rw_simp] at Hsem; simp at Hsem
+      rcases y_join with ⟨y_join_l, y_join_r⟩
+      apply Exists.intro ((_, _), (_, (_, _)))
+      constructor; dsimp; and_intros
+      all_goals rfl
+    . simp [drunfold,drcompute,seval] at Hsem ⊢
+      rw[sigma_rw_simp] at Hsem; simp at Hsem
+      rcases y_join with ⟨y_join_l, y_join_r⟩
+      apply Exists.intro ((_, _), (_, (_, _)))
+      constructor; dsimp; and_intros
+      all_goals rfl
+    . simp [drunfold,drcompute,seval] at Hsem ⊢
+      rw[sigma_rw_simp] at Hsem; simp at Hsem
+      rcases y_join with ⟨y_join_l, y_join_r⟩
+      apply Exists.intro ((_, _), (_, (_, _)))
+      constructor; dsimp; and_intros
+      all_goals rfl
+    . simp [drunfold,drcompute,seval] at Hsem ⊢
+      rw[sigma_rw_simp] at Hsem; simp at Hsem
+      rcases y_join with ⟨y_join_l, y_join_r⟩
+      apply Exists.intro ((_, _), (_, (_, _)))
+      constructor; dsimp; and_intros
+      all_goals rfl
+  · have Hkeys := AssocList.keysInMap Hcontains; clear Hcontains
+    fin_cases Hkeys
+    . simp [drunfold,drcompute,seval] at Hsem ⊢
+      rw[sigma_rw_simp] at Hsem; simp at Hsem
+      -- rcases y_join with ⟨y_join_l, y_join_r⟩
+      apply Exists.intro ((_, _), (_, (_, _)))
+      dsimp at *; constructor; dsimp; and_intros
+
 
   · have Hkeys := keysInMap Hcontains; clear Hcontains
     fin_cases Hkeys
