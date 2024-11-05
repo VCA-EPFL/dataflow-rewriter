@@ -179,4 +179,15 @@ theorem erase_equiv {α β} [DecidableEq α] {a b : AssocList α β} ident ident
   i ≠ i' →
   (a.eraseAll i).find? i' = a.find? i' := by sorry
 
+@[simp] theorem any_map {α β} {f : α → β} {l : List α} {p : β → Bool} : (l.map f).any p = l.any (p ∘ f) := by
+  induction l with simp | cons _ _ ih => rw [ih]
+
+theorem keysInMap {α β} [DecidableEq α] {m : AssocList α β} {k} : m.contains k → k ∈ m.keysList := by
+  unfold Batteries.AssocList.contains Batteries.AssocList.keysList
+  intro Hk; simp_all
+
+theorem keysNotInMap {α β} [DecidableEq α] {m : AssocList α β} {k} : ¬ m.contains k → k ∉ m.keysList := by
+  unfold Batteries.AssocList.contains Batteries.AssocList.keysList
+  intro Hk; simp_all
+
 end Batteries.AssocList

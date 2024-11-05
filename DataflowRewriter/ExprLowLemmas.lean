@@ -7,6 +7,8 @@ Authors: Yann Herklotz
 import DataflowRewriter.Module
 import DataflowRewriter.ExprLow
 
+open Batteries (AssocList)
+
 namespace DataflowRewriter
 
 def Module.toBaseExprLow {Ident S} (m : Module Ident S) (inst typ : Ident) : ExprLow Ident :=
@@ -74,6 +76,12 @@ theorem build_moduleD.dep_rewrite {instIdent} : ∀ {modIdent : Ident} {ε a} (H
   let a ← a.build_module'
   let b ← b.build_module'
   return ⟨ _, a.2.product b.2 ⟩
+
+@[drunfold] def build_module_names
+    : (e : ExprLow Ident) → List (PortMapping Ident × Ident)
+| .base i e => [(i, e)]
+| .connect o i e' => e'.build_module_names
+| .product a b => a.build_module_names ++ b.build_module_names
 
 @[drunfold] def build_moduleP
     (e : ExprLow Ident)
