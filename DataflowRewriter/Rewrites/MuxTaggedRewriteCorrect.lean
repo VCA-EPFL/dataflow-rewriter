@@ -111,18 +111,20 @@ def φ {Tag T} (state_rhs : rhsModuleType Tag T) (state_lhs : lhsModuleType Tag 
   state_rhs.1 ++ state_rhs.2.2.1.1 ++ state_rhs.2.1.1.map Prod.fst = state_lhs.1.1 ∧
   state_rhs.1 ++ state_rhs.2.2.2.1 ++ state_rhs.2.1.2.1.map Prod.fst = state_lhs.1.1
 
+theorem sigma_rw {S T : Type _} {m m' : Σ (y : Type _), S → y → T → Prop} {x : S} {y : T} {v : m.fst}
+        (h : m = m' := by reduce; rfl) :
+  m.snd x v y ↔ m'.snd x (h ▸ v) y := by
+  constructor <;> (intros; subst h; assumption)
+
 theorem φ_indistinguishable {Tag T} :
   ∀ x y, φ x y → Module.indistinguishable (rhsModule Tag T) (lhsModule Tag T) x y := by
   unfold φ; intro x y H
   constructor <;> intro ident new_i v Hcontains Hsem
   . have Hkeys := AssocList.keysInMap Hcontains; clear Hcontains
     fin_cases Hkeys
-    -- . simp [drunfold,drcompute]
-    --   have : decide (({ inst := InstIdent.top, name := "i_tag" } : InternalPort String) = { inst := InstIdent.top, name := "i_tag" }) = true := by decide
+    . simp [drunfold,drcompute,seval]
+      constructor; rw[sigma_rw]
 
-    --   simp (config := {decide := true}) [this,drdecide]
-    . dsimp only [drunfold,seval,drcompute]
-      simp
   · have Hkeys := keysInMap Hcontains; clear Hcontains
     fin_cases Hkeys
     let ⟨ ⟨ i, Ha, Hc ⟩, Hb ⟩ := Hsem; clear Hsem
