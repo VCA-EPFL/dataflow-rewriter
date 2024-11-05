@@ -6,7 +6,6 @@ Authors: Yann Herklotz
 
 import DataflowRewriter.Rewriter
 import DataflowRewriter.ExprHighElaborator
-import DataflowRewriter.KernelRefl
 
 namespace DataflowRewriter.BranchMuxToMerge
 
@@ -128,6 +127,8 @@ def lhs' : ExprHigh String := [graph|
     m_right -> mux [out = "m_out", inp = "inp1"];
   ]
 
+#eval IO.print lhs'
+
 def lhs := lhs'.extract ["fork", "m_left", "mux", "m_right", "branch"] |>.get rfl
 
 theorem double_check_empty_snd : lhs.snd = ExprHigh.mk ∅ ∅ := by rfl
@@ -155,6 +156,8 @@ def rhs : ExprHigh String := [graph|
     m_left -> merge [out = "m_out", inp = "inp0"];
     m_right -> merge [out = "m_out", inp = "inp1"];
   ]
+
+#eval IO.print rhs
 
 def rhsLower := rhs.lower.get rfl
 

@@ -7,13 +7,16 @@ Authors: Yann Herklotz
 import DataflowRewriter.Module
 import DataflowRewriter.Simp
 import DataflowRewriter.ExprHigh
+import DataflowRewriter.AssocList.Basic
+
+open Batteries (AssocList)
 
 namespace DataflowRewriter.NatModule
 
 @[drunfold] def io (T : Type) : NatModule (List T) :=
   { inputs := [(0, ⟨ T, λ s tt s' => s' = tt :: s ⟩)].toAssocList,
     internals := [],
-    outputs := [(0, ⟨ T, λ s tt s' => s = s' ++ [tt] ⟩)].toAssocList
+    outputs := [(0, ⟨ T, λ s tt s' => s = s'.concat tt ⟩)].toAssocList
   }
 
 @[drunfold] def merge_inputs {S} (mod : NatModule S) (in1 in2 : InternalPort Nat) : Option (NatModule S)  := do
@@ -54,7 +57,7 @@ namespace DataflowRewriter.NatModule
 
 @[drunfold] def queue T : NatModule (List T) :=
   { inputs := [(⟨ .top, 0 ⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
-    outputs := [(⟨ .top, 0 ⟩, ⟨ T, λ oldList oldElement newList =>  newList ++ [oldElement] = oldList ⟩)].toAssocList,
+    outputs := [(⟨ .top, 0 ⟩, ⟨ T, λ oldList oldElement newList =>  newList.concat oldElement = oldList ⟩)].toAssocList,
     internals := []
   }
 
@@ -64,8 +67,8 @@ namespace DataflowRewriter.NatModule
               , (1, ⟨ T', λ (oldListL, oldListR) newElement (newListL, newListR) =>
                        newListR = newElement :: oldListR ∧ newListL = oldListL⟩)].toAssocList,
     outputs := [(0, ⟨ T × T', λ (oldListL, oldListR) (oldElementL, oldElementR) (newListL, newListR) =>
-                       oldListL = oldElementL :: newListL ∧
-                       oldListR = oldElementR :: newListR ⟩)].toAssocList,
+                       oldListL = newListL.concat oldElementL ∧
+                       oldListR = newListR.concat oldElementR ⟩)].toAssocList,
     internals := []
   }
 
@@ -76,9 +79,9 @@ namespace DataflowRewriter.NatModule
                            newValList = oldValList ∧ newBoolList = b :: oldBoolList ⟩)
               ].toAssocList
     outputs := [ (0, ⟨ T, λ (oldValList, oldBoolList) val (newValList, newBoolList) =>
-                            val :: newValList = oldValList ∧ true :: newBoolList = oldBoolList ⟩)
+                            newValList.concat val = oldValList ∧ newBoolList.concat true = oldBoolList ⟩)
                , (1, ⟨ T, λ (oldValList, oldBoolList) val (newValList, newBoolList) =>
-                            val :: newValList = oldValList ∧ false :: newBoolList = oldBoolList ⟩)
+                            newValList.concat val = oldValList ∧ newBoolList.concat false = oldBoolList ⟩)
                ].toAssocList
     internals := []
   }
@@ -92,9 +95,9 @@ namespace DataflowRewriter.NatModule
                            newTrueList = oldTrueList ∧ newFalseList = oldFalseList ∧ newBoolList = b :: oldBoolList ⟩)
               ].toAssocList
     outputs := [ (0, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
-                            ∃ b, b :: newBoolList = oldBoolList
-                              ∧ if b then val :: newTrueList = oldTrueList ∧ newFalseList = oldFalseList
-                                     else newTrueList = oldTrueList ∧ val :: newFalseList = oldFalseList ⟩)
+                            ∃ b, newBoolList.concat b = oldBoolList
+                              ∧ if b then newTrueList.concat val = oldTrueList ∧ newFalseList = oldFalseList
+                                     else newTrueList = oldTrueList ∧ newFalseList.concat val = oldFalseList ⟩)
                ].toAssocList
     internals := []
   }
@@ -104,27 +107,74 @@ namespace DataflowRewriter.NatModule
     outputs := [(0,⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)].toAssocList,
     internals := []}
 
-@[drunfold] def tagger (TagT : Type 0) [_i: DecidableEq TagT] (T : Type 0) : NatModule (List TagT × (TagT → Option T)) :=
+@[drunfold] def tagger_untagger (TagT : Type 0) [_i: DecidableEq TagT] (T : Type 0) : NatModule (List TagT × (AssocList TagT T)) :=
   { inputs := [
         -- Complete computation
         (0, ⟨ TagT × T, λ (oldOrder, oldMap) (tag,el) (newOrder, newMap) =>
           -- Tag must be used, but no value ready, otherwise block:
-          (List.elem tag oldOrder ∧ oldMap tag = none) ∧
-          newMap = (λ idx => if idx == tag then some el else oldMap idx) ∧ newOrder = oldOrder⟩)
+          (tag ∈ oldOrder ∧ oldMap.find? tag = none) ∧
+          newMap = oldMap.cons tag el ∧ newOrder = oldOrder⟩)
       ].toAssocList,
     outputs := [
         -- Allocate fresh tag
       (0, ⟨ TagT, λ (oldOrder, oldMap) (tag) (newOrder, newMap) =>
         -- Tag must be unused otherwise block (alternatively we
         -- could an implication to say undefined behavior):
-        (!List.elem tag oldOrder ∧ oldMap tag = none) ∧
+        (tag ∉ oldOrder ∧ oldMap.find? tag = none) ∧
         newMap = oldMap ∧ newOrder = tag :: oldOrder⟩),
         -- Dequeue + free tag
       (1, ⟨ T, λ (oldorder, oldmap) el (neworder, newmap) =>
         -- tag must be used otherwise, but no value brought, undefined behavior:
-        ∃ l tag , oldorder = l ++ [tag] ∧ oldmap tag = some el ∧
-        newmap = (λ idx => if idx == tag then none else oldmap idx) ∧ neworder = l ⟩),
+        ∃ l tag , oldorder = l.cons tag ∧ oldmap.find? tag = some el ∧
+        newmap = oldmap.eraseAll tag ∧ neworder = l ⟩),
         ].toAssocList,
+    internals := []
+  }
+
+/--
+Essentially tagger + join without internal rule
+-/
+@[drunfold] def tagger_untagger_val (TagT : Type 0) [_i: DecidableEq TagT] (T : Type 0) : NatModule (List TagT × AssocList TagT T × List T) :=
+  { inputs := [
+        -- Complete computation
+        (0, ⟨ TagT × T, λ (oldOrder, oldMap, oldVal) (tag,el) (newOrder, newMap, newVal) =>
+          -- Tag must be used, but no value ready, otherwise block:
+          (tag ∈ oldOrder ∧ oldMap.find? tag = none) ∧
+          newMap = oldMap.cons tag el ∧ newOrder = oldOrder ∧ newVal = oldVal ⟩),
+        -- Enq a value to be tagged
+        (0, ⟨ T, λ (oldOrder, oldMap, oldVal) v (newOrder, newMap, newVal) =>
+          -- Tag must be used, but no value ready, otherwise block:
+          newMap = oldMap ∧ newOrder = oldOrder ∧ newVal = v :: oldVal ⟩)
+      ].toAssocList,
+    outputs := [
+        -- Allocate fresh tag and output with value
+      (0, ⟨ TagT × T, λ (oldOrder, oldMap, oldVal) (tag, v) (newOrder, newMap, newVal) =>
+        -- Tag must be unused otherwise block (alternatively we
+        -- could an implication to say undefined behavior):
+        (tag ∉ oldOrder ∧ oldMap.find? tag = none) ∧
+        newMap = oldMap ∧ newOrder = tag :: oldOrder ∧ newVal.cons v = oldVal⟩),
+        -- Dequeue + free tag
+      (1, ⟨ T, λ (oldorder, oldmap, oldVal) el (neworder, newmap, newVal) =>
+        -- tag must be used otherwise, but no value brought, undefined behavior:
+        ∃ l tag , oldorder = l.cons tag ∧ oldmap.find? tag = some el ∧
+        newmap = oldmap.eraseAll tag ∧ neworder = l ∧ newVal = oldVal ⟩),
+        ].toAssocList,
+    internals := []
+  }
+
+@[drunfold] def tagger (TagT : Type) [DecidableEq TagT] T : NatModule (List (TagT × T) × List TagT) :=
+  { inputs := [
+        -- Allocate tag
+        (0, ⟨ T, λ (oldEl, oldOrder) el (newEl, newOrder) =>
+          ∃ tag, tag ∉ oldOrder ∧ newEl = (tag, el) :: oldEl ∧ newOrder = tag :: oldOrder ⟩),
+        -- Free tag
+        (1, ⟨ TagT, λ (oldEl, oldOrder) t (newEl, newOrder) =>
+          newOrder = oldOrder.erase t ∧ newEl = oldEl ⟩)
+      ].toAssocList,
+    outputs := [
+        (0, ⟨ TagT × T, λ (oldEl, oldOrder) el (newEl, newOrder) =>
+          newEl.concat el = oldEl ∧ newOrder = oldOrder⟩)
+      ].toAssocList,
     internals := []
   }
 
@@ -148,7 +198,7 @@ namespace DataflowRewriter.StringModule
   |>.mapIdent (λ | 0 => "val" | _ => "cond") (λ | 0 => "true" | _ => "false")
 
 @[drunfold] def mux T := NatModule.mux T
-  |>.mapIdent (λ | 0 => "true" | 1 => "false" | _ => "cond") (λ _ => "out")
+  |>.stringify
 
 @[drunfold] def tagger TagT [DecidableEq TagT] T := NatModule.tagger TagT T
 

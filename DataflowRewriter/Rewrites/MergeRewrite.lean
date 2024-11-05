@@ -41,6 +41,8 @@ def matcher (g : ExprHigh String) : RewriteResult (List String) := do
     merge2 -> out0 [out = "out0"];
   ]
 
+#eval IO.print mergeLhs
+
 /--
 To get instances in a predictable order, it's a good idea to extract the whole
 graph once with the nodes in the order that you want to provide them in the
@@ -75,6 +77,8 @@ def mergeLhsLower := mergeLhsOrdered.fst.lower.get rfl
 
     merge3 -> out0 [out = "out0"];
   ]
+
+#eval IO.print mergeRhs
 
 def mergeRhsLower := mergeRhs.lower.get rfl
 

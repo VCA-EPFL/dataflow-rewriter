@@ -60,7 +60,7 @@ section BranchMerge
 def test  TagT T S input output internals :=
    bagged.build_module [("m", ⟨S, ({ inputs := [(⟨ .top, "inp"⟩ , input)].toAssocList,
                                      outputs := [(⟨ .top, "out"⟩ , output)].toAssocList,
-                                     internals := internals })⟩), ("bag", ⟨_,StringModule.bagS (TagT × T)⟩), ("join", ⟨_,(NatModule.join TagT T).stringify⟩)].toAssocList
+                                     internals := internals })⟩), ("bag", ⟨_,StringModule.bag (TagT × T)⟩), ("join", ⟨_,(NatModule.join TagT T).stringify⟩)].toAssocList
 
 #check test
 
