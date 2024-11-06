@@ -116,29 +116,29 @@ instance (Ident) [DecidableEq Ident] [Repr Ident] [ToString Ident] : ToString (E
       let (io_decl, io_conn) := a.modules.foldl (λ (sdecl, sio) inst (pmap, typ) =>
         let sdecl := (pmap.input ++ pmap.output).foldl (λ sdecl k v =>
           if v.inst.isTop
-          then sdecl ++ s!"\n  {v.name} [mod = \"io\", label = \"{v.name}: io\"];"
+          then sdecl ++ s!"\n  {v.name} [type = \"io\", label = \"{v.name}: io\"];"
           else sdecl) sdecl
         let sio := pmap.input.foldl (λ io_conn k v =>
           if v.inst.isTop
-          then io_conn ++ s!"\n  {v.name} -> {inst} [inp = \"{k.name}\", headlabel = \"{k.name}\"];"
+          then io_conn ++ s!"\n  {v.name} -> {inst} [to = \"{k.name}\", headlabel = \"{k.name}\"];"
           else io_conn) sio
         let sio := pmap.output.foldl (λ io_conn k v =>
           if v.inst.isTop
-          then io_conn ++ s!"\n  {inst} -> {v.name} [out = \"{k.name}\", taillabel = \"{k.name}\"];"
+          then io_conn ++ s!"\n  {inst} -> {v.name} [from = \"{k.name}\", taillabel = \"{k.name}\"];"
           else io_conn) sio
         (sdecl, sio)
       ) ("", "")
       let modules :=
         a.modules.foldl
           (λ s k v =>
-            s ++ s!"  {k} [mod = \"{v.snd}\", label = \"{k}: {v.snd}\"];\n"
+            s ++ s!"  {k} [type = \"{v.snd}\", label = \"{k}: {v.snd}\"];\n"
             ) ""
       let connections :=
         a.connections.foldl
           (λ s => λ | ⟨ oport, iport ⟩ =>
                       s ++ s!"\n  {oport.inst} -> {iport.inst} "
-                        ++ s!"[out = \"{oport.name}\","
-                        ++ s!" inp = \"{iport.name}\","
+                        ++ s!"[from = \"{oport.name}\","
+                        ++ s!" to = \"{iport.name}\","
                         ++ s!" taillabel = \"{oport.name}\","
                         ++ s!" headlabel = \"{iport.name}\","
                         ++ "];") ""

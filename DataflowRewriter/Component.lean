@@ -213,6 +213,23 @@ Essentially tagger + join without internal rule
     internals := []
   }
 
+@[drunfold] def aligner TagT [DecidableEq TagT] T : NatModule (List (TagT × T) × List (TagT × T)) :=
+  { inputs := [
+        (0, ⟨ TagT × T, λ (oldListL, oldListR) newElement (newListL, newListR) =>
+            newListL = newElement :: oldListL ⟩),
+        (1, ⟨ TagT × T, λ (oldListL, oldListR) newElement (newListL, newListR) =>
+            newListR = newElement :: oldListR ⟩)
+      ].toAssocList,
+    outputs := [
+        (0, ⟨ (TagT × T) × (TagT × T), λ (oldListL, oldListR) oldElement (newListL, newListR) =>
+           ∃ t v v', (t, v) ∈ oldListL ∧ (t, v') ∈ oldListR
+             ∧ newListL = oldListL.eraseP (·.fst = t)
+             ∧ newListR = oldListR.eraseP (·.fst = t)
+             ∧ oldElement = ((t, v), (t, v')) ⟩)
+      ].toAssocList,
+    internals := []
+  }
+
 @[drunfold] def unary_op {α R} (f : α → R): NatModule (List α) :=
   { inputs := [
         (0, ⟨ α, λ oldList newElement newList => newList = newElement :: oldList ⟩)
@@ -279,6 +296,9 @@ namespace DataflowRewriter.StringModule
 @[drunfold] def tagger TagT [DecidableEq TagT] T := NatModule.tagger TagT T
   |>.stringify
 
+@[drunfold] def aligner TagT [DecidableEq TagT] T := NatModule.aligner TagT T
+  |>.stringify
+
 @[drunfold] def unary_op {α R} (f : α → R) := NatModule.unary_op f
   |>.stringify
 
@@ -315,22 +335,31 @@ def ε (Tag : Type) [DecidableEq Tag] (T : Type) [Inhabited T] : IdentMap String
   , ("TagggedMerge", ⟨_, StringModule.merge (Tag × T) 2⟩)
 
   , ("Fork", ⟨_, StringModule.fork T 2⟩)
+  , ("Fork3", ⟨_, StringModule.fork T 3⟩)
+  , ("Fork4", ⟨_, StringModule.fork T 4⟩)
+  , ("Fork5", ⟨_, StringModule.fork T 5⟩)
+  , ("Fork6", ⟨_, StringModule.fork T 6⟩)
   , ("TagggedFork", ⟨_, StringModule.fork (Tag × T) 2⟩)
 
   , ("CntrlMerge", ⟨_, StringModule.cntrl_merge T⟩)
   , ("TagggedCntrlMerge", ⟨_, StringModule.cntrl_merge (Tag × T)⟩)
 
   , ("Branch", ⟨_, StringModule.branch T⟩)
+  , ("BranchC", ⟨_, StringModule.branch Unit⟩)
   , ("TagggedBranch", ⟨_, StringModule.branch (Tag × T)⟩)
 
   , ("Mux", ⟨_, StringModule.mux T⟩)
+  , ("MuxC", ⟨_, StringModule.mux Unit⟩)
   , ("TagggedMux", ⟨_, StringModule.mux (Tag × T)⟩)
 
   , ("Buffer", ⟨_, StringModule.queue T⟩)
+  , ("BufferC", ⟨_, StringModule.queue Unit⟩)
+  , ("BufferB", ⟨_, StringModule.queue Bool⟩)
   , ("TagggedBuffer", ⟨_, StringModule.queue (Tag × T)⟩)
 
   , ("Bag", ⟨_, StringModule.bag (Tag × T)⟩)
 
+  , ("Aligner", ⟨_, StringModule.aligner Tag T⟩)
   , ("TaggerCntrlAligner", ⟨_, StringModule.tagger_untagger_val Tag T⟩)
 
   , ("ConstantA", ⟨_, StringModule.constant (@constant_a T)⟩)

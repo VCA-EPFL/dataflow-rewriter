@@ -82,7 +82,7 @@ def lookahead (p : Char → Prop) (desc : String) [DecidablePred p] : Parser Uni
 @[inline] def strWs : Parser String := str <* ws
 
 def strDigits : Parser String := do
-  let l ← digits
+  let l ← Lean.Json.Parser.num
   return toString l
 
 def strDigitsWs : Parser String := strDigits <* ws
@@ -161,17 +161,32 @@ def parseEdgeDG : Parser DotGraph := do
   let n ← parseEdge
   return {nodes := [], edges := [n]}
 
-def parseStmnt : Parser DotGraph :=
-  attempt parseEdgeDG <|> parseNodeDG
-
 def combine (a b : DotGraph) : DotGraph :=
   {nodes := a.nodes ++ b.nodes, edges := a.edges ++ b.edges}
 
-def parseDotGraph : Parser DotGraph := do
-  let l ← delimited ";" parseStmnt
+def parseComment : Parser Unit :=
+  optional (skipString "//" *> many (satisfy (λ c => c ≠ '\n' && c ≠ '\r'))) *> ws
+
+mutual
+
+partial def parseStmnt : Parser DotGraph :=
+  attempt (parseEdgeDG <* skipChar ';')
+  <|> attempt (parseNodeDG <* skipChar ';')
+  <|> attempt (parseAttr *> pure {nodes := [], edges := []} <* skipChar ';')
+  <|> parseSubgraph
+
+partial def parseDotGraph : Parser DotGraph := do
+  let l ← many (optional parseComment *> parseStmnt <* ws)
   return l.foldl combine ∅
 
+partial def parseSubgraph : Parser DotGraph := do
+  skipStringWs "subgraph" *> tryD "defaultId" parseId *> braces parseDotGraph <* ws
+
+end
+
+def parseDigraph := skipStringWs "digraph" <|> skipStringWs "Digraph"
+
 def dotGraph : Parser DotGraph := do
-  ws *> skipStringWs "digraph" *> braces parseDotGraph <* eof
+  ws *> parseDigraph *> optional parseId *> braces parseDotGraph <* eof
 
 end DataflowRewriter.Parser

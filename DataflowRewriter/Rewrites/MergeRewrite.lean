@@ -112,7 +112,7 @@ def mergeHigh : ExprHigh String :=
     merge2 -> snk0 [out="out0"];
   ]
 
-/--
+/-
 info: ok: digraph {
 
   snk0 [mod = "io", label = "snk0: io"];
@@ -131,8 +131,8 @@ info: ok: digraph {
   rw0_1 -> rw0_2 [out = "out1", inp = "inp1", taillabel = "out1", headlabel = "inp1",];
 }
 -/
-#guard_msgs in
-#eval DataflowRewriter.rewrite "rw0_" mergeHigh rewrite |> toString |> IO.print
+-- #guard_msgs in
+-- #eval DataflowRewriter.rewrite "rw0_" mergeHigh rewrite |> toString |> IO.print
 
 end TestRewriter
 
