@@ -177,7 +177,7 @@ Essentially tagger + join without internal rule
           (tag ∈ oldOrder ∧ oldMap.find? tag = none) ∧
           newMap = oldMap.cons tag el ∧ newOrder = oldOrder ∧ newVal = oldVal ⟩),
         -- Enq a value to be tagged
-        (0, ⟨ T, λ (oldOrder, oldMap, oldVal) v (newOrder, newMap, newVal) =>
+        (1, ⟨ T, λ (oldOrder, oldMap, oldVal) v (newOrder, newMap, newVal) =>
           -- Tag must be used, but no value ready, otherwise block:
           newMap = oldMap ∧ newOrder = oldOrder ∧ newVal = v :: oldVal ⟩)
       ].toAssocList,
@@ -191,8 +191,8 @@ Essentially tagger + join without internal rule
         -- Dequeue + free tag
       (1, ⟨ T, λ (oldorder, oldmap, oldVal) el (neworder, newmap, newVal) =>
         -- tag must be used otherwise, but no value brought, undefined behavior:
-        ∃ l tag , oldorder = l.cons tag ∧ oldmap.find? tag = some el ∧
-        newmap = oldmap.eraseAll tag ∧ neworder = l ∧ newVal = oldVal ⟩),
+        ∃ tag , oldorder = neworder.concat tag ∧ oldmap.find? tag = some el ∧
+        newmap = oldmap.eraseAll tag ∧ newVal = oldVal ⟩),
         ].toAssocList,
     internals := []
   }

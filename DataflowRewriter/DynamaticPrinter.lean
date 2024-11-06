@@ -35,7 +35,8 @@ def interfaceTypes (m : AssocList String String) :=
   , ("Fork6", (some "Fork", "in1:32", "out1:32 out2:32 out3:32 out4:32 out5:32 out6:32", []))
   , ("TagggedFork", (none, "in1:32", "out1:32 out2:32", []))
 
-  , ("CntrlMerge", (none, "in1:32 in2:32", "out1:32 out2?:1", []))
+  -- TODO FIX DELAY
+  , ("CntrlMerge", (none, "in1:32 in2:32", "out1:32 out2?:1", [("delay", "1.234510"), ("delay2", "1.234510")]))
   , ("TagggedCntrlMerge", (none, "in1:32 in2:32", "out1:32 out2?:1", []))
 
   , ("Branch", (none, "in1:32 in2?:1", "out1+:32 out2-:32", []))
@@ -58,6 +59,9 @@ def interfaceTypes (m : AssocList String String) :=
   -- value.  Maybe the formalisation needs to add a split to the end.
   , ("Aligner", (none, "in1:32 in2:32", "out1:32 out2:32", []))
   , ("TaggerCntrlAligner", (none, "in1:32 in2:32", "out1:32 out2:32", []))
+
+  -- TODO WRONG
+  , ("Sink", (none, "in1:32 in2:32", "out1:32 out2:32", []))
 
   -- Constants are currently axiomatised
   , ("ConstantA", (some "Constant", "in1:0", "out1:32", [("value", m.find? "A" |>.getD "unrecognised")]))
@@ -102,7 +106,7 @@ def dynamaticString (a: ExprHigh String) (m : AssocList String String): Option S
   let modules ←
     a.modules.foldlM
       (λ s k v => do
-        let fmt := (interfaceTypes m).find? v.snd |>.getD (some v.snd, "", "", [])
+        let fmt := (interfaceTypes m).find? v.snd |>.getD (some v.snd, "", "", [("unsupported", "true")])
         return s ++ s!"  {k} [type = \"{fmt.1.getD v.snd}\", label = \"{k}: {v.snd}\", in = \"{fmt.2.1}\", out = \"{fmt.2.2.1}\"{formatOptions fmt.2.2.2}];\n"
         ) ""
   let connections :=

@@ -673,7 +673,6 @@ theorem refines_product {J K} [Nonempty J] [Nonempty I] (imod₂ : Module Ident 
   specialize ref₂ hφ₂
   all_goals sorry
 
-
 theorem refines_connect {o i} :
     imod ⊑ smod →
     imod.connect' o i ⊑ smod.connect' o i := by sorry
