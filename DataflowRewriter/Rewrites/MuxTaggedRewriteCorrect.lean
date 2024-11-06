@@ -121,6 +121,8 @@ theorem sigma_rw_simp {S T : Type _} {m m' : Σ (y : Type _), S → y → T → 
   m.snd x v y ↔ m'.snd x (h ▸ v) y := by
   constructor <;> (intros; subst h; assumption)
 
+set_option maxHeartbeats 0
+
 theorem φ_indistinguishable {Tag T} :
   ∀ x y, φ x y → Module.indistinguishable (rhsModule Tag T) (lhsModule Tag T) x y := by
   unfold φ; intro ⟨x_fork, x_mux, x_join1, x_join2⟩ ⟨y_join, y_mux⟩ H
@@ -129,7 +131,7 @@ theorem φ_indistinguishable {Tag T} :
     fin_cases Hkeys
     . simp [drunfold,drcompute,seval] at Hsem ⊢
       rw[sigma_rw_simp] at Hsem; simp at Hsem
-      rcases y_join with ⟨y_join_l, y_join_r⟩
+      --rcases y_join with ⟨y_join_l, y_join_r⟩
       apply Exists.intro ((_, _), (_, (_, _)))
       constructor; dsimp; and_intros
       all_goals rfl
@@ -147,7 +149,7 @@ theorem φ_indistinguishable {Tag T} :
       all_goals rfl
     . simp [drunfold,drcompute,seval] at Hsem ⊢
       rw[sigma_rw_simp] at Hsem; simp at Hsem
-      rcases y_join with ⟨y_join_l, y_join_r⟩
+      --rcases y_join with ⟨y_join_l, y_join_r⟩
       apply Exists.intro ((_, _), (_, (_, _)))
       constructor; dsimp; and_intros
       all_goals rfl
@@ -155,27 +157,32 @@ theorem φ_indistinguishable {Tag T} :
     fin_cases Hkeys
     . simp [drunfold,drcompute,seval] at Hsem ⊢
       rw[sigma_rw_simp] at Hsem; simp at Hsem
-      -- rcases y_join with ⟨y_join_l, y_join_r⟩
-      apply Exists.intro ((_, _), (_, (_, _)))
-      dsimp at *; constructor; dsimp; and_intros
+      rcases H with ⟨ _, _ , _, _, _ ⟩
+      cases Hsem; rename_i Hsem _
+      cases Hsem; rename_i Hsem _
+      cases Hsem <;> rename_i Hsem <;> rcases Hsem with ⟨ _, _, _ ⟩
+      . simp at *
+        rcases new_i with ⟨x_new_fork, x_new_mux, x_new_join1, x_new_join2⟩
+        cases v
+        apply Exists.intro ((_, _), (_, (_, _)))
+        dsimp at *; constructor; dsimp; and_intros <;> simp_all
+        . rename_i h1 h2 h3 h4 h5 h6 h7 h8 h9 h10
+          simp_rw[← h10] at h5
+          -- unfold Prod.fst at h5
+          -- simp at h5
+          --set_option pp.explicit true in trace_state
+          simp_rw[← h5]
+          simp
+          rfl
+        . rename_i h1 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ h2
+          simp_rw[← h2] at h1
+          unfold Prod.snd at h1
+          simp at h1
+          simp_rw[← h2]
+          unfold List.map
+          rw[h5]
 
 
-  · have Hkeys := keysInMap Hcontains; clear Hcontains
-    fin_cases Hkeys
-    let ⟨ ⟨ i, Ha, Hc ⟩, Hb ⟩ := Hsem; clear Hsem
-    let (x1, x2) := x; clear x
-    let (new_i1, new_i2) := new_i; clear new_i
-    subst_vars; dsimp at *
-    generalize h : x2[i] = y'
-    have Ht : ∃ (i : Fin x2.length), x2.get i = y' := by exists i
-    rw [← List.mem_iff_get] at Ht
-    have He := List.Perm.symm H
-    have Hiff := List.Perm.mem_iff (a := y') He
-    have Ht' : y' ∈ y := by rw [Hiff]; simp; cases Ht <;> tauto
-    rw [List.mem_iff_get] at Ht'
-    let ⟨ i', Hi' ⟩ := Ht'; clear Ht'
-    constructor; exists i'; and_intros; rfl
-    simp [←Hi']
 
 theorem correct_threeway_merge'' {Tag T: Type _} [DecidableEq T]:
   rhsModule Tag T ⊑_{φ} lhsModule Tag T := by
