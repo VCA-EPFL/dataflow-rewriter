@@ -177,7 +177,7 @@ class FreshIdent (Ident : Type _) where
   next : Nat → Ident
 
 instance : FreshIdent String where
-  next n := "mod" ++ toString n
+  next n := "type" ++ toString n
 
 instance : FreshIdent Nat where
   next := id

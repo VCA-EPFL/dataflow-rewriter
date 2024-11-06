@@ -1,0 +1,48 @@
+Digraph G {
+	splines=spline;
+//DHLS version: 0.1.1" [shape = "none" pos = "20,20!"]
+
+	subgraph cluster_0 {
+	color = "darkgreen";
+		label = "block1";
+		"arg" [type = "Entry", bbID= 1, in = "in1:32", out = "out1:32", tagged=false, taggers_num=0, tagger_id=-1];
+		"mul_0" [type = "Operator", bbID= 1, op = "mul_op", in = "in1:32 in2:32 ", out = "out1:32 ", delay=0.000, latency=4, II=1, tagged=false, taggers_num=0, tagger_id=-1];
+		"cst_0" [type = "Constant", bbID= 1, in = "in1:32", out = "out1:32", value = "0x00000002", tagged=false, taggers_num=0, tagger_id=-1];
+		"add_1" [type = "Operator", bbID= 1, op = "add_op", in = "in1:32 in2:32 ", out = "out1:32 ", delay=1.693, latency=0, II=1, tagged=false, taggers_num=0, tagger_id=-1];
+		"cst_1" [type = "Constant", bbID= 1, in = "in1:32", out = "out1:32", value = "0x00000002", tagged=false, taggers_num=0, tagger_id=-1];
+		"shl_2" [type = "Operator", bbID= 1, op = "shl_op", in = "in1:32 in2:32 ", out = "out1:32 ", delay=0.000, latency=0, II=1, tagged=false, taggers_num=0, tagger_id=-1];
+		"add_3" [type = "Operator", bbID= 1, op = "add_op", in = "in1:32 in2:32 ", out = "out1:32 ", delay=1.693, latency=0, II=1, tagged=false, taggers_num=0, tagger_id=-1];
+		"cst_2" [type = "Constant", bbID= 1, in = "in1:32", out = "out1:32", value = "0x0000000A", tagged=false, taggers_num=0, tagger_id=-1];
+		"mul_4" [type = "Operator", bbID= 1, op = "mul_op", in = "in1:32 in2:32 ", out = "out1:32 ", delay=0.000, latency=4, II=1, tagged=false, taggers_num=0, tagger_id=-1];
+		"mul_5" [type = "Operator", bbID= 1, op = "mul_op", in = "in1:32 in2:32 ", out = "out1:32 ", delay=0.000, latency=4, II=1, tagged=false, taggers_num=0, tagger_id=-1];
+		"ret_0" [type = "Operator", bbID= 1, op = "ret_op", in = "in1:32 ", out = "out1:32 ", delay=0.000, latency=0, II=1, tagged=false, taggers_num=0, tagger_id=-1];
+		"start_0" [type = "Entry", control= "true", bbID= 1, in = "in1:0", out = "out1:0", tagged=false, taggers_num=0, tagger_id=-1];
+		"fork_0" [type = "Fork", bbID= 1, in = "in1:32", out = "out1:32 out2:32 out3:32 ", tagged=false, taggers_num=0, tagger_id=-1];
+        "fork_1" [type = "Fork", bbID= 1, in = "in1:32", out = "out1:32 out2:32 ", tagged=false, taggers_num=0, tagger_id=-1];
+        "forkC_1" [type = "Fork", bbID= 1, in = "in1:0", out = "out1:0 out2:0 out3:0 ", tagged=false, taggers_num=0, tagger_id=-1];
+
+	}
+	"end_0" [type = "Exit", bbID= 0, in = " in1:32 ", out = "out1:32" ];
+
+	"arg" -> "fork_0" [color = "red", from = "out1", to = "in1"];
+	"mul_0" -> "add_1" [color = "red", from = "out1", to = "in1"];
+	"cst_0" -> "add_1" [color = "red", from = "out1", to = "in2"];
+	"add_1" -> "add_3" [color = "red", from = "out1", to = "in1"];
+	"cst_1" -> "shl_2" [color = "red", from = "out1", to = "in2"];
+	"shl_2" -> "add_3" [color = "red", from = "out1", to = "in2"];
+	"add_3" -> "mul_4" [color = "red", from = "out1", to = "in1"];
+	"cst_2" -> "mul_4" [color = "red", from = "out1", to = "in2"];
+	"mul_4" -> "mul_5" [color = "red", from = "out1", to = "in1"];
+	"mul_5" -> "ret_0" [color = "red", from = "out1", to = "in1"];
+	"ret_0" -> "end_0" [color = "red", from = "out1", to = "in1"];
+	"start_0" -> "forkC_1" [color = "gold3", from = "out1", to = "in1"];
+	"fork_0" -> "mul_0" [color = "red", from = "out1", to = "in1"];
+	"fork_0" -> "mul_0" [color = "red", from = "out2", to = "in2"];
+    "fork_0" -> "fork_1" [color = "red", from = "out3", to = "in1"];
+	"fork_1" -> "shl_2" [color = "red", from = "out1", to = "in1"];
+	"fork_1" -> "mul_5" [color = "red", from = "out2", to = "in2"];
+	"forkC_1" -> "cst_0" [color = "gold3", from = "out1", to = "in1"];
+	"forkC_1" -> "cst_1" [color = "gold3", from = "out2", to = "in1"];
+	"forkC_1" -> "cst_2" [color = "gold3", from = "out3", to = "in1"];
+
+}

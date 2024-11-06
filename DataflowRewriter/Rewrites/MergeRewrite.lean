@@ -16,21 +16,21 @@ form the subgraph as a list of instance names.
 def matcher (g : ExprHigh String) : RewriteResult (List String) := do
   let (.some list) ← g.modules.foldlM (λ nodes inst (pmap, typ) => do
       if nodes.isSome then return nodes
-      unless typ = "merge" do return none
+      unless typ = "Merge" do return none
       let (.some nn) := followOutput g inst "out0" | return none
-      unless nn.typ = "merge" && nn.inputPort = "inp0" do return none
+      unless nn.typ = "Merge" && nn.inputPort = "inp0" do return none
       return some [inst, nn.inst]
     ) none | throw .done
   return list
 
 @[drunfold] def mergeLhs : ExprHigh String := [graph|
-    out0 [mod = "io"];
-    inp0 [mod = "io"];
-    inp1 [mod = "io"];
-    inp2 [mod = "io"];
+    out0 [type = "io"];
+    inp0 [type = "io"];
+    inp1 [type = "io"];
+    inp2 [type = "io"];
 
-    merge1 [mod = "merge"];
-    merge2 [mod = "merge"];
+    merge1 [type = "Merge"];
+    merge2 [type = "Merge"];
 
     inp0 -> merge1 [inp = "inp0"];
     inp1 -> merge1 [inp = "inp1"];
@@ -64,12 +64,12 @@ ordering of instances.
 def mergeLhsLower := mergeLhsOrdered.fst.lower.get rfl
 
 @[drunfold] def mergeRhs : ExprHigh String := [graph|
-    out0 [mod = "io"];
-    inp0 [mod = "io"];
-    inp1 [mod = "io"];
-    inp2 [mod = "io"];
+    out0 [type = "io"];
+    inp0 [type = "io"];
+    inp1 [type = "io"];
+    inp2 [type = "io"];
 
-    merge3 [mod = "merge3"];
+    merge3 [type = "Merge3"];
 
     inp0 -> merge3 [inp = "inp0"];
     inp1 -> merge3 [inp = "inp1"];
@@ -91,13 +91,13 @@ namespace TestRewriter
 
 def mergeHigh : ExprHigh String :=
   [graph|
-    src0 [mod="io"];
-    snk0 [mod="io"];
+    src0 [type="io"];
+    snk0 [type="io"];
 
-    fork1 [mod="fork"];
-    fork2 [mod="fork"];
-    merge2 [mod="merge"];
-    merge1 [mod="merge"];
+    fork1 [type="Fork"];
+    fork2 [type="Fork"];
+    merge2 [type="Merge"];
+    merge1 [type="Merge"];
 
     src0 -> fork1 [inp="inp0"];
 
