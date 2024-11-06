@@ -7,6 +7,8 @@ Authors: Yann Herklotz
 import DataflowRewriter.Rewriter
 import DataflowRewriter.ExprHighElaborator
 
+open Batteries (AssocList)
+
 namespace DataflowRewriter
 
 /--
@@ -16,7 +18,7 @@ the Component.lean file.
 - It is also not clear what the type for tagged components should be.
 - TODO Check that the IO names correspond to the implementation.
 -/
-def interfaceTypes :=
+def interfaceTypes (m : AssocList String String) :=
   [ ("Join", (none, "in1:32 in2:32", "out1:64", []))
   , ("TaggedJoin", (none, "in1:32 in2:32", "out1:64", []))
 
@@ -58,13 +60,13 @@ def interfaceTypes :=
   , ("TaggerCntrlAligner", (none, "in1:32 in2:32", "out1:32 out2:32", []))
 
   -- Constants are currently axiomatised
-  , ("ConstantA", (some "Constant", "in1:0", "out1:32", [("value", "A")]))
-  , ("ConstantB", (some "Constant", "in1:0", "out1:32", [("value", "B")]))
-  , ("ConstantC", (some "Constant", "in1:0", "out1:32", [("value", "C")]))
-  , ("ConstantD", (some "Constant", "in1:0", "out1:32", [("value", "D")]))
-  , ("ConstantE", (some "Constant", "in1:0", "out1:32", [("value", "E")]))
-  , ("ConstantF", (some "Constant", "in1:0", "out1:32", [("value", "F")]))
-  , ("ConstantG", (some "Constant", "in1:0", "out1:32", [("value", "G")]))
+  , ("ConstantA", (some "Constant", "in1:0", "out1:32", [("value", m.find? "A" |>.getD "unrecognised")]))
+  , ("ConstantB", (some "Constant", "in1:0", "out1:32", [("value", m.find? "B" |>.getD "unrecognised")]))
+  , ("ConstantC", (some "Constant", "in1:0", "out1:32", [("value", m.find? "C" |>.getD "unrecognised")]))
+  , ("ConstantD", (some "Constant", "in1:0", "out1:32", [("value", m.find? "D" |>.getD "unrecognised")]))
+  , ("ConstantE", (some "Constant", "in1:0", "out1:32", [("value", m.find? "E" |>.getD "unrecognised")]))
+  , ("ConstantF", (some "Constant", "in1:0", "out1:32", [("value", m.find? "F" |>.getD "unrecognised")]))
+  , ("ConstantG", (some "Constant", "in1:0", "out1:32", [("value", m.find? "G" |>.getD "unrecognised")]))
 
   -- Operations are also axiomatised
   , ("Add", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "add")]))
@@ -78,7 +80,7 @@ def formatOptions : List (String × String) → String
 | x :: l => l.foldl (λ s (sl, sr) => s ++ s!", {sl} = \"{sr}\"") s!", {x.1} = \"{x.2}\""
 | [] => ""
 
-def dynamaticString (a: ExprHigh String): Option String := do
+def dynamaticString (a: ExprHigh String) (m : AssocList String String): Option String := do
   -- let instances :=
   --   a.modules.foldl (λ s inst mod => s ++ s!"\n {inst} [mod = \"{mod}\"];") ""
   let a ← a.normaliseNames
@@ -100,7 +102,7 @@ def dynamaticString (a: ExprHigh String): Option String := do
   let modules ←
     a.modules.foldlM
       (λ s k v => do
-        let fmt := interfaceTypes.find? v.snd |>.getD (some v.snd, "", "", [])
+        let fmt := (interfaceTypes m).find? v.snd |>.getD (some v.snd, "", "", [])
         return s ++ s!"  {k} [type = \"{fmt.1.getD v.snd}\", label = \"{k}: {v.snd}\", in = \"{fmt.2.1}\", out = \"{fmt.2.2.1}\"{formatOptions fmt.2.2.2}];\n"
         ) ""
   let connections :=

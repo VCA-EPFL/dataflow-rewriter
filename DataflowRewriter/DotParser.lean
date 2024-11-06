@@ -5,11 +5,14 @@ Authors: Yann Herklotz
 -/
 
 import Lean
+import DataflowRewriter.ExprHigh
 
 open Std.Internal (Parsec)
 open Std.Internal.Parsec String
+open Batteries (AssocList)
 
-namespace DataflowRewriter.Parser
+namespace DataflowRewriter
+namespace Parser
 
 structure DotAttr where
   key : String
@@ -189,4 +192,64 @@ def parseDigraph := skipStringWs "digraph" <|> skipStringWs "Digraph"
 def dotGraph : Parser DotGraph := do
   ws *> parseDigraph *> optional parseId *> braces parseDotGraph <* eof
 
-end DataflowRewriter.Parser
+end Parser
+
+def keyStartsWith (l : List Parser.DotAttr) key val :=
+  (l.find? (·.key = key) |>.map (·.value) |>.getD "" |>.startsWith val)
+
+def keyArgNumbers (l : List Parser.DotAttr) key :=
+  (l.find? (·.key = key) |>.map (·.value) |>.getD "" |>.splitOn |>.length)
+
+def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × AssocList String String) := do
+  let mut maps : InstMaps := ⟨ ∅, ∅ ⟩
+  let (maps', assoc, _) ← d.nodes.foldlM (λ (a, assoc, arr) (s, l) => do
+      let some typ := l.find? (·.key = "type")
+        | throw "could not find instance type"
+      let mut typVal := typ.value
+      let mut arr' := arr
+      let mut assoc' := assoc
+      if typVal = "Branch" && keyStartsWith l "in" "in1:0" then
+        typVal := "BranchC"
+      if typVal = "Fork" && keyArgNumbers l "in" > 2 then
+        let num := keyArgNumbers l "in"
+        typVal := s!"Fork{num}"
+      if typVal = "Constant" then
+        let some val := l.find? (·.key = "value")
+          | throw "could not find \"value\" field in Constant"
+        match assoc.find? val.value with
+        | some v =>
+          typVal := s!"Constant{v}"
+        | none =>
+          match arr with
+          | x :: xs =>
+            assoc' := assoc.cons val.value x
+            arr' := xs
+            typVal := s!"Constant{x}"
+          | [] => throw "too many constants"
+      if typVal = "Operator" then
+        let some op := l.find? (·.key = "op")
+          | throw "could not find \"op\" field in Operation"
+        match op with
+        | _ => typVal := "Add"
+      let cluster := l.find? (·.key = "cluster") |>.getD ⟨"cluster", "false"⟩
+      let .ok clusterB := Parser.parseBool.run cluster.value
+        | throw "cluster could not be parsed"
+      let upd ← updateNodeMaps a s typVal clusterB
+      return (upd, assoc', arr')
+    ) (maps, ∅, ["A", "B", "C", "D", "E", "F", "G"])
+  maps := maps'
+  let (maps', conns) ← d.edges.foldlM (λ a (s1, s2, l) => do
+      let inp := l.find? (·.key = "to")
+      let out := l.find? (·.key = "from")
+      match updateConnMaps a.fst a.snd s1 s2 (out.map (·.value)) (inp.map (·.value)) with
+      | .ok v => return v
+      | .error s => throw s.toString
+    ) (maps, [])
+  return (⟨ maps'.instTypeMap.toList.toAssocList, conns ⟩, assoc)
+
+end DataflowRewriter
+
+open DataflowRewriter in
+def String.toExprHigh (s : String) : Except String (ExprHigh String × AssocList String String) := do
+  let l ← Parser.dotGraph.run s
+  dotToExprHigh l

@@ -10,26 +10,9 @@ import DataflowRewriter.Rewriter
 import DataflowRewriter.Rewrites.MergeRewrite
 import DataflowRewriter.DynamaticPrinter
 
-open DataflowRewriter
+open Batteries (AssocList)
 
-def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String) := do
-  let mut maps : InstMaps := ⟨ ∅, ∅ ⟩
-  maps ← d.nodes.foldlM (λ a (s, l) => do
-      let some typ := l.find? (·.key = "type")
-        | throw "could not find instance type"
-      let cluster := l.find? (·.key = "cluster") |>.getD ⟨"cluster", "false"⟩
-      let .ok clusterB := Parser.parseBool.run cluster.value
-        | throw "cluster could not be parsed"
-      updateNodeMaps a s typ.value clusterB
-    ) maps
-  let (maps', conns) ← d.edges.foldlM (λ a (s1, s2, l) => do
-      let inp := l.find? (·.key = "to")
-      let out := l.find? (·.key = "from")
-      match updateConnMaps a.fst a.snd s1 s2 (out.map (·.value)) (inp.map (·.value)) with
-      | .ok v => return v
-      | .error s => throw s.toString
-    ) (maps, [])
-  return ⟨ maps'.instTypeMap.toList.toAssocList, conns ⟩
+open DataflowRewriter
 
 structure CmdArgs where
   outputFile : Option System.FilePath
@@ -77,12 +60,10 @@ def main (args : List String) : IO Unit := do
     IO.print helpText
     return
   let fileContents ← IO.FS.readFile parsed.inputFile.get!
-  let exprHigh ← IO.ofExcept do
-    let dotGraph ← Parser.dotGraph.run fileContents
-    dotToExprHigh dotGraph
+  let (exprHigh, assoc) ← IO.ofExcept fileContents.toExprHigh
   let rewrittenExprHigh ← IO.ofExcept <|
     rewrite_loop "rw" exprHigh [MergeRewrite.rewrite] 100
-  let some l := dynamaticString rewrittenExprHigh
+  let some l := dynamaticString rewrittenExprHigh assoc.inverse
     | IO.eprintln s!"Failed to print ExprHigh: {rewrittenExprHigh}"
   match parsed.outputFile with
   | some ofile =>
