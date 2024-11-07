@@ -109,23 +109,29 @@ def φ {Tag T} (state_rhs : rhsModuleType Tag T) (state_lhs : lhsModuleType Tag 
   state_rhs.2.2.2.2 ++ state_rhs.2.1.2.1.map Prod.snd  = state_lhs.2.2.1 ++ state_lhs.1.2 ∧
   state_rhs.2.1.2.2 = state_lhs.2.2.2 ∧
   state_rhs.1 ++ state_rhs.2.2.1.1 ++ state_rhs.2.1.1.map Prod.fst = state_lhs.1.1 ∧
-  state_rhs.1 ++ state_rhs.2.2.2.1 ++ state_rhs.2.1.2.1.map Prod.fst = state_lhs.1.1
+  state_rhs.1 ++ state_rhs.2.2.2.1 ++ state_rhs.2.1.2.1.map Prod.fst = state_lhs.1.1 ∧
+  (state_lhs.2.2.2.getLast? = some true → state_lhs.2.1 = []) ∧
+  (state_lhs.2.2.2.getLast? = some false → state_lhs.2.2.1 = [])
+
+@[reducible] def cast_first {β : Type _ → Type _} {a b : (Σ α, β α)} (h : a = b) : a.fst = b.fst := by
+  subst_vars; rfl
 
 theorem sigma_rw {S T : Type _} {m m' : Σ (y : Type _), S → y → T → Prop} {x : S} {y : T} {v : m.fst}
         (h : m = m' := by reduce; rfl) :
-  m.snd x v y ↔ m'.snd x (h ▸ v) y := by
+  m.snd x v y ↔ m'.snd x ((cast_first h).mp v) y := by
   constructor <;> (intros; subst h; assumption)
 
 theorem sigma_rw_simp {S T : Type _} {m m' : Σ (y : Type _), S → y → T → Prop} {x : S} {y : T} {v : m.fst}
         (h : m = m' := by simp [drunfold,drcompute,seval]; rfl) :
-  m.snd x v y ↔ m'.snd x (h ▸ v) y := by
+  m.snd x v y ↔ m'.snd x ((cast_first h).mp v) y := by
   constructor <;> (intros; subst h; assumption)
 
 set_option maxHeartbeats 0
 
 theorem φ_indistinguishable {Tag T} :
   ∀ x y, φ x y → Module.indistinguishable (rhsModule Tag T) (lhsModule Tag T) x y := by
-  unfold φ; intro ⟨x_fork, x_mux, x_join1, x_join2⟩ ⟨y_join, y_mux⟩ H
+  unfold φ; intro ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩ ⟨⟨y_join_l, y_join_r⟩, ⟨y_muxT, y_muxF, y_muxC⟩⟩ H
+  dsimp at *
   constructor <;> intro ident new_i v Hcontains Hsem
   . have Hkeys := AssocList.keysInMap Hcontains; clear Hcontains
     fin_cases Hkeys
@@ -137,13 +143,11 @@ theorem φ_indistinguishable {Tag T} :
       all_goals rfl
     . simp [drunfold,drcompute,seval] at Hsem ⊢
       rw[sigma_rw_simp] at Hsem; simp at Hsem
-      rcases y_join with ⟨y_join_l, y_join_r⟩
       apply Exists.intro ((_, _), (_, (_, _)))
       constructor; dsimp; and_intros
       all_goals rfl
     . simp [drunfold,drcompute,seval] at Hsem ⊢
       rw[sigma_rw_simp] at Hsem; simp at Hsem
-      rcases y_join with ⟨y_join_l, y_join_r⟩
       apply Exists.intro ((_, _), (_, (_, _)))
       constructor; dsimp; and_intros
       all_goals rfl
@@ -154,35 +158,23 @@ theorem φ_indistinguishable {Tag T} :
       constructor; dsimp; and_intros
       all_goals rfl
   · have Hkeys := AssocList.keysInMap Hcontains; clear Hcontains
+    rcases new_i with ⟨x_new_fork, ⟨x_new_muxT, x_new_muxF, x_new_muxC⟩, ⟨x_new_join1_l, x_new_join1_r⟩, ⟨x_new_join2_l, x_new_join2_r⟩⟩
     fin_cases Hkeys
     . simp [drunfold,drcompute,seval] at Hsem ⊢
       rw[sigma_rw_simp] at Hsem; simp at Hsem
-      rcases H with ⟨ _, _ , _, _, _ ⟩
-      cases Hsem; rename_i Hsem _
-      cases Hsem; rename_i Hsem _
-      cases Hsem <;> rename_i Hsem <;> rcases Hsem with ⟨ _, _, _ ⟩
-      . simp at *
-        rcases new_i with ⟨x_new_fork, x_new_mux, x_new_join1, x_new_join2⟩
-        cases v
+      rcases H with ⟨ H₁, H₂, H₃, H₄, H₅, H₆, H₇ ⟩
+      rcases v with ⟨ vt, vv ⟩
+      rcases Hsem with ⟨ ⟨ ⟨hsemll₁, hsemll₂, hsemll₃⟩ | ⟨hsemll₁, hsemll₂, hsemll₃⟩, ⟨⟨hsemlrll, hsemlrlr⟩, ⟨hsemlrrl, hsemlrrr⟩⟩ ⟩, hsemr ⟩
+      <;> subst_vars
+      . simp at H₇; subst_vars
         apply Exists.intro ((_, _), (_, (_, _)))
-        dsimp at *; constructor; dsimp; and_intros <;> simp_all
-        . rename_i h1 h2 h3 h4 h5 h6 h7 h8 h9 h10
-          simp_rw[← h10] at h5
-          -- unfold Prod.fst at h5
-          -- simp at h5
-          --set_option pp.explicit true in trace_state
-          simp_rw[← h5]
-          simp
-          rfl
-        . rename_i h1 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ h2
-          simp_rw[← h2] at h1
-          unfold Prod.snd at h1
-          simp at h1
-          simp_rw[← h2]
-          unfold List.map
-          rw[h5]
-
-
+        rw [sigma_rw_simp]; dsimp
+        refine ⟨⟨?_, ?_⟩, rfl⟩
+        · rw [← H₅, List.map_append]
+          have : ∀ a, x_new_fork ++ x_new_join2_l ++ (List.map Prod.fst x_new_muxF ++ a) = x_new_fork ++ x_new_join2_l ++ (List.map Prod.fst x_new_muxF) ++ a := by simp
+          rw [this]; rfl
+        · have : x_new_join2_r ++ List.map Prod.snd (x_new_muxF ++ [(vt, vv)]) = x_new_join2_r ++ List.map Prod.snd (x_new_muxF) ++ [vv] := by simp
+          rw [this]
 
 theorem correct_threeway_merge'' {Tag T: Type _} [DecidableEq T]:
   rhsModule Tag T ⊑_{φ} lhsModule Tag T := by
