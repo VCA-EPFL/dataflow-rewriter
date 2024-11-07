@@ -47,11 +47,13 @@ def lhsModuleType (Tag T : Type _) : Type := by
   precomputeTac [T| rewrite.input_expr, ε Tag T ] by
     dsimp only [drunfold,seval,drcompute]
 
+
 @[drunfold] def lhsModule (Tag T : Type _) : StringModule (lhsModuleType Tag T) := by
   precomputeTac [e| rewrite.input_expr, ε Tag T ] by
     dsimp only [drunfold,seval,drcompute]
     simp only [seval,drdecide]
     conv in Module.connect'' _ _ => rw [Module.connect''_dep_rw]; rfl
+    unfold Module.connect''
     dsimp
 
 def rhsModuleType (Tag T : Type _) : Type := by
@@ -112,6 +114,24 @@ def φ {Tag T} (state_rhs : rhsModuleType Tag T) (state_lhs : lhsModuleType Tag 
   state_rhs.1 ++ state_rhs.2.2.2.1 ++ state_rhs.2.1.2.1.map Prod.fst = state_lhs.1.1 ∧
   (state_lhs.2.2.2.getLast? = some true → state_lhs.2.1 = []) ∧
   (state_lhs.2.2.2.getLast? = some false → state_lhs.2.2.1 = [])
+
+def φ' {Tag T} (state_rhs : rhsModuleType Tag T) (state_lhs : lhsModuleType Tag T) : Prop :=
+  state_rhs.2.2.1.2 ++ state_rhs.2.1.1.map Prod.snd  = state_lhs.2.1 ++ state_lhs.1.2 ∧
+  state_rhs.2.2.2.2 ++ state_rhs.2.1.2.1.map Prod.snd  = state_lhs.2.2.1 ++ state_lhs.1.2 ∧
+  state_rhs.2.1.2.2 = state_lhs.2.2.2 ∧
+  state_rhs.1 ++ state_rhs.2.2.1.1 ++ state_rhs.2.1.1.map Prod.fst = state_lhs.1.1 ∧
+  state_rhs.1 ++ state_rhs.2.2.2.1 ++ state_rhs.2.1.2.1.map Prod.fst = state_lhs.1.1
+
+
+theorem lhs_internal_correctness {Tag T}:
+  ∀ (x : rhsModuleType Tag T) (y : lhsModuleType Tag T), φ' x y -> ∃ y',
+    existSR [fun st st' =>  ∃ a b a_1 a_2 b_1 output,
+              ((b_1 ++ [false] = st.2.2.2 ∧ a_1 = st.2.1 ∧ a_2 ++ [output] = st.2.2.1 ∨
+              b_1 ++ [true] = st.2.2.2 ∧ a_1 ++ [output] = st.2.1 ∧ a_2 = st.2.2.1) ∧
+              st.1 = (a, b)) ∧
+              (st'.1.2 = output :: b ∧ st'.1.1 = a) ∧ (a_1, a_2, b_1) = st'.2] y y'
+    ∧ φ x y' := by sorry
+
 
 @[reducible] def cast_first {β : Type _ → Type _} {a b : (Σ α, β α)} (h : a = b) : a.fst = b.fst := by
   subst_vars; rfl
@@ -175,11 +195,93 @@ theorem φ_indistinguishable {Tag T} :
           rw [this]; rfl
         · have : x_new_join2_r ++ List.map Prod.snd (x_new_muxF ++ [(vt, vv)]) = x_new_join2_r ++ List.map Prod.snd (x_new_muxF) ++ [vv] := by simp
           rw [this]
+      . simp at H₆; subst_vars
+        apply Exists.intro ((_, _), (_, (_, _)))
+        rw [sigma_rw_simp]; dsimp
+        refine ⟨⟨?_, ?_⟩, rfl⟩
+        · rw[List.map_append]
+          have : ∀ a, x_new_fork ++ x_new_join1_l ++ (List.map Prod.fst x_new_muxT ++ a) = x_new_fork ++ x_new_join1_l ++ (List.map Prod.fst x_new_muxT) ++ a := by simp
+          rw [this]; rfl
+        · rw[List.map_append]
+          have : ∀ a, x_new_join1_r ++ (List.map Prod.snd x_new_muxT ++ a) = x_new_join1_r ++ (List.map Prod.snd x_new_muxT) ++ a := by simp
+          rw [this]; rfl
 
 theorem correct_threeway_merge'' {Tag T: Type _} [DecidableEq T]:
   rhsModule Tag T ⊑_{φ} lhsModule Tag T := by
   intro x y HPerm
   constructor
-  all_goals sorry
+  . intro ident new_i v Hcontains Hsem
+    rcases HPerm with ⟨ h₁, h₂, h₃, h₄, h₅, h₆, h₇ ⟩
+    have Hkeys := AssocList.keysInMap Hcontains; clear Hcontains
+    fin_cases Hkeys
+    . simp [drunfold,drcompute,seval] at Hsem ⊢
+      rw[sigma_rw_simp] at Hsem; simp at Hsem
+      rcases new_i with ⟨x_new_fork, ⟨x_new_muxT, x_new_muxF, x_new_muxC⟩, ⟨x_new_join1_l, x_new_join1_r⟩, ⟨x_new_join2_l, x_new_join2_r⟩⟩
+      subst_vars
+      apply Exists.intro ((_, _), (_, (_, _)))
+      rw [sigma_rw_simp]; dsimp
+      constructor
+      .  (repeat constructor) <;> rfl
+      . constructor; constructor
+        . constructor
+        . simp at Hsem; rcases Hsem with ⟨ Hsem₁, Hsem₂⟩
+          rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
+          simp at Hsem₂
+          rcases Hsem₂ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
+          constructor
+          . simp
+            subst_vars
+            simp at *; assumption
+          . and_intros <;> (try subst_vars) <;> (try simp[*]) <;> (try assumption)
+    . simp [drunfold,drcompute,seval] at Hsem ⊢
+      rw[sigma_rw_simp] at Hsem; simp at Hsem
+      rcases new_i with ⟨x_new_fork, ⟨x_new_muxT, x_new_muxF, x_new_muxC⟩, ⟨x_new_join1_l, x_new_join1_r⟩, ⟨x_new_join2_l, x_new_join2_r⟩⟩
+      subst_vars
+      apply Exists.intro ((_, _), (_, (_, _)))
+      rw [sigma_rw_simp]; dsimp
+      constructor
+      . (repeat constructor) <;> rfl
+      . apply lhs_internal_correctness
+        simp at Hsem; rcases Hsem with ⟨ Hsem₁, Hsem₂⟩
+        rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
+        simp at Hsem₂
+        rcases Hsem₂ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
+        simp at Hsem₁
+        rcases Hsem₁ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
+        constructor <;> subst_vars <;> simp[*]
+    . simp [drunfold,drcompute,seval] at Hsem ⊢
+      rw[sigma_rw_simp] at Hsem; simp at Hsem
+      rcases new_i with ⟨x_new_fork, ⟨x_new_muxT, x_new_muxF, x_new_muxC⟩, ⟨x_new_join1_l, x_new_join1_r⟩, ⟨x_new_join2_l, x_new_join2_r⟩⟩
+      subst_vars
+      apply Exists.intro ((_, _), (_, (_, _)))
+      rw [sigma_rw_simp]; dsimp
+      constructor
+      . (repeat constructor) <;> rfl
+      . apply lhs_internal_correctness
+        simp at Hsem; rcases Hsem with ⟨ Hsem₁, Hsem₂⟩
+        rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
+        simp at Hsem₂
+        rcases Hsem₂ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
+        simp at Hsem₁
+        rcases Hsem₁ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
+        constructor <;> subst_vars <;> simp[*]
+    . simp [drunfold,drcompute,seval] at Hsem ⊢
+      rw[sigma_rw_simp] at Hsem; simp at Hsem
+      rcases new_i with ⟨x_new_fork, ⟨x_new_muxT, x_new_muxF, x_new_muxC⟩, ⟨x_new_join1_l, x_new_join1_r⟩, ⟨x_new_join2_l, x_new_join2_r⟩⟩
+      subst_vars
+      apply Exists.intro ((_, _), (_, (_, _)))
+      rw [sigma_rw_simp]; dsimp
+      constructor
+      . (repeat constructor) <;> rfl
+      . apply lhs_internal_correctness
+        simp at Hsem; rcases Hsem with ⟨ Hsem₁, Hsem₂⟩
+        rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
+        simp at Hsem₂
+        rcases Hsem₂ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
+        simp at Hsem₁
+        rcases Hsem₁ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
+        constructor <;> subst_vars <;> simp[*]
+
+
 
 end DataflowRewriter.MuxTaggedRewrite
