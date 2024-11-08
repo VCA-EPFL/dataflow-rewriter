@@ -356,7 +356,7 @@ never reached an output node.
 -/
 def findSCCNodes (g : ExprHigh String) (startN endN : String) : Option (List String) := do
   let l ← findSCCNodes' (← fullCalcSucc g) startN endN
-  let l' ← findSCCNodes' (← fullCalcSucc g.invert) startN endN
+  let l' ← findSCCNodes' (← fullCalcSucc g.invert) endN startN
   return l.union l'
 
 end DataflowRewriter
