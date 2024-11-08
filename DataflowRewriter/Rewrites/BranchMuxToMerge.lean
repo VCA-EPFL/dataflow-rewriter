@@ -134,7 +134,7 @@ def lhs' : ExprHigh String := [graph|
     m_right -> mux [out = "m_out", inp = "inp1"];
   ]
 
--- #eval IO.print lhs'
+#eval IO.print lhs'
 -- #eval IO.print lhs'.invert
 #eval matcher lhs'
 #eval IO.print lhs'
@@ -211,8 +211,188 @@ def lhs' : ExprHigh String := [graph|
     m_right -> mux [out = "m_out", inp = "inp1"];
   ]
 
-#eval rewrite.run "rw0_" lhs'
+#eval matchModLeft lhs'
+#eval matchModRight lhs'
+
+-- #eval (Abstraction.mk matchModLeft "mod_left").run "rw0_" lhs' |>.toOption |>.get! |> Prod.fst
+--       |> (Abstraction.mk matchModRight "mod_right").run "rw1_"
+      -- |> matchModRight
+      -- |> calcSucc
+#eval _root_.DataflowRewriter.rewrite "rw0_" lhs' rewrite |>.toOption |>.get! |> IO.print
 
 end TEST
 
 end DataflowRewriter.BranchMuxToMerge
+
+DataflowRewriter.ExprLow.connect
+  { inst := DataflowRewriter.InstIdent.internal "fork", name := "out0" }
+  { inst := DataflowRewriter.InstIdent.internal "branch", name := "cond" }
+  (DataflowRewriter.ExprLow.connect
+    { inst := DataflowRewriter.InstIdent.internal "fork", name := "out1" }
+    { inst := DataflowRewriter.InstIdent.internal "mux", name := "cond" }
+    (DataflowRewriter.ExprLow.connect
+      { inst := DataflowRewriter.InstIdent.internal "branch", name := "true" }
+      { inst := DataflowRewriter.InstIdent.internal "m_left", name := "m_in" }
+      (DataflowRewriter.ExprLow.connect
+        { inst := DataflowRewriter.InstIdent.internal "branch", name := "false" }
+        { inst := DataflowRewriter.InstIdent.internal "m_right", name := "m_in" }
+        (DataflowRewriter.ExprLow.connect
+          { inst := DataflowRewriter.InstIdent.internal "m_left", name := "m_out" }
+          { inst := DataflowRewriter.InstIdent.internal "mux", name := "inp0" }
+          (DataflowRewriter.ExprLow.connect
+            { inst := DataflowRewriter.InstIdent.internal "m_right", name := "m_out" }
+            { inst := DataflowRewriter.InstIdent.internal "mux", name := "inp1" }
+            (DataflowRewriter.ExprLow.product
+              (DataflowRewriter.ExprLow.base
+                { input := Batteries.AssocList.cons
+                             { inst := DataflowRewriter.InstIdent.top, name := "cond" }
+                             { inst := DataflowRewriter.InstIdent.internal "branch", name := "cond" }
+                             (Batteries.AssocList.cons
+                               { inst := DataflowRewriter.InstIdent.top, name := "val" }
+                               { inst := DataflowRewriter.InstIdent.top, name := "i_branch" }
+                               (Batteries.AssocList.nil)),
+                  output := Batteries.AssocList.cons
+                              { inst := DataflowRewriter.InstIdent.top, name := "false" }
+                              { inst := DataflowRewriter.InstIdent.internal "branch", name := "false" }
+                              (Batteries.AssocList.cons
+                                { inst := DataflowRewriter.InstIdent.top, name := "true" }
+                                { inst := DataflowRewriter.InstIdent.internal "branch", name := "true" }
+                                (Batteries.AssocList.nil)) }
+                "branch")
+              (DataflowRewriter.ExprLow.product
+                (DataflowRewriter.ExprLow.base
+                  { input := Batteries.AssocList.cons
+                               { inst := DataflowRewriter.InstIdent.top, name := "m_in" }
+                               { inst := DataflowRewriter.InstIdent.internal "m_right", name := "m_in" }
+                               (Batteries.AssocList.nil),
+                    output := Batteries.AssocList.cons
+                                { inst := DataflowRewriter.InstIdent.top, name := "m_out" }
+                                { inst := DataflowRewriter.InstIdent.internal "m_right", name := "m_out" }
+                                (Batteries.AssocList.nil) }
+                  "mod_right")
+                (DataflowRewriter.ExprLow.product
+                  (DataflowRewriter.ExprLow.base
+                    { input := Batteries.AssocList.cons
+                                 { inst := DataflowRewriter.InstIdent.top, name := "inp1" }
+                                 { inst := DataflowRewriter.InstIdent.internal "mux", name := "inp1" }
+                                 (Batteries.AssocList.cons
+                                   { inst := DataflowRewriter.InstIdent.top, name := "inp0" }
+                                   { inst := DataflowRewriter.InstIdent.internal "mux", name := "inp0" }
+                                   (Batteries.AssocList.cons
+                                     { inst := DataflowRewriter.InstIdent.top, name := "cond" }
+                                     { inst := DataflowRewriter.InstIdent.internal "mux", name := "cond" }
+                                     (Batteries.AssocList.nil))),
+                      output := Batteries.AssocList.cons
+                                  { inst := DataflowRewriter.InstIdent.top, name := "out0" }
+                                  { inst := DataflowRewriter.InstIdent.top, name := "o_out" }
+                                  (Batteries.AssocList.nil) }
+                    "mux")
+                  (DataflowRewriter.ExprLow.product
+                    (DataflowRewriter.ExprLow.base
+                      { input := Batteries.AssocList.cons
+                                   { inst := DataflowRewriter.InstIdent.top, name := "m_in" }
+                                   { inst := DataflowRewriter.InstIdent.internal "m_left", name := "m_in" }
+                                   (Batteries.AssocList.nil),
+                        output := Batteries.AssocList.cons
+                                    { inst := DataflowRewriter.InstIdent.top, name := "m_out" }
+                                    { inst := DataflowRewriter.InstIdent.internal "m_left", name := "m_out" }
+                                    (Batteries.AssocList.nil) }
+                      "mod_left")
+                    (DataflowRewriter.ExprLow.base
+                      { input := Batteries.AssocList.cons
+                                   { inst := DataflowRewriter.InstIdent.top, name := "inp0" }
+                                   { inst := DataflowRewriter.InstIdent.top, name := "i_cond" }
+                                   (Batteries.AssocList.nil),
+                        output := Batteries.AssocList.cons
+                                    { inst := DataflowRewriter.InstIdent.top, name := "out1" }
+                                    { inst := DataflowRewriter.InstIdent.internal "fork", name := "out1" }
+                                    (Batteries.AssocList.cons
+                                      { inst := DataflowRewriter.InstIdent.top, name := "out0" }
+                                      { inst := DataflowRewriter.InstIdent.internal "fork", name := "out0" }
+                                      (Batteries.AssocList.nil)) }
+                      "fork"))))))))))
+
+DataflowRewriter.ExprLow.connect
+  { inst := DataflowRewriter.InstIdent.internal "fork", name := "out0" }
+  { inst := DataflowRewriter.InstIdent.internal "branch", name := "cond" }
+  (DataflowRewriter.ExprLow.connect
+    { inst := DataflowRewriter.InstIdent.internal "fork", name := "out1" }
+    { inst := DataflowRewriter.InstIdent.internal "mux", name := "cond" }
+    (DataflowRewriter.ExprLow.connect
+      { inst := DataflowRewriter.InstIdent.internal "branch", name := "true" }
+      { inst := DataflowRewriter.InstIdent.internal "m_left1", name := "m_in" }
+      (DataflowRewriter.ExprLow.connect
+        { inst := DataflowRewriter.InstIdent.internal "branch", name := "false" }
+        { inst := DataflowRewriter.InstIdent.internal "m_right", name := "m_in" }
+        (DataflowRewriter.ExprLow.connect
+          { inst := DataflowRewriter.InstIdent.internal "m_right", name := "m_out" }
+          { inst := DataflowRewriter.InstIdent.internal "mux", name := "inp1" }
+          (DataflowRewriter.ExprLow.product
+            (DataflowRewriter.ExprLow.base
+              { input := Batteries.AssocList.cons
+                           { inst := DataflowRewriter.InstIdent.top, name := "cond" }
+                           { inst := DataflowRewriter.InstIdent.internal "branch", name := "cond" }
+                           (Batteries.AssocList.cons
+                             { inst := DataflowRewriter.InstIdent.top, name := "val" }
+                             { inst := DataflowRewriter.InstIdent.top, name := "i_branch" }
+                             (Batteries.AssocList.nil)),
+                output := Batteries.AssocList.cons
+                            { inst := DataflowRewriter.InstIdent.top, name := "false" }
+                            { inst := DataflowRewriter.InstIdent.internal "branch", name := "false" }
+                            (Batteries.AssocList.cons
+                              { inst := DataflowRewriter.InstIdent.top, name := "true" }
+                              { inst := DataflowRewriter.InstIdent.internal "branch", name := "true" }
+                              (Batteries.AssocList.nil)) }
+              "branch")
+            (DataflowRewriter.ExprLow.product
+              (DataflowRewriter.ExprLow.base
+                { input := Batteries.AssocList.cons
+                             { inst := DataflowRewriter.InstIdent.top, name := "m_in" }
+                             { inst := DataflowRewriter.InstIdent.internal "m_right", name := "m_in" }
+                             (Batteries.AssocList.nil),
+                  output := Batteries.AssocList.cons
+                              { inst := DataflowRewriter.InstIdent.top, name := "m_out" }
+                              { inst := DataflowRewriter.InstIdent.internal "m_right", name := "m_out" }
+                              (Batteries.AssocList.nil) }
+                "mod_right")
+              (DataflowRewriter.ExprLow.product
+                (DataflowRewriter.ExprLow.base
+                  { input := Batteries.AssocList.cons
+                               { inst := DataflowRewriter.InstIdent.top, name := "inp1" }
+                               { inst := DataflowRewriter.InstIdent.internal "mux", name := "inp1" }
+                               (Batteries.AssocList.cons
+                                 { inst := DataflowRewriter.InstIdent.top, name := "inp0" }
+                                 { inst := DataflowRewriter.InstIdent.internal "mux", name := "inp0" }
+                                 (Batteries.AssocList.cons
+                                   { inst := DataflowRewriter.InstIdent.top, name := "cond" }
+                                   { inst := DataflowRewriter.InstIdent.internal "mux", name := "cond" }
+                                   (Batteries.AssocList.nil))),
+                    output := Batteries.AssocList.cons
+                                { inst := DataflowRewriter.InstIdent.top, name := "out0" }
+                                { inst := DataflowRewriter.InstIdent.top, name := "o_out" }
+                                (Batteries.AssocList.nil) }
+                  "mux")
+                (DataflowRewriter.ExprLow.product
+                  (DataflowRewriter.ExprLow.base
+                    { input := Batteries.AssocList.cons
+                                 { inst := DataflowRewriter.InstIdent.top, name := "m_in" }
+                                 { inst := DataflowRewriter.InstIdent.internal "m_left1", name := "m_in" }
+                                 (Batteries.AssocList.nil),
+                      output := Batteries.AssocList.cons
+                                  { inst := DataflowRewriter.InstIdent.top, name := "out0" }
+                                  { inst := DataflowRewriter.InstIdent.internal "m_left1", name := "out0" }
+                                  (Batteries.AssocList.nil) }
+                    "mod_left1")
+                  (DataflowRewriter.ExprLow.base
+                    { input := Batteries.AssocList.cons
+                                 { inst := DataflowRewriter.InstIdent.top, name := "inp0" }
+                                 { inst := DataflowRewriter.InstIdent.top, name := "i_cond" }
+                                 (Batteries.AssocList.nil),
+                      output := Batteries.AssocList.cons
+                                  { inst := DataflowRewriter.InstIdent.top, name := "out1" }
+                                  { inst := DataflowRewriter.InstIdent.internal "fork", name := "out1" }
+                                  (Batteries.AssocList.cons
+                                    { inst := DataflowRewriter.InstIdent.top, name := "out0" }
+                                    { inst := DataflowRewriter.InstIdent.internal "fork", name := "out0" }
+                                    (Batteries.AssocList.nil)) }
+                    "fork")))))))))

@@ -178,7 +178,6 @@ Essentially tagger + join without internal rule
           newMap = oldMap.cons tag el ∧ newOrder = oldOrder ∧ newVal = oldVal ⟩),
         -- Enq a value to be tagged
         (1, ⟨ T, λ (oldOrder, oldMap, oldVal) v (newOrder, newMap, newVal) =>
-          -- Tag must be used, but no value ready, otherwise block:
           newMap = oldMap ∧ newOrder = oldOrder ∧ newVal = v :: oldVal ⟩)
       ].toAssocList,
     outputs := [

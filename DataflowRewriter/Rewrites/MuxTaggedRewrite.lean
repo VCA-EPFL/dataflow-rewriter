@@ -12,14 +12,14 @@ namespace DataflowRewriter.MuxTaggedRewrite
 def matcher (g : ExprHigh String) : RewriteResult (List String) := sorry
 
 def lhs' : ExprHigh String := [graph|
-    i_t [mod = "io"];
-    i_f [mod = "io"];
-    i_c [mod = "io"];
-    i_tag [mod = "io"];
-    o_out [mod = "io"];
+    i_t [type = "io"];
+    i_f [type = "io"];
+    i_c [type = "io"];
+    i_tag [type = "io"];
+    o_out [type = "io"];
 
-    mux [mod = "mux"];
-    join [mod = "join"];
+    mux [type = "mux"];
+    join [type = "join"];
 
     i_t -> mux [inp = "inp0"];
     i_f -> mux [inp = "inp1"];
@@ -39,16 +39,16 @@ theorem double_check_empty_snd : lhs.snd = ExprHigh.mk ∅ ∅ := by rfl
 def lhsLower := lhs.fst.lower.get rfl
 
 def rhs : ExprHigh String := [graph|
-    i_t [mod = "io"];
-    i_f [mod = "io"];
-    i_c [mod = "io"];
-    i_tag [mod = "io"];
-    o_out [mod = "io"];
+    i_t [type = "io"];
+    i_f [type = "io"];
+    i_c [type = "io"];
+    i_tag [type = "io"];
+    o_out [type = "io"];
 
-    mux [mod = "tagged_mux"];
-    join_t [mod = "join"];
-    join_f [mod = "join"];
-    fork [mod = "fork"];
+    mux [type = "tagged_mux"];
+    join_t [type = "join"];
+    join_f [type = "join"];
+    fork [type = "fork"];
 
     i_tag -> fork [inp = "inp0"];
 

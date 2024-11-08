@@ -105,7 +105,7 @@ def ofOption {α ε} (e : ε) : Option α → Except ε α
 | _, _ => throw "beq error: expressions are structurally not similar"
 
 @[drunfold] def build_interface : ExprLow Ident → Interface Ident
-| .base map typ => map.toInterface
+| .base map typ => map.toInterface'
 | .connect o i e =>
   let int := e.build_interface
   ⟨int.input.erase i, int.output.erase o⟩
