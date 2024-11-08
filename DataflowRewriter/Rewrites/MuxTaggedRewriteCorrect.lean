@@ -189,10 +189,11 @@ def φ {Tag T} (state_rhs : rhsModuleType Tag T) (state_lhs : lhs_intModuleType 
 def φ' {Tag T} (state_rhs : rhsModuleType Tag T) (state_lhs : lhs_intModuleType Tag T) : Prop :=
   let ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩ := state_rhs
   let ⟨⟨y_join_l, y_join_r⟩, ⟨y_muxT, y_muxF, y_muxC⟩⟩ := state_lhs
-  x_join1_r ++ x_muxT.map Prod.snd  = y_muxT ++ List.filterMap (fun x => some x.1) y_join_r ∧
-  x_join1_r ++ x_muxF.map Prod.snd  = y_muxF ++ List.filterMap (fun x => some x.1) y_join_r ∧
-  x_muxC = y_muxC
-
+  x_muxT.map Prod.snd ++ x_join1_r = List.map Prod.fst (List.filter (fun x => x.2 == true) y_join_r) ++ y_muxT ∧
+  x_muxF.map Prod.snd ++ x_join2_r = List.map Prod.fst (List.filter (fun x => x.2 == false) y_join_r) ++ y_muxF ∧
+  x_muxC = List.map Prod.snd y_join_r ++ y_muxC ∧
+  x_muxT.map Prod.fst ++ x_join1_l ++ x_fork  = y_join_l ∧
+  x_muxF.map Prod.fst ++ x_join2_l ++ x_fork   = y_join_l
 
 theorem add_element {α} (l l' l'' : List α) : l ++ l' = l ++ l'' -> l' = l'' := by
   intro h
@@ -204,19 +205,28 @@ theorem add_element {α} (l l' l'' : List α) : l ++ l' = l ++ l'' -> l' = l'' :
 
 
 theorem lhs_internal_correctness {Tag T}:
-  ∀ (x : rhsModuleType Tag T) (y : lhsModuleType Tag T), φ' x y -> ∃ y',
-    existSR [fun st st' =>  ∃ a b a_1 a_2 b_1 output,
-              ((b_1 ++ [false] = st.2.2.2 ∧ a_1 = st.2.1 ∧ a_2 ++ [output] = st.2.2.1 ∨
-              b_1 ++ [true] = st.2.2.2 ∧ a_1 ++ [output] = st.2.1 ∧ a_2 = st.2.2.1) ∧
-              st.1 = (a, b)) ∧
-              (st'.1.2 = output :: b ∧ st'.1.1 = a) ∧ (a_1, a_2, b_1) = st'.2] y y'
+  ∀ (x : rhsModuleType Tag T) (y : lhs_intModuleType Tag T), φ' x y -> ∃ y',
+    existSR [fun st st' =>
+    ∃ a b a_1 a_2 b_1 a_3,
+      ((false :: b_1 = st.2.2.2 ∧ a_1 = st.2.1 ∧ a_3 :: a_2 = st.2.2.1) ∧ st.1 = (a, b)) ∧
+          (st'.1.2 = b ++ [(a_3, false)] ∧ st'.1.1 = a) ∧ (a_1, a_2, b_1) = st'.2 ∨
+        ((true :: b_1 = st.2.2.2 ∧ a_3 :: a_1 = st.2.1 ∧ a_2 = st.2.2.1) ∧ st.1 = (a, b)) ∧
+          (st'.1.2 = b ++ [(a_3, true)] ∧ st'.1.1 = a) ∧ (a_1, a_2, b_1) = st'.2] y y'
     ∧ φ x y' := by
     intro x ⟨⟨y_join_l, y_join_r⟩, ⟨y_muxT, y_muxF, y_muxC⟩⟩ φ
-    induction y_muxC using List.concat_induction generalizing y_join_r y_muxT y_muxF y_join_l x with
-    | empty => sorry
-    | step a b h =>
-      cases a
-      . cases (reverse_cases y_muxF)
+    revert y_join_r y_muxT y_muxF y_join_l x
+    induction y_muxC with
+    | nil =>
+      intros
+      constructor; constructor; constructor; constructor
+      . rename_i H; cases H
+        . simp_all only [beq_true, beq_false, List.append_nil, List.append_assoc]
+      . rename_i H; cases H
+        and_intros <;> simp_all
+    | cons currC y_muxC h =>
+      cases currC
+      . intro x y_join_l y_join_r y_muxT y_muxF φ
+        rcases y_muxF with _ | ⟨ output, y_muxF ⟩
         . subst_vars
           constructor; constructor
           . constructor
@@ -226,37 +236,65 @@ theorem lhs_internal_correctness {Tag T}:
             simp at φ₁
             constructor
             . simp; subst_vars; assumption
-            . and_intros <;> subst_vars <;> simp <;> try assumption
+            . and_intros <;> subst_vars <;> try simp <;> try assumption
               . rename_i hr
                 cases x
                 simp at hr
                 simp; assumption
-        . rename_i H; rcases H with ⟨ y_maxF, output, H ⟩
-          subst_vars
-          have φ' := φ
-          rcases φ with ⟨ φ₁, φ₂ ⟩
-          simp at φ₂
-          rcases φ₂ with ⟨ _, _, _, _ ⟩
-          simp at φ₁
-          --specialize h x y_join_l y_join_r y_muxT y_muxF
-          simp[*]
+        . subst_vars
           subst_vars
           rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
-          dsimp at *
-          have : DataflowRewriter.MuxTaggedRewrite.φ' (x_fork, (x_muxT, x_muxF, b), (x_join1_l, x_join1_r), x_join2_l, x_join2_r) ((x_fork ++ (x_join1_l ++ List.map Prod.fst x_muxT), output :: y_join_r), y_muxT, y_maxF, b) := by
-
-            constructor; and_intros
-            skip; simp simp_all
+          have : DataflowRewriter.MuxTaggedRewrite.φ' (x_fork, (x_muxT, x_muxF, x_muxC), (x_join1_l, x_join1_r), x_join2_l, x_join2_r)
+                ((y_join_l, y_join_r ++ [(output, false)]), y_muxT, y_muxF, y_muxC) := by
+            rcases φ with ⟨ φ₁, φ₂, φ₃, φ₄, φ₅ ⟩
+            unfold φ'; and_intros
+            all_goals simp_all
           specialize h _ _ _ _ _ this
           rcases h with ⟨ yl, h ⟩
           apply Exists.intro ((_, _), (_, (_, _))); constructor
-          . apply existSR.step _ ((_, _), (_, (_, _))) _;
+          . apply existSR.step _ ((_, _), (_, (_, _))) _
             . constructor
             . constructor; constructor;constructor;
-              constructor; exists b, output
+              constructor; exists y_muxC, output
               simp; and_intros
               rfl; rfl; rfl; rfl; rfl; rfl; rfl; rfl; rfl
             . apply h.left
+          . apply h.right
+      . intro x y_join_l y_join_r y_muxT y_muxF φ
+        rcases y_muxT with _ | ⟨ output, y_muxT ⟩
+        . subst_vars
+          constructor; constructor
+          . constructor
+          . rcases φ with ⟨ φ₁, φ₂ ⟩
+            simp at φ₂
+            rcases φ₂ with ⟨ _, _, _, _ ⟩
+            simp at φ₁
+            constructor
+            . simp; subst_vars; assumption
+            . and_intros <;> subst_vars <;> try simp <;> try assumption
+              . rename_i hr
+                cases x
+                simp at hr
+                simp; assumption
+        . subst_vars
+          subst_vars
+          rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
+          have : DataflowRewriter.MuxTaggedRewrite.φ' (x_fork, (x_muxT, x_muxF, x_muxC), (x_join1_l, x_join1_r), x_join2_l, x_join2_r)
+                ((y_join_l, y_join_r ++ [(output, true)]), y_muxT, y_muxF, y_muxC) := by
+            rcases φ with ⟨ φ₁, φ₂, φ₃, φ₄, φ₅ ⟩
+            unfold φ'; and_intros
+            all_goals simp_all
+          specialize h _ _ _ _ _ this
+          rcases h with ⟨ yl, h ⟩
+          apply Exists.intro ((_, _), (_, (_, _))); constructor
+          . apply existSR.step _ ((_, _), (_, (_, _))) _
+            . constructor
+            . constructor; constructor;constructor;
+              constructor; exists y_muxC, output
+              simp; and_intros
+              rfl; rfl; rfl; rfl; rfl; rfl; rfl; rfl; rfl
+            . apply h.left
+          . apply h.right
 
 
 
@@ -322,61 +360,125 @@ theorem φ_indistinguishable {Tag T} :
       <;> subst_vars
       . rcases y_join_r with _ | ⟨y_joint_r_h, y_join_r_t⟩
         . dsimp at *; subst_vars; simp at H₇
-        · rcases y_joint_r_h with ⟨y_joint_r_h_val, y_joint_r_h_bool⟩; dsimp at *; subst_vars
+        . rcases y_joint_r_h with ⟨y_joint_r_h_val, y_joint_r_h_bool⟩; dsimp at *; subst_vars
           simp at H₁ H₅
           symm at H₂
           symm at H₁
           have H₂' := H₂
           have H₁' := H₁
-
           simp at hsemll₁; rcases hsemll₁; subst_vars
           simp at H₂; cases H₂; subst_vars
-        --   rw [List.map_eq_cons] at H₂
-        --   rcases H₂ with ⟨el, restlist, filterlist, Hvv, H⟩
-        --   rcases el with ⟨elvv, elbb⟩
-        --   dsimp at *
-        --   subst elvv
-        --   rw [List.filter_eq_cons ] at filterlist
-        --   rcases filterlist with ⟨el', restlist', filterlist', elIn1, elIn2, Hfinal⟩
-        --   dsimp at *
-        --   have : elbb = false := by simp_all only [beq_true, List.filter_append, List.map_append, List.append_assoc, Option.some.injEq,
-        --                 Bool.false_eq_true, false_implies, Bool.not_eq_eq_eq_not, Bool.not_true, Bool.not_eq_false, Prod.forall,
-        --                 Bool.forall_bool, imp_false, implies_true, and_true]
-        -- subst elbb
-
-
           apply Exists.intro ((_, _), (_, (_, _)))
           rw [sigma_rw_simp]; dsimp
           refine ⟨⟨?_, ?_⟩, rfl⟩
-          · rw [← H₅]
-            have : ∀ a, List.map Prod.fst ((a, vv) :: x_new_muxF) ++ x_new_join2_l ++ x_new_fork  = a :: List.map Prod.fst (x_new_muxF) ++ x_new_join2_l ++ x_new_fork  := by simp
-            rw [this]; rfl
-          · left
-            --simp[*] at *
-
-            rfl
-            unfold List.filter at H₂
-            have H  : List.filterMap (fun x => if x.2 = false then some x else none) y_join_r ++ List.filterMap (fun x => if x.2 = true then some x else none) y_join_r = y_join_r := by unfold List.filterMap; simp
-            unfold List.filterMap at H₂
-            simp at H₂
-            have : x_new_join2_r ++ List.map Prod.snd (x_new_muxF ++ [(vt, vv)]) = x_new_join2_r ++ List.map Prod.snd (x_new_muxF) ++ [vv] := by simp
-            rw [this]
-      . simp at H₆; subst_vars
-        apply Exists.intro ((_, _), (_, (_, _)))
-        rw [sigma_rw_simp]; dsimp
-        refine ⟨⟨?_, ?_⟩, rfl⟩
-        · rfl
-        · right
-          induction y_join_r
-          . simp[*] at *
-          rw[List.map_append]
-          have : ∀ a, x_new_join1_r ++ (List.map Prod.snd x_new_muxT ++ a) = x_new_join1_r ++ (List.map Prod.snd x_new_muxT) ++ a := by simp
-          rw [this]; rfl
+          · symm at H₅
+            simp[List.append]
+            rw [H₅]
+          · left; rfl
+      . rcases y_join_r with _ | ⟨y_joint_r_h, y_join_r_t⟩
+        . dsimp at *; subst_vars; simp at H₆
+        . rcases y_joint_r_h with ⟨y_joint_r_h_val, y_joint_r_h_bool⟩; dsimp at *; subst_vars
+          simp at H₁ H₅
+          symm at H₂
+          symm at H₁
+          have H₂' := H₂
+          have H₁' := H₁
+          simp at hsemll₁; rcases hsemll₁; subst_vars
+          simp at H₁; cases H₁; subst_vars
+          apply Exists.intro ((_, _), (_, (_, _)))
+          rw [sigma_rw_simp]; dsimp
+          refine ⟨⟨?_, ?_⟩, rfl⟩
+          · rfl
+          · right; rfl
 
 theorem correct_threeway_merge'' {Tag T: Type _} [DecidableEq T]:
-  rhsModule Tag T ⊑_{φ} lhsModule Tag T := by
+  rhsModule Tag T ⊑_{φ} lhs_intModule Tag T := by
   intro x y HPerm
   constructor
+  . admit
+  -- . intro ident new_i v Hcontains Hsem
+  --   rcases HPerm with ⟨ h₁, h₂, h₃, h₄, h₅, h₆, h₇ ⟩
+  --   have Hkeys := AssocList.keysInMap Hcontains; clear Hcontains
+  --   fin_cases Hkeys
+  --   . simp [drunfold,drcompute,seval] at Hsem ⊢
+  --     rw[sigma_rw_simp] at Hsem; simp at Hsem
+  --     rcases new_i with ⟨x_new_fork, ⟨x_new_muxT, x_new_muxF, x_new_muxC⟩, ⟨x_new_join1_l, x_new_join1_r⟩, ⟨x_new_join2_l, x_new_join2_r⟩⟩
+  --     subst_vars
+  --     apply Exists.intro ((_, _), (_, (_, _)))
+  --     rw [sigma_rw_simp]; dsimp
+  --     constructor
+  --     .  (repeat constructor) <;> rfl
+  --     . constructor; constructor
+  --       . constructor
+  --       . simp at Hsem; rcases Hsem with ⟨ Hsem₁, Hsem₂⟩
+  --         rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
+  --         simp at Hsem₂
+  --         rcases Hsem₂ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
+  --         constructor
+  --         . simp
+  --           subst_vars
+  --           simp at *; assumption
+  --         . and_intros <;> (try subst_vars) <;> (try simp[*]) <;> (try assumption)
+  --           . simp_all only [beq_true, beq_false, List.append_assoc]
+  --             rw[← h₄]; simp
+  --           . simp_all only [beq_true, beq_false, List.append_assoc]
+  --             rw[← h₅]; simp
+  --   . simp [drunfold,drcompute,seval] at Hsem ⊢
+  --     rw[sigma_rw_simp] at Hsem; simp at Hsem
+  --     rcases new_i with ⟨x_new_fork, ⟨x_new_muxT, x_new_muxF, x_new_muxC⟩, ⟨x_new_join1_l, x_new_join1_r⟩, ⟨x_new_join2_l, x_new_join2_r⟩⟩
+  --     rcases y with ⟨⟨y_join_l, y_join_r⟩, ⟨y_muxT, y_muxF, y_muxC⟩⟩
+  --     subst_vars
+  --     apply Exists.intro ((_, _), (_, (_, _)))
+  --     rw [sigma_rw_simp]; dsimp
+  --     constructor
+  --     . (repeat constructor) <;> rfl
+  --     . apply lhs_internal_correctness
+  --       simp at Hsem; rcases Hsem with ⟨ Hsem₁, Hsem₂⟩
+  --       rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
+  --       simp at Hsem₂
+  --       simp at Hsem₁
+  --       rcases Hsem₁ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
+  --       constructor <;> subst_vars <;> simp_all
+  --   . simp [drunfold,drcompute,seval] at Hsem ⊢
+  --     rw[sigma_rw_simp] at Hsem; simp at Hsem
+  --     rcases new_i with ⟨x_new_fork, ⟨x_new_muxT, x_new_muxF, x_new_muxC⟩, ⟨x_new_join1_l, x_new_join1_r⟩, ⟨x_new_join2_l, x_new_join2_r⟩⟩
+  --     rcases y with ⟨⟨y_join_l, y_join_r⟩, ⟨y_muxT, y_muxF, y_muxC⟩⟩
+  --     subst_vars
+  --     apply Exists.intro ((_, _), (_, (_, _)))
+  --     rw [sigma_rw_simp]; dsimp
+  --     constructor
+  --     . (repeat constructor) <;> rfl
+  --     . apply lhs_internal_correctness
+  --       simp at Hsem; rcases Hsem with ⟨ Hsem₁, Hsem₂⟩
+  --       rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
+  --       simp at Hsem₂
+  --       simp at Hsem₁
+  --       rcases Hsem₁ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
+  --       subst_vars
+  --       constructor <;> simp_all
+  --       . rw[ ← List.append_assoc]
+  --         rw[ ← List.append_assoc]
+  --         simp_rw[← h₁]
+  --   . simp [drunfold,drcompute,seval] at Hsem ⊢
+  --     rw[sigma_rw_simp] at Hsem; simp at Hsem
+  --     rcases new_i with ⟨x_new_fork, ⟨x_new_muxT, x_new_muxF, x_new_muxC⟩, ⟨x_new_join1_l, x_new_join1_r⟩, ⟨x_new_join2_l, x_new_join2_r⟩⟩
+  --     rcases y with ⟨⟨y_join_l, y_join_r⟩, ⟨y_muxT, y_muxF, y_muxC⟩⟩
+  --     subst_vars
+  --     apply Exists.intro ((_, _), (_, (_, _)))
+  --     rw [sigma_rw_simp]; dsimp
+  --     constructor
+  --     . (repeat constructor) <;> rfl
+  --     . apply lhs_internal_correctness
+  --       simp at Hsem; rcases Hsem with ⟨ Hsem₁, Hsem₂⟩
+  --       rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
+  --       simp at Hsem₂
+  --       simp at Hsem₁
+  --       rcases Hsem₁ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
+  --       subst_vars
+  --       constructor <;> simp_all
+  --       . rw[ ← List.append_assoc]
+  --         rw[ ← List.append_assoc]
+  --         simp_rw[← h₂]
   . intro ident new_i v Hcontains Hsem
     rcases HPerm with ⟨ h₁, h₂, h₃, h₄, h₅, h₆, h₇ ⟩
     have Hkeys := AssocList.keysInMap Hcontains; clear Hcontains
@@ -385,69 +487,36 @@ theorem correct_threeway_merge'' {Tag T: Type _} [DecidableEq T]:
       rw[sigma_rw_simp] at Hsem; simp at Hsem
       rcases new_i with ⟨x_new_fork, ⟨x_new_muxT, x_new_muxF, x_new_muxC⟩, ⟨x_new_join1_l, x_new_join1_r⟩, ⟨x_new_join2_l, x_new_join2_r⟩⟩
       subst_vars
-      apply Exists.intro ((_, _), (_, (_, _)))
-      rw [sigma_rw_simp]; dsimp
-      constructor
-      .  (repeat constructor) <;> rfl
-      . constructor; constructor
-        . constructor
-        . simp at Hsem; rcases Hsem with ⟨ Hsem₁, Hsem₂⟩
-          rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
-          simp at Hsem₂
-          rcases Hsem₂ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
-          constructor
-          . simp
-            subst_vars
-            simp at *; assumption
-          . and_intros <;> (try subst_vars) <;> (try simp[*]) <;> (try assumption)
-    . simp [drunfold,drcompute,seval] at Hsem ⊢
-      rw[sigma_rw_simp] at Hsem; simp at Hsem
-      rcases new_i with ⟨x_new_fork, ⟨x_new_muxT, x_new_muxF, x_new_muxC⟩, ⟨x_new_join1_l, x_new_join1_r⟩, ⟨x_new_join2_l, x_new_join2_r⟩⟩
+      rcases Hsem with ⟨ _, _ , _⟩  | ⟨ _, _ ⟩
       subst_vars
-      apply Exists.intro ((_, _), (_, (_, _)))
-      rw [sigma_rw_simp]; dsimp
-      constructor
-      . (repeat constructor) <;> rfl
-      . apply lhs_internal_correctness
-        simp at Hsem; rcases Hsem with ⟨ Hsem₁, Hsem₂⟩
-        rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
-        simp at Hsem₂
-        rcases Hsem₂ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
-        simp at Hsem₁
-        rcases Hsem₁ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
-        constructor <;> subst_vars <;> simp[*]
-    . simp [drunfold,drcompute,seval] at Hsem ⊢
-      rw[sigma_rw_simp] at Hsem; simp at Hsem
-      rcases new_i with ⟨x_new_fork, ⟨x_new_muxT, x_new_muxF, x_new_muxC⟩, ⟨x_new_join1_l, x_new_join1_r⟩, ⟨x_new_join2_l, x_new_join2_r⟩⟩
-      subst_vars
-      apply Exists.intro ((_, _), (_, (_, _)))
-      rw [sigma_rw_simp]; dsimp
-      constructor
-      . (repeat constructor) <;> rfl
-      . apply lhs_internal_correctness
-        simp at Hsem; rcases Hsem with ⟨ Hsem₁, Hsem₂⟩
-        rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
-        simp at Hsem₂
-        rcases Hsem₂ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
-        simp at Hsem₁
-        rcases Hsem₁ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
-        constructor <;> subst_vars <;> simp[*]
-    . simp [drunfold,drcompute,seval] at Hsem ⊢
-      rw[sigma_rw_simp] at Hsem; simp at Hsem
-      rcases new_i with ⟨x_new_fork, ⟨x_new_muxT, x_new_muxF, x_new_muxC⟩, ⟨x_new_join1_l, x_new_join1_r⟩, ⟨x_new_join2_l, x_new_join2_r⟩⟩
-      subst_vars
-      apply Exists.intro ((_, _), (_, (_, _)))
-      rw [sigma_rw_simp]; dsimp
-      constructor
-      . (repeat constructor) <;> rfl
-      . apply lhs_internal_correctness
-        simp at Hsem; rcases Hsem with ⟨ Hsem₁, Hsem₂⟩
-        rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
-        simp at Hsem₂
-        rcases Hsem₂ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
-        simp at Hsem₁
-        rcases Hsem₁ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
-        constructor <;> subst_vars <;> simp[*]
+      . apply Exists.intro ((_, _), (_, (_, _)))
+        rw [sigma_rw_simp]; dsimp
+        constructor
+        . (repeat constructor) <;> (try rfl)
+          . simp[*] at *
+            rw[← h₅]
+            rename_i h _
+            rw[← h]; simp; rfl
+          . simp[*] at *
+            left
+            rw[← h₅]
+            rename_i h _
+            rw[← h]; simp; rfl
+        . constructor; constructor
+          . constructor
+          . simp at Hsem; rcases Hsem with ⟨ Hsem₁, Hsem₂⟩
+            rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
+            simp at Hsem₂
+            rcases Hsem₂ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
+            constructor
+            . simp
+              subst_vars
+              simp at *; assumption
+            . and_intros <;> (try subst_vars) <;> (try simp[*]) <;> (try assumption)
+              . simp_all only [beq_true, beq_false, List.append_assoc]
+                rw[← h₄]; simp
+              . simp_all only [beq_true, beq_false, List.append_assoc]
+                rw[← h₅]; simp
 
 
 
