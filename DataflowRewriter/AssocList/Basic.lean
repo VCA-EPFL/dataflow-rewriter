@@ -31,7 +31,7 @@ def keysList {α β} (map : AssocList α β) : List α :=
   map.toList.map (·.fst)
 
 def disjoint_keys {α β γ} [DecidableEq α] (a : AssocList α β) (b : AssocList α γ) : Bool :=
-  a.keysList ∩ b.keysList = ∅
+  a.keysList.inter b.keysList = []
 
 def filter {α β} (f : α → β → Bool) (l : AssocList α β) :=
   l.foldl (λ c a b => if f a b then c.cons a b else c) (∅ : AssocList α β)

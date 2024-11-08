@@ -1,5 +1,4 @@
 import DataflowRewriter.AssocList.Basic
-import Mathlib
 
 namespace Batteries.AssocList
 
@@ -22,7 +21,7 @@ theorem append_find? {α β} [DecidableEq α] (a b : AssocList α β) (i) :
 
 theorem append_find?2 {α β} [DecidableEq α] {a b : AssocList α β} {i x} :
   (a.append b).find? i = some x →
-  a.find? i = some x ∨ b.find? i = some x := by
+  a.find? i = some x ∨ (a.find? i = none ∧ b.find? i = some x) := by
   induction a with
   | nil => simp [append]
   | cons k v t ih =>
@@ -35,15 +34,23 @@ theorem find?_mapVal {α β γ} [DecidableEq α] {a : AssocList α β} {f : α �
   | nil => simp
   | cons k v a ih => dsimp [find?]; split <;> simp_all
 
-theorem disjoint_cons_left (α β γ) [DecidableEq α] {t : AssocList α β} {b : AssocList α γ} {a y} :
+theorem disjoint_cons_left {α β γ} [DecidableEq α] {t : AssocList α β} {b : AssocList α γ} {a y} :
   (cons a y t).disjoint_keys b = true → t.disjoint_keys b = true := by
   unfold disjoint_keys; intros; simp [*]
-  simp [Inter.inter, List.instInterOfBEq_batteries, List.inter.eq_1] at *
+  simp [List.inter.eq_1] at *
   rename_i h
   intro el hin; apply h
   simp_all [keysList]
 
-theorem append_find_left {α β} [DecidableEq α] (a b : AssocList α β) {i x} :
+theorem disjoint_keys_symm {α β γ} [DecidableEq α] {a : AssocList α β} {b : AssocList α γ} :
+  a.disjoint_keys b → b.disjoint_keys a := by
+  unfold disjoint_keys
+  simp; intro H
+  simp [List.inter.eq_1] at *
+  unfold Not at *; intros
+  solve_by_elim
+
+theorem append_find_left {α β} [DecidableEq α] {a b : AssocList α β} {i x} :
   a.find? i = some x →
   (a.append b).find? i = some x := by
   induction a with
@@ -119,8 +126,8 @@ theorem contains_some2 {α β} [DecidableEq α] {m : AssocList α β} {ident} :
     (m.find? ident).isSome →
     m.contains ident := by
   intro; by_cases contains ident m = true; assumption
-  rename_i a b; apply contains_none at b
-  rw [b] at a; contradiction
+  rename_i a b; have := contains_none b
+  rw [this] at a; contradiction
 
 theorem contains_some3 {α β} [DecidableEq α] {m : AssocList α β} {ident x} :
     m.find? ident = some x →
@@ -140,7 +147,7 @@ theorem notkeysList_find2 {α β} [DecidableEq α] {m : AssocList α β} {ident}
     skip; intros; unfold Not; intros; apply h; subst_vars; assumption
   intro; apply this; unfold Not; intros; simp_all [keysList]
 
-theorem append_find_right_disjoint {α β} [DecidableEq α] (a b : AssocList α β) {i x} :
+theorem append_find_right_disjoint {α β} [DecidableEq α] {a b : AssocList α β} {i x} :
   a.disjoint_keys b →
   b.find? i = some x →
   (a.append b).find? i = some x := by
@@ -189,5 +196,12 @@ theorem keysInMap {α β} [DecidableEq α] {m : AssocList α β} {k} : m.contain
 theorem keysNotInMap {α β} [DecidableEq α] {m : AssocList α β} {k} : ¬ m.contains k → k ∉ m.keysList := by
   unfold Batteries.AssocList.contains Batteries.AssocList.keysList
   intro Hk; simp_all
+
+theorem disjoint_keys_mapVal {α β γ μ} [DecidableEq α] {a : AssocList α β} {b : AssocList α γ} {f : α → γ → μ} :
+  a.disjoint_keys b → a.disjoint_keys (b.mapVal f) := by sorry
+
+theorem disjoint_keys_mapVal_both {α β γ μ η} [DecidableEq α] {a : AssocList α β} {b : AssocList α γ} {f : α → γ → μ} {g : α → β → η} :
+  a.disjoint_keys b → (a.mapVal g).disjoint_keys (b.mapVal f) := by
+  intros; solve_by_elim [disjoint_keys_mapVal, disjoint_keys_symm]
 
 end Batteries.AssocList

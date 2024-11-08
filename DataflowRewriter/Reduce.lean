@@ -4,12 +4,13 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import Lean
-import Mathlib
+import LeanSearchClient.Syntax
+import Mathlib.Tactic.DefEqTransformations
+import Mathlib.Tactic.GeneralizeProofs
+import Mathlib.Tactic.Recall
+import Mathlib.Tactic.StacksAttribute
 
 open Lean Expr Meta Elab Tactic
-
-#check reduce
 
 partial def reallyReduce (e : Expr) (explicitOnly skipTypes skipProofs skipArgs useElabWhnf := true) : MetaM Expr :=
   let rec visit (e : Expr) : MonadCacheT Expr Expr MetaM Expr :=
