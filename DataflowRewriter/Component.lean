@@ -346,7 +346,7 @@ def ε (Tag : Type) [DecidableEq Tag] (T : Type) [Inhabited T] : IdentMap String
 
   , ("Branch", ⟨_, StringModule.branch T⟩)
   , ("BranchC", ⟨_, StringModule.branch Unit⟩)
-  , ("TagggedBranch", ⟨_, StringModule.branch (Tag × T)⟩)
+  , ("TaggedBranch", ⟨_, StringModule.branch (Tag × T)⟩)
 
   , ("Mux", ⟨_, StringModule.mux T⟩)
   , ("MuxC", ⟨_, StringModule.mux Unit⟩)
