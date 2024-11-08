@@ -50,8 +50,8 @@ namespace DataflowRewriter.NatModule
   }
 
 @[drunfold] def fork T (n : Nat) : NatModule (List T) :=
-  { inputs := [(0, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
-    outputs := List.range n |>.map (Prod.mk ↑· ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩) |>.toAssocList,
+  { inputs := [(0, ⟨ T, λ oldList newElement newList => newList = oldList.concat newElement ⟩)].toAssocList,
+    outputs := List.range n |>.map (Prod.mk ↑· ⟨ T, λ oldList oldElement newList => oldElement :: newList = oldList⟩) |>.toAssocList,
     internals := []
   }
 
@@ -63,12 +63,12 @@ namespace DataflowRewriter.NatModule
 
 @[drunfold] def join T T' : NatModule (List T × List T') :=
   { inputs := [ (0, ⟨ T, λ (oldListL, oldListR) newElement (newListL, newListR) =>
-                       newListL = newElement :: oldListL ∧ newListR = oldListR⟩)
+                       newListL = oldListL.concat newElement ∧ newListR = oldListR⟩)
               , (1, ⟨ T', λ (oldListL, oldListR) newElement (newListL, newListR) =>
-                       newListR = newElement :: oldListR ∧ newListL = oldListL⟩)].toAssocList,
+                       newListR = oldListR.concat newElement ∧ newListL = oldListL⟩)].toAssocList,
     outputs := [(0, ⟨ T × T', λ (oldListL, oldListR) (oldElementL, oldElementR) (newListL, newListR) =>
-                       oldListL = newListL.concat oldElementL ∧
-                       oldListR = newListR.concat oldElementR ⟩)].toAssocList,
+                       oldListL = oldElementL :: newListL ∧
+                       oldListR = oldElementR :: newListR ⟩)].toAssocList,
     internals := []
   }
 
@@ -88,20 +88,47 @@ namespace DataflowRewriter.NatModule
 
 @[drunfold] def mux T : NatModule (List T × List T × List Bool) :=
   { inputs := [ (0, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
-                           newTrueList = val :: oldTrueList ∧ newFalseList = oldFalseList ∧ newBoolList = oldBoolList ⟩)
+                           newTrueList = oldTrueList.concat val ∧ newFalseList = oldFalseList ∧ newBoolList = oldBoolList ⟩)
               , (1, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
-                           newTrueList = oldTrueList ∧ newFalseList = val :: oldFalseList ∧ newBoolList = oldBoolList ⟩)
+                           newTrueList = oldTrueList ∧ newFalseList = oldFalseList.concat val ∧ newBoolList = oldBoolList ⟩)
               , (2, ⟨ Bool, λ (oldTrueList, oldFalseList, oldBoolList) b (newTrueList, newFalseList, newBoolList) =>
-                           newTrueList = oldTrueList ∧ newFalseList = oldFalseList ∧ newBoolList = b :: oldBoolList ⟩)
+                           newTrueList = oldTrueList ∧ newFalseList = oldFalseList ∧ newBoolList = oldBoolList.concat b ⟩)
               ].toAssocList
     outputs := [ (0, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
-                            ∃ b, newBoolList.concat b = oldBoolList
-                              ∧ if b then newTrueList.concat val = oldTrueList ∧ newFalseList = oldFalseList
-                                     else newTrueList = oldTrueList ∧ newFalseList.concat val = oldFalseList ⟩)
+                            ∃ b, b :: newBoolList = oldBoolList
+                              ∧ if b then val :: newTrueList = oldTrueList ∧ newFalseList = oldFalseList
+                                     else newTrueList = oldTrueList ∧ val :: newFalseList = oldFalseList ⟩)
                ].toAssocList
     internals := []
   }
 
+@[drunfold] def muxC T : NatModule (List T × List T × List Bool) :=
+  { inputs := [ (0, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
+                           newTrueList = oldTrueList.concat val ∧ newFalseList = oldFalseList ∧ newBoolList = oldBoolList ⟩)
+              , (1, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
+                           newTrueList = oldTrueList ∧ newFalseList = oldFalseList.concat val ∧ newBoolList = oldBoolList ⟩)
+              , (2, ⟨ Bool, λ (oldTrueList, oldFalseList, oldBoolList) b (newTrueList, newFalseList, newBoolList) =>
+                           newTrueList = oldTrueList ∧ newFalseList = oldFalseList ∧ newBoolList = oldBoolList.concat b ⟩)
+              ].toAssocList
+    outputs := [ (0, ⟨ T×Bool, λ (oldTrueList, oldFalseList, oldBoolList) (val, b) (newTrueList, newFalseList, newBoolList) =>
+                            b :: newBoolList = oldBoolList
+                              ∧ if b then val :: newTrueList = oldTrueList ∧ newFalseList = oldFalseList
+                                     else newTrueList = oldTrueList ∧ val :: newFalseList = oldFalseList ⟩)
+               ].toAssocList
+    internals := []
+  }
+
+
+@[drunfold] def joinC T T' T'' : NatModule (List T × List (T'× T'')) :=
+  { inputs := [ (0, ⟨ T, λ (oldListL, oldListR) newElement (newListL, newListR) =>
+                       newListL = oldListL.concat newElement ∧ newListR = oldListR⟩)
+              , (1, ⟨ T' × T'', λ (oldListL, oldListR) newElement (newListL, newListR) =>
+                       newListR = oldListR.concat newElement ∧ newListL = oldListL⟩)].toAssocList,
+    outputs := [(0, ⟨ T × T', λ (oldListL, oldListR) (oldElementL, oldElementR) (newListL, newListR) =>
+                       ∃ x, oldListL =  oldElementL :: newListL ∧
+                       oldListR = (oldElementR, x) :: newListR ⟩)].toAssocList,
+    internals := []
+  }
 @[drunfold] def bag T : NatModule (List T) :=
   { inputs := [(0,⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
     outputs := [(0,⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)].toAssocList,
@@ -202,4 +229,8 @@ namespace DataflowRewriter.StringModule
 
 @[drunfold] def tagger TagT [DecidableEq TagT] T := NatModule.tagger TagT T
 
+@[drunfold] def muxC T := NatModule.muxC T
+  |>.stringify
+
+@[drunfold] def joinC T T' T'' := NatModule.joinC T T' T'' |>.stringify
 end DataflowRewriter.StringModule

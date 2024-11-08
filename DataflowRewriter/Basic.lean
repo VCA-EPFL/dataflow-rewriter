@@ -188,7 +188,7 @@ end Interface
 def PortMapping.toInterface {Ident} (p : PortMapping Ident) : Interface Ident :=
   ⟨p.input.keysList, p.output.keysList⟩
 
-theorem l_concat {α} l : l = [] ∨ ∃ (l' : List α) (a : α), l = l'.concat a := by sorry
+theorem reverse_cases {α} l : l = [] ∨ ∃ (l' : List α) (a : α), l = l'.concat a := by sorry
 
 noncomputable def List.concat_induction {α : Sort _}
   {motive : List α → Prop}
@@ -196,7 +196,7 @@ noncomputable def List.concat_induction {α : Sort _}
   (empty : motive [])
   (step : ∀ a l, motive l → motive (l.concat a))
   : motive l := by
-  cases l_concat l <;> subst_vars
+  cases reverse_cases l <;> subst_vars
   case inl => assumption
   case inr h =>
     rcases h with ⟨l', a', h⟩
