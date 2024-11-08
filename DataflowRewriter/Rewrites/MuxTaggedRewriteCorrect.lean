@@ -178,13 +178,13 @@ instance {Tag T} : MatchInterface  (lhs_intModule Tag T) (lhsModule Tag T) where
 def φ {Tag T} (state_rhs : rhsModuleType Tag T) (state_lhs : lhs_intModuleType Tag T) : Prop :=
   let ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩ := state_rhs
   let ⟨⟨y_join_l, y_join_r⟩, ⟨y_muxT, y_muxF, y_muxC⟩⟩ := state_lhs
-  x_muxT.map Prod.snd ++  x_join1_r = List.map Prod.fst (List.filter (fun x => x.2 == true) y_join_r) ++ y_muxT ∧
-  x_muxF.map Prod.snd ++ x_join1_r  =  List.map Prod.fst (List.filter (fun x => x.2 == false) y_join_r) ++  y_muxF ∧
-  x_muxC = y_muxC ∧
+  x_muxT.map Prod.snd ++ x_join1_r = List.map Prod.fst (List.filter (fun x => x.2 == true) y_join_r) ++ y_muxT ∧
+  x_muxF.map Prod.snd ++ x_join2_r = List.map Prod.fst (List.filter (fun x => x.2 == false) y_join_r) ++ y_muxF ∧
+  x_muxC = List.map Prod.snd y_join_r ++ y_muxC ∧
   x_muxT.map Prod.fst ++ x_join1_l ++ x_fork  = y_join_l ∧
   x_muxF.map Prod.fst ++ x_join2_l ++ x_fork   = y_join_l ∧
-  (y_muxC.head?= some true → y_muxT = []) ∧
-  (y_muxC.head?  = some false → y_muxF = [])
+  (y_muxC.head? = some true → y_muxT = []) ∧
+  (y_muxC.head? = some false → y_muxF = [])
 
 def φ' {Tag T} (state_rhs : rhsModuleType Tag T) (state_lhs : lhs_intModuleType Tag T) : Prop :=
   let ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩ := state_rhs
@@ -320,22 +320,47 @@ theorem φ_indistinguishable {Tag T} :
       rcases v with ⟨ vt, vv ⟩
       rcases Hsem with ⟨ ⟨ ⟨hsemll₁, hsemll₂, hsemll₃⟩ | ⟨hsemll₁, hsemll₂, hsemll₃⟩, ⟨⟨hsemlrll, hsemlrlr⟩, ⟨hsemlrrl, hsemlrrr⟩⟩ ⟩, hsemr ⟩
       <;> subst_vars
-      . simp at H₇; subst_vars
-        apply Exists.intro ((_, _), (_, (_, _)))
-        rw [sigma_rw_simp]; dsimp
-        refine ⟨⟨?_, ?_⟩, rfl⟩
-        · rw [← H₅]
-          have : ∀ a, List.map Prod.fst ((a, vv) :: x_new_muxF) ++ x_new_join2_l ++ x_new_fork  = a :: List.map Prod.fst (x_new_muxF) ++ x_new_join2_l ++ x_new_fork  := by simp
-          rw [this]; rfl
-        · left
-          --simp[*] at *
-          simp at H₂
-          unfold List.filter at H₂
-          have H  : List.filterMap (fun x => if x.2 = false then some x else none) y_join_r ++ List.filterMap (fun x => if x.2 = true then some x else none) y_join_r = y_join_r := by unfold List.filterMap; simp
-          unfold List.filterMap at H₂
-          simp at H₂
-          have : x_new_join2_r ++ List.map Prod.snd (x_new_muxF ++ [(vt, vv)]) = x_new_join2_r ++ List.map Prod.snd (x_new_muxF) ++ [vv] := by simp
-          rw [this]
+      . rcases y_join_r with _ | ⟨y_joint_r_h, y_join_r_t⟩
+        . dsimp at *; subst_vars; simp at H₇
+        · rcases y_joint_r_h with ⟨y_joint_r_h_val, y_joint_r_h_bool⟩; dsimp at *; subst_vars
+          simp at H₁ H₅
+          symm at H₂
+          symm at H₁
+          have H₂' := H₂
+          have H₁' := H₁
+
+          simp at hsemll₁; rcases hsemll₁; subst_vars
+          simp at H₂; cases H₂; subst_vars
+        --   rw [List.map_eq_cons] at H₂
+        --   rcases H₂ with ⟨el, restlist, filterlist, Hvv, H⟩
+        --   rcases el with ⟨elvv, elbb⟩
+        --   dsimp at *
+        --   subst elvv
+        --   rw [List.filter_eq_cons ] at filterlist
+        --   rcases filterlist with ⟨el', restlist', filterlist', elIn1, elIn2, Hfinal⟩
+        --   dsimp at *
+        --   have : elbb = false := by simp_all only [beq_true, List.filter_append, List.map_append, List.append_assoc, Option.some.injEq,
+        --                 Bool.false_eq_true, false_implies, Bool.not_eq_eq_eq_not, Bool.not_true, Bool.not_eq_false, Prod.forall,
+        --                 Bool.forall_bool, imp_false, implies_true, and_true]
+        -- subst elbb
+
+
+          apply Exists.intro ((_, _), (_, (_, _)))
+          rw [sigma_rw_simp]; dsimp
+          refine ⟨⟨?_, ?_⟩, rfl⟩
+          · rw [← H₅]
+            have : ∀ a, List.map Prod.fst ((a, vv) :: x_new_muxF) ++ x_new_join2_l ++ x_new_fork  = a :: List.map Prod.fst (x_new_muxF) ++ x_new_join2_l ++ x_new_fork  := by simp
+            rw [this]; rfl
+          · left
+            --simp[*] at *
+
+            rfl
+            unfold List.filter at H₂
+            have H  : List.filterMap (fun x => if x.2 = false then some x else none) y_join_r ++ List.filterMap (fun x => if x.2 = true then some x else none) y_join_r = y_join_r := by unfold List.filterMap; simp
+            unfold List.filterMap at H₂
+            simp at H₂
+            have : x_new_join2_r ++ List.map Prod.snd (x_new_muxF ++ [(vt, vv)]) = x_new_join2_r ++ List.map Prod.snd (x_new_muxF) ++ [vv] := by simp
+            rw [this]
       . simp at H₆; subst_vars
         apply Exists.intro ((_, _), (_, (_, _)))
         rw [sigma_rw_simp]; dsimp
