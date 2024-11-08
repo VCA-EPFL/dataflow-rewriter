@@ -346,6 +346,7 @@ def findSCCNodes' (succ : Std.HashMap String (Array String)) (startN endN : Stri
         else
           let nextNodes ← succ[x]?.map (·.toList)
           if "_leaf_" ∈ nextNodes then none
+          if startN ∈ nextNodes then none
           let nextNodes' := nextNodes.filter (· ∉ visited')
           go w visited' (nextNodes' ++ q)
 
@@ -354,6 +355,8 @@ Find all nodes in between two nodes by performing a DFS that checks that one has
 never reached an output node.
 -/
 def findSCCNodes (g : ExprHigh String) (startN endN : String) : Option (List String) := do
-  findSCCNodes' (← fullCalcSucc g) startN endN
+  let l ← findSCCNodes' (← fullCalcSucc g) startN endN
+  let l' ← findSCCNodes' (← fullCalcSucc g.invert) startN endN
+  return l.union l'
 
 end DataflowRewriter
