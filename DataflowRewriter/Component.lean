@@ -229,6 +229,12 @@ Essentially tagger + join without internal rule
     internals := []
   }
 
+@[drunfold] def sink (T : Type _) : NatModule Unit :=
+  { inputs := [(0, ⟨ T, λ _ _ _ => True ⟩)].toAssocList,
+    outputs := ∅,
+    internals := []
+  }
+
 @[drunfold] def unary_op {α R} (f : α → R): NatModule (List α) :=
   { inputs := [
         (0, ⟨ α, λ oldList newElement newList => newList = newElement :: oldList ⟩)
@@ -285,6 +291,8 @@ namespace DataflowRewriter.StringModule
 
 @[drunfold] def split T T' := NatModule.split T T' |>.stringify
 
+@[drunfold] def sink T := NatModule.sink T |>.stringify
+
 @[drunfold] def branch T := NatModule.branch T
   |>.stringify
   -- |>.mapIdent (λ | 0 => "val" | _ => "cond") (λ | 0 => "true" | _ => "false")
@@ -331,7 +339,10 @@ def ε (Tag : Type) [DecidableEq Tag] (T : Type) [Inhabited T] : IdentMap String
   , ("TaggedSplit", ⟨_, StringModule.split Tag T⟩)
 
   , ("Merge", ⟨_, StringModule.merge T 2⟩)
-  , ("TagggedMerge", ⟨_, StringModule.merge (Tag × T) 2⟩)
+  , ("TaggedMerge", ⟨_, StringModule.merge (Tag × T) 2⟩)
+
+  , ("Sink", ⟨_, StringModule.sink T⟩)
+  , ("TaggedSink", ⟨_, StringModule.sink Tag⟩)
 
   , ("Fork", ⟨_, StringModule.fork T 2⟩)
   , ("Fork3", ⟨_, StringModule.fork T 3⟩)
