@@ -118,6 +118,7 @@ def lhs' : ExprHigh String := [graph|
     m_left [type = "mod_left"];
     m_right [type = "mod_right"];
     mux [type = "mux"];
+    bag [type = "bag"];
     fork [type = "fork"];
 
     i_branch -> branch [inp = "val"];

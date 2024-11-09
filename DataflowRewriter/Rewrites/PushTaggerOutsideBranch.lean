@@ -74,7 +74,7 @@ def matcher (g : ExprHigh String) : RewriteResult (List String) := do
     ) none | throw .done
   return list
 
-def lhs : ExprHigh String := [graph|
+def lhs' : ExprHigh String := [graph|
     i_data [type = "io"];
     i_cond [type = "io"];
     o_out [type = "io"];
@@ -102,7 +102,12 @@ def lhs : ExprHigh String := [graph|
 
     merge -> o_out [out = "out0"];
   ]
-def lhsLower := lhs.lower.get rfl
+
+def lhs := lhs'.extract ["branch", "tagger1", "tagger2", "m_left", "m_right", "merge"] |>.get rfl
+
+theorem double_check_empty_snd : lhs.snd = ExprHigh.mk ∅ ∅ := by rfl
+
+def lhsLower := lhs.fst.lower.get rfl
 
 
 def rhs : ExprHigh String := [graph|
@@ -141,10 +146,10 @@ def rhs : ExprHigh String := [graph|
 
 def rhsLower := rhs.lower.get rfl
 -- Double checking that the left and right abstracter seems to work:
-#eval matchModRight lhs
-#eval matchModLeft lhs
-#eval matcher lhs
-#eval IO.print lhs
+#eval matchModRight lhs'
+#eval matchModLeft lhs'
+#eval matcher lhs'
+#eval IO.print lhs'
 
 
 /--
@@ -194,8 +199,7 @@ def lhs' : ExprHigh String :=
 
   ]
 
-
-#eval rewrite.run "rw0_" lhs'
+#eval _root_.DataflowRewriter.rewrite "rw0_" lhs' rewrite |>.toOption |>.get! |> IO.print
 
 end TEST
 

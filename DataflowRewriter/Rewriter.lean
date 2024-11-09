@@ -134,8 +134,6 @@ are still fresh in the graph.
     <| g_lower.findBase concretisation.typ
   -- return g_lower.concretise (concretisation.expr.renameMapped base) base concretisation.typ
   --        |>.higherS fresh_prefix
-  dbg_trace s!"{repr <| concretisation.typ}"
-  dbg_trace s!"{repr <| concretisation.expr.renameMapped base}"
   let e_sub := concretisation.expr.renameMapped base
   return g_lower.concretise e_sub base concretisation.typ |>.higherS fresh_prefix
 
@@ -146,7 +144,6 @@ are still fresh in the graph.
       return (g'', c''::c', n+1)
     ) (g, [], 0)
   let g ← rewrite.run (fresh_prefix ++ s!"_R_") g
-  dbg_trace s!"before: {repr g}"
   c.foldlM (λ (g, n) (c : Concretisation String) => do
     let g' ← c.run (fresh_prefix ++ s!"_C_{n}_") g
     return (g', n+1)) (g, 0) |>.map Prod.fst
