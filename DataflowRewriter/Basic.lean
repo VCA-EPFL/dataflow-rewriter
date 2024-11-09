@@ -163,6 +163,7 @@ end PortMapping
 structure Interface (Ident) where
   input : List (InternalPort Ident)
   output : List (InternalPort Ident)
+deriving Repr
 
 namespace Interface
 
@@ -177,6 +178,13 @@ def toIdentityPortMapping (i : Interface Ident) : PortMapping Ident :=
   ⟨(i.input.map (λ a => (a, a))).toAssocList,
    (i.output.map (λ a => (a, a))).toAssocList⟩
 
+/--
+Need to be careful with the renaming now.
+-/
+def toIdentityPortMapping' (i : Interface Ident) : PortMapping Ident :=
+  ⟨(i.input.map (λ a => (⟨.top, a.name⟩, a))).toAssocList,
+   (i.output.map (λ a => (⟨.top, a.name⟩, a))).toAssocList⟩
+
 def toPortMapping (i : Interface Ident) (ident : Ident) : PortMapping Ident :=
   if i.isBaseModule
   then ⟨(i.input.map (λ a => (a, InternalPort.mk (.internal ident) a.name))).toAssocList,
@@ -187,5 +195,8 @@ end Interface
 
 def PortMapping.toInterface {Ident} (p : PortMapping Ident) : Interface Ident :=
   ⟨p.input.keysList, p.output.keysList⟩
+
+def PortMapping.toInterface' {Ident} (p : PortMapping Ident) : Interface Ident :=
+  ⟨p.input.toList.map Prod.snd, p.output.toList.map Prod.snd⟩
 
 end DataflowRewriter

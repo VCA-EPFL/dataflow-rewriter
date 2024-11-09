@@ -37,6 +37,7 @@ structure Abstraction where
 structure Concretisation where
   expr : ExprLow Ident
   typ : Ident
+deriving Repr, Inhabited
 
 structure Rewrite where
   pattern : Pattern Ident
@@ -86,6 +87,7 @@ language does not remember any names.
   let (g₁, g₂) ← ofOption (.error "could not extract graph") <| g.extract sub
   let e_sub ← ofOption (.error "could not lower subgraph: graph is empty") <| g₁.lower
   let g_lower := g₂.lower' e_sub
+  -- dbg_trace s!"e_sub:: {repr e_sub}\n\nrewrite.input_expr:: {repr rewrite.input_expr}"
   let (ext_mapping, _) ← liftError <| e_sub.beq rewrite.input_expr
   let e_sub' := rewrite.output_expr.renameMapped ext_mapping.inverse
   let (e_sub'_vars_i, e_sub'_vars_o) := e_sub'.allVars
@@ -110,8 +112,12 @@ proofs that are already present in the framework should be enough.
   let (g₁, g₂) ← ofOption (.error "could not extract graph") <| g.extract sub
   let e_sub ← ofOption (.error "could not lower subgraph: graph is empty") <| g₁ |>.lower
   let g_lower := g₂ |>.lower' e_sub
+  /- Here we have to make sure that the context contains a renamed version of
+  e_sub to show equivalence to the abstracted version, because the abstracted
+  version has `.top` IO ports -/
   let portMapping := e_sub.build_interface.toIdentityPortMapping
   let abstracted := g_lower.abstract e_sub portMapping abstraction.typ
+  -- return (abstracted.higherS fresh_prefix, ⟨e_sub.renameMapped portMapping.inverse, abstraction.typ⟩)
   return (abstracted.higherS fresh_prefix, ⟨e_sub, abstraction.typ⟩)
 
 /--
@@ -131,12 +137,14 @@ are still fresh in the graph.
 
 @[drunfold] def rewrite (fresh_prefix : String) (g : ExprHigh String) (rewrite : Rewrite String)
   : RewriteResult (ExprHigh String) := do
-  let (g, c) ← rewrite.abstractions.foldlM (λ (g', c') a => do
-      let (g'', c'') ← a.run fresh_prefix g'
-      return (g'', c''::c')
-    ) (g, [])
-  let g ← rewrite.run fresh_prefix g
-  c.foldlM (λ g c => c.run fresh_prefix g) g
+  let (g, c, _) ← rewrite.abstractions.foldlM (λ (g', c', n) a => do
+      let (g'', c'') ← a.run (fresh_prefix ++ s!"_A_{n}_") g'
+      return (g'', c''::c', n+1)
+    ) (g, [], 0)
+  let g ← rewrite.run (fresh_prefix ++ s!"_R_") g
+  c.foldlM (λ (g, n) (c : Concretisation String) => do
+    let g' ← c.run (fresh_prefix ++ s!"_C_{n}_") g
+    return (g', n+1)) (g, 0) |>.map Prod.fst
 
 /--
 Loops over the [rewrite] function, applying one rewrite exhaustively until
@@ -166,11 +174,11 @@ deriving Repr
 Follow an output to the next node.  A similar function could be written to
 follow the input to the previous node.
 -/
-def followOutput' (g : ExprHigh String) (inst output : String) : RewriteResult (NextNode String) := do
+def followOutput' (g : ExprHigh String) (inst : String) (output : InternalPort String) : RewriteResult (NextNode String) := do
   let (pmap, _) ← ofOption (.error "instance not in modules")
     <| g.modules.find? inst
   let localOutputName ← ofOption (.error "port not in instance portmap")
-    <| pmap.output.find? ⟨.top, output⟩
+    <| pmap.output.find? output
   let c@⟨_, localInputName⟩ ← ofOption (.error "output not in connections")
     <| g.connections.find? (λ c => c.output = localOutputName)
   let (inst, iport) ← ofOption (.error "input port not in modules")
@@ -178,6 +186,9 @@ def followOutput' (g : ExprHigh String) (inst output : String) : RewriteResult (
   ofOption (.error "instance not in modules") <| (g.modules.findEntry? inst).map (λ x => ⟨inst, iport, x.2.1, x.2.2, c⟩)
 
 def followOutput (g : ExprHigh String) (inst output : String) : Option (NextNode String) :=
+  (followOutput' g inst ⟨.top, output⟩).toOption
+
+def followOutputFull (g : ExprHigh String) (inst : String) (output : InternalPort String) : Option (NextNode String) :=
   (followOutput' g inst output).toOption
 
 /--
@@ -202,7 +213,7 @@ def calcSucc (g : ExprHigh String) : Option (Std.HashMap String (Array String)) 
   g.modules.foldlM (λ succ k v => do
       let a ← v.fst.output.foldlM (λ succ' (k' v' : InternalPort String) => do
           if v'.inst.isTop then return succ'
-          let out ← followOutput g k k'.name
+          let out ← followOutputFull g k k'
           return succ'.push out.inst
         ) ∅
       return succ.insert k a
