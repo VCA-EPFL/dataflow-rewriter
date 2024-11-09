@@ -199,7 +199,7 @@ def lhs' : ExprHigh String :=
 
   ]
 
-#eval _root_.DataflowRewriter.rewrite "rw0_" lhs' rewrite |>.toOption |>.get! |> IO.print
+#eval rewrite.run "rw0_" lhs' |>.toOption |>.get! |> IO.print
 
 end TEST
 

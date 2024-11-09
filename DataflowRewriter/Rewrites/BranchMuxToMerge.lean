@@ -219,7 +219,7 @@ def lhs' : ExprHigh String := [graph|
 --       |> (Abstraction.mk matchModRight "mod_right").run "rw1_"
       -- |> matchModRight
       -- |> calcSucc
-#eval _root_.DataflowRewriter.rewrite "rw0_" lhs' rewrite |>.toOption |>.get! |> IO.print
+#eval rewrite.run "rw0_" lhs' |>.toOption |>.get! |> IO.print
 
 end TEST
 

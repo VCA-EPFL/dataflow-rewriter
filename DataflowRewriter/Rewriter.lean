@@ -81,7 +81,7 @@ In the process, all names are generated again so that they are guaranteed to be
 fresh.  This could be unnecessary, however, currently the low-level expression
 language does not remember any names.
 -/
-@[drunfold] def Rewrite.run (fresh_prefix : String) (g : ExprHigh String) (rewrite : Rewrite String)
+@[drunfold] def Rewrite.run' (fresh_prefix : String) (g : ExprHigh String) (rewrite : Rewrite String)
   : RewriteResult (ExprHigh String) := do
   let sub ← rewrite.pattern g
   let (g₁, g₂) ← ofOption (.error "could not extract graph") <| g.extract sub
@@ -137,13 +137,13 @@ are still fresh in the graph.
   let e_sub := concretisation.expr.renameMapped base
   return g_lower.concretise e_sub base concretisation.typ |>.higherS fresh_prefix
 
-@[drunfold] def rewrite (fresh_prefix : String) (g : ExprHigh String) (rewrite : Rewrite String)
+@[drunfold] def Rewrite.run (fresh_prefix : String) (g : ExprHigh String) (rewrite : Rewrite String)
   : RewriteResult (ExprHigh String) := do
   let (g, c, _) ← rewrite.abstractions.foldlM (λ (g', c', n) a => do
       let (g'', c'') ← a.run (fresh_prefix ++ s!"_A_{n}_") g'
       return (g'', c''::c', n+1)
     ) (g, [], 0)
-  let g ← rewrite.run (fresh_prefix ++ s!"_R_") g
+  let g ← rewrite.run' (fresh_prefix ++ s!"_R_") g
   c.foldlM (λ (g, n) (c : Concretisation String) => do
     let g' ← c.run (fresh_prefix ++ s!"_C_{n}_") g
     return (g', n+1)) (g, 0) |>.map Prod.fst
@@ -158,7 +158,7 @@ def rewrite_loop (pref : String) (g : ExprHigh String)
     : (rewrites : List (Rewrite String)) → Nat → RewriteResult (ExprHigh String)
 | _, 0 | [], _ => return g
 | r :: rs, fuel' + 1 => do
-  let g' ← try rewrite (pref ++ toString fuel' ++ "_") g r
+  let g' ← try r.run (pref ++ toString fuel' ++ "_") g
             catch
             | .done => rewrite_loop pref g rs fuel'
             | .error s => throw <| .error s
