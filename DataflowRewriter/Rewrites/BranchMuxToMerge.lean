@@ -144,10 +144,9 @@ def lhs' : ExprHigh String := [graph|
 
 #eval IO.print lhs'
 -- #eval IO.print lhs'.invert
-#eval matcher lhs'
 #eval IO.print lhs'
 
-def lhs := lhs'.extract ["fork", "m_left", "mux", "m_right", "branch", "bag"] |>.get rfl
+def lhs := lhs'.extract (matcher lhs' |>.toOption |>.get rfl) |>.get rfl
 
 theorem double_check_empty_snd : lhs.snd = ExprHigh.mk ∅ ∅ := by rfl
 
@@ -197,12 +196,13 @@ def lhs' : ExprHigh String := [graph|
     i_cond [type = "io"];
     o_out [type = "io"];
 
-    branch [type = "branch"];
+    branch [type = "TaggedBranch"];
     m_left1 [type = "mod_left1"];
     m_left2 [type = "mod_left2"];
     m_right [type = "mod_right"];
-    mux [type = "mux"];
-    fork [type = "fork"];
+    mux [type = "TaggedMux"];
+    fork [type = "TaggedFork"];
+    bag [type = "Bag"];
 
     i_branch -> branch [inp = "val"];
     i_cond -> fork [inp = "inp0"];
@@ -210,7 +210,8 @@ def lhs' : ExprHigh String := [graph|
     fork -> mux [out = "out1", inp = "cond"];
     m_left1 -> m_left2 [out = "out0", inp = "inp0"];
 
-    mux -> o_out [out = "out0"];
+    mux -> bag [out = "out0", inp = "inp0"];
+    bag -> o_out [out = "out0"];
 
     branch -> m_left1 [out = "true", inp = "m_in"];
     branch -> m_right [out = "false", inp = "m_in"];
@@ -221,6 +222,7 @@ def lhs' : ExprHigh String := [graph|
 
 #eval matchModLeft lhs'
 #eval matchModRight lhs'
+#eval matcher lhs'
 
 -- #eval (Abstraction.mk matchModLeft "mod_left").run "rw0_" lhs' |>.toOption |>.get! |> Prod.fst
 --       |> (Abstraction.mk matchModRight "mod_right").run "rw1_"
