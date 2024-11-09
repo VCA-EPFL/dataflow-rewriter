@@ -211,6 +211,9 @@ def followInput' (g : ExprHigh String) (inst input : String) : RewriteResult (Ne
 def followInput (g : ExprHigh String) (inst input : String) : Option (NextNode String) :=
   (followInput' g inst input).toOption
 
+def findType (g : ExprHigh String) (typ : String) : List String :=
+  g.modules.foldl (λ l a b => if b.snd = typ then a :: l else l) []
+
 def calcSucc (g : ExprHigh String) : Option (Std.HashMap String (Array String)) :=
   g.modules.foldlM (λ succ k v => do
       let a ← v.fst.output.foldlM (λ succ' (k' v' : InternalPort String) => do
