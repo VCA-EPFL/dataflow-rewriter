@@ -693,7 +693,7 @@ theorem refines_φ_product {J K} [Nonempty J] [Nonempty I] {imod₂ : Module Ide
   [MatchInterface imod₂ smod₂] {φ₁ φ₂} :
     imod ⊑_{φ₁} smod →
     imod₂ ⊑_{φ₂} smod₂ →
-    imod.product imod₂ ⊑_{λ a b => φ₁ a.1 b.1 ∧ φ₂ a.2 b.2} smod.product smod₂ := by
+    imod.product imod₂ ⊑_{λ a b => φ₁ a.1 b.1 ∧ φ₂ a.2 b.2} smod.product smod₂ := by stop
   intro href₁ href₂
   have mm_prod : MatchInterface (imod.product imod₂) (smod.product smod₂) := by apply MatchInterface_product
   unfold refines_φ at *
