@@ -55,6 +55,12 @@ namespace DataflowRewriter.NatModule
     internals := []
   }
 
+@[drunfold] def fork2 T : NatModule (List T × List T) :=
+  { inputs := [(0, ⟨ T, λ (oldListL, oldListR) newElement (newListL, newListR)=> newListR = oldListR.concat newElement ∧ newListL = oldListL.concat newElement ⟩)].toAssocList,
+    outputs := [(0, ⟨ T, λ (oldListL, oldListR) oldElement (newListL, newListR) => oldElement :: newListL = oldListL ∧ newListR = oldListR ⟩), (1, ⟨ T, λ (oldListL, oldListR) oldElement (newListL, newListR) => oldElement :: newListR = oldListR ∧ newListL = oldListL ⟩)] |>.toAssocList,
+    internals := []
+  }
+
 @[drunfold] def queue T : NatModule (List T) :=
   { inputs := [(⟨ .top, 0 ⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
     outputs := [(⟨ .top, 0 ⟩, ⟨ T, λ oldList oldElement newList =>  newList.concat oldElement = oldList ⟩)].toAssocList,
@@ -215,6 +221,8 @@ namespace DataflowRewriter.StringModule
 @[drunfold] def merge T n := NatModule.merge T n |>.stringify
 
 @[drunfold] def fork T n := NatModule.fork T n |>.stringify
+
+@[drunfold] def fork2 T := NatModule.fork2 T|>.stringify
 
 @[drunfold] def queue T : StringModule (List T) :=
   NatModule.queue T |>.mapIdent (λ x => "enq") (λ x => "deq")

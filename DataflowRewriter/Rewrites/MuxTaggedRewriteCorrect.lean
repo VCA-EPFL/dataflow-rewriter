@@ -64,7 +64,7 @@ def ε (Tag T : Type _) : IdentMap String (TModule String) :=
   [ ("join", ⟨ _, StringModule.join Tag T ⟩)
   , ("mux", ⟨ _, StringModule.mux T ⟩)
   , ("tagged_mux", ⟨ _, StringModule.mux (Tag × T) ⟩)
-  , ("fork", ⟨ _, StringModule.fork Tag 2 ⟩)
+  , ("fork", ⟨ _, StringModule.fork2 Tag⟩)
   , ("joinC", ⟨ _, StringModule.joinC Tag T Bool ⟩)
   , ("muxC", ⟨ _, StringModule.muxC T ⟩)
   ].toAssocList
@@ -486,37 +486,55 @@ theorem correct_threeway_merge'' {Tag T: Type _} [DecidableEq T]:
     . simp [drunfold,drcompute,seval] at Hsem ⊢
       rw[sigma_rw_simp] at Hsem; simp at Hsem
       rcases new_i with ⟨x_new_fork, ⟨x_new_muxT, x_new_muxF, x_new_muxC⟩, ⟨x_new_join1_l, x_new_join1_r⟩, ⟨x_new_join2_l, x_new_join2_r⟩⟩
+      rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
+      rcases y with ⟨⟨y_join_l, y_join_r⟩, ⟨y_muxT, y_muxF, y_muxC⟩⟩
       subst_vars
-      rcases Hsem with ⟨ _, _ , _⟩  | ⟨ _, _ ⟩
-      subst_vars
-      . apply Exists.intro ((_, _), (_, (_, _)))
-        rw [sigma_rw_simp]; dsimp
-        constructor
-        . (repeat constructor) <;> (try rfl)
-          . simp[*] at *
-            rw[← h₅]
-            rename_i h _
-            rw[← h]; simp; rfl
-          . simp[*] at *
-            left
-            rw[← h₅]
-            rename_i h _
-            rw[← h]; simp; rfl
-        . constructor; constructor
-          . constructor
-          . simp at Hsem; rcases Hsem with ⟨ Hsem₁, Hsem₂⟩
-            rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
-            simp at Hsem₂
-            rcases Hsem₂ with ⟨ ⟨ _, _, _ ⟩ , ⟨ _, _ ⟩, _, _ ⟩
+      rcases v with ⟨ouput_tag,ouput⟩
+      simp at Hsem
+      rcases Hsem with ⟨⟨⟨ H₁, H₂,H₃ ⟩ | ⟨H₄, H₅, H₆⟩⟩,  H₁₁⟩ <;> rename_i Hsem <;> rcases Hsem with ⟨ ⟨ H₇, H₈ ⟩, H₉, H₁₀⟩
+      <;> subst_vars <;> simp_all
+      . rw[List.cons_eq_append] at h₂
+        rcases h₂ with ⟨p₁, p₂, p₃ ⟩ | ⟨rest, p₂, p₃ ⟩
+        . simp at p₁
+          rcases y_join_r with _ | ⟨y_joint_r_h, y_join_r_t⟩
+          . simp at H₁; rw[← H₁] at h₇; simp at h₇
+          . simp at p₁
+            rcases y_joint_r_h with ⟨ a, b ⟩
+            specialize p₁ a; cases p₁
+            simp at H₁; rcases H₁ with ⟨ k, j ⟩
+            subst k; simp_all
+        . rcases y_join_r with _ | ⟨y_joint_r_h, y_join_r_t⟩
+          . simp_all
+          . apply Exists.intro ((_, _), (_, (_, _)))
+            rw [sigma_rw_simp]; dsimp
             constructor
-            . simp
-              subst_vars
-              simp at *; assumption
-            . and_intros <;> (try subst_vars) <;> (try simp[*]) <;> (try assumption)
-              . simp_all only [beq_true, beq_false, List.append_assoc]
-                rw[← h₄]; simp
-              . simp_all only [beq_true, beq_false, List.append_assoc]
-                rw[← h₅]; simp
+            . (repeat constructor) <;> (try rfl)
+              . rw[← h₅]
+              . left
+                simp_all
+                constructor
+                . cases y_joint_r_h; simp at p₂; simp at H₁; simp_all
+                . rfl
+            . constructor; constructor
+              . constructor
+              . unfold φ; and_intros
+                . simp
+                  subst_vars
+                  cases y_joint_r_h
+                  simp_all
+                . cases y_joint_r_h; simp_all
+                . cases y_joint_r_h; simp_all
+                . rcases y_joint_r_h with ⟨ y_join_value, y_joint_condiction ⟩
+                  simp_all
+                  rcases p₂ with ⟨ p₂, p₂' ⟩
+                  rcases H₁ with ⟨ H₁, H₁'⟩
+
+                  rw[List.cons_eq_append] at h₅
+                  rcases h₅ with ⟨p₁, p₂, p₃ ⟩ | ⟨rest, p₂, p₃ ⟩
+
+
+                  rw[← h₅]
+                  simp
 
 
 
