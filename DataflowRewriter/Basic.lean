@@ -185,6 +185,10 @@ def toIdentityPortMapping' (i : Interface Ident) : PortMapping Ident :=
   ⟨(i.input.map (λ a => (⟨.top, a.name⟩, a))).toAssocList,
    (i.output.map (λ a => (⟨.top, a.name⟩, a))).toAssocList⟩
 
+def toIdentityPortMapping'' (ident : Ident) (i : Interface Ident) : PortMapping Ident :=
+  ⟨(i.input.map (λ a => (⟨.internal ident, a.name⟩, a))).toAssocList,
+   (i.output.map (λ a => (⟨.internal ident, a.name⟩, a))).toAssocList⟩
+
 def toPortMapping (i : Interface Ident) (ident : Ident) : PortMapping Ident :=
   if i.isBaseModule
   then ⟨(i.input.map (λ a => (a, InternalPort.mk (.internal ident) a.name))).toAssocList,

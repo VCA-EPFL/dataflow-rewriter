@@ -58,20 +58,20 @@ def liftError {α} : Except String α → Except RewriteError α
 
 end Rewrite
 
-def generate_renaming (fresh_prefix : String) (internals : List (InternalPort String)) :=
-  go 0 ∅ ∅ internals
+def generate_renaming (nameMap : AssocList String String) (fresh_prefix : String) (internals : List (InternalPort String)) :=
+  go 0 nameMap ∅ internals
   where
     go (n : Nat) (nameMap : AssocList String String) (p : PortMap String (InternalPort String))
-      : List (InternalPort String) → PortMap String (InternalPort String)
+      : List (InternalPort String) → PortMap String (InternalPort String) × AssocList String String
     | (⟨.internal inst, name⟩) :: b =>
       match nameMap.find? inst with
       | some inst' => go n nameMap (p.cons ⟨.internal inst, name⟩ ⟨.internal inst', name⟩) b
       | none =>
         let inst' := fresh_prefix ++ toString n
         let nameMap' := nameMap.cons inst inst'
-        go n nameMap (p.cons ⟨.internal inst, name⟩ ⟨.internal inst', name⟩) b
+        go (n+1) nameMap' (p.cons ⟨.internal inst, name⟩ ⟨.internal inst', name⟩) b
     | ⟨.top, name⟩ :: b => go n nameMap p b
-    | [] => p
+    | [] => (p, nameMap)
 
 /--
 Perform a rewrite in the graph by lowering it into an inductive expression using
@@ -91,10 +91,9 @@ language does not remember any names.
   let (ext_mapping, _) ← liftError <| e_sub.beq rewrite.input_expr
   let e_sub' := rewrite.output_expr.renameMapped ext_mapping.inverse
   let (e_sub'_vars_i, e_sub'_vars_o) := e_sub'.allVars
-  let int_mapping' : PortMapping String :=
-    ⟨ generate_renaming fresh_prefix (e_sub'_vars_i.filter (λ x => x ∉ ext_mapping.input.keysList))
-    , generate_renaming fresh_prefix (e_sub'_vars_o.filter (λ x => x ∉ ext_mapping.output.keysList))
-    ⟩
+  let (inputPortMap, nameMap) := generate_renaming ∅ fresh_prefix (e_sub'_vars_i.filter (λ x => x ∉ ext_mapping.input.keysList))
+  let (outputPortMap, _) := generate_renaming nameMap fresh_prefix (e_sub'_vars_o.filter (λ x => x ∉ ext_mapping.output.keysList))
+  let int_mapping' : PortMapping String := ⟨ inputPortMap, outputPortMap ⟩
   let e_renamed_sub' := e_sub'.renameMapped int_mapping'
   return g_lower.replace e_sub e_renamed_sub' |>.higherS fresh_prefix
 
@@ -115,10 +114,11 @@ proofs that are already present in the framework should be enough.
   /- Here we have to make sure that the context contains a renamed version of
   e_sub to show equivalence to the abstracted version, because the abstracted
   version has `.top` IO ports -/
-  let portMapping := e_sub.build_interface.toIdentityPortMapping
+  let portMapping := e_sub.build_interface.toIdentityPortMapping' -- abstraction.typ
   let abstracted := g_lower.abstract e_sub portMapping abstraction.typ
-  -- return (abstracted.higherS fresh_prefix, ⟨e_sub.renameMapped portMapping.inverse, abstraction.typ⟩)
-  return (abstracted.higherS fresh_prefix, ⟨e_sub, abstraction.typ⟩)
+  let e_sub' := e_sub.renameMapped portMapping.inverse
+  return (abstracted.higherS fresh_prefix, ⟨e_sub', abstraction.typ⟩)
+  -- return (abstracted.higherS fresh_prefix, ⟨e_sub, abstraction.typ⟩)
 
 /--
 Can be used to concretise the abstract node again.  Currently it assumes
@@ -132,8 +132,12 @@ are still fresh in the graph.
   -- may need to uniquify the concretisation internal connections
   let base ← ofOption (.error "Could not find base of concretisation")
     <| g_lower.findBase concretisation.typ
-  return g_lower.concretise (concretisation.expr.renameMapped base) base concretisation.typ
-         |>.higherS fresh_prefix
+  -- return g_lower.concretise (concretisation.expr.renameMapped base) base concretisation.typ
+  --        |>.higherS fresh_prefix
+  dbg_trace s!"{repr <| concretisation.typ}"
+  dbg_trace s!"{repr <| concretisation.expr.renameMapped base}"
+  let e_sub := concretisation.expr.renameMapped base
+  return g_lower.concretise e_sub base concretisation.typ |>.higherS fresh_prefix
 
 @[drunfold] def rewrite (fresh_prefix : String) (g : ExprHigh String) (rewrite : Rewrite String)
   : RewriteResult (ExprHigh String) := do
@@ -142,6 +146,7 @@ are still fresh in the graph.
       return (g'', c''::c', n+1)
     ) (g, [], 0)
   let g ← rewrite.run (fresh_prefix ++ s!"_R_") g
+  dbg_trace s!"before: {repr g}"
   c.foldlM (λ (g, n) (c : Concretisation String) => do
     let g' ← c.run (fresh_prefix ++ s!"_C_{n}_") g
     return (g', n+1)) (g, 0) |>.map Prod.fst
