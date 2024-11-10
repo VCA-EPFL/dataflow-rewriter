@@ -127,8 +127,12 @@ def rhs : ExprHigh String := [graph|
     sep_tag -> fork_tag [out = "out0", inp="inp0"];
     sep_tag -> sep_data [out = "out1", inp="inp0"];
 
-    sep_data -> m_l [out = "out0", inp="m_in"];
-    sep_data -> m_r [out = "out1", inp="m_in"];
+    sep_data -> pack1 [out = "out0", inp="inp1"];
+    sep_data -> pack2 [out = "out1", inp="inp1"];
+    fork_tag -> pack1 [out = "out0", inp="inp0"];
+    fork_tag -> pack2 [out = "out1", inp="inp0"];
+    pack1 -> m_l [out = "out0", inp="m_in"];
+    pack2 -> m_r [out = "out0", inp="m_in"];
 
 
     m_l -> j_out [out = "m_out", inp = "inp0"];
