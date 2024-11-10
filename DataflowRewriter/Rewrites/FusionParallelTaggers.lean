@@ -116,7 +116,7 @@ def rhs : ExprHigh String := [graph|
     fork_tag [type = "Fork"];
     pack1 [ type = "Join"];
     pack2 [ type = "Join"];
-    j_out [type = "Join"];
+    j_out [type = "Aligner"];
 
     i_datal -> j_in [inp = "enq_untagged"];
     i_datar -> j_in [inp = "enq_untagged"];
