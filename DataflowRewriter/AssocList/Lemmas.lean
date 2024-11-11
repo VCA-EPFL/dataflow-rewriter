@@ -134,6 +134,16 @@ theorem contains_some3 {α β} [DecidableEq α] {m : AssocList α β} {ident x} 
     m.contains ident := by
   intro h; apply contains_some2; rw [h]; rfl
 
+theorem contains_find?_iff {α β} [DecidableEq α] {m : AssocList α β} {ident} :
+    (∃ x, m.find? ident = some x) ↔ m.contains ident := by
+  constructor
+  · intro h; cases h; solve_by_elim [contains_some3]
+  · intro h; rw [← Option.isSome_iff_exists]; solve_by_elim [contains_some]
+
+theorem contains_find?_isSome_iff {α β} [DecidableEq α] {m : AssocList α β} {ident} :
+    (m.find? ident).isSome ↔ m.contains ident := by
+  rw [Option.isSome_iff_exists]; apply contains_find?_iff
+
 theorem keysList_find {α β} [DecidableEq α] {m : AssocList α β} {ident} :
   (m.find? ident).isSome → ident ∈ m.keysList := by simp_all [keysList]
 
@@ -185,6 +195,16 @@ theorem erase_equiv {α β} [DecidableEq α] {a b : AssocList α β} ident ident
 @[simp] theorem find?_eraseAll_neq {α β} [DecidableEq α] (a : AssocList α β) i i' :
   i ≠ i' →
   (a.eraseAll i).find? i' = a.find? i' := by sorry
+
+theorem find?_eraseAll {α β} [DecidableEq α] {a : AssocList α β} {i i' v} :
+  (a.eraseAll i').find? i = some v → a.find? i = some v := by
+  intro h; by_cases heq : i = i'
+  · subst i'; rw [find?_eraseAll_eq] at h; contradiction
+  . rw [find?_eraseAll_neq] at h; assumption; symm; assumption
+
+theorem contains_eraseAll {α β} [DecidableEq α] {a : AssocList α β} {i i'} :
+  (a.eraseAll i').contains i → a.contains i := by
+  simp only [←contains_find?_iff]; intro ⟨_, _⟩; solve_by_elim [find?_eraseAll]
 
 @[simp] theorem any_map {α β} {f : α → β} {l : List α} {p : β → Bool} : (l.map f).any p = l.any (p ∘ f) := by
   induction l with simp | cons _ _ ih => rw [ih]

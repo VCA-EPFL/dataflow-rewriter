@@ -77,6 +77,18 @@ theorem build_moduleD.dep_rewrite {instIdent} : ∀ {modIdent : Ident} {ε a} (H
   let b ← b.build_module'
   return ⟨ _, a.2.product b.2 ⟩
 
+inductive type_correct_module : ExprLow Ident → Prop where
+| base : ∀ i e, type_correct_module (.base i e)
+| connect : ∀ o i e e',
+  type_correct_module e →
+  e.build_module' ε = some e' →
+  (e'.2.outputs.getIO o).1 = (e'.2.inputs.getIO i).1 →
+  type_correct_module (.connect o i e)
+| product : ∀ e₁ e₂,
+  type_correct_module e₁ →
+  type_correct_module e₂ →
+  type_correct_module (.product e₁ e₂)
+
 @[drunfold] def build_module_names
     : (e : ExprLow Ident) → List (PortMapping Ident × Ident)
 | .base i e => [(i, e)]
