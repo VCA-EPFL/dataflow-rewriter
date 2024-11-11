@@ -1,4 +1,5 @@
 import DataflowRewriter.AssocList.Basic
+import Mathlib.Logic.Function.Basic
 
 namespace Batteries.AssocList
 
@@ -223,5 +224,20 @@ theorem disjoint_keys_mapVal {α β γ μ} [DecidableEq α] {a : AssocList α β
 theorem disjoint_keys_mapVal_both {α β γ μ η} [DecidableEq α] {a : AssocList α β} {b : AssocList α γ} {f : α → γ → μ} {g : α → β → η} :
   a.disjoint_keys b → (a.mapVal g).disjoint_keys (b.mapVal f) := by
   intros; solve_by_elim [disjoint_keys_mapVal, disjoint_keys_symm]
+
+theorem mapKey_find? {α β γ} [DecidableEq α] [DecidableEq γ] {a : AssocList α β} {f : α → γ} {i} (hinj : Function.Injective f) :
+  (a.mapKey f).find? (f i) = a.find? i := by
+  induction a with
+  | nil => simp
+  | cons k v xs ih =>
+    dsimp
+    by_cases h : f k = f i
+    · have h' := hinj h; rw [h']; simp
+    · have h' := hinj.ne_iff.mp h;
+      rw [Batteries.AssocList.find?.eq_2]
+      rw [Batteries.AssocList.find?.eq_2]; rw [ih]
+      have t1 : (f k == f i) = false := by simp [*]
+      have t2 : (k == i) = false := by simp [*]
+      rw [t1, t2]
 
 end Batteries.AssocList

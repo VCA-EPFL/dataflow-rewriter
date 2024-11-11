@@ -155,6 +155,39 @@ def findBase (typ : Ident) : ExprLow Ident → Option (PortMapping Ident)
   | some port => port
   | none => e₂.findBase typ
 
+def mapInputPorts (f : InternalPort Ident → InternalPort Ident) : ExprLow Ident → ExprLow Ident
+| .base map typ' => .base ⟨map.input.mapVal (λ _ => f), map.output⟩ typ'
+| .connect o i e => e.mapInputPorts f  |> .connect o (f i)
+| .product e₁ e₂ => .product (e₁.mapInputPorts f) (e₂.mapInputPorts f)
+
+def mapOutputPorts (f : InternalPort Ident → InternalPort Ident) : ExprLow Ident → ExprLow Ident
+| .base map typ' => .base ⟨map.input, map.output.mapVal (λ _ => f)⟩ typ'
+| .connect o i e => e.mapOutputPorts f  |> .connect (f o) i
+| .product e₁ e₂ => .product (e₁.mapOutputPorts f) (e₂.mapOutputPorts f)
+
+def mapPorts2 (f g : InternalPort Ident → InternalPort Ident) (e : ExprLow Ident) : ExprLow Ident :=
+  e.mapInputPorts f |>.mapOutputPorts g
+
+def filterId (p : PortMapping Ident) : PortMapping Ident :=
+  ⟨p.input.filter (λ a b => a ≠ b), p.output.filter (λ a b => a ≠ b)⟩
+
+def invertible {α} [DecidableEq α] (p : Batteries.AssocList α α) : Bool :=
+  p.keysList.inter p.inverse.keysList = ∅ ∧ p.keysList.Nodup ∧ p.inverse.keysList.Nodup
+
+def bijectivePortRenaming (p : PortMap Ident (InternalPort Ident)) (i: InternalPort Ident) : InternalPort Ident :=
+  let p' := p.inverse
+  if p.keysList.inter p'.keysList = ∅ && p.keysList.Nodup && p'.keysList.Nodup then
+    let map := p.append p.inverse
+    map.find? i |>.getD i
+  else i
+
+theorem invertibleMap {α} [DecidableEq α] {p : Batteries.AssocList α α} {a b} :
+  invertible p →
+  (p.append p.inverse).find? a = some b → (p.append p.inverse).find? b = some a := by sorry
+
+def renamePorts (m : ExprLow Ident) (p : PortMapping Ident) : ExprLow Ident :=
+  m.mapPorts2 (bijectivePortRenaming p.input) (bijectivePortRenaming p.output)
+
 /--
 Assume that the input is currently not mapped.
 -/

@@ -19,7 +19,7 @@ namespace ExprLow
 variable {Ident}
 variable [DecidableEq Ident]
 
-variable (ε : IdentMap Ident (Σ T : Type _, Module Ident T))
+variable (ε : IdentMap Ident (Σ T : Type, Module Ident T))
 
 @[drunfold] def get_types (i : Ident) : Type _ :=
   (ε.find? i) |>.map Sigma.fst |>.getD PUnit
@@ -64,11 +64,13 @@ theorem build_moduleD.dep_rewrite {instIdent} : ∀ {modIdent : Ident} {ε a} (H
     a
     (Eq.refl a)) := by intro a b c d; cases d; rfl
 
+theorem filterId_empty : filterId (Ident := Ident) ∅ = ∅ := by rfl
+
 @[drunfold] def build_module'
     : (e : ExprLow Ident) → Option (Σ T, Module Ident T)
 | .base i e => do
   let mod ← ε.find? e
-  return ⟨ _, mod.2.renamePorts i ⟩
+  return ⟨ _, mod.2.renamePorts (filterId i) ⟩
 | .connect o i e' => do
   let e ← e'.build_module'
   return ⟨ _, e.2.connect' o i ⟩
@@ -146,7 +148,7 @@ theorem wf_modify_expression {e : ExprLow Ident} {i i'}:
 
 theorem build_base_in_env {T inst i mod} :
   ε.find? i = some ⟨ T, mod ⟩ →
-  build_module' ε (base inst i) = some ⟨ T, mod.renamePorts inst ⟩ := by
+  build_module' ε (base inst i) = some ⟨ T, mod.renamePorts (filterId inst) ⟩ := by
   intro h; dsimp [drunfold]; rw [h]; rfl
 
 theorem wf_replace {e e_pat e'} : wf ε e → wf ε e' → wf ε (e.replace e_pat e') := by
@@ -160,8 +162,99 @@ theorem wf_abstract {e e_pat a b} : wf ε e → ε.contains b → wf ε (e.abstr
 
 theorem build_module_unfold_1 {m r i} :
   ε.find? i = some m →
-  build_module ε (.base r i) = ⟨ m.fst, m.snd.renamePorts r ⟩ := by
+  build_module ε (.base r i) = ⟨ m.fst, m.snd.renamePorts (filterId r) ⟩ := by
   intro h; simp only [drunfold]; rw [h]; simp
+
+theorem build_module_type_rename' {e : ExprLow Ident} {f g} :
+  (e.mapPorts2 f g |>.build_module' ε).isSome = (e.build_module' ε).isSome := by
+  induction e with
+  | base map typ =>
+    simp [drunfold, -AssocList.find?_eq]
+  | connect o i e ih =>
+    dsimp [drunfold, -AssocList.find?_eq]
+    cases h : build_module' ε e
+    · rw [h] at ih; simp [mapPorts2] at ih; simp [ih]
+    · rw [h] at ih; simp at ih; rw [Option.isSome_iff_exists] at ih; rcases ih with ⟨_, ih⟩
+      unfold mapPorts2 at *; rw [ih]; rfl
+  | product e₁ e₂ ihe₁ ihe₂ =>
+    dsimp [drunfold]
+    cases h : (build_module' ε e₁)
+    · rw [h] at ihe₁; simp [mapPorts2] at ihe₁; simp [ihe₁]
+    · cases h2 : (build_module' ε e₂)
+      · rw [h2] at ihe₂; simp [mapPorts2] at ihe₂; simp [ihe₂]
+      · rw [h] at ihe₁; simp at ihe₁; rw [Option.isSome_iff_exists] at ihe₁; rcases ihe₁ with ⟨_, ihe₁⟩
+        unfold mapPorts2 at *; rw [ihe₁];
+        rw [h2] at ihe₂; simp at ihe₂; rw [Option.isSome_iff_exists] at ihe₂; rcases ihe₂ with ⟨_, ihe₂⟩
+        rw [ihe₂]; rfl
+
+theorem build_module_type_rename {e f g} :
+  ([T| e.mapPorts2 f g, ε]) = ([T| e, ε ]) := by
+  induction e with
+  | base map typ =>
+    simp [drunfold, -AssocList.find?_eq]
+    cases h : (AssocList.find? typ ε) <;> rfl
+  | connect o i e ie =>
+    simp [drunfold, -AssocList.find?_eq]
+    cases h : build_module' ε e
+    · have : (build_module' ε (mapOutputPorts g (mapInputPorts f e))) = none := by
+        have := build_module_type_rename' (ε := ε) (e := e) (f := f) (g := g)
+        rw [h] at this; simp_all [mapPorts2]
+      rw [this]; rfl
+    · have := build_module_type_rename' (ε := ε) (e := e) (f := f) (g := g)
+      rw [h] at this; dsimp at this; rw [Option.isSome_iff_exists] at this
+      rcases this with ⟨a, this⟩
+      dsimp [mapPorts2] at this; rw [this]
+      unfold build_module_type build_module at *
+      unfold mapPorts2 at *
+      rw [this] at ie; rw [h] at ie
+      dsimp at ie; assumption
+  | product e₁ e₂ he₁ he₂ =>
+    simp [drunfold, -AssocList.find?_eq]
+    cases h : build_module' ε e₁
+    · have : (build_module' ε (mapOutputPorts g (mapInputPorts f e₁))) = none := by
+        have := build_module_type_rename' (ε := ε) (e := e₁) (f := f) (g := g)
+        rw [h] at this; simp_all [mapPorts2]
+      rw [this]; rfl
+    · have this := build_module_type_rename' (ε := ε) (e := e₁) (f := f) (g := g)
+      have this2 := build_module_type_rename' (ε := ε) (e := e₂) (f := f) (g := g)
+      rw [h] at this; dsimp at this; rw [Option.isSome_iff_exists] at this; rcases this with ⟨ a, this ⟩
+      cases h' : build_module' ε e₂
+      · have this3 : (build_module' ε (mapOutputPorts g (mapInputPorts f e₂))) = none := by
+          rw [h'] at this2; simp_all [mapPorts2]
+        rw [this3]; unfold mapPorts2 at *; rw [this]; rfl
+      · rw [h'] at this2; dsimp at this2; rw [Option.isSome_iff_exists] at this2
+        rcases this2 with ⟨a, this2⟩
+        dsimp [mapPorts2] at this this2; rw [this]
+        unfold build_module_type build_module at *
+        unfold mapPorts2 at *
+        dsimp; rw [this2]; dsimp
+        rw [h,this] at he₁
+        rw [h',this2] at he₂
+        simp at *; congr
+
+def cast_module {S T} (h : S = T): Module Ident S = Module Ident T := by
+  cases h; rfl
+
+theorem rename_build_module {e : ExprLow Ident} {f g} (h : Function.Bijective f) (h' : Function.Bijective g) :
+  (([e| e.mapPorts2 f g, ε])) = ((cast_module build_module_type_rename).mpr ([e| e, ε ])).mapPorts2 f g := by
+  -- induction e with
+  -- | base map typ =>
+  --   dsimp [drunfold]
+  --   cases h : (AssocList.find? typ ε).isSome
+  --   · simp [-AssocList.find?_eq] at h
+  --     sorry
+  --   · sorry
+  -- | connect o i e ih =>
+  --   dsimp [drunfold]
+  sorry
+
+theorem rename_build_module2 {e f g} :
+  Function.Bijective f → Function.Bijective g →
+  ([e| e, ε ]).mapPorts2 f g ⊑ ([e| e.mapPorts2 f g, ε]) := by sorry
+
+theorem rename_build_module3 {e f g} :
+  Function.Bijective f → Function.Bijective g →
+  ([e| e.mapPorts2 f g, ε]) ⊑ ([e| e, ε ]).mapPorts2 f g := by sorry
 
 section Refinement
 
@@ -195,8 +288,7 @@ theorem refines_product {e₁ e₂ e₁' e₂'} :
   rw [wf1, wf2, wf3, wf4]
   rw [wf1, wf3] at ref1
   rw [wf2, wf4] at ref2
-  sorry
-  -- solve_by_elim [Module.refines_product]
+  solve_by_elim [Module.refines_product]
 
 theorem refines_connect {e e' o i} :
     wf ε e → wf ε e' →
@@ -301,7 +393,7 @@ theorem abstract_refines {iexpr expr_pat i} :
       subst_vars
       simp [drunfold, Option.bind, Option.getD, hb]
       rw [hb]; simp
-      rw [Module.renamePorts_empty]; apply Module.refines_reflexive
+      rw [filterId_empty,Module.renamePorts_empty]; apply Module.refines_reflexive
     · have : (if base inst typ = expr_pat then base ∅ i else base inst typ) = base inst typ := by
         simp [h]
       rw [this]; clear this
@@ -317,7 +409,7 @@ theorem abstract_refines {iexpr expr_pat i} :
         else (e₁.replace expr_pat (base ∅ i)).product (e₂.replace expr_pat (base ∅ i))) = y
     split at H <;> subst y <;> rename_i h
     · subst_vars
-      rw [build_module_unfold_1 hfind, Module.renamePorts_empty]
+      rw [build_module_unfold_1 hfind, filterId_empty, Module.renamePorts_empty]
       apply Module.refines_reflexive
     · unfold abstract at ihe₁ ihe₂
       have : wf ε (e₁.replace expr_pat (base ∅ i)) := by
@@ -335,7 +427,7 @@ theorem abstract_refines {iexpr expr_pat i} :
     intro hwf
     generalize h : (if connect x y e = expr_pat then base ∅ i else connect x y (e.replace expr_pat (base ∅ i))) = y
     split at h <;> subst_vars
-    · rw [build_module_unfold_1 hfind, Module.renamePorts_empty]
+    · rw [build_module_unfold_1 hfind, filterId_empty, Module.renamePorts_empty]
       apply Module.refines_reflexive
     · have : wf ε (connect x y (e.replace expr_pat (base ∅ i))) := by
         simp [wf, all]
@@ -366,7 +458,7 @@ theorem abstract_refines2 {iexpr expr_pat i} :
       subst_vars
       simp [drunfold, Option.bind, Option.getD, hb]
       rw [hb]; simp
-      rw [Module.renamePorts_empty]; apply Module.refines_reflexive
+      rw [filterId_empty, Module.renamePorts_empty]; apply Module.refines_reflexive
     · have : (if base inst typ = expr_pat then base ∅ i else base inst typ) = base inst typ := by
         simp [h]
       rw [this]; clear this
@@ -382,7 +474,7 @@ theorem abstract_refines2 {iexpr expr_pat i} :
         else (e₁.replace expr_pat (base ∅ i)).product (e₂.replace expr_pat (base ∅ i))) = y
     split at H <;> subst y <;> rename_i h
     · subst_vars
-      rw [build_module_unfold_1 hfind, Module.renamePorts_empty]
+      rw [build_module_unfold_1 hfind, filterId_empty, Module.renamePorts_empty]
       apply Module.refines_reflexive
     · unfold abstract at ihe₁ ihe₂
       have : wf ε (e₁.replace expr_pat (base ∅ i)) := by
@@ -400,7 +492,7 @@ theorem abstract_refines2 {iexpr expr_pat i} :
     intro hwf
     generalize h : (if connect x y e = expr_pat then base ∅ i else connect x y (e.replace expr_pat (base ∅ i))) = y
     split at h <;> subst_vars
-    · rw [build_module_unfold_1 hfind, Module.renamePorts_empty]
+    · rw [build_module_unfold_1 hfind, filterId_empty, Module.renamePorts_empty]
       apply Module.refines_reflexive
     · have : wf ε (connect x y (e.replace expr_pat (base ∅ i))) := by
         simp [wf, all]

@@ -83,18 +83,44 @@ language does not remember any names.
 -/
 @[drunfold] def Rewrite.run' (fresh_prefix : String) (g : ExprHigh String) (rewrite : Rewrite String)
   : RewriteResult (ExprHigh String) := do
+
   let sub ← rewrite.pattern g
   let (g₁, g₂) ← ofOption (.error "could not extract graph") <| g.extract sub
   let e_sub ← ofOption (.error "could not lower subgraph: graph is empty") <| g₁.lower
+
+  -- g_lower is the fully lowered graph with the sub expression that is to be
+  -- replaced rearranged so that it can be pattern matched.
   let g_lower := g₂.lower' e_sub
+
   -- dbg_trace s!"e_sub:: {repr e_sub}\n\nrewrite.input_expr:: {repr rewrite.input_expr}"
-  let (ext_mapping, _) ← liftError <| e_sub.beq rewrite.input_expr
-  let e_sub' := rewrite.output_expr.renameMapped ext_mapping.inverse
-  let (e_sub'_vars_i, e_sub'_vars_o) := e_sub'.allVars
+
+  -- beq is an α-equivalence check that returns a mapping to rename one
+  -- expression into the other.  This mapping is split into the external mapping
+  -- and internal mapping.
+  let (ext_mapping, int_mapping) ← liftError <| e_sub.beq rewrite.input_expr
+
+  let comb_mapping := ExprLow.filterId <| ext_mapping.append int_mapping
+  unless ExprLow.invertible comb_mapping.input do
+    throw (.error "input mapping not invertible")
+  unless ExprLow.invertible comb_mapping.output do
+    throw (.error "output mapping not invertible")
+
+  -- We rewrite the output expression external ports to match the external ports
+  -- of the internal expression it is replacing.
+  let e_sub_output := rewrite.output_expr.renamePorts comb_mapping
+  let e_sub_input := rewrite.input_expr.renamePorts comb_mapping
+
+  -- We then return all internal variable names so that we can generate fresh names for them.
+  let (e_sub'_vars_i, e_sub'_vars_o) := e_sub_output.allVars
   let (inputPortMap, nameMap) := generate_renaming ∅ fresh_prefix (e_sub'_vars_i.filter (λ x => x ∉ ext_mapping.input.keysList))
   let (outputPortMap, _) := generate_renaming nameMap fresh_prefix (e_sub'_vars_o.filter (λ x => x ∉ ext_mapping.output.keysList))
   let int_mapping' : PortMapping String := ⟨ inputPortMap, outputPortMap ⟩
+
+  -- We then rename all internal signals in the new expression with the fresh
+  -- names.
   let e_renamed_sub' := e_sub'.renameMapped int_mapping'
+
+  -- Finally we do the actual replacement.
   return g_lower.replace e_sub e_renamed_sub' |>.higherS fresh_prefix
 
 /--
@@ -113,10 +139,14 @@ proofs that are already present in the framework should be enough.
   let g_lower := g₂ |>.lower' e_sub
   /- Here we have to make sure that the context contains a renamed version of
   e_sub to show equivalence to the abstracted version, because the abstracted
-  version has `.top` IO ports -/
+  version has `.top` IO ports.  These are needed because of the matcher that
+  comes in the second phase. -/
   let portMapping := e_sub.build_interface.toIdentityPortMapping' -- abstraction.typ
   let abstracted := g_lower.abstract e_sub portMapping abstraction.typ
   let e_sub' := e_sub.renameMapped portMapping.inverse
+  -- let portMapping := e_sub.build_interface.toIdentityPortMapping -- abstraction.typ
+  -- let abstracted := g_lower.abstract e_sub portMapping abstraction.typ
+  -- let e_sub' := e_sub
   return (abstracted.higherS fresh_prefix, ⟨e_sub', abstraction.typ⟩)
   -- return (abstracted.higherS fresh_prefix, ⟨e_sub, abstraction.typ⟩)
 

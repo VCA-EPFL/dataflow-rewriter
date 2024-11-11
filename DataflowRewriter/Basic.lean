@@ -102,12 +102,12 @@ instance set to `top`.
     (l : PortMap Ident (Σ T : Type u₂, (S → T → S → Prop)))
     (n : InternalPort Ident)
     : Σ T : Type u₂, (S → T → S → Prop) :=
-  l.find? n |>.getD (⟨ PUnit, λ _ _ _ => True ⟩)
+  l.find? n |>.getD (⟨ PUnit, λ _ _ _ => False ⟩)
 
 theorem getIO_none {S} (m : PortMap Ident ((T : Type) × (S → T → S → Prop)))
         (ident : InternalPort Ident) :
   m.find? ident = none ->
-  m.getIO ident = ⟨ PUnit, λ _ _ _ => True ⟩ := by
+  m.getIO ident = ⟨ PUnit, λ _ _ _ => False ⟩ := by
   intros H; simp only [PortMap.getIO, H]; simp
 
 theorem getIO_some {S} (m : PortMap Ident ((T : Type) × (S → T → S → Prop)))
