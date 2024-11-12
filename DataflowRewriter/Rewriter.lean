@@ -118,10 +118,11 @@ language does not remember any names.
 
   -- We then rename all internal signals in the new expression with the fresh
   -- names.
-  let e_renamed_sub' := e_sub'.renameMapped int_mapping'
+  let e_renamed_output_sub := e_sub_output.renamePorts int_mapping'
+  let e_renamed_input_sub := e_sub_input.renamePorts int_mapping'
 
   -- Finally we do the actual replacement.
-  return g_lower.replace e_sub e_renamed_sub' |>.higherS fresh_prefix
+  return g_lower.replace e_renamed_input_sub e_renamed_output_sub |>.higherS fresh_prefix
 
 /--
 Abstract a subgraph into a separate node.  One can imagine that the node type is
@@ -143,7 +144,7 @@ proofs that are already present in the framework should be enough.
   comes in the second phase. -/
   let portMapping := e_sub.build_interface.toIdentityPortMapping' -- abstraction.typ
   let abstracted := g_lower.abstract e_sub portMapping abstraction.typ
-  let e_sub' := e_sub.renameMapped portMapping.inverse
+  let e_sub' := e_sub.renamePorts portMapping.inverse
   -- let portMapping := e_sub.build_interface.toIdentityPortMapping -- abstraction.typ
   -- let abstracted := g_lower.abstract e_sub portMapping abstraction.typ
   -- let e_sub' := e_sub
@@ -164,7 +165,7 @@ are still fresh in the graph.
     <| g_lower.findBase concretisation.typ
   -- return g_lower.concretise (concretisation.expr.renameMapped base) base concretisation.typ
   --        |>.higherS fresh_prefix
-  let e_sub := concretisation.expr.renameMapped base
+  let e_sub := concretisation.expr.renamePorts base
   return g_lower.concretise e_sub base concretisation.typ |>.higherS fresh_prefix
 
 @[drunfold] def Rewrite.run (fresh_prefix : String) (g : ExprHigh String) (rewrite : Rewrite String)

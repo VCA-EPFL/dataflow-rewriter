@@ -691,7 +691,7 @@ theorem refines_refines' :
   rcases href with ⟨mm, R, href⟩
   refine ⟨mm, fun x y => imod.indistinguishable smod x y ∧ R x y, ?_, ?_⟩
   · assumption
-  · simp (config := {contextual := true})
+  · simp +contextual
 
 theorem refines'_refines :
   imod ⊑' smod →
