@@ -64,9 +64,10 @@ def ε (Tag T : Type _) : IdentMap String (TModule String) :=
   [ ("join", ⟨ _, StringModule.join Tag T ⟩)
   , ("mux", ⟨ _, StringModule.mux T ⟩)
   , ("tagged_mux", ⟨ _, StringModule.mux (Tag × T) ⟩)
-  , ("fork", ⟨ _, StringModule.fork2 Tag⟩)
+  , ("fork", ⟨ _, StringModule.fork2 Bool⟩)
   , ("joinC", ⟨ _, StringModule.joinC Tag T Bool ⟩)
   , ("muxC", ⟨ _, StringModule.muxC T ⟩)
+  , ("branch", ⟨ _, StringModule.branch Tag ⟩)
   ].toAssocList
 
 def lhsNames := rewrite.input_expr.build_module_names
@@ -113,6 +114,8 @@ def rhsModuleType (Tag T : Type _) : Type := by
     conv in _ :: Module.connect'' _ _ :: _ => arg 2; rw [Module.connect''_dep_rw]; rfl
     conv in _ :: Module.connect'' _ _ :: _ => arg 2; arg 2; rw [Module.connect''_dep_rw]; rfl
     conv in _ :: Module.connect'' _ _ :: _ => arg 2; arg 2; arg 2; rw [Module.connect''_dep_rw]; rfl
+    conv in _ :: Module.connect'' _ _ :: _ => arg 2; arg 2; arg 2; arg 2; rw [Module.connect''_dep_rw]; rfl
+    conv in _ :: Module.connect'' _ _ :: _ => arg 2; arg 2; arg 2; arg 2; arg 2; rw [Module.connect''_dep_rw]; rfl
     dsimp
 
 attribute [dmod] Batteries.AssocList.find? BEq.beq
@@ -175,16 +178,20 @@ instance {Tag T} : MatchInterface  (lhs_intModule Tag T) (lhsModule Tag T) where
 #reduce lhs_intModuleType
 
 
+
 def φ {Tag T} (state_rhs : rhsModuleType Tag T) (state_lhs : lhs_intModuleType Tag T) : Prop :=
-  let ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩ := state_rhs
-  let ⟨⟨y_join_l, y_join_r⟩, ⟨y_muxT, y_muxF, y_muxC⟩⟩ := state_lhs
+  let ⟨⟨x_branch_tag, x_branchC ⟩, x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩ := state_rhs
+  let ⟨⟨y_join_tag, y_join_r⟩, ⟨y_muxT, y_muxF, y_muxC⟩⟩ := state_lhs
   x_muxT.map Prod.snd ++ x_join1_r = List.map Prod.fst (List.filter (fun x => x.2 == true) y_join_r) ++ y_muxT ∧
   x_muxF.map Prod.snd ++ x_join2_r = List.map Prod.fst (List.filter (fun x => x.2 == false) y_join_r) ++ y_muxF ∧
-  x_muxC = List.map Prod.snd y_join_r ++ y_muxC ∧
-  x_muxT.map Prod.fst ++ x_join1_l ++ x_fork  = y_join_l ∧
-  x_muxF.map Prod.fst ++ x_join2_l ++ x_fork   = y_join_l ∧
-  (y_muxC.head? = some true → y_muxT = []) ∧
-  (y_muxC.head? = some false → y_muxF = [])
+  x_muxC ++ x_fork.2 = List.map Prod.snd y_join_r ++ y_muxC ∧
+  List.map Prod.fst (List.filter (fun x => x.2 == some true) (List.zipWithAll (fun a b => (a, b)) (y_join_tag) ((List.map Prod.snd y_join_r) ++ y_muxC ))) =
+  ((List.filterMap (fun | (some tag, some true) => some tag | _ => none) (List.zipWithAll (fun a b => (a, b)) (x_branch_tag) (x_branchC ++ x_fork.1)))) ++ x_join1_l ++ List.map Prod.fst x_muxT
+
+  -- List.map Prod.fst (List.filter (fun x => x.2 == false) (List.zipWithAll y_join_tag ((List.map Prod.snd y_join_r) ++ y_muxC ))) =
+  -- List.map Prod.fst (List.filter (fun x => x.2 == false) (List.zipWithAll x_branch_tag (x_branchC ++ x_fork.1))) ++ x_join2_l ++ List.map Prod.snd x_muxF ∧
+  -- y_muxC.head? = some true → y_muxT = [] ∧
+  -- y_muxC.head? = some false → y_muxF = []
 
 def φ' {Tag T} (state_rhs : rhsModuleType Tag T) (state_lhs : lhs_intModuleType Tag T) : Prop :=
   let ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩ := state_rhs
