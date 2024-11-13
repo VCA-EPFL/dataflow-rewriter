@@ -226,6 +226,18 @@ def BoundedList T n := { ls : List T // ls.length <= n }
     internals := []
   }
 
+@[drunfold] def joinL T T' T'' n : NatModule (BoundedList (T × T') n × BoundedList T'' n) :=
+  { inputs := [ (0, ⟨ T × T', λ (oldListL, oldListR) newElement (newListL, newListR) =>
+                      newListL.val = newElement :: oldListL.val ∧ newListR = oldListR ⟩)
+              , (1, ⟨ T'', λ (oldListL, oldListR) newElement (newListL, newListR) =>
+                      newListR.val = newElement :: oldListR.val ∧ newListL = oldListL⟩)].toAssocList,
+    outputs := [(0, ⟨ T × T' × T'', λ (oldListL, oldListR)  (oldElementL₁, oldElementL₂, oldElementR) (newListL, newListR) =>
+                        oldListL.val = newListL.val.concat (oldElementL₁, oldElementL₂)
+                         ∧ oldListR.val = newListR.val.concat oldElementR⟩)].toAssocList,
+    internals := []
+  }
+
+
 end FixedSize
 
 end DataflowRewriter.NatModule
@@ -258,4 +270,12 @@ namespace DataflowRewriter.StringModule
   |>.stringify
 
 @[drunfold] def joinC T T' T'' := NatModule.joinC T T' T'' |>.stringify
+
+namespace FixedSize
+
+@[drunfold] def join T T' n := NatModule.FixedSize.join T T' n |>.stringify
+
+@[drunfold] def joinL T T' T'' n := NatModule.FixedSize.joinL T T' T'' n |>.stringify
+
+end FixedSize
 end DataflowRewriter.StringModule
