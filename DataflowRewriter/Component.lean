@@ -269,6 +269,23 @@ Essentially tagger + join without internal rule
     internals := []
   }
 
+namespace FixedSize
+
+def BoundedList T n := { ls : List T // ls.length <= n }
+
+@[drunfold] def join T T' n : NatModule (BoundedList T n × BoundedList T' n) :=
+  { inputs := [ (0, ⟨ T, λ (oldListL, oldListR) newElement (newListL, newListR) =>
+                      newListL.val = newElement :: oldListL.val ∧ newListR = oldListR ⟩)
+              , (1, ⟨ T', λ (oldListL, oldListR) newElement (newListL, newListR) =>
+                      newListR.val = newElement :: oldListR.val ∧ newListL = oldListL⟩)].toAssocList,
+    outputs := [(0, ⟨ T × T', λ (oldListL, oldListR) (oldElementL, oldElementR) (newListL, newListR) =>
+                         oldListL.val = newListL.val.concat oldElementL
+                         ∧ oldListR.val = newListR.val.concat oldElementR ⟩)].toAssocList,
+    internals := []
+  }
+
+end FixedSize
+
 end DataflowRewriter.NatModule
 
 namespace DataflowRewriter.StringModule
