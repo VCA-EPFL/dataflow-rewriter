@@ -26,7 +26,7 @@ precondition that the input and output type must match.
 
 def join : Module (List Nat × List Nat) :=
   { inputs := RBMap.ofList [
-           ("in_0", ⟨ Nat, λ s n s' => s' = (s.1.concat n, s.2) ⟩), 
+           ("in_0", ⟨ Nat, λ s n s' => s' = (s.1.concat n, s.2) ⟩),
            ("in_1", ⟨ Nat, λ s n s' => s' = (s.1, s.2.concat n) ⟩)] _,
     outputs := RBMap.ofList [("out", ⟨ Nat × Nat, λ s n s' => s.1 = n.1 :: s'.1 ∧ s.2 = n.2 :: s'.2 ⟩)] _,
     internals := [],
@@ -34,7 +34,7 @@ def join : Module (List Nat × List Nat) :=
 
 def pack : Module (List Nat) :=
   { inputs := RBMap.ofList [
-           ("in_0", ⟨ Nat, λ s n s' => s' = (s.1.concat n, s.2) ⟩), 
+           ("in_0", ⟨ Nat, λ s n s' => s' = (s.1.concat n, s.2) ⟩),
            ("in_1", ⟨ Nat, λ s n s' => s' = (s.1, s.2.concat n) ⟩)] _,
     outputs := RBMap.ofList [("out", ⟨ Nat × Nat, λ s n s' => s.1 = n.1 :: s'.1 ∧ s.2 = n.2 :: s'.2 ⟩)] _,
     internals := [],
@@ -48,7 +48,7 @@ def channel : Module (List Nat) :=
 
 def join' : Module (Option Nat × Option Nat) :=
   { inputs := RBMap.ofList [
-           ("in_0", ⟨ Nat, λ s n s' => s.1 = none ∧ s' = (some n, s.2) ⟩), 
+           ("in_0", ⟨ Nat, λ s n s' => s.1 = none ∧ s' = (some n, s.2) ⟩),
            ("in_1", ⟨ Nat, λ s n s' => s.2 = none ∧ s' = (s.1, some n) ⟩)] _,
     outputs := RBMap.ofList [("out", ⟨ Nat × Nat, λ s n s' => s.1 = some n.1 ∧ s.2 = some s.2 ∧ s' = (none, none) ⟩)] _,
     internals := [],
@@ -69,7 +69,7 @@ def join'' : Module JoinState :=
            ("in_1_valid", ⟨ Bool, λ s b s' => s' = { s with in_1_valid := b } ⟩),
            ("out_ready", ⟨ Bool, λ s b s' => s' = { s with out_ready := b } ⟩),
            ] _,
-    outputs := RBMap.ofList [ ("out", ⟨ Nat × Nat, λ s n s' => s.1 = some n.1 ∧ s.2 = some s.2 
+    outputs := RBMap.ofList [ ("out", ⟨ Nat × Nat, λ s n s' => s.1 = some n.1 ∧ s.2 = some s.2
                                                                ∧ s' = ⟨ none, none, false, s.in_0_valid, s.in_1_valid ⟩ ⟩)
                             , ("out_valid", ⟨ Bool, λ s b s' => s = s' ∧ b = (s.left.isSome ∧ s.right.isSome) ⟩)
                             , ("in_0_ready", ⟨ Bool, λ s b s' => s = s' ∧ b = s.1.isNone ⟩)
@@ -100,39 +100,39 @@ def unpack : Module PackState :=
 
 def graph :=
 [graph|
-  unpack0 [shape = polygon, mod = "unpack"]                                     ;
-  unpack1 [shape = polygon, mod = "unpack"]                                       ;
-  unpack2 [shape = polygon, mod = "unpack"]                                       ;
-  unpack3 [shape = polygon, mod = "unpack"]                                       ;
-  unpack4 [shape = polygon, mod = "unpack"]                                       ;
-  unpack5 [shape = polygon, mod = "unpack"]                                       ;
-  unpack6 [shape = polygon, mod = "unpack"]                                       ;
-  unpack7 [shape = polygon, mod = "unpack"]                                       ;
-  combSge8 [shape = polygon, mod = "combSge"]                                     ;
-  combMux9 [shape = polygon, mod = "combMux"]                                     ;
-  combSge10 [shape = polygon, mod = "combSge"]                                    ;
-  combMux11 [shape = polygon, mod = "combMux"]                                    ;
-  combSge12 [shape = polygon, mod = "combSge"]                                    ;
-  combMux13 [shape = polygon, mod = "combMux"]                                    ;
-  combSge14 [shape = polygon, mod = "combSge"]                                    ;
-  combMux15 [shape = polygon, mod = "combMux"]                                    ;
-  combSge16 [shape = polygon, mod = "combSge"]                                    ;
-  combMux17 [shape = polygon, mod = "combMux"]                                    ;
-  combSge18 [shape = polygon, mod = "combSge"]                                    ;
-  combMux19 [shape = polygon, mod = "combMux"]                                    ;
-  combSge20 [shape = polygon, mod = "combSge"]                                    ;
-  combMux21 [shape = polygon, mod = "combMux"]                                    ;
-  join22 [shape = polygon, mod = "join"]                                          ;
-  pack23 [shape = polygon, mod = "pack"]                                          ;
-  src_0  [mod = "io"];
-  src_1  [mod = "io"];
-  src_2  [mod = "io"];
-  src_3  [mod = "io"];
-  src_4  [mod = "io"];
-  src_5  [mod = "io"];
-  src_6  [mod = "io"];
-  src_7  [mod = "io"];
-  in_0 [mod = "io"];
+  unpack0 [shape = polygon, type = "unpack"]                                     ;
+  unpack1 [shape = polygon, type = "unpack"]                                       ;
+  unpack2 [shape = polygon, type = "unpack"]                                       ;
+  unpack3 [shape = polygon, type = "unpack"]                                       ;
+  unpack4 [shape = polygon, type = "unpack"]                                       ;
+  unpack5 [shape = polygon, type = "unpack"]                                       ;
+  unpack6 [shape = polygon, type = "unpack"]                                       ;
+  unpack7 [shape = polygon, type = "unpack"]                                       ;
+  combSge8 [shape = polygon, type = "combSge"]                                     ;
+  combMux9 [shape = polygon, type = "combMux"]                                     ;
+  combSge10 [shape = polygon, type = "combSge"]                                    ;
+  combMux11 [shape = polygon, type = "combMux"]                                    ;
+  combSge12 [shape = polygon, type = "combSge"]                                    ;
+  combMux13 [shape = polygon, type = "combMux"]                                    ;
+  combSge14 [shape = polygon, type = "combSge"]                                    ;
+  combMux15 [shape = polygon, type = "combMux"]                                    ;
+  combSge16 [shape = polygon, type = "combSge"]                                    ;
+  combMux17 [shape = polygon, type = "combMux"]                                    ;
+  combSge18 [shape = polygon, type = "combSge"]                                    ;
+  combMux19 [shape = polygon, type = "combMux"]                                    ;
+  combSge20 [shape = polygon, type = "combSge"]                                    ;
+  combMux21 [shape = polygon, type = "combMux"]                                    ;
+  join22 [shape = polygon, type = "join"]                                          ;
+  pack23 [shape = polygon, type = "pack"]                                          ;
+  src_0  [type = "io"];
+  src_1  [type = "io"];
+  src_2  [type = "io"];
+  src_3  [type = "io"];
+  src_4  [type = "io"];
+  src_5  [type = "io"];
+  src_6  [type = "io"];
+  src_7  [type = "io"];
+  in_0 [type = "io"];
   src_0 -> unpack0 [inp = "in_0", out = "out", label = "in_0"]                    ;
   src_1 -> unpack1 [inp = "in_0", out = "out", label = "in_3"]                    ;
   src_2 -> unpack2 [inp = "in_0", out = "out", label = "in_6"]                    ;

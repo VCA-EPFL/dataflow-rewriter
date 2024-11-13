@@ -203,4 +203,23 @@ def PortMapping.toInterface {Ident} (p : PortMapping Ident) : Interface Ident :=
 def PortMapping.toInterface' {Ident} (p : PortMapping Ident) : Interface Ident :=
   ⟨p.input.toList.map Prod.snd, p.output.toList.map Prod.snd⟩
 
+theorem reverse_cases {α} l : l = [] ∨ ∃ (l' : List α) (a : α), l = l'.concat a := by sorry
+
+noncomputable def List.concat_induction {α : Sort _}
+  {motive : List α → Prop}
+  (l : List α)
+  (empty : motive [])
+  (step : ∀ a l, motive l → motive (l.concat a))
+  : motive l := by
+  cases reverse_cases l <;> subst_vars
+  case inl => assumption
+  case inr h =>
+    rcases h with ⟨l', a', h⟩
+    subst_vars
+    apply step
+    apply List.concat_induction; assumption; assumption
+termination_by l.length
+decreasing_by
+  subst l; rw [List.length_concat]; simp
+
 end DataflowRewriter

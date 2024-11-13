@@ -49,18 +49,22 @@ def rhs : ExprHigh String := [graph|
     join_t [type = "join"];
     join_f [type = "join"];
     fork [type = "fork"];
+    branch [type = "branch"];
 
-    i_tag -> fork [inp = "inp0"];
+    i_c -> fork [inp = "inp0"];
 
-    fork -> join_t [out = "out0", inp = "inp0"];
+    fork -> branch [out = "out0", inp = "cond"];
+    i_tag -> branch [inp = "val"];
+
+    branch -> join_t [out = "true", inp = "inp0"];
     i_t -> join_t [inp = "inp1"];
 
-    fork -> join_f [out = "out1", inp = "inp0"];
+    branch -> join_f [out = "false", inp = "inp0"];
     i_f -> join_f [inp = "inp1"];
 
     join_t -> mux [out = "out0", inp = "inp0"];
     join_f -> mux [out = "out0", inp = "inp1"];
-    i_c -> mux [inp = "inp2"];
+    fork -> mux [out = "out1", inp = "inp2"];
 
     mux -> o_out [out = "out0"];
   ]

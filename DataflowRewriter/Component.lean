@@ -75,8 +75,14 @@ namespace DataflowRewriter.NatModule
   }
 
 @[drunfold] def fork T (n : Nat) : NatModule (List T) :=
-  { inputs := [(0, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
-    outputs := List.range n |>.map (Prod.mk ↑· ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩) |>.toAssocList,
+  { inputs := [(0, ⟨ T, λ oldList newElement newList => newList = oldList.concat newElement ⟩)].toAssocList,
+    outputs := List.range n |>.map (Prod.mk ↑· ⟨ T, λ oldList oldElement newList => oldElement :: newList = oldList⟩) |>.toAssocList,
+    internals := []
+  }
+
+@[drunfold] def fork2 T : NatModule (List T × List T) :=
+  { inputs := [(0, ⟨ T, λ (oldListL, oldListR) newElement (newListL, newListR)=> newListR = oldListR.concat newElement ∧ newListL = oldListL.concat newElement ⟩)].toAssocList,
+    outputs := [(0, ⟨ T, λ (oldListL, oldListR) oldElement (newListL, newListR) => oldElement :: newListL = oldListL ∧ newListR = oldListR ⟩), (1, ⟨ T, λ (oldListL, oldListR) oldElement (newListL, newListR) => oldElement :: newListR = oldListR ∧ newListL = oldListL ⟩)] |>.toAssocList,
     internals := []
   }
 
@@ -88,12 +94,12 @@ namespace DataflowRewriter.NatModule
 
 @[drunfold] def join T T' : NatModule (List T × List T') :=
   { inputs := [ (0, ⟨ T, λ (oldListL, oldListR) newElement (newListL, newListR) =>
-                       newListL = newElement :: oldListL ∧ newListR = oldListR⟩)
+                       newListL = oldListL.concat newElement ∧ newListR = oldListR⟩)
               , (1, ⟨ T', λ (oldListL, oldListR) newElement (newListL, newListR) =>
-                       newListR = newElement :: oldListR ∧ newListL = oldListL⟩)].toAssocList,
+                       newListR = oldListR.concat newElement ∧ newListL = oldListL⟩)].toAssocList,
     outputs := [(0, ⟨ T × T', λ (oldListL, oldListR) (oldElementL, oldElementR) (newListL, newListR) =>
-                       oldListL = newListL.concat oldElementL ∧
-                       oldListR = newListR.concat oldElementR ⟩)].toAssocList,
+                       oldListL = oldElementL :: newListL ∧
+                       oldListR = oldElementR :: newListR ⟩)].toAssocList,
     internals := []
   }
 
@@ -123,20 +129,47 @@ namespace DataflowRewriter.NatModule
 
 @[drunfold] def mux T : NatModule (List T × List T × List Bool) :=
   { inputs := [ (0, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
-                           newTrueList = val :: oldTrueList ∧ newFalseList = oldFalseList ∧ newBoolList = oldBoolList ⟩)
+                           newTrueList = oldTrueList.concat val ∧ newFalseList = oldFalseList ∧ newBoolList = oldBoolList ⟩)
               , (1, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
-                           newTrueList = oldTrueList ∧ newFalseList = val :: oldFalseList ∧ newBoolList = oldBoolList ⟩)
+                           newTrueList = oldTrueList ∧ newFalseList = oldFalseList.concat val ∧ newBoolList = oldBoolList ⟩)
               , (2, ⟨ Bool, λ (oldTrueList, oldFalseList, oldBoolList) b (newTrueList, newFalseList, newBoolList) =>
-                           newTrueList = oldTrueList ∧ newFalseList = oldFalseList ∧ newBoolList = b :: oldBoolList ⟩)
+                           newTrueList = oldTrueList ∧ newFalseList = oldFalseList ∧ newBoolList = oldBoolList.concat b ⟩)
               ].toAssocList
     outputs := [ (0, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
-                            ∃ b, newBoolList.concat b = oldBoolList
-                              ∧ if b then newTrueList.concat val = oldTrueList ∧ newFalseList = oldFalseList
-                                     else newTrueList = oldTrueList ∧ newFalseList.concat val = oldFalseList ⟩)
+                            ∃ b, b :: newBoolList = oldBoolList
+                              ∧ if b then val :: newTrueList = oldTrueList ∧ newFalseList = oldFalseList
+                                     else newTrueList = oldTrueList ∧ val :: newFalseList = oldFalseList ⟩)
                ].toAssocList
     internals := []
   }
 
+@[drunfold] def muxC T : NatModule (List T × List T × List Bool) :=
+  { inputs := [ (0, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
+                           newTrueList = oldTrueList.concat val ∧ newFalseList = oldFalseList ∧ newBoolList = oldBoolList ⟩)
+              , (1, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
+                           newTrueList = oldTrueList ∧ newFalseList = oldFalseList.concat val ∧ newBoolList = oldBoolList ⟩)
+              , (2, ⟨ Bool, λ (oldTrueList, oldFalseList, oldBoolList) b (newTrueList, newFalseList, newBoolList) =>
+                           newTrueList = oldTrueList ∧ newFalseList = oldFalseList ∧ newBoolList = oldBoolList.concat b ⟩)
+              ].toAssocList
+    outputs := [ (0, ⟨ T×Bool, λ (oldTrueList, oldFalseList, oldBoolList) (val, b) (newTrueList, newFalseList, newBoolList) =>
+                            b :: newBoolList = oldBoolList
+                              ∧ if b then val :: newTrueList = oldTrueList ∧ newFalseList = oldFalseList
+                                     else newTrueList = oldTrueList ∧ val :: newFalseList = oldFalseList ⟩)
+               ].toAssocList
+    internals := []
+  }
+
+
+@[drunfold] def joinC T T' T'' : NatModule (List T × List (T'× T'')) :=
+  { inputs := [ (0, ⟨ T, λ (oldListL, oldListR) newElement (newListL, newListR) =>
+                       newListL = oldListL.concat newElement ∧ newListR = oldListR⟩)
+              , (1, ⟨ T' × T'', λ (oldListL, oldListR) newElement (newListL, newListR) =>
+                       newListR = oldListR.concat newElement ∧ newListL = oldListL⟩)].toAssocList,
+    outputs := [(0, ⟨ T × T', λ (oldListL, oldListR) (oldElementL, oldElementR) (newListL, newListR) =>
+                       ∃ x, oldListL =  oldElementL :: newListL ∧
+                       oldListR = (oldElementR, x) :: newListR ⟩)].toAssocList,
+    internals := []
+  }
 @[drunfold] def bag T : NatModule (List T) :=
   { inputs := [(0,⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
     outputs := [(0,⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)].toAssocList,
@@ -284,6 +317,18 @@ def BoundedList T n := { ls : List T // ls.length <= n }
     internals := []
   }
 
+@[drunfold] def joinL T T' T'' n : NatModule (BoundedList (T × T') n × BoundedList T'' n) :=
+  { inputs := [ (0, ⟨ T × T', λ (oldListL, oldListR) newElement (newListL, newListR) =>
+                      newListL.val = newElement :: oldListL.val ∧ newListR = oldListR ⟩)
+              , (1, ⟨ T'', λ (oldListL, oldListR) newElement (newListL, newListR) =>
+                      newListR.val = newElement :: oldListR.val ∧ newListL = oldListL⟩)].toAssocList,
+    outputs := [(0, ⟨ T × T' × T'', λ (oldListL, oldListR)  (oldElementL₁, oldElementL₂, oldElementR) (newListL, newListR) =>
+                        oldListL.val = newListL.val.concat (oldElementL₁, oldElementL₂)
+                         ∧ oldListR.val = newListR.val.concat oldElementR⟩)].toAssocList,
+    internals := []
+  }
+
+
 end FixedSize
 
 end DataflowRewriter.NatModule
@@ -303,6 +348,8 @@ namespace DataflowRewriter.StringModule
 @[drunfold] def queue T : StringModule (List T) := NatModule.queue T
   |>.stringify
   -- |>.mapIdent (λ x => "enq") (λ x => "deq")
+
+@[drunfold] def fork2 T := NatModule.fork2 T|>.stringify
 
 @[drunfold] def join T T' := NatModule.join T T' |>.stringify
 
@@ -404,4 +451,16 @@ def ε (Tag : Type) [DecidableEq Tag] (T : Type) [Inhabited T] : IdentMap String
   , ("Sub", ⟨_, StringModule.binary_op (@polymorphic_sub T _)⟩)
   ].toAssocList
 
+@[drunfold] def muxC T := NatModule.muxC T
+  |>.stringify
+
+@[drunfold] def joinC T T' T'' := NatModule.joinC T T' T'' |>.stringify
+
+namespace FixedSize
+
+@[drunfold] def join T T' n := NatModule.FixedSize.join T T' n |>.stringify
+
+@[drunfold] def joinL T T' T'' n := NatModule.FixedSize.joinL T T' T'' n |>.stringify
+
+end FixedSize
 end DataflowRewriter.StringModule

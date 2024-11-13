@@ -17,6 +17,7 @@ import DataflowRewriter.Reduce
 import DataflowRewriter.List
 import DataflowRewriter.ExprHighLemmas
 import DataflowRewriter.Tactic
+import DataflowRewriter.AssocList
 
 open Batteries (AssocList)
 
@@ -51,7 +52,7 @@ opaque threemerge_threemerge' T : threemerge T = threemerge' T := by rfl
   |> .connect ⟨.internal 1, 0⟩ ⟨.internal 2, 0⟩
 
 def merge_sem (T: Type _) :=
-  mergeLow.build_module [(0, ⟨List T, NatModule.merge T⟩)].toAssocList
+  mergeLow.build_module [(0, ⟨List T, NatModule.merge T 2⟩)].toAssocList
 
 seal List.get List.remove in
 @[drunfold] def merge_sem' (T:Type) : ((X:Type) × NatModule X) := by precompute merge_sem T
@@ -60,8 +61,6 @@ attribute [dmod] Batteries.AssocList.find? BEq.beq
 
 opaque merge_sem_merge_sem' T : merge_sem T = merge_sem' T := by rfl
 
-@[simp] theorem any_map {α β} {f : α → β} {l : List α} {p : β → Bool} : (l.map f).any p = l.any (p ∘ f) := by
-  induction l with simp | cons _ _ ih => rw [ih]
 
 theorem keysInMap {α β} [DecidableEq α] {m : AssocList α β} {k} : m.contains k → k ∈ m.keysList := by
   unfold Batteries.AssocList.contains Batteries.AssocList.keysList
@@ -106,7 +105,7 @@ theorem φ_indistinguishable {T} :
   ∀ x y, φ x y → Module.indistinguishable (merge_sem' T).snd (threemerge' T) x y := by
   unfold φ; intro x y H
   constructor <;> intro ident new_i v Hcontains Hsem
-  · have Hkeys := keysInMap Hcontains; clear Hcontains
+  · have Hkeys := AssocList.keysInMap Hcontains; clear Hcontains
     fin_cases Hkeys <;> (constructor; rfl)
   · have Hkeys := keysInMap Hcontains; clear Hcontains
     fin_cases Hkeys
