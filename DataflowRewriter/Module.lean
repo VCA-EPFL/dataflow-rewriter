@@ -1240,5 +1240,6 @@ def IdentMap.toInterface {Ident} (i : IdentMap Ident (Σ T, Module Ident T))
   i.mapVal (λ _ x => x.snd |>.toInterface)
 
 abbrev TModule Ident := Σ T, Module Ident T
+abbrev TModule1 Ident := Σ T : Type, Module Ident T
 
 end DataflowRewriter

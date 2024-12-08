@@ -9,8 +9,6 @@ import DataflowRewriter.ExprHighElaborator
 
 namespace DataflowRewriter.BranchMuxToMerge
 
-opaque oracle : ExprHigh String → RewriteResult (List String)
-
 /--
 Instead of using dominators we can also use the fork and the condition circuit
 to match the graph.
@@ -70,7 +68,7 @@ This rewrite adds abstractions to the definition, which provide patterns to
 extract parts of the graph.  The `type` given to each extracted node has to
 match the `type` of the node in LHS and RHS graphs.
 -/
-def rewrite : Rewrite String :=
+def rewrite (oracle : ExprHigh String → RewriteResult (List String)) : Rewrite String :=
   { abstractions := [⟨oracle, "module"⟩],
     pattern := matcher,
     input_expr := lhsLower,

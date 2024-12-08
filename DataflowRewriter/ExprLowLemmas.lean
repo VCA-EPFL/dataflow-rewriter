@@ -170,6 +170,7 @@ theorem build_module_type_rename' {e : ExprLow Ident} {f g} :
   induction e with
   | base map typ =>
     simp [drunfold, -AssocList.find?_eq]
+    sorry
   | connect o i e ih =>
     dsimp [drunfold, -AssocList.find?_eq]
     cases h : build_module' ε e

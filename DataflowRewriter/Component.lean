@@ -87,8 +87,19 @@ namespace DataflowRewriter.NatModule
   }
 
 @[drunfold] def queue T : NatModule (List T) :=
-  { inputs := [(⟨ .top, 0 ⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
-    outputs := [(⟨ .top, 0 ⟩, ⟨ T, λ oldList oldElement newList =>  newList.concat oldElement = oldList ⟩)].toAssocList,
+  { inputs := [(⟨ .top, 0 ⟩, ⟨ T, λ oldList newElement newList => newList = oldList.concat newElement ⟩)].toAssocList,
+    outputs := [(⟨ .top, 0 ⟩, ⟨ T, λ oldList oldElement newList =>  oldElement :: newList = oldList ⟩)].toAssocList,
+    internals := []
+  }
+
+@[drunfold] def init T (default : T) : NatModule (List T × Bool) :=
+  { inputs := [(⟨ .top, 0 ⟩, ⟨ T, λ (oldList, oldState) newElement (newList, newState) =>
+      newList = oldList.concat newElement ∧ oldState = newState ⟩)].toAssocList,
+    outputs := [(⟨ .top, 0 ⟩, ⟨ T, λ (oldList, oldState) oldElement (newList, newState) =>
+      if oldState then
+        oldElement :: newList = oldList ∧ oldState = newState
+      else
+        newList = oldList ∧ newState = true ∧ oldElement = default ⟩)].toAssocList,
     internals := []
   }
 
@@ -202,10 +213,10 @@ namespace DataflowRewriter.NatModule
 /--
 Essentially tagger + join without internal rule
 -/
-@[drunfold] def tagger_untagger_val (TagT : Type 0) [_i: DecidableEq TagT] (T : Type 0) : NatModule (List TagT × AssocList TagT T × List T) :=
+@[drunfold] def tagger_untagger_val (TagT : Type 0) [_i: DecidableEq TagT] (T T' : Type 0) : NatModule (List TagT × AssocList TagT T' × List T) :=
   { inputs := [
         -- Complete computation
-        (0, ⟨ TagT × T, λ (oldOrder, oldMap, oldVal) (tag,el) (newOrder, newMap, newVal) =>
+        (0, ⟨ TagT × T', λ (oldOrder, oldMap, oldVal) (tag,el) (newOrder, newMap, newVal) =>
           -- Tag must be used, but no value ready, otherwise block:
           (tag ∈ oldOrder ∧ oldMap.find? tag = none) ∧
           newMap = oldMap.cons tag el ∧ newOrder = oldOrder ∧ newVal = oldVal ⟩),
@@ -221,7 +232,7 @@ Essentially tagger + join without internal rule
         (tag ∉ oldOrder ∧ oldMap.find? tag = none) ∧
         newMap = oldMap ∧ newOrder = tag :: oldOrder ∧ newVal.cons v = oldVal⟩),
         -- Dequeue + free tag
-      (1, ⟨ T, λ (oldorder, oldmap, oldVal) el (neworder, newmap, newVal) =>
+      (1, ⟨ T', λ (oldorder, oldmap, oldVal) el (neworder, newmap, newVal) =>
         -- tag must be used otherwise, but no value brought, undefined behavior:
         ∃ tag , oldorder = neworder.concat tag ∧ oldmap.find? tag = some el ∧
         newmap = oldmap.eraseAll tag ∧ newVal = oldVal ⟩),
@@ -376,6 +387,8 @@ namespace DataflowRewriter.StringModule
 @[drunfold] def binary_op {α β R} (f : α → β → R) := NatModule.binary_op f
   |>.stringify
 
+@[drunfold] def init T default := NatModule.init T default |>.stringify
+
 @[drunfold] def constant {T} (t : T) := NatModule.constant t |>.stringify
 
 opaque polymorphic_add {T} [Inhabited T] : T → T → T
@@ -392,8 +405,8 @@ opaque constant_e {T} [Inhabited T] : T
 opaque constant_f {T} [Inhabited T] : T
 opaque constant_g {T} [Inhabited T] : T
 
-@[drunfold] def tagger_untagger_val TagT [DecidableEq TagT] T :=
-  NatModule.tagger_untagger_val TagT T |>.stringify
+@[drunfold] def tagger_untagger_val TagT [DecidableEq TagT] T T' :=
+  NatModule.tagger_untagger_val TagT T T' |>.stringify
 
 def ε (Tag : Type) [DecidableEq Tag] (T : Type) [Inhabited T] : IdentMap String (TModule String) :=
   [ ("Join", ⟨_, StringModule.join T T⟩)
@@ -434,7 +447,7 @@ def ε (Tag : Type) [DecidableEq Tag] (T : Type) [Inhabited T] : IdentMap String
   , ("Bag", ⟨_, StringModule.bag (Tag × T)⟩)
 
   , ("Aligner", ⟨_, StringModule.aligner Tag T⟩)
-  , ("TaggerCntrlAligner", ⟨_, StringModule.tagger_untagger_val Tag T⟩)
+  , ("TaggerCntrlAligner", ⟨_, StringModule.tagger_untagger_val Tag T T⟩)
 
   , ("ConstantA", ⟨_, StringModule.constant (@constant_a T)⟩)
   , ("ConstantB", ⟨_, StringModule.constant (@constant_b T)⟩)
