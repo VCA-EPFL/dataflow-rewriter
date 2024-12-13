@@ -205,22 +205,26 @@ Essentially tagger + join without internal rule
 @[drunfold] def tagger_untagger_val (TagT : Type 0) [_i: DecidableEq TagT] (T : Type 0) : NatModule (List TagT × AssocList TagT T × List T) :=
   { inputs := [
         -- Complete computation
+        -- Models the input of the Cal + Untagger (coming from a previously tagged region)
         (0, ⟨ TagT × T, λ (oldOrder, oldMap, oldVal) (tag,el) (newOrder, newMap, newVal) =>
           -- Tag must be used, but no value ready, otherwise block:
           (tag ∈ oldOrder ∧ oldMap.find? tag = none) ∧
           newMap = oldMap.cons tag el ∧ newOrder = oldOrder ∧ newVal = oldVal ⟩),
         -- Enq a value to be tagged
+        -- Models the input of the Tagger (coming from outside)
         (1, ⟨ T, λ (oldOrder, oldMap, oldVal) v (newOrder, newMap, newVal) =>
           newMap = oldMap ∧ newOrder = oldOrder ∧ newVal = v :: oldVal ⟩)
       ].toAssocList,
     outputs := [
         -- Allocate fresh tag and output with value
+        -- Models the output of the Tagger
       (0, ⟨ TagT × T, λ (oldOrder, oldMap, oldVal) (tag, v) (newOrder, newMap, newVal) =>
         -- Tag must be unused otherwise block (alternatively we
         -- could an implication to say undefined behavior):
         (tag ∉ oldOrder ∧ oldMap.find? tag = none) ∧
         newMap = oldMap ∧ newOrder = tag :: oldOrder ∧ newVal.cons v = oldVal⟩),
         -- Dequeue + free tag
+        -- Models the output of the Cal + Untagger
       (1, ⟨ T, λ (oldorder, oldmap, oldVal) el (neworder, newmap, newVal) =>
         -- tag must be used otherwise, but no value brought, undefined behavior:
         ∃ tag , oldorder = neworder.concat tag ∧ oldmap.find? tag = some el ∧
@@ -395,6 +399,8 @@ opaque constant_g {T} [Inhabited T] : T
 @[drunfold] def tagger_untagger_val TagT [DecidableEq TagT] T :=
   NatModule.tagger_untagger_val TagT T |>.stringify
 
+-- Associate the above modules with a String name to be used in the matcher of each rewrite
+-- Essentially, those constitute our primitives
 def ε (Tag : Type) [DecidableEq Tag] (T : Type) [Inhabited T] : IdentMap String (TModule String) :=
   [ ("Join", ⟨_, StringModule.join T T⟩)
   , ("TaggedJoin", ⟨_, StringModule.join Tag T⟩)
