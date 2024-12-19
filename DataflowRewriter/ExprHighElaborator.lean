@@ -89,6 +89,18 @@ def findStxStr (n : Name) (stx : Array Syntax) : MetaM (Option String) := do
   return out
 
 open Lean Qq in
+def findStxStr' (n : Name) (stx : Array Syntax) : TermElabM (Option Q(String)) := do
+  let mut out := none
+  for pair in stx do
+    if pair[0].getId = n then
+      match pair[2][0].isStrLit? with
+      | .some out' => out := .some <| .lit <| .strVal out'
+      | .none =>
+        let term ← elabTermEnsuringType pair[2] <| .some q(String)
+        out := some term
+  return out
+
+open Lean Qq in
 def findStxTerm (n : Name) (stx : Array Syntax) : TermElabM (Option (Expr × String)) := do
   let mut out := none
   for pair in stx do
@@ -193,7 +205,7 @@ def dotGraphElab : TermElab := λ stx _typ? => do
 #check Lean.getRef
 
 open Lean Qq in
-def checkInputPresent (envMap : Std.HashMap String Expr) (inInst : Q(TModule1 String)) (inP : Option String)
+def checkInputPresent (inInst : Q(TModule1 String)) (inP : Option String)
     : TermElabM Unit := do
   match inP with
   | .some inP =>
@@ -205,7 +217,7 @@ def checkInputPresent (envMap : Std.HashMap String Expr) (inInst : Q(TModule1 St
   | .none => return ()
 
 open Lean Qq in
-def checkOutputPresent (envMap : Std.HashMap String Expr) (outInst : Q(TModule1 String)) (outP : Option String)
+def checkOutputPresent (outInst : Q(TModule1 String)) (outP : Option String)
     : TermElabM Unit := do
   match outP with
   | .some outP =>
@@ -217,7 +229,7 @@ def checkOutputPresent (envMap : Std.HashMap String Expr) (outInst : Q(TModule1 
   | .none => return ()
 
 open Lean Qq in
-def checkTypeErrors (envMap : Std.HashMap String Expr) (maps : InstMaps) (conns : List (Connection String))
+def checkTypeErrors (envMap : Std.HashMap Q(String) Expr) (maps : InstMaps') (conns : List (Connection String))
     (outInst inInst : String) (outP inP : Option String)
     : TermElabM Unit := do
   let `(dot_stmnt| $a:ident -> $b:ident $[[$[$el:dot_attr],*]]? ) ← getRef
@@ -240,8 +252,8 @@ def checkTypeErrors (envMap : Std.HashMap String Expr) (maps : InstMaps) (conns 
   -- The best would be to highlight the actual items in the list instead of the
   -- two sides of the arrow.
   let some el := el | return ()
-  withRef (← getListElement `inp el) <| checkInputPresent envMap inInstExpr inP
-  withRef (← getListElement `out el) <| checkOutputPresent envMap outInstExpr outP
+  withRef (← getListElement `inp el) <| checkInputPresent inInstExpr inP
+  withRef (← getListElement `out el) <| checkOutputPresent outInstExpr outP
 
   -- Only check types if we are not assigning an IO port
   let (.some outP, .some inP) := (outP, inP) | return ()
@@ -260,26 +272,29 @@ open Lean Qq in
 @[term_elab dot_graphEnv]
 def dotGraphElab' : TermElab := λ stx _typ? => do
   let mut instMap : Std.HashMap String (InstIdent String × Bool) := ∅
-  let mut instTypeMap : Std.HashMap String (PortMapping String × String) := ∅
+  let mut instTypeMap : Std.HashMap String (PortMapping String × Q(String)) := ∅
   let mut conns : List (Connection String) := []
-  let mut envMap : Std.HashMap String Expr := ∅
+  let mut envMap : Std.HashMap Q(String) Expr := ∅
   for stmnt in stx[1][0].getArgs do
     let low_stmnt := stmnt.getArgs[0]!
     match low_stmnt with
     | `(dot_stmnt| $i:ident $[[$[$el:dot_attr],*]]? ) =>
       let some el := el
         | throwErrorAt i "Element list is not present"
-      let mut modId := ""
-      match ← findStxTerm `type el with
+      let mut modId : Q(String) := toExpr ""
+      match ← findStxTerm `typeImp el with
       | .some modIdImp =>
-        modId := modIdImp.snd
+        modId := toExpr modIdImp.snd
+        match ← findStxStr' `type el with
+        | .some modId' => modId := modId'
+        | .none => pure ()
         envMap := envMap.insert modId modIdImp.fst
       | .none =>
         let some modId' ← findStxStr `type el
           | throwErrorAt i "No `type` attribute found at node"
-        modId := modId'
+        modId := toExpr modId'
       let mut modCluster : Bool := findStxBool `cluster el |>.getD false
-      match updateNodeMaps ⟨instMap, instTypeMap⟩ i.getId.toString modId modCluster with
+      match updateNodeMaps' ⟨instMap, instTypeMap⟩ i.getId.toString modId modCluster with
       | .ok ⟨a, b⟩ =>
         instMap := a
         instTypeMap := b
@@ -294,7 +309,7 @@ def dotGraphElab' : TermElab := λ stx _typ? => do
       let mut inp ← (findStxStr `inp el)
       withRef ref <|
         checkTypeErrors envMap ⟨instMap, instTypeMap⟩ conns a.getId.toString b.getId.toString out inp
-      match updateConnMaps ⟨instMap, instTypeMap⟩ conns a.getId.toString b.getId.toString out inp with
+      match updateConnMaps' ⟨instMap, instTypeMap⟩ conns a.getId.toString b.getId.toString out inp with
       | .ok (⟨_, b⟩, c) =>
         conns := c
         instTypeMap := b
@@ -309,14 +324,14 @@ def dotGraphElab' : TermElab := λ stx _typ? => do
     mkListLit q(String × (PortMapping String × String))
       (instTypeMap.toList.map (fun (a, (p, b)) =>
         let a' : Q(String) := .lit (.strVal a)
-        let b' : Q(String) := .lit (.strVal b)
+        let b' : Q(String) := b
         let p' : Q(PortMapping String) := mkPortMapping <| p.map (.strVal · |> .lit)
         q(($a', ($p', $b')))))
   let envList : Q(List (String × TModule1 String)) ←
     mkListLit q(String × TModule1 String)
       (envMap.toList.map (fun (a, m) =>
         let m' : Q(TModule1 String) := m
-        let a' : Q(String) := toExpr a
+        let a' : Q(String) := a
         q(($a', $m'))
       ))
   let modListMap : Q(IdentMap String (PortMapping String × String)) := q(List.toAssocList $modList)
@@ -341,11 +356,9 @@ def mergeHigh2 (T : Type _) : ExprHigh String × (IdentMap String (TModule1 Stri
     src0 [type="io"];
     snk0 [type="io"];
 
-    fork1 [type=$(⟨_, fork T 2⟩)];
-    fork2 [type=$(⟨_, fork T 3⟩)];
+    fork1 [typeImp=$(⟨_, fork T 2⟩), type=$("hllo" ++ "Y")];
+    fork2 [typeImp=$(⟨_, fork T 3⟩)];
   ]
-
-#print mergeHigh2
 
 end mergemod
 

@@ -15,7 +15,7 @@ instance : MonadExcept IO.Error RewriteResult where
   throw e := throw <| .error <| toString e
   tryCatch m h := throw (.error "Cannot catch IO.Error")
 
-unsafe def matcher (g : ExprHigh String) : RewriteResult (List String) := do
+unsafe def matcher (T₁ T₂ : String) (g : ExprHigh String) : RewriteResult (List String) := do
   let mergeId ← ofExcept <| unsafeIO do
     -- read file or whatever else one wants to do, then return the mux instance
     -- name
@@ -30,7 +30,8 @@ def makeMockModule {S} (mockIn1 mockOut1 : Type)
   , internals := []
   }
 
-def lhs (S T:Type) (TagT:Type) [DecidableEq TagT]
+def lhs (S T TagT : Type) [DecidableEq TagT]
+      (Tₛ TagTₛ : String)
       (inRule : S → TagT × T → S → Prop)
       (outRule : S → TagT × T × Bool → S → Prop)
       -- (outRule : S → T' → S → Prop)
@@ -38,14 +39,14 @@ def lhs (S T:Type) (TagT:Type) [DecidableEq TagT]
     i_in [type = "io"];
     o_out [type = "io"];
 
-    mux [type = $(⟨_, mux T⟩)];
-    condition_fork [type = $(⟨_, fork Bool 2⟩)];
-    branch [type = $(⟨_, branch T⟩)];
-    inside_tagger [type = $(⟨_, tagger_untagger_val TagT T (T × Bool)⟩)];
-    tag_split [type = $(⟨_, split T Bool⟩)];
-    mod [type = $(⟨_, makeMockModule (TagT × T) (TagT × (T × Bool)) inRule outRule⟩)];
-    loop_init [type = $(⟨_, init Bool false⟩)];
-    bag [type = $(⟨_, bag T⟩)];
+    mux [typeImp = $(⟨_, mux T⟩), type = $("mux " ++ Tₛ)];
+    condition_fork [typeImp = $(⟨_, fork Bool 2⟩), type = "fork Bool 2"];
+    branch [typeImp = $(⟨_, branch T⟩), type = $("branch " ++ Tₛ)];
+    inside_tagger [typeImp = $(⟨_, tagger_untagger_val TagT T (T × Bool)⟩), type = $("tagger_untagger_val " ++ TagTₛ ++ " " ++ Tₛ ++ " (" ++ Tₛ ++ " × Bool)")];
+    tag_split [typeImp = $(⟨_, split T Bool⟩), type = $("split " ++ Tₛ ++ " Bool")];
+    mod [typeImp = $(⟨_, makeMockModule (TagT × T) (TagT × (T × Bool)) inRule outRule⟩), type = "M"];
+    loop_init [typeImp = $(⟨_, init Bool false⟩), type = "init Bool false"];
+    bag [typeImp = $(⟨_, bag T⟩), type = $("bag " ++ Tₛ)];
 
     loop_init -> mux [out="out0", inp="inp2"];
     condition_fork -> loop_init [out="out1", inp="inp0"];
@@ -64,15 +65,19 @@ def lhs (S T:Type) (TagT:Type) [DecidableEq TagT]
 
 -- #eval lhs Unit Unit Unit (λ _ _ _ => False) (λ _ _ _ => False) |>.1 |> IO.print
 
-def lhs_extract := lhs Unit Unit Unit (λ _ _ _ => False) (λ _ _ _ => False) |>.1
+def lhs_extract T₁ T₂ := lhs Unit Unit Unit T₁ T₂ (λ _ _ _ => False) (λ _ _ _ => False) |>.1
   |>.extract ["mux", "condition_fork", "branch", "inside_tagger", "tag_split", "mod", "loop_init", "bag"]
   |>.get rfl
 
-theorem double_check_empty_snd : lhs_extract.snd = ExprHigh.mk ∅ ∅ := by rfl
+theorem double_check_empty_snd T₁ T₂: (lhs_extract T₁ T₂).snd = ExprHigh.mk ∅ ∅ := by rfl
 
-def lhsLower := lhs_extract.fst.lower.get rfl
+theorem lhs_type_independent a b c e f a₂ b₂ c₂ e₂ f₂ T₁ T₂ [DecidableEq c] [DecidableEq c₂]
+  : (lhs a b c T₁ T₂ e f).fst = (lhs a₂ b₂ c₂ T₁ T₂ e₂ f₂).fst := by rfl
 
-def rhs (S T:Type) (TagT:Type) [DecidableEq TagT]
+def lhsLower T₁ T₂ := (lhs_extract T₁ T₂).fst.lower.get rfl
+
+def rhs (S T TagT : Type) [DecidableEq TagT]
+      (Tₛ TagTₛ : String)
       (inRule : S → TagT × T → S → Prop)
       (outRule : S → TagT × T × Bool → S → Prop)
       -- (outRule : S → T' → S → Prop)
@@ -80,13 +85,13 @@ def rhs (S T:Type) (TagT:Type) [DecidableEq TagT]
     i_in [type = "io"];
     o_out [type = "io"];
 
-    merge [type = $(⟨_, merge T 2⟩)];
-    condition_fork [type = $(⟨_, fork Bool 2⟩)];
-    branch [type = $(⟨_, branch T⟩)];
-    inside_tagger [type = $(⟨_, tagger_untagger_val TagT T (T × Bool)⟩)];
-    tag_split [type = $(⟨_, split T Bool⟩)];
-    mod [type = $(⟨_, makeMockModule (TagT × T) (TagT × (T × Bool)) inRule outRule⟩)];
-    loop_init [type = $(⟨_, init Bool false⟩)];
+    merge [typeImp = $(⟨_, merge T 2⟩), type = $("merge " ++ Tₛ ++ " 2")];
+    condition_fork [typeImp = $(⟨_, fork Bool 2⟩), type = "fork Bool 2"];
+    branch [typeImp = $(⟨_, branch T⟩), type = $("branch " ++ Tₛ)];
+    inside_tagger [typeImp = $(⟨_, tagger_untagger_val TagT T (T × Bool)⟩), type = $("tagger_untagger_val " ++ TagTₛ ++ " " ++ Tₛ ++ " (" ++ Tₛ ++ " × Bool)")];
+    tag_split [typeImp = $(⟨_, split T Bool⟩), type = $("split " ++ Tₛ ++ " Bool")];
+    mod [typeImp = $(⟨_, makeMockModule (TagT × T) (TagT × (T × Bool)) inRule outRule⟩), type = "M"];
+    loop_init [typeImp = $(⟨_, init Bool false⟩), type = "init Bool false"];
 
     condition_fork -> loop_init [out="out1", inp="inp0"];
     condition_fork -> branch [out="out0", inp="inp1"];
@@ -101,12 +106,15 @@ def rhs (S T:Type) (TagT:Type) [DecidableEq TagT]
     branch -> o_out [out="out1"];
   ]
 
-def rhsLower := (rhs Unit Unit Unit (λ _ _ _ => False) (λ _ _ _ => False) |>.1).lower.get rfl
+def rhsLower T₁ T₂ := (rhs Unit Unit Unit T₁ T₂ (λ _ _ _ => False) (λ _ _ _ => False) |>.1).lower.get rfl
 
-def rewrite : Rewrite String :=
+theorem rhs_type_independent a b c e f a₂ b₂ c₂ e₂ f₂ T₁ T₂ [DecidableEq c] [DecidableEq c₂]
+  : (rhs a b c T₁ T₂ e f).fst = (rhs a₂ b₂ c₂ T₁ T₂ e₂ f₂).fst := by rfl
+
+def rewrite (T₁ T₂ : String) : Rewrite String :=
   { abstractions := [],
-    pattern := unsafe matcher,
-    input_expr := lhsLower,
-    output_expr := rhsLower }
+    pattern := unsafe matcher T₁ T₂,
+    input_expr := lhsLower T₁ T₂,
+    output_expr := rhsLower T₁ T₂ }
 
 end DataflowRewriter.JoinRewrite
