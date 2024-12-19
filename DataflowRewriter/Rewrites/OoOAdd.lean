@@ -11,51 +11,17 @@ namespace DataflowRewriter.OoOAdd
 
 def matcher (g : ExprHigh String) : RewriteResult (List String) := sorry
 
-def lhs : ExprHigh String := [graph|
-    i_0 [type = "io"];
-    i_1 [type = "io"];
-    i_2 [type = "io"];
-    o_out [type = "io"];
+def lhs : ExprHigh String := sorry
 
-    join [type = "FixedSize.join"];
-    joinL [type = "FixedSize.joinP"];
+def lhs_extract := lhs.extract ["join", "joinL"] |>.get sorry
 
-    i_1 -> join [inp = "inp0"];
-    i_2 -> join [inp = "inp1"];
+theorem double_check_empty_snd : lhs_extract.snd = ExprHigh.mk ∅ ∅ := by sorry
 
-    i_0 -> joinL [inp = "inp0"];
+def lhsLower := lhs_extract.fst.lower.get sorry
 
-    join -> joinL [out = "out0", inp = "inp1"];
+def rhs : ExprHigh String := sorry
 
-    joinL -> o_out [out = "out0"];
-  ]
-
-def lhs_extract := lhs.extract ["join", "joinL"] |>.get rfl
-
-theorem double_check_empty_snd : lhs_extract.snd = ExprHigh.mk ∅ ∅ := by rfl
-
-def lhsLower := lhs_extract.fst.lower.get rfl
-
-def rhs : ExprHigh String := [graph|
-    i_0 [type = "io"];
-    i_1 [type = "io"];
-    i_2 [type = "io"];
-    o_out [type = "io"];
-
-    join_0 [type = "FixedSize.join"];
-    join_1 [type = "FixedSize.joinL"];
-
-    i_0 -> join_0 [inp = "inp0"];
-    i_1 -> join_0 [inp = "inp1"];
-
-    i_2 -> join_1 [inp = "inp1"];
-
-    join_0 -> join_1 [out = "out0", inp = "inp0"];
-
-    join_1 -> o_out [out = "out0"];
-  ]
-
-def rhsLower := rhs.lower.get rfl
+def rhsLower := rhs.lower.get sorry
 
 def rewrite : Rewrite String :=
   { abstractions := [],
