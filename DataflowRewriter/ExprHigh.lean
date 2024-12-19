@@ -6,7 +6,6 @@ Authors: Yann Herklotz
 
 import Lean
 import DataflowRewriter.ExprLow
-import Qq
 
 namespace DataflowRewriter
 
@@ -305,11 +304,6 @@ structure InstMaps where
   instMap : Std.HashMap String (InstIdent String × Bool)
   instTypeMap : Std.HashMap String (PortMapping String × String)
 
-open Lean Qq in
-structure InstMaps' where
-  instMap : Std.HashMap String (InstIdent String × Bool)
-  instTypeMap : Std.HashMap String (PortMapping String × Q(String))
-
 def updateNodeMaps (maps : InstMaps) (inst typ : String) (cluster : Bool := false) : Except String InstMaps := do
   let mut instMap := maps.instMap
   let mut instTypeMap := maps.instTypeMap
@@ -320,21 +314,6 @@ def updateNodeMaps (maps : InstMaps) (inst typ : String) (cluster : Bool := fals
     instMap := map'
     -- IO "modules" are not added to the instTypeMap.
     unless typ == "io" do instTypeMap := instTypeMap.insert inst (∅, typ)
-  else
-    throw s!"Multiple references to {inst} found"
-  return ⟨instMap, instTypeMap⟩
-
-open Lean Qq in
-def updateNodeMaps' (maps : InstMaps') (inst : String) (typ : Q(String)) (cluster : Bool := false) : Except String InstMaps' := do
-  let mut instMap := maps.instMap
-  let mut instTypeMap := maps.instTypeMap
-  let mut modInst : InstIdent String := .top
-  unless typ == toExpr "io" do modInst := .internal inst
-  let (b, map') := instMap.containsThenInsertIfNew inst (modInst, cluster)
-  if !b then
-    instMap := map'
-    -- IO "modules" are not added to the instTypeMap.
-    unless typ == toExpr "io" do instTypeMap := instTypeMap.insert inst (∅, typ)
   else
     throw s!"Multiple references to {inst} found"
   return ⟨instMap, instTypeMap⟩
@@ -355,43 +334,6 @@ instance : ToString ConnError where
 def updateConnMaps (maps : InstMaps) (conns : List (Connection String))
     (outInst inInst : String) (outP inP : Option String)
     : Except ConnError (InstMaps × List (Connection String)) := do
-  let mut out := outP
-  let mut inp := inP
-  let some aInst := maps.instMap[outInst]? | throw (.outInstError "Instance has not been declared")
-  let some bInst := maps.instMap[inInst]? | throw (.inInstError "Instance has not been declared")
-  if aInst.fst = .top && bInst.fst = .top then
-    throw <| .outInstError "Both the input and output are IO ports"
-  -- If no port name is provided and the port is a top-level port, then use
-  -- the instance name as the port name.
-  if out.isNone && aInst.fst.isTop then out := some outInst
-  if inp.isNone && bInst.fst.isTop then inp := some inInst
-  let some out' := out | throw <| .portError s!"No output found for: {aInst}"
-  let some inp' := inp | throw <| .portError s!"No input found for: {bInst}"
-  let some outPort := parseInternalPort out'
-    | throw <| .portError "Output port format incorrect"
-  let some inPort := parseInternalPort inp'
-    | throw <| .portError "Input port format incorrect"
-  -- If the instance is a cluster do not modify the name, otherwise as the
-  -- instance as a prefix.
-  let outPort' := if aInst.snd then outPort else ⟨aInst.fst, outPort.name⟩
-  let inPort' := if bInst.snd then inPort else ⟨bInst.fst, inPort.name⟩
-  -- If one of the end points is an external port then do not add a
-  -- connection into the graph.
-  let mut conns := conns
-  let mut instTypeMap := maps.instTypeMap
-  unless aInst.fst = .top || bInst.fst = .top do
-    conns := ⟨ outPort', inPort' ⟩ :: conns
-    instTypeMap := updatePortMappingOutput instTypeMap bInst.snd inPort' aInst.snd outPort'
-    instTypeMap := updatePortMappingInput instTypeMap aInst.snd outPort' bInst.snd inPort'
-  if aInst.fst = .top then
-    instTypeMap := updatePortMappingOutput instTypeMap bInst.snd inPort' aInst.snd outPort'
-  if bInst.fst = .top then
-    instTypeMap := updatePortMappingInput instTypeMap aInst.snd outPort' bInst.snd inPort'
-  return (⟨maps.instMap, instTypeMap⟩, conns)
-
-def updateConnMaps' (maps : InstMaps') (conns : List (Connection String))
-    (outInst inInst : String) (outP inP : Option String)
-    : Except ConnError (InstMaps' × List (Connection String)) := do
   let mut out := outP
   let mut inp := inP
   let some aInst := maps.instMap[outInst]? | throw (.outInstError "Instance has not been declared")

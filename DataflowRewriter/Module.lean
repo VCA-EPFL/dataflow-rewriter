@@ -14,7 +14,8 @@ import DataflowRewriter.List
 import DataflowRewriter.AssocList
 import DataflowRewriter.HVector
 import DataflowRewriter.Tactic
-import Mathlib.Tactic.Common
+import Mathlib.Tactic.Tauto
+import Mathlib.Tactic.Convert
 
 open Batteries (AssocList)
 
