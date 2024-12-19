@@ -1,0 +1,30 @@
+digraph {
+    bgcolor=grey
+    "add_0" [type="Operator", op = "add_op"];
+    "mul_0" [type="Operator", op = "mul_op"];
+    "mul_1" [type="Operator", op = "mul_op"];
+    "add_1" [type="Operator", op = "add_op"];
+    "mul_2" [type="Operator", op = "mul_op"];
+    "fork" [type="Fork", op = "mul_op"];
+
+    "a" [type="io"];
+    "b" [type="io"];
+    "c" [type="io"];
+    "d" [type="io"];
+    "e" [type="io"];
+    "o" [type="io"];
+
+    "c" -> "mul_0" [to = "in1"];
+    "d" -> "mul_1" [to = "in2"];
+    "e" -> "mul_2" [to = "in2"];
+    "a" -> "add_0" [to = "in1"];
+    "b" -> "add_0" [to = "in2"];
+    "mul_2" -> "o" [from = "out1"];
+
+    "add_0" -> "fork" [from = "out1", to = "in1"];
+    "fork" -> "mul_0" [from = "out1", to = "in2"];
+    "fork" -> "mul_1" [from = "out2", to = "in1"];
+    "mul_0" -> "add_1" [from = "out1", to = "in1"];
+    "mul_1" -> "add_1" [from = "out1", to = "in2"];
+    "add_1" -> "mul_2" [from = "out1", to = "in1"];
+}
