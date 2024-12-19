@@ -277,10 +277,10 @@ theorem refines_product {e₁ e₂ e₁' e₂'} :
     [e| e₁.product e₂, ε ] ⊑ ([e| e₁'.product e₂', ε ]) := by
   intro wf1 wf2 wf3 wf4 ref1 ref2
   simp only [drunfold] at *
-  apply wf_builds_module at wf1
-  apply wf_builds_module at wf2
-  apply wf_builds_module at wf3
-  apply wf_builds_module at wf4
+  replace wf1 := wf_builds_module wf1
+  replace wf2 := wf_builds_module wf2
+  replace wf3 := wf_builds_module wf3
+  replace wf4 := wf_builds_module wf4
   simp only [Option.isSome_iff_exists] at *
   rcases wf1 with ⟨ m₁, wf1 ⟩
   rcases wf2 with ⟨ m₂, wf2 ⟩
@@ -296,8 +296,8 @@ theorem refines_connect {e e' o i} :
     [e| e, ε ] ⊑ ([e| e', ε ]) →
     [e| e.connect o i, ε ] ⊑ ([e| e'.connect o i, ε ]) := by
   intro wf1 wf2 ref
-  apply wf_builds_module at wf1
-  apply wf_builds_module at wf2
+  replace wf1 := wf_builds_module wf1
+  replace wf2 := wf_builds_module wf2
   simp only [Option.isSome_iff_exists] at *
   rcases wf1 with ⟨ m₁, wf1 ⟩
   rcases wf2 with ⟨ m₂, wf2 ⟩
