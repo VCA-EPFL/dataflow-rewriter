@@ -17,4 +17,4 @@ jobs:
       - uses: leanprover/lean-action@v1
       - name: verify `lake exe dataflow-rewriter -h` works
         run: |
-          lake exe dataflow-rewriter
+          lake exe dataflow-rewriter -h
