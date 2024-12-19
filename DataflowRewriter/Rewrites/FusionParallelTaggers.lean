@@ -7,7 +7,7 @@ Authors: Thomas Bourgeat
 import DataflowRewriter.Rewriter
 import DataflowRewriter.ExprHighElaborator
 
-namespace DataflowRewriter.FusionTaggerTagger
+namespace DataflowRewriter.FusionParallelTagger
 
 -- Rewrite to rewrite parallel matcher input/output taggers.
 
@@ -197,4 +197,4 @@ def lhs' : ExprHigh String :=
 
 end TEST
 
-end DataflowRewriter.FusionTaggerTagger
+end DataflowRewriter.FusionParallelTagger

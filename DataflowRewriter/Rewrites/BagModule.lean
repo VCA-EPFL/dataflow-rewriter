@@ -7,7 +7,7 @@ Authors: Yann Herklotz
 import DataflowRewriter.Rewriter
 import DataflowRewriter.ExprHighElaborator
 
-namespace DataflowRewriter.BranchMuxToMerge
+namespace DataflowRewriter.BagModule
 
 /--
 Instead of using dominators we can also use the fork and the condition circuit
@@ -74,4 +74,4 @@ def rewrite (oracle : ExprHigh String → RewriteResult (List String)) : Rewrite
     input_expr := lhsLower,
     output_expr := rhsLower }
 
-end DataflowRewriter.BranchMuxToMerge
+end DataflowRewriter.BagModule

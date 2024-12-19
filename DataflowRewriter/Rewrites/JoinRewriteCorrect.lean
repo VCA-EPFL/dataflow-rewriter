@@ -18,6 +18,7 @@ import DataflowRewriter.List
 import DataflowRewriter.ExprHighLemmas
 import DataflowRewriter.Tactic
 import DataflowRewriter.Rewrites.JoinRewrite
+import Mathlib.Tactic
 
 open Batteries (AssocList)
 
@@ -74,7 +75,7 @@ def rhsModuleType ( n : Nat)  (T : Type _) : Type := by
 attribute [dmod] Batteries.AssocList.find? BEq.beq
 
 instance {n T} : MatchInterface (rhsModule n T) (lhsModule n T) where
-  input_types := by
+  input_types := by stop
     intro ident;
     by_cases h : (Batteries.AssocList.contains ↑ident (rhsModule n T).inputs)
     · have h' := AssocList.keysInMap h; fin_cases h' <;> rfl

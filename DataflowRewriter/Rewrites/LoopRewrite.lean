@@ -7,7 +7,7 @@ Authors: Yann Herklotz
 import DataflowRewriter.Rewriter
 import DataflowRewriter.ExprHighElaborator
 
-namespace DataflowRewriter.JoinRewrite
+namespace DataflowRewriter.LoopRewrite
 
 open StringModule
 
@@ -117,4 +117,4 @@ def rewrite (T₁ T₂ : String) : Rewrite String :=
     input_expr := lhsLower T₁ T₂,
     output_expr := rhsLower T₁ T₂ }
 
-end DataflowRewriter.JoinRewrite
+end DataflowRewriter.LoopRewrite

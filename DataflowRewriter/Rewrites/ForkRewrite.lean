@@ -108,8 +108,6 @@ def fullCircuit : ExprHigh String :=
     merge2 -> snk0 [out="out0"];
   ]
 
-#eval DataflowRewriter.rewrite "rw0_" fullCircuit rewrite |> toString |> IO.print
-
 end TestRewriter
 
 end DataflowRewriter.ForkRewrite

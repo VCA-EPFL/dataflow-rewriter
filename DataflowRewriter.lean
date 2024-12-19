@@ -5,3 +5,4 @@ import «DataflowRewriter».Module
 import «DataflowRewriter».ExprLow
 import «DataflowRewriter».Component
 import «DataflowRewriter».ExprHigh
+import «DataflowRewriter».Rewrites
