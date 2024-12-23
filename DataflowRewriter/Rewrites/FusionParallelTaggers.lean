@@ -138,7 +138,8 @@ def rhs : ExprHigh String := [graph|
     m_l -> j_out [from = "m_out", to = "inp0"];
     m_r -> j_out [from = "m_out", to = "inp1"];
 
-    j_out -> o_data [from = "out0"];
+    j_out -> tagger [from = "out0", to = "complete_tagged"];
+    tagger -> o_data [from = "deq_untagged"];
   ]
 
 
