@@ -86,21 +86,21 @@ def lhs' : ExprHigh String := [graph|
     m_right [type = "mod_right"];
     merge [type = "Merge"];
 
-    i_cond -> branch [inp = "cond"];
+    i_cond -> branch [to = "cond"];
 
-    branch -> tagger1 [out = "true", inp = "enq_untagged"];
-    branch -> tagger2 [out = "false", inp = "enq_untagged"];
+    branch -> tagger1 [from = "true", to = "enq_untagged"];
+    branch -> tagger2 [from = "false", to = "enq_untagged"];
 
-    tagger1 -> m_left [out = "tagged", inp="m_in"];
-    tagger2 -> m_right [out = "tagged", inp="m_in"];
+    tagger1 -> m_left [from = "tagged", to="m_in"];
+    tagger2 -> m_right [from = "tagged", to="m_in"];
 
-    m_left -> tagger1 [out = "m_out", inp = "complete_tagged"];
-    m_right -> tagger2 [out = "m_out", inp = "complete_tagged"];
+    m_left -> tagger1 [from = "m_out", to = "complete_tagged"];
+    m_right -> tagger2 [from = "m_out", to = "complete_tagged"];
 
-    tagger1 -> merge [out = "deq_untagged", inp = "inp0"];
-    tagger2 -> merge [out = "deq_untagged", inp = "inp1"];
+    tagger1 -> merge [from = "deq_untagged", to = "inp0"];
+    tagger2 -> merge [from = "deq_untagged", to = "inp1"];
 
-    merge -> o_out [out = "out0"];
+    merge -> o_out [from = "out0"];
   ]
 
 def lhs := lhs'.extract ["branch", "tagger1", "tagger2", "m_left", "m_right", "merge"] |>.get rfl
@@ -124,24 +124,24 @@ def rhs : ExprHigh String := [graph|
     merge [type = "Merge"];
 
 
-    i_data -> join [inp = "inp0"];
-    i_cond -> join [inp = "inp1"];
+    i_data -> join [to = "inp0"];
+    i_cond -> join [to = "inp1"];
 
-    join -> tagger [out = "out0", inp = "enq_untagged"];
-    tagger -> split [inp ="inp0", out = "tagged"];
+    join -> tagger [from = "out0", to = "enq_untagged"];
+    tagger -> split [to = "inp0", from = "tagged"];
 
-    split -> branch [out = "out0", inp = "data"];
-    split -> branch [out = "out1", inp = "cond"];
+    split -> branch [from = "out0", to = "data"];
+    split -> branch [from = "out1", to = "cond"];
 
-    branch -> m_left [out = "true", inp="m_in"];
-    branch -> m_right [out = "false", inp="m_in"];
+    branch -> m_left [from = "true", to="m_in"];
+    branch -> m_right [from = "false", to="m_in"];
 
 
-    m_left-> merge [out = "m_out", inp = "inp0"];
-    m_right -> merge [out = "m_out", inp = "inp1"];
-    merge -> tagger [out = "m_out", inp = "complete_tagged"];
+    m_left-> merge [from = "m_out", to = "inp0"];
+    m_right -> merge [from = "m_out", to = "inp1"];
+    merge -> tagger [from = "m_out", to = "complete_tagged"];
 
-    tagger -> o_out [out = "deq_untagged"];
+    tagger -> o_out [from = "deq_untagged"];
   ]
 
 def rhsLower := rhs.lower.get rfl
@@ -179,23 +179,23 @@ def lhs' : ExprHigh String :=
     m_right [type = "mod_right2"];
     merge [type = "Merge"];
 
-    i_cond -> branch [inp = "cond"];
+    i_cond -> branch [to = "cond"];
 
-    merge -> o_out [out = "out0"];
+    merge -> o_out [from = "out0"];
 
-    branch -> tagger1 [out = "true", inp = "enq_untagged"];
-    branch -> tagger2 [out = "false", inp = "enq_untagged"];
+    branch -> tagger1 [from = "true", to = "enq_untagged"];
+    branch -> tagger2 [from = "false", to = "enq_untagged"];
 
-    tagger1 -> m_left1 [out = "tagged", inp="m_in"];
-    tagger2 -> m_right [out = "tagged", inp="m_in"];
+    tagger1 -> m_left1 [from = "tagged", to="m_in"];
+    tagger2 -> m_right [from = "tagged", to="m_in"];
 
-    m_left1 -> m_left2 [out="m_out", inp="m_in"];
+    m_left1 -> m_left2 [from="m_out", to="m_in"];
 
-    m_left2 -> tagger1 [out = "m_out", inp = "complete_tagged"];
-    m_right -> tagger2 [out = "m_out", inp = "complete_tagged"];
+    m_left2 -> tagger1 [from = "m_out", to = "complete_tagged"];
+    m_right -> tagger2 [from = "m_out", to = "complete_tagged"];
 
-    tagger1 -> merge [out = "deq_untagged", inp = "inp0"];
-    tagger2 -> merge [out = "deq_untagged", inp = "inp1"];
+    tagger1 -> merge [from = "deq_untagged", to = "inp0"];
+    tagger2 -> merge [from = "deq_untagged", to = "inp1"];
 
   ]
 

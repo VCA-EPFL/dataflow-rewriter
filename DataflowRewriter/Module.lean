@@ -14,7 +14,8 @@ import DataflowRewriter.List
 import DataflowRewriter.AssocList
 import DataflowRewriter.HVector
 import DataflowRewriter.Tactic
-import Mathlib.Tactic.Common
+import Mathlib.Tactic.Tauto
+import Mathlib.Tactic.Convert
 
 open Batteries (AssocList)
 
@@ -1240,5 +1241,6 @@ def IdentMap.toInterface {Ident} (i : IdentMap Ident (Σ T, Module Ident T))
   i.mapVal (λ _ x => x.snd |>.toInterface)
 
 abbrev TModule Ident := Σ T, Module Ident T
+abbrev TModule1 Ident := Σ T : Type, Module Ident T
 
 end DataflowRewriter

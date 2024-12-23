@@ -208,7 +208,7 @@ theorem contains_eraseAll {α β} [DecidableEq α] {a : AssocList α β} {i i'} 
   simp only [←contains_find?_iff]; intro ⟨_, _⟩; solve_by_elim [find?_eraseAll]
 
 @[simp] theorem any_map {α β} {f : α → β} {l : List α} {p : β → Bool} : (l.map f).any p = l.any (p ∘ f) := by
-  induction l with simp | cons _ _ ih => rw [ih]
+  induction l <;> simp
 
 theorem keysInMap {α β} [DecidableEq α] {m : AssocList α β} {k} : m.contains k → k ∈ m.keysList := by
   unfold Batteries.AssocList.contains Batteries.AssocList.keysList

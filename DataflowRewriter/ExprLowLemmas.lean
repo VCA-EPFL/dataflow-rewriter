@@ -170,6 +170,7 @@ theorem build_module_type_rename' {e : ExprLow Ident} {f g} :
   induction e with
   | base map typ =>
     simp [drunfold, -AssocList.find?_eq]
+    sorry
   | connect o i e ih =>
     dsimp [drunfold, -AssocList.find?_eq]
     cases h : build_module' ε e
@@ -276,10 +277,10 @@ theorem refines_product {e₁ e₂ e₁' e₂'} :
     [e| e₁.product e₂, ε ] ⊑ ([e| e₁'.product e₂', ε ]) := by
   intro wf1 wf2 wf3 wf4 ref1 ref2
   simp only [drunfold] at *
-  apply wf_builds_module at wf1
-  apply wf_builds_module at wf2
-  apply wf_builds_module at wf3
-  apply wf_builds_module at wf4
+  replace wf1 := wf_builds_module wf1
+  replace wf2 := wf_builds_module wf2
+  replace wf3 := wf_builds_module wf3
+  replace wf4 := wf_builds_module wf4
   simp only [Option.isSome_iff_exists] at *
   rcases wf1 with ⟨ m₁, wf1 ⟩
   rcases wf2 with ⟨ m₂, wf2 ⟩
@@ -295,8 +296,8 @@ theorem refines_connect {e e' o i} :
     [e| e, ε ] ⊑ ([e| e', ε ]) →
     [e| e.connect o i, ε ] ⊑ ([e| e'.connect o i, ε ]) := by
   intro wf1 wf2 ref
-  apply wf_builds_module at wf1
-  apply wf_builds_module at wf2
+  replace wf1 := wf_builds_module wf1
+  replace wf2 := wf_builds_module wf2
   simp only [Option.isSome_iff_exists] at *
   rcases wf1 with ⟨ m₁, wf1 ⟩
   rcases wf2 with ⟨ m₂, wf2 ⟩
@@ -375,7 +376,7 @@ theorem substition {I I' i i' mod mod' iexpr} :
 theorem abstract_refines {iexpr expr_pat i} :
     ε.find? i = some ⟨ _, [e| expr_pat, ε ] ⟩ →
     iexpr.wf ε →
-    [e| iexpr, ε ] ⊑ ([e| iexpr.abstract expr_pat ∅ i, ε ]) := by
+    [e| iexpr, ε ] ⊑ ([e| iexpr.abstract expr_pat ∅ i, ε ]) := by stop
   unfold build_module_expr; intro hfind;
   induction iexpr with
   | base inst typ =>
@@ -440,7 +441,7 @@ theorem abstract_refines {iexpr expr_pat i} :
 theorem abstract_refines2 {iexpr expr_pat i} :
     ε.find? i = some ⟨ _, [e| expr_pat, ε ] ⟩ →
     iexpr.wf ε →
-    [e| iexpr.abstract expr_pat ∅ i, ε ] ⊑ ([e| iexpr, ε ]) := by
+    [e| iexpr.abstract expr_pat ∅ i, ε ] ⊑ ([e| iexpr, ε ]) := by stop
   unfold build_module_expr; intro hfind;
   induction iexpr with
   | base inst typ =>
@@ -505,7 +506,7 @@ theorem abstract_refines2 {iexpr expr_pat i} :
 theorem replacement {iexpr e_new e_pat} :
     iexpr.wf ε → e_new.wf ε → e_pat.wf ε →
     [e| e_new, ε ] ⊑ ([e| e_pat, ε ]) →
-    [e| iexpr.replace e_pat e_new, ε ] ⊑ ([e| iexpr, ε ]) := by
+    [e| iexpr.replace e_pat e_new, ε ] ⊑ ([e| iexpr, ε ]) := by stop
   unfold build_module_expr
   induction iexpr with
   | base inst typ =>

@@ -15,3 +15,6 @@ jobs:
       - uses: actions/checkout@v4
       # uses lean standard action with all default input values
       - uses: leanprover/lean-action@v1
+      - name: verify `lake exe dataflow-rewriter -h` works
+        run: |
+          lake exe dataflow-rewriter -h

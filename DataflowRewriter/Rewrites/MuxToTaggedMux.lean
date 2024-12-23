@@ -7,7 +7,7 @@ Authors: Yann Herklotz
 import DataflowRewriter.Rewriter
 import DataflowRewriter.ExprHighElaborator
 
-namespace DataflowRewriter.BranchMuxToMerge
+namespace DataflowRewriter.MuxToTaggedMux
 
 -- The following namespace just shows two alternative definitions of the matcher
 -- and the abstraction matcher that use the domination algorithm instead of
@@ -101,8 +101,6 @@ def matcher (g : ExprHigh String) : RewriteResult (List String) := do
       unless branch_nn.typ = "TaggedBranch" && branch_nn.inputPort = "cond" do return none
       let (.some mux_nn) := followOutput g inst "out1" | return none
       unless mux_nn.typ = "TaggedMux" && mux_nn.inputPort = "cond" do return none
-      let (.some bag_nn) := followOutput g mux_nn.inst "out0" | return none
-      unless bag_nn.typ = "Bag" do return none
       let (.some after_branch_nn0) := followOutput g branch_nn.inst "true" | return none
       let (.some after_branch_nn1) := followOutput g branch_nn.inst "false" | return none
       -- Now that we go in two directions, we need two calls to findSCCNodes,
@@ -111,7 +109,7 @@ def matcher (g : ExprHigh String) : RewriteResult (List String) := do
       -- However, now that we have already abstracted the modules, we don't need to search anymore.
       -- let (.some scc0) := findSCCNodes g after_branch_nn0.inst prev_mux_nn0.inst | return none
       -- let (.some scc1) := findSCCNodes g after_branch_nn1.inst prev_mux_nn1.inst | return none
-      return some [inst, after_branch_nn0.inst, mux_nn.inst, after_branch_nn1.inst, branch_nn.inst, bag_nn.inst]
+      return some [inst, after_branch_nn0.inst, mux_nn.inst, after_branch_nn1.inst, branch_nn.inst]
     ) none | throw .done
   return list
 
@@ -125,15 +123,13 @@ def lhs' : ExprHigh String := [graph|
     m_right [type = "mod_right"];
     mux [type = "TaggedMux"];
     fork [type = "TaggedFork"];
-    bag [type = "Bag"];
 
     i_branch -> branch [to = "val"];
     i_cond -> fork [to = "inp0"];
     fork -> branch [from = "out0", to = "cond"];
     fork -> mux [from = "out1", to = "cond"];
 
-    mux -> bag [from = "out0", to = "inp0"];
-    bag -> o_out [from = "out0"];
+    mux -> o_out [from = "out0"];
 
     branch -> m_left [from = "true", to = "m_in"];
     branch -> m_right [from = "false", to = "m_in"];
@@ -232,4 +228,4 @@ def lhs' : ExprHigh String := [graph|
 
 end TEST
 
-end DataflowRewriter.BranchMuxToMerge
+end DataflowRewriter.MuxToTaggedMux

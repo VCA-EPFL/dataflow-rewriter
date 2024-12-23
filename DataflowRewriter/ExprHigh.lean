@@ -258,10 +258,10 @@ def rename [FreshIdent Ident]
 
 end ExprHigh
 
-def updatePortMappingInput (s : Std.HashMap String (PortMapping String × String))
+def updatePortMappingInput {α} [Inhabited α] (s : Std.HashMap String (PortMapping String × α))
   (inCluster : Bool)
   (inPort : InternalPort String)
-  : Bool → InternalPort String → Std.HashMap String (PortMapping String × String)
+  : Bool → InternalPort String → Std.HashMap String (PortMapping String × α)
 | _, co@⟨.top, n⟩ =>
   match (inCluster, inPort) with
   | (true, ci@⟨.internal x, y⟩) =>
@@ -276,10 +276,10 @@ def updatePortMappingInput (s : Std.HashMap String (PortMapping String × String
   s.insert i ({a with input := a.input.cons ⟨.top, x⟩ c}, b)
 | true, ⟨.internal _, _⟩ => s
 
-def updatePortMappingOutput (s : Std.HashMap String (PortMapping String × String))
+def updatePortMappingOutput {α} [Inhabited α] (s : Std.HashMap String (PortMapping String × α))
   (inCluster : Bool)
   (inPort : InternalPort String)
-  : Bool → InternalPort String → Std.HashMap String (PortMapping String × String)
+  : Bool → InternalPort String → Std.HashMap String (PortMapping String × α)
 | _, co@⟨.top, n⟩ =>
   match (inCluster, inPort) with
   | (true, ci@⟨.internal x, y⟩) =>

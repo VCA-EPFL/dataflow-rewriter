@@ -5,7 +5,6 @@ Authors: Yann Herklotz
 -/
 
 import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
 
 open Batteries (AssocList)
 

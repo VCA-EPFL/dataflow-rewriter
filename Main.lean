@@ -7,9 +7,10 @@ Authors: Yann Herklotz
 import DataflowRewriter.ExprHigh
 import DataflowRewriter.DotParser
 import DataflowRewriter.Rewriter
-import DataflowRewriter.Rewrites.MergeRewrite
 import DataflowRewriter.DynamaticPrinter
-import DataflowRewriter.Rewrites.ForkRewrite
+import DataflowRewriter.Rewrites.LoopRewrite
+import DataflowRewriter.Rewrites.CombineBranch
+import DataflowRewriter.Rewrites.CombineMux
 
 open Batteries (AssocList)
 
@@ -62,8 +63,12 @@ def main (args : List String) : IO Unit := do
     return
   let fileContents ← IO.FS.readFile parsed.inputFile.get!
   let (exprHigh, assoc) ← IO.ofExcept fileContents.toExprHigh
+  IO.print (repr exprHigh)
   let rewrittenExprHigh ← IO.ofExcept <|
-    rewrite_loop "rw" exprHigh [MergeRewrite.rewrite, ForkRewrite.rewrite] 100
+    ({CombineMux.rewrite "T" "T" with pattern := fun _ => pure ["phi_n0", "phiC_3", "fork_11_3"]}).run "rw1_" exprHigh
+  -- let rewrittenExprHigh ← IO.ofExcept <|
+  --   ({CombineMux.rewrite "T" "T" with pattern := fun _ => pure ["phi_n0", "phiC_3", "fork_11_3"]}).run "rw1_" rewrittenExprHigh
+    -- pure exprHigh
   let some l := dynamaticString rewrittenExprHigh assoc.inverse
     | IO.eprintln s!"Failed to print ExprHigh: {rewrittenExprHigh}"
   match parsed.outputFile with

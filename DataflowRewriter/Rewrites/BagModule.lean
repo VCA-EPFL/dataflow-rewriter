@@ -7,9 +7,7 @@ Authors: Yann Herklotz
 import DataflowRewriter.Rewriter
 import DataflowRewriter.ExprHighElaborator
 
-namespace DataflowRewriter.BranchMuxToMerge
-
-opaque oracle : ExprHigh String → RewriteResult (List String)
+namespace DataflowRewriter.BagModule
 
 /--
 Instead of using dominators we can also use the fork and the condition circuit
@@ -24,8 +22,8 @@ def lhs' : ExprHigh String := [graph|
 
     module [type = "module"];
 
-    i_in -> module [inp = "in"];
-    module -> o_out [out = "out"];
+    i_in -> module [to = "in"];
+    module -> o_out [from = "out"];
   ]
 
 #eval IO.print lhs'
@@ -48,17 +46,17 @@ def rhs : ExprHigh String := [graph|
     bag [type = "Bag"];
     module [type = "module"];
 
-    i_in -> tagger [inp = "enq_untagged"];
-    tagger -> split [out = "tagged", inp = "inp0"];
+    i_in -> tagger [to = "enq_untagged"];
+    tagger -> split [from = "tagged", to = "inp0"];
 
-    split -> module [out = "out1", inp = "in"];
-    split -> join [out = "out0", inp = "inp0"];
-    module -> join [out = "out", inp = "inp1"];
+    split -> module [from = "out1", to = "in"];
+    split -> join [from = "out0", to = "inp0"];
+    module -> join [from = "out", to = "inp1"];
 
-    join -> bag [out = "out0", inp = "inp0"];
-    bag -> tagger [out = "out0", inp = "complete_tagged"];
+    join -> bag [from = "out0", to = "inp0"];
+    bag -> tagger [from = "out0", to = "complete_tagged"];
 
-    tagger -> o_out [out = "deq_untagged"];
+    tagger -> o_out [from = "deq_untagged"];
   ]
 
 #eval IO.print rhs
@@ -70,10 +68,10 @@ This rewrite adds abstractions to the definition, which provide patterns to
 extract parts of the graph.  The `type` given to each extracted node has to
 match the `type` of the node in LHS and RHS graphs.
 -/
-def rewrite : Rewrite String :=
+def rewrite (oracle : ExprHigh String → RewriteResult (List String)) : Rewrite String :=
   { abstractions := [⟨oracle, "module"⟩],
     pattern := matcher,
     input_expr := lhsLower,
     output_expr := rhsLower }
 
-end DataflowRewriter.BranchMuxToMerge
+end DataflowRewriter.BagModule

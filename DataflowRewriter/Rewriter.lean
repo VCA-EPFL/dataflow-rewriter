@@ -5,7 +5,6 @@ Authors: Yann Herklotz
 -/
 
 import DataflowRewriter.ExprHigh
-import DataflowRewriter.ExprHighElaborator
 
 open Batteries (AssocList)
 
@@ -73,6 +72,23 @@ def generate_renaming (nameMap : AssocList String String) (fresh_prefix : String
     | ⟨.top, name⟩ :: b => go n nameMap p b
     | [] => (p, nameMap)
 
+def comm_connection {Ident} [DecidableEq Ident] (conn : Connection Ident) : ExprLow Ident → ExprLow Ident
+| orig@(.connect o i e) =>
+  if o = conn.output ∧ i = conn.input then
+    match e with
+    | .connect o' i' e' =>
+      if o ≠ o' ∨ i ≠ i' then
+        .connect o' i' (comm_connection conn <| .connect o i e')
+      else orig
+    | _ => orig
+  else .connect o i <| comm_connection conn e
+| .product e₁ e₂ =>
+  .product (comm_connection conn e₁) (comm_connection conn e₂)
+| e => e
+
+def comm_connections {Ident} [DecidableEq Ident] (conn : List (Connection Ident)) (e : ExprLow Ident): ExprLow Ident :=
+  conn.foldr comm_connection e
+
 /--
 Perform a rewrite in the graph by lowering it into an inductive expression using
 the right ordering, replacing it, and then reconstructing the graph.
@@ -97,7 +113,9 @@ language does not remember any names.
   -- beq is an α-equivalence check that returns a mapping to rename one
   -- expression into the other.  This mapping is split into the external mapping
   -- and internal mapping.
-  let (ext_mapping, int_mapping) ← liftError <| e_sub.beq rewrite.input_expr
+  -- dbg_trace repr e_sub
+  -- dbg_trace repr rewrite.input_expr
+  let (ext_mapping, int_mapping) ← liftError <| e_sub.weak_beq rewrite.input_expr
 
   let comb_mapping := ExprLow.filterId <| ext_mapping.append int_mapping
   unless ExprLow.invertible comb_mapping.input do
@@ -116,13 +134,24 @@ language does not remember any names.
   let (outputPortMap, _) := generate_renaming nameMap fresh_prefix (e_sub'_vars_o.filter (λ x => x ∉ ext_mapping.output.keysList))
   let int_mapping' : PortMapping String := ⟨ inputPortMap, outputPortMap ⟩
 
+  dbg_trace s!"Hey {repr comb_mapping}"
+  dbg_trace repr int_mapping'
+
   -- We then rename all internal signals in the new expression with the fresh
   -- names.
   let e_renamed_output_sub := e_sub_output.renamePorts int_mapping'
   let e_renamed_input_sub := e_sub_input.renamePorts int_mapping'
 
   -- Finally we do the actual replacement.
-  return g_lower.replace e_renamed_input_sub e_renamed_output_sub |>.higherS fresh_prefix
+  let norm := comm_connections g₁.connections
+  -- dbg_trace repr g₁.connections
+  -- dbg_trace "G_LOWER"
+  -- dbg_trace repr <| norm g_lower
+  -- dbg_trace "\nE_RENAMED_INPUT_SUB"
+  -- dbg_trace repr <| norm e_renamed_input_sub
+  -- dbg_trace "\nE_RENAMED_OUTPUT_SUB"
+  -- dbg_trace repr e_renamed_output_sub
+  (norm g_lower).replace (norm e_renamed_input_sub) e_renamed_output_sub |>.higherS fresh_prefix |> pure |> ofOption (.error "Could not normalise names")
 
 /--
 Abstract a subgraph into a separate node.  One can imagine that the node type is
@@ -148,7 +177,8 @@ proofs that are already present in the framework should be enough.
   -- let portMapping := e_sub.build_interface.toIdentityPortMapping -- abstraction.typ
   -- let abstracted := g_lower.abstract e_sub portMapping abstraction.typ
   -- let e_sub' := e_sub
-  return (abstracted.higherS fresh_prefix, ⟨e_sub', abstraction.typ⟩)
+  let highered ← abstracted.higherS fresh_prefix |>.normaliseNames |> ofOption (.error "Could not normalise names")
+  return (highered, ⟨e_sub', abstraction.typ⟩)
   -- return (abstracted.higherS fresh_prefix, ⟨e_sub, abstraction.typ⟩)
 
 /--
@@ -166,7 +196,7 @@ are still fresh in the graph.
   -- return g_lower.concretise (concretisation.expr.renameMapped base) base concretisation.typ
   --        |>.higherS fresh_prefix
   let e_sub := concretisation.expr.renamePorts base
-  return g_lower.concretise e_sub base concretisation.typ |>.higherS fresh_prefix
+  g_lower.concretise e_sub base concretisation.typ |>.higherS fresh_prefix |>.normaliseNames |> ofOption (.error "Could not normalise names")
 
 @[drunfold] def Rewrite.run (fresh_prefix : String) (g : ExprHigh String) (rewrite : Rewrite String)
   : RewriteResult (ExprHigh String) := do
