@@ -48,20 +48,22 @@ def lhs (S T TagT : Type) [DecidableEq TagT]
     loop_init [typeImp = $(⟨_, init Bool false⟩), type = "init Bool false"];
     bag [typeImp = $(⟨_, bag T⟩), type = $("bag " ++ Tₛ)];
 
-    loop_init -> mux [out="out0", inp="inp2"];
-    condition_fork -> loop_init [out="out1", inp="inp0"];
-    condition_fork -> branch [out="out0", inp="inp1"];
-    inside_tagger -> mod [out="out0", inp="inp0"];
-    mod -> inside_tagger [out="out0", inp="inp0"];
-    inside_tagger -> tag_split [out="out1", inp="inp0"];
-    tag_split -> branch [out="out0", inp="inp0"];
-    tag_split -> condition_fork [out="out1", inp="inp0"];
-    mux -> inside_tagger [out="out0", inp="inp1"];
-    branch -> mux [out="out0", inp="inp0"];
-    i_in -> mux [inp="inp1"];
-    branch -> bag [out="out1", inp="inp0"];
-    bag -> o_out [out="out0"];
+    loop_init -> mux [from="out0", to="inp0"];
+    condition_fork -> loop_init [from="out1", to="inp0"];
+    condition_fork -> branch [from="out0", to="inp1"];
+    inside_tagger -> mod [from="out0", to="inp0"];
+    mod -> inside_tagger [from="out0", to="inp0"];
+    inside_tagger -> tag_split [from="out1", to="inp0"];
+    tag_split -> branch [from="out0", to="inp0"];
+    tag_split -> condition_fork [from="out1", to="inp0"];
+    mux -> inside_tagger [from="out0", to="inp1"];
+    branch -> mux [from="out0", to="inp1"];
+    i_in -> mux [to="inp2"];
+    branch -> bag [from="out1", to="inp0"];
+    bag -> o_out [from="out0"];
   ]
+
+#eval IO.print ((lhs Unit Unit Unit "T" "T'" (λ _ _ _ => False) (λ _ _ _ => False)).fst)
 
 -- #eval lhs Unit Unit Unit (λ _ _ _ => False) (λ _ _ _ => False) |>.1 |> IO.print
 
@@ -91,25 +93,24 @@ def rhs (S T TagT : Type) [DecidableEq TagT]
     inside_tagger [typeImp = $(⟨_, tagger_untagger_val TagT T (T × Bool)⟩), type = $("tagger_untagger_val " ++ TagTₛ ++ " " ++ Tₛ ++ " (" ++ Tₛ ++ " × Bool)")];
     tag_split [typeImp = $(⟨_, split T Bool⟩), type = $("split " ++ Tₛ ++ " Bool")];
     mod [typeImp = $(⟨_, makeMockModule (TagT × T) (TagT × (T × Bool)) inRule outRule⟩), type = "M"];
-    loop_init [typeImp = $(⟨_, init Bool false⟩), type = "init Bool false"];
 
-    condition_fork -> loop_init [out="out1", inp="inp0"];
-    condition_fork -> branch [out="out0", inp="inp1"];
-    inside_tagger -> mod [out="out0", inp="inp0"];
-    mod -> inside_tagger [out="out0", inp="inp0"];
-    inside_tagger -> tag_split [out="out1", inp="inp0"];
-    tag_split -> branch [out="out0", inp="inp0"];
-    tag_split -> condition_fork [out="out1", inp="inp0"];
-    merge -> inside_tagger [out="out0", inp="inp1"];
-    branch -> merge [out="out0", inp="inp0"];
-    i_in -> merge [inp="inp1"];
-    branch -> o_out [out="out1"];
+    tag_split -> branch [from="out1", to="inp1"];
+    inside_tagger -> mod [from="out0", to="inp0"];
+    mod -> inside_tagger [from="out0", to="inp0"];
+    inside_tagger -> tag_split [from="out1", to="inp0"];
+    tag_split -> branch [from="out0", to="inp0"];
+    merge -> inside_tagger [from="out0", to="inp1"];
+    branch -> merge [from="out0", to="inp0"];
+    i_in -> merge [to="inp1"];
+    branch -> o_out [from="out1"];
   ]
 
 def rhsLower T₁ T₂ := (rhs Unit Unit Unit T₁ T₂ (λ _ _ _ => False) (λ _ _ _ => False) |>.1).lower.get rfl
 
 theorem rhs_type_independent a b c e f a₂ b₂ c₂ e₂ f₂ T₁ T₂ [DecidableEq c] [DecidableEq c₂]
   : (rhs a b c T₁ T₂ e f).fst = (rhs a₂ b₂ c₂ T₁ T₂ e₂ f₂).fst := by rfl
+
+#eval IO.print ((rhs Unit Unit Unit "T" "T'" (λ _ _ _ => False) (λ _ _ _ => False)).fst)
 
 def rewrite (T₁ T₂ : String) : Rewrite String :=
   { abstractions := [],

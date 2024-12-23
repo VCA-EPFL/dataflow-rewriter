@@ -36,15 +36,15 @@ def lhs_int : ExprHigh String := [graph|
     mux [type = "muxC"];
     join [type = "joinC"];
 
-    i_t -> mux [inp = "inp0"];
-    i_f -> mux [inp = "inp1"];
-    i_c -> mux [inp = "inp2"];
+    i_t -> mux [to = "inp0"];
+    i_f -> mux [to = "inp1"];
+    i_c -> mux [to = "inp2"];
 
-    i_tag -> join [inp = "inp0"];
+    i_tag -> join [to = "inp0"];
 
-    mux -> join [out = "out0", inp = "inp1"];
+    mux -> join [from = "out0", to = "inp1"];
 
-    join -> o_out [out = "out0"];
+    join -> o_out [from = "out0"];
   ]
 
 def lhs_int_extract := lhs_int.extract ["mux", "join"] |>.get rfl

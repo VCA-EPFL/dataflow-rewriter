@@ -36,22 +36,24 @@ def lhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String
     branch2 [typeImp = $(⟨_, branch T'⟩), type = $("branch " ++ T'ₛ)];
     condFork [typeImp = $(⟨_, fork Bool 2⟩), type = "fork Bool 2"];
 
-    branch1 -> b1_t_o [out="out0"];
-    branch1 -> b1_f_o [out="out1"];
-    branch2 -> b2_t_o [out="out0"];
-    branch2 -> b2_f_o [out="out1"];
+    branch1 -> b1_t_o [from = "out0"];
+    branch1 -> b1_f_o [from = "out1"];
+    branch2 -> b2_t_o [from = "out0"];
+    branch2 -> b2_f_o [from = "out1"];
 
-    cond_i -> condFork [inp="inp0"];
-    b1_i -> branch1 [inp="inp0"];
-    b2_i -> branch2 [inp="inp0"];
+    cond_i -> condFork [to = "inp0"];
+    b1_i -> branch1 [to = "inp0"];
+    b2_i -> branch2 [to = "inp0"];
 
-    condFork -> branch1 [out="out0", inp="inp1"];
-    condFork -> branch2 [out="out1", inp="inp1"];
+    condFork -> branch1 [from = "out0", to = "inp1"];
+    condFork -> branch2 [from = "out1", to = "inp1"];
   ]
 
 -- #reduce lhs Unit Unit "H" "Y"
 
 def lhs_extract T₁ T₂ := (lhs Unit Unit T₁ T₂).fst.extract ["branch1", "branch2", "condFork"] |>.get rfl
+
+#eval IO.print ((lhs Unit Unit "T" "T'").fst)
 
 theorem lhs_type_independent a b c d T₁ T₂ : (lhs a b T₁ T₂).fst = (lhs c d T₁ T₂).fst := by rfl
 
@@ -73,21 +75,23 @@ def rhs (T T' : Type) (Tₛ Tₛ' : String) : ExprHigh String × IdentMap String
     splitT [typeImp = $(⟨_, split T T'⟩), type = $("split " ++ Tₛ ++ " " ++ Tₛ')];
     splitF [typeImp = $(⟨_, split T T'⟩), type = $("split " ++ Tₛ ++ " " ++ Tₛ')];
 
-    b1_i -> join [inp="inp0"];
-    b2_i -> join [inp="inp1"];
-    cond_i -> branch [inp="inp1"];
+    b1_i -> join [to = "inp0"];
+    b2_i -> join [to = "inp1"];
+    cond_i -> branch [to = "inp1"];
 
-    splitT -> b1_t_o [out="out0"];
-    splitT -> b2_t_o [out="out1"];
-    splitF -> b1_f_o [out="out0"];
-    splitF -> b2_f_o [out="out1"];
+    splitT -> b1_t_o [from = "out0"];
+    splitT -> b2_t_o [from = "out1"];
+    splitF -> b1_f_o [from = "out0"];
+    splitF -> b2_f_o [from = "out1"];
 
-    join -> branch [out="out0", inp="inp0"];
-    branch -> splitT [out="out0", inp="inp0"];
-    branch -> splitF [out="out1", inp="inp0"];
+    join -> branch [from = "out0", to = "inp0"];
+    branch -> splitT [from = "out0", to = "inp0"];
+    branch -> splitF [from = "out1", to = "inp0"];
   ]
 
 def rhsLower T₁ T₂ := (rhs Unit Unit T₁ T₂).fst.lower.get rfl
+
+#eval IO.print ((rhs Unit Unit "T" "T'").fst)
 
 theorem rhs_type_independent a b c d T₁ T₂ : (rhs a b T₁ T₂).fst = (rhs c d T₁ T₂).fst := by rfl
 

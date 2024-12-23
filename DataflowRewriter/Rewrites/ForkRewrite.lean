@@ -32,13 +32,13 @@ def matcher (g : ExprHigh String) : RewriteResult (List String) := do
     fork1 [type = "Fork"];
     fork2 [type = "Fork"];
 
-    inp0 -> fork1 [inp = "inp0"];
+    inp0 -> fork1 [to = "inp0"];
 
-    fork1 -> out0 [out = "out0"];
-    fork1 -> fork2 [out = "out1", inp = "inp0"];
+    fork1 -> out0 [from = "out0"];
+    fork1 -> fork2 [from = "out1", to = "inp0"];
 
-    fork2 -> out1 [out = "out0"];
-    fork2 -> out2 [out = "out1"];
+    fork2 -> out1 [from = "out0"];
+    fork2 -> out2 [from = "out1"];
   ]
 
 /--
@@ -69,11 +69,11 @@ def LhsLower := LhsOrdered.fst.lower.get rfl
 
     fork3 [type = "Fork3"];
 
-    inp0 -> fork3 [inp = "inp0"];
+    inp0 -> fork3 [to = "inp0"];
 
-    fork3 -> out0 [out = "out0"];
-    fork3 -> out1 [out = "out1"];
-    fork3 -> out2 [out = "out2"];
+    fork3 -> out0 [from = "out0"];
+    fork3 -> out1 [from = "out1"];
+    fork3 -> out2 [from = "out2"];
   ]
 
 def RhsLower := Rhs.lower.get rfl
@@ -95,17 +95,17 @@ def fullCircuit : ExprHigh String :=
     merge2 [type="merge"];
     merge1 [type="merge"];
 
-    src0 -> fork1 [inp="inp0"];
+    src0 -> fork1 [to = "inp0"];
 
-    fork1 -> fork2 [out="out1",inp="inp0"];
+    fork1 -> fork2 [from = "out1",to = "inp0"];
 
-    fork1 -> merge1 [out="out0",inp="inp0"];
-    fork2 -> merge1 [out="out0",inp="inp1"];
-    fork2 -> merge2 [out="out1",inp="inp1"];
+    fork1 -> merge1 [from = "out0",to = "inp0"];
+    fork2 -> merge1 [from = "out0",to = "inp1"];
+    fork2 -> merge2 [from = "out1",to = "inp1"];
 
-    merge1 -> merge2 [out="out0",inp="inp0"];
+    merge1 -> merge2 [from = "out0",to = "inp0"];
 
-    merge2 -> snk0 [out="out0"];
+    merge2 -> snk0 [from = "out0"];
   ]
 
 end TestRewriter

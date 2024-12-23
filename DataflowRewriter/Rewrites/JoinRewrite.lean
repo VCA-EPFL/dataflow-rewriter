@@ -20,14 +20,14 @@ def lhs : ExprHigh String := [graph|
     join [type = "FixedSize.join"];
     joinL [type = "FixedSize.joinP"];
 
-    i_1 -> join [inp = "inp0"];
-    i_2 -> join [inp = "inp1"];
+    i_1 -> join [to = "inp0"];
+    i_2 -> join [to = "inp1"];
 
-    i_0 -> joinL [inp = "inp0"];
+    i_0 -> joinL [to = "inp0"];
 
-    join -> joinL [out = "out0", inp = "inp1"];
+    join -> joinL [from = "out0", to = "inp1"];
 
-    joinL -> o_out [out = "out0"];
+    joinL -> o_out [from = "out0"];
   ]
 
 def lhs_extract := lhs.extract ["join", "joinL"] |>.get rfl
@@ -45,14 +45,14 @@ def rhs : ExprHigh String := [graph|
     join_0 [type = "FixedSize.join"];
     join_1 [type = "FixedSize.joinL"];
 
-    i_0 -> join_0 [inp = "inp0"];
-    i_1 -> join_0 [inp = "inp1"];
+    i_0 -> join_0 [to = "inp0"];
+    i_1 -> join_0 [to = "inp1"];
 
-    i_2 -> join_1 [inp = "inp1"];
+    i_2 -> join_1 [to = "inp1"];
 
-    join_0 -> join_1 [out = "out0", inp = "inp0"];
+    join_0 -> join_1 [from = "out0", to = "inp0"];
 
-    join_1 -> o_out [out = "out0"];
+    join_1 -> o_out [from = "out0"];
   ]
 
 def rhsLower := rhs.lower.get rfl

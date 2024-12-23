@@ -124,18 +124,18 @@ def lhs' : ExprHigh String := [graph|
     mux [type = "TaggedMux"];
     fork [type = "TaggedFork"];
 
-    i_branch -> branch [inp = "val"];
-    i_cond -> fork [inp = "inp0"];
-    fork -> branch [out = "out0", inp = "cond"];
-    fork -> mux [out = "out1", inp = "cond"];
+    i_branch -> branch [to = "val"];
+    i_cond -> fork [to = "inp0"];
+    fork -> branch [from = "out0", to = "cond"];
+    fork -> mux [from = "out1", to = "cond"];
 
-    mux -> o_out [out = "out0"];
+    mux -> o_out [from = "out0"];
 
-    branch -> m_left [out = "true", inp = "m_in"];
-    branch -> m_right [out = "false", inp = "m_in"];
+    branch -> m_left [from = "true", to = "m_in"];
+    branch -> m_right [from = "false", to = "m_in"];
 
-    m_left -> mux [out = "m_out", inp = "inp0"];
-    m_right -> mux [out = "m_out", inp = "inp1"];
+    m_left -> mux [from = "m_out", to = "inp0"];
+    m_right -> mux [from = "m_out", to = "inp1"];
   ]
 
 #eval IO.print lhs'
@@ -158,16 +158,16 @@ def rhs : ExprHigh String := [graph|
     m_right [type = "mod_right"];
     merge [type = "TaggedMerge"];
 
-    i_branch -> branch [inp = "val"];
-    i_cond -> branch [inp = "cond"];
+    i_branch -> branch [to = "val"];
+    i_cond -> branch [to = "cond"];
 
-    merge -> o_out [out = "out"];
+    merge -> o_out [from = "out"];
 
-    branch -> m_left [out = "true", inp = "m_in"];
-    branch -> m_right [out = "false", inp = "m_in"];
+    branch -> m_left [from = "true", to = "m_in"];
+    branch -> m_right [from = "false", to = "m_in"];
 
-    m_left -> merge [out = "m_out", inp = "inp0"];
-    m_right -> merge [out = "m_out", inp = "inp1"];
+    m_left -> merge [from = "m_out", to = "inp0"];
+    m_right -> merge [from = "m_out", to = "inp1"];
   ]
 
 #eval IO.print rhs
@@ -200,20 +200,20 @@ def lhs' : ExprHigh String := [graph|
     fork [type = "TaggedFork"];
     bag [type = "Bag"];
 
-    i_branch -> branch [inp = "val"];
-    i_cond -> fork [inp = "inp0"];
-    fork -> branch [out = "out0", inp = "cond"];
-    fork -> mux [out = "out1", inp = "cond"];
-    m_left1 -> m_left2 [out = "out0", inp = "inp0"];
+    i_branch -> branch [to = "val"];
+    i_cond -> fork [to = "inp0"];
+    fork -> branch [from = "out0", to = "cond"];
+    fork -> mux [from = "out1", to = "cond"];
+    m_left1 -> m_left2 [from = "out0", to = "inp0"];
 
-    mux -> bag [out = "out0", inp = "inp0"];
-    bag -> o_out [out = "out0"];
+    mux -> bag [from = "out0", to = "inp0"];
+    bag -> o_out [from = "out0"];
 
-    branch -> m_left1 [out = "true", inp = "m_in"];
-    branch -> m_right [out = "false", inp = "m_in"];
+    branch -> m_left1 [from = "true", to = "m_in"];
+    branch -> m_right [from = "false", to = "m_in"];
 
-    m_left2 -> mux [out = "m_out", inp = "inp0"];
-    m_right -> mux [out = "m_out", inp = "inp1"];
+    m_left2 -> mux [from = "m_out", to = "inp0"];
+    m_right -> mux [from = "m_out", to = "inp1"];
   ]
 
 #eval matchModLeft lhs'

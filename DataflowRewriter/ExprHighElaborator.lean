@@ -21,8 +21,9 @@ syntax str : dot_value
 syntax num : dot_value
 syntax ident : dot_value
 syntax (name := dot_value_term) "$(" term ")" : dot_value
+syntax "from" : dot_value
 
-syntax ident " = " dot_value : dot_attr
+syntax dot_value " = " dot_value : dot_attr
 syntax (dot_attr),* : dot_attr_list
 
 syntax ident (" [" dot_attr_list "]")? : dot_stmnt
@@ -38,10 +39,19 @@ syntax (name := dot_graphEnv) "[graphEnv| " dot_stmnt_list " ]" : term
 open Lean.Meta Lean.Elab Term Lean.Syntax
 
 open Lean in
+def isFrom : Syntax -> Bool
+| `(dot_value| from) => true
+| _ => false
+
+open Lean in
+def checkName (n : Name) (s : Syntax) : Bool :=
+  s[0].getId = n ∨ (isFrom s ∧ n = `from)
+
+open Lean in
 def findStx (n : Name) (stx : Array Syntax) : Option Nat := do
   let mut out := none
   for pair in stx do
-    if pair[0].getId = n then
+    if checkName n pair[0] then
       out := some (TSyntax.mk pair[2][0]).getNat
   out
 
@@ -55,7 +65,7 @@ open Lean in
 def hasStxElement (n : Name) (stx : Array Syntax) : Bool := Id.run do
   let mut out := false
   for pair in stx do
-    if pair[0].getId = n then
+    if checkName n pair[0] then
       out := true
   out
 
@@ -63,7 +73,7 @@ open Lean in
 def getListElement (n : Name) (stx : Array Syntax) : MetaM Syntax := do
   let mut out : Option Syntax := .none
   for pair in stx do
-    if pair[0].getId = n then
+    if checkName n pair[0] then
       out := .some pair
   return out.getD (← getRef)
 
@@ -71,7 +81,7 @@ open Lean in
 def findStxBool (n : Name) (stx : Array Syntax) : Option Bool := do
   let mut out := none
   for pair in stx do
-    if pair[0].getId = n then
+    if checkName n pair[0] then
       out := match pair[2] with
              | `(dot_value| true) => .some true
              | `(dot_value| false) => .some false
@@ -82,7 +92,7 @@ open Lean in
 def findStxStr (n : Name) (stx : Array Syntax) : MetaM (Option String) := do
   let mut out := none
   for pair in stx do
-    if pair[0].getId = n then
+    if checkName n pair[0] then
       let some out' := pair[2][0].isStrLit?
         | throwErrorAt pair[2][0] "`type` attribute is not a string"
       out := some out'
@@ -92,7 +102,7 @@ open Lean Qq in
 def findStxStr' (n : Name) (stx : Array Syntax) : TermElabM (Option Q(String)) := do
   let mut out := none
   for pair in stx do
-    if pair[0].getId = n then
+    if checkName n pair[0] then
       match pair[2][0].isStrLit? with
       | .some out' => out := .some <| .lit <| .strVal out'
       | .none =>
@@ -104,7 +114,7 @@ open Lean Qq in
 def findStxTerm (n : Name) (stx : Array Syntax) : TermElabM (Option (Expr × String)) := do
   let mut out := none
   for pair in stx do
-    if pair[0].getId = n ∧ pair[2][0].isStrLit?.isNone then
+    if checkName n pair[0] ∧ pair[2][0].isStrLit?.isNone then
     -- let content : TSyntax `term := ⟨pair[2][1]⟩
     -- let depPair ← `(term| Sigma.mk _ $content)
     let term ← elabTermEnsuringType pair[2] <| .some q(TModule1 String)
@@ -175,8 +185,8 @@ def dotGraphElab : TermElab := λ stx _typ? => do
       -- hashmap.
       let some el := el
         | throwErrorAt (mkListNode #[a, b]) "No `type` attribute found at node"
-      let mut out ← (findStxStr `out el)
-      let mut inp ← (findStxStr `inp el)
+      let mut out ← (findStxStr `from el)
+      let mut inp ← (findStxStr `to el)
       match updateConnMaps ⟨instMap, instTypeMap⟩ conns a.getId.toString b.getId.toString out inp with
       | .ok (⟨_, b⟩, c) =>
         conns := c
@@ -309,8 +319,8 @@ def checkTypeErrors (envMap : Std.HashMap Q(String) Expr) (maps : InstMaps') (co
   -- The best would be to highlight the actual items in the list instead of the
   -- two sides of the arrow.
   let some el := el | return ()
-  withRef (← getListElement `inp el) <| checkInputPresent inInstExpr inP
-  withRef (← getListElement `out el) <| checkOutputPresent outInstExpr outP
+  withRef (← getListElement `to el) <| checkInputPresent inInstExpr inP
+  withRef (← getListElement `from el) <| checkOutputPresent outInstExpr outP
 
   -- Only check types if we are not assigning an IO port
   let (.some outP, .some inP) := (outP, inP) | return ()
@@ -362,8 +372,8 @@ def dotGraphElab' : TermElab := λ stx _typ? => do
       -- hashmap.
       let some el := el
         | throwErrorAt (mkListNode #[a, b]) "No `type` attribute found at node"
-      let mut out ← (findStxStr `out el)
-      let mut inp ← (findStxStr `inp el)
+      let mut out ← (findStxStr `from el)
+      let mut inp ← (findStxStr `to el)
       withRef ref <|
         checkTypeErrors envMap ⟨instMap, instTypeMap⟩ conns a.getId.toString b.getId.toString out inp
       match updateConnMaps' ⟨instMap, instTypeMap⟩ conns a.getId.toString b.getId.toString out inp with
@@ -405,6 +415,8 @@ def mergeHigh (T : Type _) : ExprHigh String × (IdentMap String (TModule1 Strin
     snk0 [type="io"];
 
     fork1 [type="sten"];
+
+    fork1 -> snk0 [from=""];
   ], [("⟨_, fork T 2⟩", ⟨List T, fork T 2⟩)].toAssocList)
 
 open StringModule in

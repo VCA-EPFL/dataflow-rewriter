@@ -32,13 +32,13 @@ def matcher (g : ExprHigh String) : RewriteResult (List String) := do
     merge1 [type = "Merge"];
     merge2 [type = "Merge"];
 
-    inp0 -> merge1 [inp = "inp0"];
-    inp1 -> merge1 [inp = "inp1"];
-    inp2 -> merge2 [inp = "inp1"];
+    inp0 -> merge1 [to = "inp0"];
+    inp1 -> merge1 [to = "inp1"];
+    inp2 -> merge2 [to = "inp1"];
 
-    merge1 -> merge2 [out = "out0", inp = "inp0"];
+    merge1 -> merge2 [from = "out0", to = "inp0"];
 
-    merge2 -> out0 [out = "out0"];
+    merge2 -> out0 [from = "out0"];
   ]
 
 #eval IO.print mergeLhs
@@ -71,11 +71,11 @@ def mergeLhsLower := mergeLhsOrdered.fst.lower.get rfl
 
     merge3 [type = "Merge3"];
 
-    inp0 -> merge3 [inp = "inp0"];
-    inp1 -> merge3 [inp = "inp1"];
-    inp2 -> merge3 [inp = "inp2"];
+    inp0 -> merge3 [to = "inp0"];
+    inp1 -> merge3 [to = "inp1"];
+    inp2 -> merge3 [to = "inp2"];
 
-    merge3 -> out0 [out = "out0"];
+    merge3 -> out0 [from = "out0"];
   ]
 
 #eval IO.print mergeRhs
@@ -99,17 +99,17 @@ def mergeHigh : ExprHigh String :=
     merge2 [type="Merge"];
     merge1 [type="Merge"];
 
-    src0 -> fork1 [inp="inp0"];
+    src0 -> fork1 [to="inp0"];
 
-    fork1 -> fork2 [out="out0",inp="inp0"];
+    fork1 -> fork2 [from="out0",to="inp0"];
 
-    fork1 -> merge1 [out="out1",inp="inp0"];
-    fork2 -> merge1 [out="out0",inp="inp1"];
-    fork2 -> merge2 [out="out1",inp="inp1"];
+    fork1 -> merge1 [from="out1",to="inp0"];
+    fork2 -> merge1 [from="out0",to="inp1"];
+    fork2 -> merge2 [from="out1",to="inp1"];
 
-    merge1 -> merge2 [out="out0",inp="inp0"];
+    merge1 -> merge2 [from="out0",to="inp0"];
 
-    merge2 -> snk0 [out="out0"];
+    merge2 -> snk0 [from="out0"];
   ]
 
 /-
@@ -122,13 +122,13 @@ info: ok: digraph {
   rw0_0 [mod = "fork", label = "rw0_0: fork"];
 
 
-  rw0_2 -> snk0 [out = "out0", taillabel = "out0"];
-  src0 -> rw0_0 [inp = "inp0", headlabel = "inp0"];
+  rw0_2 -> snk0 [from = "out0", taillabel = "out0"];
+  src0 -> rw0_0 [to = "inp0", headlabel = "inp0"];
 
-  rw0_0 -> rw0_1 [out = "out0", inp = "inp0", taillabel = "out0", headlabel = "inp0",];
-  rw0_0 -> rw0_2 [out = "out1", inp = "inp0", taillabel = "out1", headlabel = "inp0",];
-  rw0_1 -> rw0_2 [out = "out0", inp = "inp1", taillabel = "out0", headlabel = "inp1",];
-  rw0_1 -> rw0_2 [out = "out1", inp = "inp1", taillabel = "out1", headlabel = "inp1",];
+  rw0_0 -> rw0_1 [from = "out0", to = "inp0", taillabel = "out0", headlabel = "inp0",];
+  rw0_0 -> rw0_2 [from = "out1", to = "inp0", taillabel = "out1", headlabel = "inp0",];
+  rw0_1 -> rw0_2 [from = "out0", to = "inp1", taillabel = "out0", headlabel = "inp1",];
+  rw0_1 -> rw0_2 [from = "out1", to = "inp1", taillabel = "out1", headlabel = "inp1",];
 }
 -/
 -- #guard_msgs in

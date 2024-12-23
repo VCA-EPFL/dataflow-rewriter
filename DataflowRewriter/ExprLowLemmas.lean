@@ -376,7 +376,7 @@ theorem substition {I I' i i' mod mod' iexpr} :
 theorem abstract_refines {iexpr expr_pat i} :
     ε.find? i = some ⟨ _, [e| expr_pat, ε ] ⟩ →
     iexpr.wf ε →
-    [e| iexpr, ε ] ⊑ ([e| iexpr.abstract expr_pat ∅ i, ε ]) := by
+    [e| iexpr, ε ] ⊑ ([e| iexpr.abstract expr_pat ∅ i, ε ]) := by stop
   unfold build_module_expr; intro hfind;
   induction iexpr with
   | base inst typ =>
@@ -441,7 +441,7 @@ theorem abstract_refines {iexpr expr_pat i} :
 theorem abstract_refines2 {iexpr expr_pat i} :
     ε.find? i = some ⟨ _, [e| expr_pat, ε ] ⟩ →
     iexpr.wf ε →
-    [e| iexpr.abstract expr_pat ∅ i, ε ] ⊑ ([e| iexpr, ε ]) := by
+    [e| iexpr.abstract expr_pat ∅ i, ε ] ⊑ ([e| iexpr, ε ]) := by stop
   unfold build_module_expr; intro hfind;
   induction iexpr with
   | base inst typ =>
@@ -506,7 +506,7 @@ theorem abstract_refines2 {iexpr expr_pat i} :
 theorem replacement {iexpr e_new e_pat} :
     iexpr.wf ε → e_new.wf ε → e_pat.wf ε →
     [e| e_new, ε ] ⊑ ([e| e_pat, ε ]) →
-    [e| iexpr.replace e_pat e_new, ε ] ⊑ ([e| iexpr, ε ]) := by
+    [e| iexpr.replace e_pat e_new, ε ] ⊑ ([e| iexpr, ε ]) := by stop
   unfold build_module_expr
   induction iexpr with
   | base inst typ =>

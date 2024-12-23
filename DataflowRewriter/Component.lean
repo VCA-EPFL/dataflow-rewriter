@@ -139,11 +139,11 @@ namespace DataflowRewriter.NatModule
   }
 
 @[drunfold] def mux T : NatModule (List T × List T × List Bool) :=
-  { inputs := [ (0, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
+  { inputs := [ (1, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
                            newTrueList = oldTrueList.concat val ∧ newFalseList = oldFalseList ∧ newBoolList = oldBoolList ⟩)
-              , (1, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
+              , (2, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
                            newTrueList = oldTrueList ∧ newFalseList = oldFalseList.concat val ∧ newBoolList = oldBoolList ⟩)
-              , (2, ⟨ Bool, λ (oldTrueList, oldFalseList, oldBoolList) b (newTrueList, newFalseList, newBoolList) =>
+              , (0, ⟨ Bool, λ (oldTrueList, oldFalseList, oldBoolList) b (newTrueList, newFalseList, newBoolList) =>
                            newTrueList = oldTrueList ∧ newFalseList = oldFalseList ∧ newBoolList = oldBoolList.concat b ⟩)
               ].toAssocList
     outputs := [ (0, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
@@ -155,11 +155,11 @@ namespace DataflowRewriter.NatModule
   }
 
 @[drunfold] def muxC T : NatModule (List T × List T × List Bool) :=
-  { inputs := [ (0, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
+  { inputs := [ (1, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
                            newTrueList = oldTrueList.concat val ∧ newFalseList = oldFalseList ∧ newBoolList = oldBoolList ⟩)
-              , (1, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
+              , (2, ⟨ T, λ (oldTrueList, oldFalseList, oldBoolList) val (newTrueList, newFalseList, newBoolList) =>
                            newTrueList = oldTrueList ∧ newFalseList = oldFalseList.concat val ∧ newBoolList = oldBoolList ⟩)
-              , (2, ⟨ Bool, λ (oldTrueList, oldFalseList, oldBoolList) b (newTrueList, newFalseList, newBoolList) =>
+              , (0, ⟨ Bool, λ (oldTrueList, oldFalseList, oldBoolList) b (newTrueList, newFalseList, newBoolList) =>
                            newTrueList = oldTrueList ∧ newFalseList = oldFalseList ∧ newBoolList = oldBoolList.concat b ⟩)
               ].toAssocList
     outputs := [ (0, ⟨ T×Bool, λ (oldTrueList, oldFalseList, oldBoolList) (val, b) (newTrueList, newFalseList, newBoolList) =>
@@ -313,6 +313,54 @@ Essentially tagger + join without internal rule
     internals := []
   }
 
+@[drunfold] def sync {T S} : NatModule (List S × List T) :=
+  { inputs := [
+        (0, ⟨ S, λ (lo, ro) s (ln, rn) => lo.concat s = ln ∧ ro = rn ⟩),
+        (1, ⟨ T, λ (lo, ro) t (ln, rn) => ro.concat t = rn ∧ lo = ln ⟩)
+      ].toAssocList
+    outputs := [
+        (0, ⟨ T, λ (lo, ro) t (ln, rn) => ∃ s, lo = s :: ln ∧ ro = t :: rn ⟩)
+      ].toAssocList
+    internals := []
+  }
+
+@[drunfold] def sync1 {T S} : NatModule (Option S × List T) :=
+  { inputs := [
+        (0, ⟨ S, λ (lo, ro) s (ln, rn) => lo = none ∧ ln = some s ∧ ro = rn ⟩),
+        (1, ⟨ T, λ (lo, ro) t (ln, rn) => ro.concat t = rn ∧ lo = ln ⟩)
+      ].toAssocList
+    outputs := [
+        (0, ⟨ T, λ (lo, ro) t (ln, rn) => ∃ s, lo = some s ∧ ln = none ∧ ro = t :: rn ⟩)
+      ].toAssocList
+    internals := []
+  }
+
+@[drunfold] def dsync {T S} (f : T → S) : NatModule (List S × List T) :=
+  { inputs := [
+        (0, ⟨ T, λ (lo, ro) t (ln, rn) => lo.concat (f t) = ln ∧ ro.concat t = rn ⟩),
+      ].toAssocList
+    outputs := [
+        (0, ⟨ S, λ (lo, ro) s (ln, rn) => lo = s :: ln ⟩),
+        (1, ⟨ T, λ (lo, ro) t (ln, rn) => ro = t :: rn ⟩)
+      ].toAssocList
+    internals := []
+  }
+
+@[drunfold] def dsyncU {T} : NatModule (List Unit × List T) := dsync (λ _ => ())
+
+@[drunfold] def dsync1 {T S} (f : T → S) : NatModule (Option S × List T) :=
+  { inputs := [
+        (0, ⟨ T, λ (lo, ro) t (ln, rn) => lo = none ∧ ln = some (f t) ∧ ro.concat t = rn ⟩),
+      ].toAssocList
+    outputs := [
+        (0, ⟨ S, λ (lo, ro) s (ln, rn) => lo = some s ∧ ln = none ⟩),
+        (1, ⟨ T, λ (lo, ro) t (ln, rn) => ro = t :: rn ⟩)
+      ].toAssocList
+    internals := []
+  }
+
+@[drunfold] def dsync1U {T} : NatModule (Option Unit × List T) := dsync1 (λ _ => ())
+
 namespace FixedSize
 
 def BoundedList T n := { ls : List T // ls.length <= n }
@@ -338,7 +386,6 @@ def BoundedList T n := { ls : List T // ls.length <= n }
                          ∧ oldListR.val = newListR.val.concat oldElementR⟩)].toAssocList,
     internals := []
   }
-
 
 end FixedSize
 
@@ -391,11 +438,25 @@ namespace DataflowRewriter.StringModule
 
 @[drunfold] def constant {T} (t : T) := NatModule.constant t |>.stringify
 
+@[drunfold] def sync {T S} := @NatModule.sync T S |>.stringify
+
+@[drunfold] def sync1 {T S} := @NatModule.sync1 T S |>.stringify
+
+@[drunfold] def dsync {T S} f := @NatModule.dsync T S f |>.stringify
+
+@[drunfold] def dsyncU {T} := @NatModule.dsyncU T |>.stringify
+
+@[drunfold] def dsync1 {T S} f := @NatModule.dsync1 T S f |>.stringify
+
+@[drunfold] def dsync1U {T} := @NatModule.dsync1U T |>.stringify
+
 opaque polymorphic_add {T} [Inhabited T] : T → T → T
 opaque polymorphic_sub {T} [Inhabited T] : T → T → T
 opaque polymorphic_mult {T} [Inhabited T] : T → T → T
 opaque polymorphic_div {T} [Inhabited T] : T → T → T
 opaque polymorphic_shift_left {T} [Inhabited T] : T → T → T
+
+#reduce (types := true) Lean.MetaM Unit
 
 opaque constant_a {T} [Inhabited T] : T
 opaque constant_b {T} [Inhabited T] : T

@@ -73,17 +73,17 @@ def lhs' : ExprHigh String := [graph|
     tagger2 [type = "TaggerCntrlAligner"];
     m_2 [type = "mod_right"];
 
-    i_data -> tagger1 [inp = "enq_untagged"];
+    i_data -> tagger1 [to = "enq_untagged"];
 
-    tagger1 -> m_1 [out = "tagged", inp="m_in"];
-    m_1  -> tagger1 [out = "m_out", inp = "complete_tagged"];
+    tagger1 -> m_1 [from = "tagged", to="m_in"];
+    m_1  -> tagger1 [from = "m_out", to = "complete_tagged"];
 
-    tagger1 -> tagger2 [out = "deq_untagged", inp = "enq_untagged"];
-    tagger2 -> m_2 [out = "tagged", inp="m_in"];
+    tagger1 -> tagger2 [from = "deq_untagged", to = "enq_untagged"];
+    tagger2 -> m_2 [from = "tagged", to="m_in"];
 
-    m_2 -> tagger2 [out = "m_out", inp = "complete_tagged"];
+    m_2 -> tagger2 [from = "m_out", to = "complete_tagged"];
 
-    tagger2 -> o_data [out = "deq_untagged"];
+    tagger2 -> o_data [from = "deq_untagged"];
   ]
 
 def lhs := lhs'.extract ["tagger1", "m_1", "tagger2", "m_2" ] |>.get rfl
@@ -101,13 +101,13 @@ def rhs : ExprHigh String := [graph|
     m_1 [type = "mod_left"];
     m_2 [type = "mod_right"];
 
-    i_data -> tagger [inp = "enq_untagged"];
+    i_data -> tagger [to = "enq_untagged"];
 
-    tagger -> m_1 [out = "tagged", inp="m_in"];
-    m_1 -> m_2 [out = "m_out", inp="m_in"];
-    m_2  -> tagger [out = "m_out", inp = "complete_tagged"];
+    tagger -> m_1 [from = "tagged", to="m_in"];
+    m_1 -> m_2 [from = "m_out", to="m_in"];
+    m_2  -> tagger [from = "m_out", to = "complete_tagged"];
 
-    tagger -> o_data [out = "deq_untagged"];
+    tagger -> o_data [from = "deq_untagged"];
   ]
 
 
@@ -141,17 +141,17 @@ def lhs' : ExprHigh String :=[graph|
     tagger2 [type = "TaggerCntrlAligner"];
     m_2 [type = "mod_right"];
 
-    i_data -> tagger1 [inp = "enq_untagged"];
+    i_data -> tagger1 [to = "enq_untagged"];
 
-    tagger1 -> m_1 [out = "tagged", inp="m_in"];
-    m_1  -> tagger1 [out = "m_out", inp = "complete_tagged"];
+    tagger1 -> m_1 [from = "tagged", to="m_in"];
+    m_1  -> tagger1 [from = "m_out", to = "complete_tagged"];
 
-    tagger1 -> tagger2 [out = "deq_untagged", inp = "enq_untagged"];
-    tagger2 -> m_2 [out = "tagged", inp="m_in"];
+    tagger1 -> tagger2 [from = "deq_untagged", to = "enq_untagged"];
+    tagger2 -> m_2 [from = "tagged", to="m_in"];
 
-    m_2 -> tagger2 [out = "m_out", inp = "complete_tagged"];
+    m_2 -> tagger2 [from = "m_out", to = "complete_tagged"];
 
-    tagger2 -> o_data [out = "deq_untagged"];
+    tagger2 -> o_data [from = "deq_untagged"];
   ]
 
 #eval rewrite.run "rw0_" lhs' |>.toOption |>.get! |> IO.print

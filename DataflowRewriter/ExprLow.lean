@@ -104,6 +104,31 @@ def ofOption {α ε} (e : ε) : Option α → Except ε α
          )
 | _, _ => throw "beq error: expressions are structurally not similar"
 
+@[drunfold] def weak_beq [Repr Ident] : (e e' : ExprLow Ident) → Except String (PortMapping Ident × PortMapping Ident)
+| .base map typ, .base map' typ' => do
+  unless typ = typ' do throw s!"beq error: types are not equal: {repr typ} vs {repr typ'}"
+  build_mapping map map' |>.map (Prod.mk · ∅)
+| .connect o i e, .connect o' i' e' => do
+  let (map, int_map) ← e.weak_beq e'
+  let o_in_map ← ofOption "beq error: could not find output in map" <| map.output.find? o
+  let i_in_map ← ofOption "beq error: could not find input in map" <| map.input.find? i
+  -- unless o_in_map = o' do throw s!"beq error: o_in_map ({o_in_map}) ≠ o' ({o'})"
+  -- unless i_in_map = i' do throw s!"beq error: i_in_map ({i_in_map}) ≠ i' ({i'})"
+  return ( {map with input := map.input.eraseAll i, output := map.output.eraseAll o}
+         , {int_map with input := int_map.input.cons i i_in_map, output := int_map.output.cons o o_in_map}
+         )
+| .product e₁ e₂, .product e₁' e₂' => do
+  let (map₁, int_map₁) ← e₁.weak_beq e₁'
+  let (map₂, int_map₂) ← e₂.weak_beq e₂'
+  unless map₁.input.disjoint_keys map₂.input do throw "beq error: map₁.input not disjoint from map₂.input"
+  unless map₁.output.disjoint_keys map₂.output do throw "beq error: map₁.output not disjoint from map₂.output"
+  unless int_map₁.input.disjoint_keys int_map₂.input do throw "beq error: int_map₁.input not disjoint from int_map₂.input"
+  unless int_map₁.output.disjoint_keys int_map₂.output do do throw "beq error: int_map₁.output not disjoint from int_map₂.output"
+  return ( ⟨map₁.input.append map₂.input, map₁.output.append map₂.output⟩
+         , ⟨int_map₁.input.append int_map₂.input, int_map₁.output.append int_map₂.output⟩
+         )
+| _, _ => throw "beq error: expressions are structurally not similar"
+
 @[drunfold] def build_interface : ExprLow Ident → Interface Ident
 | .base map typ => map.toInterface'
 | .connect o i e =>
@@ -131,8 +156,19 @@ def ofOption {α ε} (e : ε) : Option α → Except ε α
   let e₂' := e₂.modify i i'
   .product e₁' e₂'
 
+/--
+Check that two expressions are equal, assuming that the port assignments are
+fully specified and therefore symmetric in both expressions.
+-/
+@[drunfold] def check_eq : ExprLow Ident → ExprLow Ident → Bool
+| .base inst typ, .base inst' typ' =>
+  typ = typ' ∧ inst.input.toList.Perm inst'.input.toList ∧ inst.output.toList.Perm inst'.output.toList
+| .connect o i e, .connect o' i' e' => o = o' ∧ i = i' ∧ e.check_eq e'
+| .product e₁ e₂, .product e₁' e₂' => e₁.check_eq e₁' ∧ e₂.check_eq e₂'
+| _, _ => false
+
 @[drunfold] def replace (e e_sub e_new : ExprLow Ident) : ExprLow Ident :=
-  if e = e_sub then e_new else
+  if e.check_eq e_sub then e_new else
   match e with
   | .base inst typ => e
   | .connect x y e_sub' => .connect x y (e_sub'.replace e_sub e_new)
