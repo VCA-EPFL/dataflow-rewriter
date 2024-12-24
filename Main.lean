@@ -49,7 +49,7 @@ OPTIONS
   -o, --output FILE  Set output file
 "
 
-def identifyCombineMux (g : ExprHigh String) : RewriteResult (List String) := do
+def identifyCombineMux (g : ExprHigh String) : RewriteResult (List String × List String) := do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
       unless typ = "fork Bool 2" do return none
@@ -57,8 +57,8 @@ def identifyCombineMux (g : ExprHigh String) : RewriteResult (List String) := do
       let (.some mux_nn') := followOutput g inst "out1" | return none
       unless String.isPrefixOf "mux" mux_nn.typ && mux_nn.inputPort = "inp0" do return none
       unless String.isPrefixOf "mux" mux_nn'.typ && mux_nn'.inputPort = "inp0" do return none
-      return some [mux_nn.inst, mux_nn'.inst, inst]
-    ) none | throw .done
+      return some ([mux_nn.inst, mux_nn'.inst, inst], ["T", "T'"])
+    ) none | MonadExceptOf.throw RewriteError.done
   return list
 
 
@@ -78,11 +78,11 @@ def main (args : List String) : IO Unit := do
   let (exprHigh, assoc) ← IO.ofExcept fileContents.toExprHigh
 
   -- TODO: iteratively repeat this until candid_muxes is empty
-  let candid_muxes ← identifyCombineMux exprHigh
+  let candid_muxes ← IO.ofExcept <| identifyCombineMux exprHigh
 
   IO.print (repr exprHigh)
   let rewrittenExprHigh ← IO.ofExcept <|
-    ({CombineMux.rewrite (candid_muxes.nth 0).typ (candid_muxes.nth 1).typ with pattern := fun _ => pure [candid_muxes.nth 0, candid_muxes.nth 1, candid_muxes.nth 2]}).run "rw1_" exprHigh
+    ({CombineMux.rewrite (candid_muxes.snd.get! 0) (candid_muxes.snd.get! 1) with pattern := fun _ => pure [candid_muxes.fst.get! 0, candid_muxes.fst.get! 1, candid_muxes.fst.get! 2]}).run "rw1_" exprHigh
   -- let rewrittenExprHigh ← IO.ofExcept <|
   --   ({CombineMux.rewrite "T" "T" with pattern := fun _ => pure ["phi_n0", "phiC_3", "fork_11_3"]}).run "rw1_" rewrittenExprHigh
     -- pure exprHigh
