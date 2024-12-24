@@ -49,6 +49,12 @@ OPTIONS
   -o, --output FILE  Set output file
 "
 
+def extractType (s : String) : String := Id.run do
+  let parts := s.splitOn "mux "
+  parts.get! 1
+
+
+
 def identifyCombineMux (g : ExprHigh String) : RewriteResult (List String × List String) := do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
@@ -57,7 +63,19 @@ def identifyCombineMux (g : ExprHigh String) : RewriteResult (List String × Lis
       let (.some mux_nn') := followOutput g inst "out1" | return none
       unless String.isPrefixOf "mux" mux_nn.typ && mux_nn.inputPort = "inp0" do return none
       unless String.isPrefixOf "mux" mux_nn'.typ && mux_nn'.inputPort = "inp0" do return none
-      return some ([mux_nn.inst, mux_nn'.inst, inst], ["T", "T'"])
+      return some ([mux_nn.inst, mux_nn'.inst, inst], [extractType mux_nn.typ, extractType mux_nn'.typ])
+    ) none | MonadExceptOf.throw RewriteError.done
+  return list
+
+def identifyCombineBranch (g : ExprHigh String) : RewriteResult (List String × List String) := do
+  let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
+      if s.isSome then return s
+      unless typ = "fork Bool 2" do return none
+      let (.some branch_nn) := followOutput g inst "out0" | return none
+      let (.some branch_nn') := followOutput g inst "out1" | return none
+      unless String.isPrefixOf "branch " branch_nn.typ && branch_nn.inputPort = "inp1" do return none
+      unless String.isPrefixOf "branch " branch_nn'.typ && branch_nn'.inputPort = "inp1" do return none
+      return ([branch_nn.inst, branch_nn'.inst, inst], [extractType branch_nn.typ, extractType branch_nn'.typ])
     ) none | MonadExceptOf.throw RewriteError.done
   return list
 
@@ -79,10 +97,12 @@ def main (args : List String) : IO Unit := do
 
   -- TODO: iteratively repeat this until candid_muxes is empty
   let candid_muxes ← IO.ofExcept <| identifyCombineMux exprHigh
+  let candid_branches ← IO.ofExcept <| identifyCombineBranch exprHigh
 
   IO.print (repr exprHigh)
   let rewrittenExprHigh ← IO.ofExcept <|
     ({CombineMux.rewrite (candid_muxes.snd.get! 0) (candid_muxes.snd.get! 1) with pattern := fun _ => pure [candid_muxes.fst.get! 0, candid_muxes.fst.get! 1, candid_muxes.fst.get! 2]}).run "rw1_" exprHigh
+
   -- let rewrittenExprHigh ← IO.ofExcept <|
   --   ({CombineMux.rewrite "T" "T" with pattern := fun _ => pure ["phi_n0", "phiC_3", "fork_11_3"]}).run "rw1_" rewrittenExprHigh
     -- pure exprHigh
