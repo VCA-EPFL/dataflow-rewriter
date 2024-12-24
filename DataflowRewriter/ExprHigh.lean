@@ -31,13 +31,14 @@ structure NamedExprHigh (Ident : Type _) where
 
 namespace ExprHigh
 
-variable {Ident : Type _}
+universe i
+variable {Ident : Type i}
 variable [DecidableEq Ident]
 
 def findInputPort (p : InternalPort Ident) (i : IdentMap Ident (PortMapping Ident × Ident)) : Option Ident :=
   i.foldl (λ a k v =>
       match a with | some a' => a | none => do
-        guard <| (v.fst.input.filter (λ k' v' => p = v')).length > 0
+        let _ ← if (v.fst.input.filter (λ k' v' => p = v')).length > 0 then pure PUnit.unit else failure
         return k
     ) none
 
@@ -51,7 +52,7 @@ def findInputPort' (p : InternalPort Ident) (i : IdentMap Ident (PortMapping Ide
 def findOutputPort (p : InternalPort Ident) (i : IdentMap Ident (PortMapping Ident × Ident)) : Option Ident :=
   i.foldl (λ a k v =>
       match a with | some a' => a | none => do
-        guard <| (v.fst.output.filter (λ k' v' => p = v')).length > 0
+        let _ ← if (v.fst.output.filter (λ k' v' => p = v')).length > 0 then pure PUnit.unit else failure
         return k
     ) none
 
@@ -79,13 +80,13 @@ def outputNodes (g : ExprHigh Ident) : List Ident :=
 def normaliseModules (g : ExprHigh Ident) : Option (ExprHigh Ident) := do
   let newModules ← g.modules.foldlM (λ nm k v => do
       let inp := v.fst.input.mapVal (
-          λ | _, ⟨.internal inst, name⟩ =>
-              ⟨.internal k, name⟩
+          λ | ⟨_, portName⟩, ⟨.internal inst, name⟩ =>
+              ⟨.internal k, portName⟩
             | _, v => v
         )
       let out := v.fst.output.mapVal (
-          λ | _, ⟨.internal inst, name⟩ =>
-              ⟨.internal k, name⟩
+          λ | ⟨_, portName⟩, ⟨.internal inst, name⟩ =>
+              ⟨.internal k, portName⟩
             | _, v => v
         )
       return nm.cons k (⟨inp, out⟩, v.snd)
@@ -93,17 +94,19 @@ def normaliseModules (g : ExprHigh Ident) : Option (ExprHigh Ident) := do
   return {g with modules := newModules}
 
 def normaliseNames (g : ExprHigh Ident) : Option (ExprHigh Ident) := do
-  let newConnections ← g.connections.mapM (λ | ⟨i₁@⟨.internal _, n₁⟩, i₂@⟨.internal _, n₂⟩⟩ => do
-      let outInst ← findOutputPort i₁ g.modules
-      let inInst ← findInputPort i₂ g.modules
-      return Connection.mk ⟨.internal outInst, n₁⟩ ⟨.internal inInst, n₂⟩
-                                              | ⟨i₁@⟨.top, n₁⟩, i₂@⟨.internal _, n₂⟩⟩ => do
-      let inInst ← findInputPort i₂ g.modules
-      return Connection.mk ⟨.top, n₁⟩ ⟨.internal inInst, n₂⟩
-                                              | ⟨i₁@⟨.internal _, n₁⟩, i₂@⟨.top, n₂⟩⟩ => do
-      let outInst ← findOutputPort i₁ g.modules
-      return Connection.mk ⟨.internal outInst, n₁⟩ ⟨.top, n₂⟩
-                                              | c => pure c
+  let newConnections ← g.connections.mapM (λ
+    | ⟨i₁@⟨.internal _, n₁⟩, i₂@⟨.internal _, n₂⟩⟩ => do
+      match findOutputPort' i₁ g.modules, findInputPort' i₂ g.modules with
+      | .some (outInst, outInstName), .some (inInst, inInstName) =>
+        return Connection.mk ⟨.internal outInst, outInstName⟩ ⟨.internal inInst, inInstName⟩
+      | _, _ => failure
+    | ⟨i₁@⟨.top, n₁⟩, i₂@⟨.internal _, n₂⟩⟩ => do
+      let (inInst, inInstName) ← findInputPort' i₂ g.modules
+      return Connection.mk ⟨.top, n₁⟩ ⟨.internal inInst, inInstName⟩
+    | ⟨i₁@⟨.internal _, n₁⟩, i₂@⟨.top, n₂⟩⟩ => do
+      let (outInst, outInstName) ← findOutputPort' i₁ g.modules
+      return Connection.mk ⟨.internal outInst, outInstName⟩ ⟨.top, n₂⟩
+    | c => pure c
     )
   {g with connections := newConnections}.normaliseModules
 

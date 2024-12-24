@@ -1587,16 +1587,18 @@ def h : ExprHigh String :=
                   { output := { inst := DataflowRewriter.InstIdent.internal "load_7", name := "out1" },
                     input := { inst := DataflowRewriter.InstIdent.internal "MC_V", name := "inp0" } }] }
 
+#check String.contains
 #eval IO.print h
 
 #eval IO.print <| (rewrite "T" "T").run "rw0_" h
 
 #eval IO.print <| do
         let rw0 ← (rewrite "T" "T").run "rw0_" h
-        -- let rw1 ← (rewrite "T" "(T × T)").run "rw1_" rw0
-        -- let rw2 ← (rewrite "T" "(T × (T × T))").run "rw2_" rw1
-        -- let rw3 ← (CombineBranch.rewrite "T" "T").run "rw3_" rw2
-        -- let rw4 ← (CombineBranch.rewrite "T" "(T × T)").run "rw4_" rw3
-        pure rw0
+        let rw1 ← (rewrite "T" "(T × T)").run "rw1_" rw0
+        let rw2 ← (rewrite "T" "(T × (T × T))").run "rw2_" rw1
+        let rw3 ← (CombineBranch.rewrite "T" "T").run "rw3_" rw2
+        let rw4 ← (CombineBranch.rewrite "T" "(T × T)").run "rw4_" rw3
+        let rw5 ← (CombineBranch.rewrite "T" "(T × (T × T))").run "rw4_" rw4
+        pure rw5
 
 -- #eval IO.print <| (rewrite "T" "(T × (T × T))").run "rw2_" random
