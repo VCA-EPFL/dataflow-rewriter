@@ -49,9 +49,9 @@ OPTIONS
   -o, --output FILE  Set output file
 "
 
-def extractType (s : String) : String := Id.run do
+def extractType (s : String) : String :=
   let parts := s.splitOn " "
-  parts.get! 1
+  parts.tail.foldl (λ a b => a ++ " " ++ b) "" |>.drop 1
 
 def identifyCombineMux (g : ExprHigh String) : RewriteResult (List String × List String) := do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
