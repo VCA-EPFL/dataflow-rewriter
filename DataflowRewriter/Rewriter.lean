@@ -134,9 +134,6 @@ language does not remember any names.
   let (outputPortMap, _) := generate_renaming nameMap fresh_prefix (e_sub'_vars_o.filter (λ x => x ∉ ext_mapping.output.keysList))
   let int_mapping' : PortMapping String := ⟨ inputPortMap, outputPortMap ⟩
 
-  dbg_trace s!"Hey {repr comb_mapping}"
-  dbg_trace repr int_mapping'
-
   -- We then rename all internal signals in the new expression with the fresh
   -- names.
   let e_renamed_output_sub := e_sub_output.renamePorts int_mapping'
@@ -144,14 +141,7 @@ language does not remember any names.
 
   -- Finally we do the actual replacement.
   let norm := comm_connections g₁.connections
-  -- dbg_trace repr g₁.connections
-  -- dbg_trace "G_LOWER"
-  -- dbg_trace repr <| norm g_lower
-  -- dbg_trace "\nE_RENAMED_INPUT_SUB"
-  -- dbg_trace repr <| norm e_renamed_input_sub
-  -- dbg_trace "\nE_RENAMED_OUTPUT_SUB"
-  -- dbg_trace repr e_renamed_output_sub
-  (norm g_lower).replace (norm e_renamed_input_sub) e_renamed_output_sub |>.higherS fresh_prefix |> pure |> ofOption (.error "Could not normalise names")
+  (norm g_lower).replace (norm e_renamed_input_sub) e_renamed_output_sub |>.higherS fresh_prefix |>.normaliseNames |> ofOption (.error "Could not normalise names")
 
 /--
 Abstract a subgraph into a separate node.  One can imagine that the node type is
