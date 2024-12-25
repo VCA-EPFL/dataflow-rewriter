@@ -83,6 +83,20 @@ def formatOptions : List (String × String) → String
 | x :: l => l.foldl (λ s (sl, sr) => s ++ s!", {sl} = \"{sr}\"") s!", {x.1} = \"{x.2}\""
 | [] => ""
 
+def extractStandardType (s : String) : String :=
+  let parts := s.splitOn " "
+  parts.get! 0
+
+def capitalizeFirstChar (s : String) : String :=
+  match s.get? 0 with
+  | none   => s  -- If the string is empty, return it as is
+  | some c =>
+    let newChar := if 'a' ≤ c ∧ c ≤ 'z' then
+                     Char.ofNat (c.toNat - ('a'.toNat - 'A'.toNat))
+                   else
+                     c
+    newChar.toString ++ s.drop 1
+
 def dynamaticString (a: ExprHigh String) (m : AssocList String String): Option String := do
   -- let instances :=
   --   a.modules.foldl (λ s inst mod => s ++ s!"\n {inst} [mod = \"{mod}\"];") ""
@@ -106,7 +120,7 @@ def dynamaticString (a: ExprHigh String) (m : AssocList String String): Option S
     a.modules.foldlM
       (λ s k v => do
         let fmt := (interfaceTypes m).find? v.snd |>.getD (some v.snd, "", "", [("unsupported", "true")])
-        return s ++ s!"  {k} [type = \"{fmt.1.getD v.snd}\", label = \"{k}: {v.snd}\", in = \"{fmt.2.1}\", out = \"{fmt.2.2.1}\"{formatOptions fmt.2.2.2}];\n"
+        return s ++ s!"  {k} [type = \"{capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd))}\", label = \"{k}: {v.snd}\", in = \"{fmt.2.1}\", out = \"{fmt.2.2.1}\"{formatOptions fmt.2.2.2}];\n"
         ) ""
   let connections :=
     a.connections.foldl
