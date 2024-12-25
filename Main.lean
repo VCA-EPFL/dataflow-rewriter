@@ -50,10 +50,8 @@ OPTIONS
 "
 
 def extractType (s : String) : String := Id.run do
-  let parts := s.splitOn "mux "
+  let parts := s.splitOn " "
   parts.get! 1
-
-
 
 def identifyCombineMux (g : ExprHigh String) : RewriteResult (List String × List String) := do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
