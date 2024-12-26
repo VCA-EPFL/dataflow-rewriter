@@ -114,6 +114,9 @@ def interfaceTypes (m : AssocList String String) :=
    , ("Div", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "div")]))
    , ("Shl", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "shl")]))
    , ("Sub", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "sub")]))
+
+   , ("MC", (some "MC", "in1:0", "out1:32", []))
+
   ].toAssocList
 
 def formatOptions : List (String × String) → String
