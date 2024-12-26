@@ -6,6 +6,7 @@ Authors: Yann Herklotz
 
 import DataflowRewriter.Rewriter
 
+
 open Batteries (AssocList)
 
 namespace DataflowRewriter
@@ -17,7 +18,7 @@ the Component.lean file.
 - It is also not clear what the type for tagged components should be.
 - TODO Check that the IO names correspond to the implementation.
 -/
-def interfaceTypes (m : AssocList String String) :=
+def OldinterfaceTypes (m : AssocList String String) :=
   [ ("Join", (none, "in1:32 in2:32", "out1:64", []))
   , ("TaggedJoin", (none, "in1:32 in2:32", "out1:64", []))
 
@@ -38,14 +39,14 @@ def interfaceTypes (m : AssocList String String) :=
   , ("CntrlMerge", (none, "in1:32 in2:32", "out1:32 out2?:1", [("delay", "1.234510"), ("delay2", "1.234510")]))
   , ("TagggedCntrlMerge", (none, "in1:32 in2:32", "out1:32 out2?:1", []))
 
-  , ("Branch", (none, "in1:32 in2?:1", "out1+:32 out2-:32", []))
-  , ("BranchC", (some "Branch", "in1:0 in2?:1", "out1+:0 out2-:0", []))
-  , ("TagggedBranch", (none, "in1:32 in2?:1", "out1+:32 out2-:32", []))
+  , ("Branch", (some "Branch", "in1:32 in2?:1", "out1+:32 out2-:32", []))
+ , ("BranchC", (some "Branch", "in1:0 in2?:1", "out1+:0 out2-:0", []))
+ , ("TagggedBranch", (none, "in1:32 in2?:1", "out1+:32 out2-:32", []))
 
   , ("Mux", (none, "in1?:1 in2:32 in3:32", "out1:32", []))
   , ("MuxC", (some "Mux", "in1?:1 in2:0 in3:0", "out1:0", []))
-  , ("TagggedMux", (none, "in1?:1 in2:32 in3:32", "out1:32", []))
 
+  , ("TagggedMux", (none, "in1?:1 in2:32 in3:32", "out1:32", []))
   , ("Buffer", (none, "in1:32", "out1:32", []))
   , ("BufferC", (some "Buffer", "in1:0", "out1:0", []))
   , ("BufferB", (some "Buffer", "in1:1", "out1:1", []))
@@ -59,8 +60,7 @@ def interfaceTypes (m : AssocList String String) :=
   , ("Aligner", (none, "in1:32 in2:32", "out1:32 out2:32", []))
   , ("TaggerCntrlAligner", (none, "in1:32 in2:32", "out1:32 out2:32", []))
 
-  -- TODO WRONG
-  , ("Sink", (none, "in1:32 in2:32", "out1:32 out2:32", []))
+  , ("Sink", (none, "in1:32", "", []))
 
   -- Constants are currently axiomatised
   , ("ConstantA", (some "Constant", "in1:0", "out1:32", [("value", m.find? "A" |>.getD "unrecognised")]))
@@ -77,6 +77,43 @@ def interfaceTypes (m : AssocList String String) :=
   , ("Div", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "div")]))
   , ("Shl", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "shl")]))
   , ("Sub", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "sub")]))
+  ].toAssocList
+
+def interfaceTypes (m : AssocList String String) :=
+  [
+     ("Merge", (some "Merge", "in1:32 in2:32", "out1:32", []))
+     -- TODO: figure out how to distinguish phi_c from phi because they should have different delays
+   , ("mux T", (some "mux T", "in1?:1 in2:32 in3:32", "out1:32", [("delay", "0.366")]))
+
+    -- Aya: Given our current loop rewrites, I do not think we will need a Cmerge
+   --, ("CntrlMerge", (some "CntrlMerge", "in1:32 in2:32", "out1:32 out2?:1", [("delay", "0.366")]))
+
+    -- assuming that any fork can only be 2-input
+   , ("fork Bool 2", (some "fork Bool 2", "in1:32", "out1:32 out2:32", []))
+
+   , ("Entry", (some "Entry", "in1:0", "out1:0", [("control", "true")]))
+
+   , ("init Bool false", (some "init Bool false", "in1:32 in2:32", "out1:32", []))
+
+   , ("branch T", (some "branch T", "in1:32 in2?:1", "out1+:32 out2-:32", []))
+
+   , ("Sink", (some "Sink", "in1:32", "", []))
+
+    -- Constants are currently axiomatised
+   , ("ConstantA", (some "Constant", "in1:0", "out1:32", [("value", m.find? "A" |>.getD "unrecognised")]))
+   , ("ConstantB", (some "Constant", "in1:0", "out1:32", [("value", m.find? "B" |>.getD "unrecognised")]))
+   , ("ConstantC", (some "Constant", "in1:0", "out1:32", [("value", m.find? "C" |>.getD "unrecognised")]))
+   , ("ConstantD", (some "Constant", "in1:0", "out1:32", [("value", m.find? "D" |>.getD "unrecognised")]))
+   , ("ConstantE", (some "Constant", "in1:0", "out1:32", [("value", m.find? "E" |>.getD "unrecognised")]))
+   , ("ConstantF", (some "Constant", "in1:0", "out1:32", [("value", m.find? "F" |>.getD "unrecognised")]))
+   , ("ConstantG", (some "Constant", "in1:0", "out1:32", [("value", m.find? "G" |>.getD "unrecognised")]))
+
+  -- Operations are also axiomatised
+   , ("Add", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "add")]))
+   , ("Mul", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "mul")]))
+   , ("Div", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "div")]))
+   , ("Shl", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "shl")]))
+   , ("Sub", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "sub")]))
   ].toAssocList
 
 def formatOptions : List (String × String) → String
@@ -97,44 +134,63 @@ def capitalizeFirstChar (s : String) : String :=
                      c
     newChar.toString ++ s.drop 1
 
+-- Function to extract the first multi-digit number from a string, add 1, and return the modified string
+def addOneToFirstNumber (s : String) : String :=
+  let digits := s.toList  -- Convert the string to a list of characters
+  -- Extract the first sequence of digits from the string
+  let (numList, rest) := digits.span (λ c => c.isDigit)  -- Extract the digits of the number
+  match numList.toString.toNat? with
+  | some n =>
+    let newNumber := n + 1  -- Add 1 to the extracted number
+    let newNumberStr := toString newNumber  -- Convert the updated number back to a string
+    let pref := s.take (s.length - rest.length - numList.length)  -- Take part of the string before the number
+    let suff := s.drop (s.length - rest.length)  -- Take part of the string after the number
+    pref ++ newNumberStr ++ suff  -- Combine them to form the modified string
+  | none => s  -- If no number is found, return the original string
+
+def removeLetter (ch : Char) (s : String) : String :=
+  String.mk (s.toList.filter (λ c => c ≠ ch))
+
+def renameInit (s : String) : String :=
+  if s = "Init" then
+    "Merge"
+  else
+    s  -- Otherwise, return the original string
+
 def dynamaticString (a: ExprHigh String) (m : AssocList String String): Option String := do
   -- let instances :=
   --   a.modules.foldl (λ s inst mod => s ++ s!"\n {inst} [mod = \"{mod}\"];") ""
   let a ← a.normaliseNames
-  let (io_decl, io_conn) := a.modules.foldl (λ (sdecl, sio) inst (pmap, typ) =>
-    let sdecl := (pmap.input ++ pmap.output).foldl (λ sdecl k v =>
-      if v.inst.isTop
-      then sdecl ++ s!"\n  {v.name} [type = \"io\", label = \"{v.name}: io\"];"
-      else sdecl) sdecl
-    let sio := pmap.input.foldl (λ io_conn k v =>
-      if v.inst.isTop
-      then io_conn ++ s!"\n  {v.name} -> {inst} [to = \"{k.name}\", headlabel = \"{k.name}\"];"
-      else io_conn) sio
-    let sio := pmap.output.foldl (λ io_conn k v =>
-      if v.inst.isTop
-      then io_conn ++ s!"\n  {inst} -> {v.name} [from = \"{k.name}\", taillabel = \"{k.name}\"];"
-      else io_conn) sio
-    (sdecl, sio)
-  ) ("", "")
+  -- let (io_decl, io_conn) := a.modules.foldl (λ (sdecl, sio) inst (pmap, typ) =>
+  --   let sdecl := (pmap.input ++ pmap.output).foldl (λ sdecl k v =>
+  --     if v.inst.isTop
+  --     then sdecl ++ s!"\n  {v.name} [type = \"io\", label = \"{v.name}: io\"];"
+  --     else sdecl) sdecl
+  --   let sio := pmap.input.foldl (λ io_conn k v =>
+  --     if v.inst.isTop
+  --     then io_conn ++ s!"\n  {v.name} -> {inst} [to = \"{k.name}\", headlabel = \"{k.name}\"];"
+  --     else io_conn) sio
+  --   let sio := pmap.output.foldl (λ io_conn k v =>
+  --     if v.inst.isTop
+  --     then io_conn ++ s!"\n  {inst} -> {v.name} [from = \"{k.name}\", taillabel = \"{k.name}\"];"
+  --     else io_conn) sio
+  --   (sdecl, sio)
+  -- ) ("", "")
   let modules ←
     a.modules.foldlM
       (λ s k v => do
         let fmt := (interfaceTypes m).find? v.snd |>.getD (some v.snd, "", "", [("unsupported", "true")])
-        return s ++ s!"  {k} [type = \"{capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd))}\", label = \"{k}: {v.snd}\", in = \"{fmt.2.1}\", out = \"{fmt.2.2.1}\"{formatOptions fmt.2.2.2}];\n"
+        return s ++ s!"  {k} [type = \"{renameInit (capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd)))}\", in = \"{fmt.2.1}\", out = \"{fmt.2.2.1}\"{formatOptions fmt.2.2.2}];\n"
         ) ""
   let connections :=
     a.connections.foldl
       (λ s => λ | ⟨ oport, iport ⟩ =>
                   s ++ s!"\n  {oport.inst} -> {iport.inst} "
-                    ++ s!"[from = \"{oport.name}\","
-                    ++ s!" to = \"{iport.name}\","
-                    ++ s!" taillabel = \"{oport.name}\","
-                    ++ s!" headlabel = \"{iport.name}\","
+                    ++ s!"[from = \"{addOneToFirstNumber oport.name}\","
+                    ++ s!" to = \"{removeLetter 'p' (addOneToFirstNumber iport.name)}\" "
                     ++ "];") ""
   s!"digraph \{
-{io_decl}
 {modules}
-{io_conn}
 {connections}
 }"
 
