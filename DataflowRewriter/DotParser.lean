@@ -200,58 +200,72 @@ def keyStartsWith (l : List Parser.DotAttr) key val :=
 def keyArgNumbers (l : List Parser.DotAttr) key :=
   (l.find? (·.key = key) |>.map (·.value) |>.getD "" |>.splitOn |>.length)
 
-def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × AssocList String String) := do
-  let mut maps : InstMaps := ⟨ ∅, ∅ ⟩
-  let (maps', assoc, _) ← d.nodes.foldlM (λ (a, assoc, arr) (s, l) => do
-      -- Todo: bypass the bbID field with all nodes
-      let some bb := l.find? (·.key = "bbID")
-        | throw "could not find instance bbID"
+def addArgs (s : String) (l : List Parser.DotAttr) (current_extra_args : AssocList String String) (k : String) : Except String (AssocList String String) := do
+  let some el := l.find? (·.key = k)
+    | throw s!"{s}: could not find \"{k}\" field in Operation"
+  return current_extra_args.cons el.key el.value
+
+def addOptArgs (s : String) (l : List Parser.DotAttr) (current_extra_args : AssocList String String) (k : String) : Except String (AssocList String String) := do
+  match l.find? (·.key = k) with
+  | some el => return current_extra_args.cons el.key el.value
+  | _ => return current_extra_args
+
+/--
+Parse a dot expression that comes from Dynamatic.  It returns the graph
+expression, as well as a list of additional attributes that should be bypassed
+to the dynamatic printer.
+-/
+def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × AssocList String (AssocList String String)) := do
+  let (maps, assoc) ← d.nodes.foldlM (λ (a, assoc) (s, l) => do
+      let add := addArgs s l
+      let addOpt := addOptArgs s l
+
+      let mut current_extra_args : AssocList String String := ∅
+
+      current_extra_args ← add current_extra_args "bbID"
+
       let some typ := l.find? (·.key = "type")
-        | throw "could not find instance type"
+        | throw s!"{s}: could not find instance type"
+
+      current_extra_args ← addOpt current_extra_args "in"
+      current_extra_args ← addOpt current_extra_args "out"
+
       let mut typVal := typ.value
-      let mut arr' := arr
-      let mut assoc' := assoc
+
       -- Aya: I do not think this is necessary. We have only 1 Branch type and only vary the bitwidths
-      if typVal = "Branch" && keyStartsWith l "in" "in1:0" then
-        typVal := "BranchC"
-      if typVal = "Fork" && keyArgNumbers l "in" > 2 then
-        let num := keyArgNumbers l "in"
-        typVal := s!"Fork{num}"
+      -- Yann: Different bit widths do matter for us though and we want to give
+      -- them the right type.  I have now changed it so that it will assign the
+      -- right types, let me know if there are more we should be handling.
+      if typVal = "Branch" then
+        if keyStartsWith l "in" "in1:0" then
+          typVal := "branch Unit"
+        else if keyStartsWith l "in" "in1:1" then
+          typVal := "branch Bool"
+        -- Else, if the bitwidth is 32, then:
+        else typVal := "branch T"
+
+      if typVal = "Fork" then
+        typVal := s!"fork T {keyArgNumbers l "in"}"
+
       if typVal = "Constant" then
-        let some val := l.find? (·.key = "value")
-          | throw "could not find \"value\" field in Constant"
-        match assoc.find? val.value with
-        | some v =>
-          typVal := s!"Constant{v}"
-        | none =>
-          match arr with
-          | x :: xs =>
-            assoc' := assoc.cons val.value x
-            arr' := xs
-            typVal := s!"Constant{x}"
-          | [] => throw "too many constants"
+        current_extra_args ← add current_extra_args "value"
 
       if typVal = "Operator" then
-        let some op := l.find? (·.key = "op")
-          | throw "could not find \"op\" field in Operation"
-        match assoc.find? op.value with
-        | some o =>
-          typVal := s!"Operator{o}"
-        | none =>
-          match arr with
-          | x :: xs =>
-            assoc' := assoc.cons op.value x
-            arr' := xs
-            typVal := s!"Operator{x}"
-          | [] => throw "too many Operators"
+        current_extra_args ← add current_extra_args "op"
+
+      if typVal = "MC" then
+        current_extra_args ← add current_extra_args "memory"
+        current_extra_args ← add current_extra_args "bbcount"
+        current_extra_args ← add current_extra_args "ldcount"
+        current_extra_args ← add current_extra_args "stcount"
 
       let cluster := l.find? (·.key = "cluster") |>.getD ⟨"cluster", "false"⟩
       let .ok clusterB := Parser.parseBool.run cluster.value
-        | throw "cluster could not be parsed"
+        | throw s!"{s}: cluster could not be parsed"
       let upd ← updateNodeMaps a s typVal clusterB
-      return (upd, assoc', arr')
-    ) (maps, ∅, ["A", "B", "C", "D", "E", "F", "G", "H", "I"])
-  maps := maps'
+      return (upd, assoc.cons s current_extra_args)
+    ) (InstMaps.mk ∅ ∅, ∅)
+
   let (maps', conns) ← d.edges.foldlM (λ a (s1, s2, l) => do
       let inp := l.find? (·.key = "to")
       let out := l.find? (·.key = "from")
@@ -259,11 +273,12 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
       | .ok v => return v
       | .error s => throw s.toString
     ) (maps, [])
+
   return (⟨ maps'.instTypeMap.toList.toAssocList, conns ⟩, assoc)
 
 end DataflowRewriter
 
 open DataflowRewriter in
-def String.toExprHigh (s : String) : Except String (ExprHigh String × AssocList String String) := do
+def String.toExprHigh (s : String) : Except String (ExprHigh String × AssocList String (AssocList String String)) := do
   let l ← Parser.dotGraph.run s
   dotToExprHigh l

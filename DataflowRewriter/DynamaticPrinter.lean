@@ -99,32 +99,6 @@ def interfaceTypes (m : AssocList String String) :=
 
    , ("Sink", (some "Sink", "in1:32", "", []))
 
-    -- Constants are currently axiomatised
-   , ("ConstantA", (some "Constant", "in1:0", "out1:32", [("value", m.find? "A" |>.getD "unrecognised")]))
-   , ("ConstantB", (some "Constant", "in1:0", "out1:32", [("value", m.find? "B" |>.getD "unrecognised")]))
-   , ("ConstantC", (some "Constant", "in1:0", "out1:32", [("value", m.find? "C" |>.getD "unrecognised")]))
-   , ("ConstantD", (some "Constant", "in1:0", "out1:32", [("value", m.find? "D" |>.getD "unrecognised")]))
-   , ("ConstantE", (some "Constant", "in1:0", "out1:32", [("value", m.find? "E" |>.getD "unrecognised")]))
-   , ("ConstantF", (some "Constant", "in1:0", "out1:32", [("value", m.find? "F" |>.getD "unrecognised")]))
-   , ("ConstantG", (some "Constant", "in1:0", "out1:32", [("value", m.find? "G" |>.getD "unrecognised")]))
-
-  -- Operations are also axiomatised
-   , ("OperatorA", (some "Operator", "in1:32 in2:32", "out1:32", [("op", m.find? "add_op" |>.getD "unrecognised")]))
-   , ("OperatorB", (some "Operator", "in1:32 in2:32", "out1:32", [("op", m.find? "fadd_op" |>.getD "unrecognised")]))
-   , ("OperatorC", (some "Operator", "in1:32 in2:32", "out1:32", [("op", m.find? "fmul_op" |>.getD "unrecognised")]))
-   , ("OperatorD", (some "Operator", "in1:32", "out1:32", [("op", m.find? "zext_op" |>.getD "unrecognised")]))
-   , ("OperatorE", (some "Operator", "in1:32 in2:32", "out1:1", [("op", m.find? "icmp_ult_op" |>.getD "unrecognised")]))
-
-   , ("OperatorF", (some "Operator", "in1:32 in2:32 in3:32", "out1:32", [("op", m.find? "getelementptr_op" |>.getD "unrecognised")]))
-
-   , ("OperatorG", (some "Operator", "in1:32 in2:32", "out1:32", [("op", m.find? "mc_load_op" |>.getD "unrecognised")]))
-   , ("OperatorH", (some "Operator", "in1:32 in2:32", "out1:32", [("op", m.find? "mc_store_op" |>.getD "unrecognised")]))
-
-   , ("OperatorI", (some "Operator", "in1:32", "out1:32", [("op", m.find? "ret_op" |>.getD "unrecognised")]))
-
-   , ("MC", (some "MC", "in1:0", "out1:32", []))
-
-
   ].toAssocList
 
 def formatOptions : List (String × String) → String
@@ -168,15 +142,23 @@ def renameInit (s : String) : String :=
   else
     s  -- Otherwise, return the original string
 
-def dynamaticString (a: ExprHigh String) (m : AssocList String String): Option String := do
+def dynamaticString (a: ExprHigh String) (m : AssocList String (AssocList String String)): Option String := do
   -- let instances :=
   --   a.modules.foldl (λ s inst mod => s ++ s!"\n {inst} [mod = \"{mod}\"];") ""
   let a ← a.normaliseNames
   let modules ←
     a.modules.foldlM
       (λ s k v => do
-        let fmt := (interfaceTypes m).find? v.snd |>.getD (some v.snd, "", "", [("unsupported", "true")])
-        return s ++ s!"  {k} [type = \"{renameInit (capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd)))}\", in = \"{fmt.2.1}\", out = \"{fmt.2.2.1}\"{formatOptions fmt.2.2.2}];\n"
+        let fmt := (interfaceTypes ∅).find? v.snd |>.getD (some v.snd, "", "", [("unsupported", "true")])
+        match m.find? k with
+        | some input_fmt =>
+          -- If we find that the node comes from the input, but just add the input arguments to it that we saved.
+          return s ++ s!"  {k} [ktype = \"{renameInit (capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd)))}\"{formatOptions input_fmt.toList}];\n"
+        | none =>
+          -- If this is a new node, then we sue `fmt` to correctly add the right
+          -- arguments.  We should never be generating constructs like MC, so
+          -- this shouldn't be a problem.
+          return s ++ s!"  {k} [type = \"{renameInit (capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd)))}\", in = \"{fmt.2.1}\", out = \"{fmt.2.2.1}\"{formatOptions fmt.2.2.2}];\n"
         ) ""
   let connections :=
     a.connections.foldl

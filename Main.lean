@@ -97,14 +97,14 @@ def main (args : List String) : IO Unit := do
   let candid_muxes ← IO.ofExcept <| identifyCombineMux exprHigh
   let candid_branches ← IO.ofExcept <| identifyCombineBranch exprHigh
 
-  IO.print (repr exprHigh)
   let rewrittenExprHigh ← IO.ofExcept <|
     ({CombineMux.rewrite (candid_muxes.snd.get! 0) (candid_muxes.snd.get! 1) with pattern := fun _ => pure [candid_muxes.fst.get! 0, candid_muxes.fst.get! 1, candid_muxes.fst.get! 2]}).run "rw1_" exprHigh
+  let rewrittenExprHigh := exprHigh
 
   -- let rewrittenExprHigh ← IO.ofExcept <|
   --   ({CombineMux.rewrite "T" "T" with pattern := fun _ => pure ["phi_n0", "phiC_3", "fork_11_3"]}).run "rw1_" rewrittenExprHigh
     -- pure exprHigh
-  let some l := dynamaticString rewrittenExprHigh assoc.inverse
+  let some l := dynamaticString rewrittenExprHigh assoc
     | IO.eprintln s!"Failed to print ExprHigh: {rewrittenExprHigh}"
   match parsed.outputFile with
   | some ofile =>
