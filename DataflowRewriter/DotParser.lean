@@ -203,11 +203,15 @@ def keyArgNumbers (l : List Parser.DotAttr) key :=
 def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × AssocList String String) := do
   let mut maps : InstMaps := ⟨ ∅, ∅ ⟩
   let (maps', assoc, _) ← d.nodes.foldlM (λ (a, assoc, arr) (s, l) => do
+      -- Todo: bypass the bbID field with all nodes
+      let some bb := l.find? (·.key = "bbID")
+        | throw "could not find instance bbID"
       let some typ := l.find? (·.key = "type")
         | throw "could not find instance type"
       let mut typVal := typ.value
       let mut arr' := arr
       let mut assoc' := assoc
+      -- Aya: I do not think this is necessary. We have only 1 Branch type and only vary the bitwidths
       if typVal = "Branch" && keyStartsWith l "in" "in1:0" then
         typVal := "BranchC"
       if typVal = "Fork" && keyArgNumbers l "in" > 2 then
@@ -226,17 +230,27 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
             arr' := xs
             typVal := s!"Constant{x}"
           | [] => throw "too many constants"
+
       if typVal = "Operator" then
         let some op := l.find? (·.key = "op")
           | throw "could not find \"op\" field in Operation"
-        match op with
-        | _ => typVal := "Add"
+        match assoc.find? op.value with
+        | some o =>
+          typVal := s!"Operator{o}"
+        | none =>
+          match arr with
+          | x :: xs =>
+            assoc' := assoc.cons op.value x
+            arr' := xs
+            typVal := s!"Operator{x}"
+          | [] => throw "too many Operators"
+
       let cluster := l.find? (·.key = "cluster") |>.getD ⟨"cluster", "false"⟩
       let .ok clusterB := Parser.parseBool.run cluster.value
         | throw "cluster could not be parsed"
       let upd ← updateNodeMaps a s typVal clusterB
       return (upd, assoc', arr')
-    ) (maps, ∅, ["A", "B", "C", "D", "E", "F", "G"])
+    ) (maps, ∅, ["A", "B", "C", "D", "E", "F", "G", "H", "I"])
   maps := maps'
   let (maps', conns) ← d.edges.foldlM (λ a (s1, s2, l) => do
       let inp := l.find? (·.key = "to")

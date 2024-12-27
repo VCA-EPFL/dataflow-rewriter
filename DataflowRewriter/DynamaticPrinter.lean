@@ -109,13 +109,21 @@ def interfaceTypes (m : AssocList String String) :=
    , ("ConstantG", (some "Constant", "in1:0", "out1:32", [("value", m.find? "G" |>.getD "unrecognised")]))
 
   -- Operations are also axiomatised
-   , ("Add", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "add")]))
-   , ("Mul", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "mul")]))
-   , ("Div", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "div")]))
-   , ("Shl", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "shl")]))
-   , ("Sub", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "sub")]))
+   , ("OperatorA", (some "Operator", "in1:32 in2:32", "out1:32", [("op", m.find? "add_op" |>.getD "unrecognised")]))
+   , ("OperatorB", (some "Operator", "in1:32 in2:32", "out1:32", [("op", m.find? "fadd_op" |>.getD "unrecognised")]))
+   , ("OperatorC", (some "Operator", "in1:32 in2:32", "out1:32", [("op", m.find? "fmul_op" |>.getD "unrecognised")]))
+   , ("OperatorD", (some "Operator", "in1:32", "out1:32", [("op", m.find? "zext_op" |>.getD "unrecognised")]))
+   , ("OperatorE", (some "Operator", "in1:32 in2:32", "out1:1", [("op", m.find? "icmp_ult_op" |>.getD "unrecognised")]))
+
+   , ("OperatorF", (some "Operator", "in1:32 in2:32 in3:32", "out1:32", [("op", m.find? "getelementptr_op" |>.getD "unrecognised")]))
+
+   , ("OperatorG", (some "Operator", "in1:32 in2:32", "out1:32", [("op", m.find? "mc_load_op" |>.getD "unrecognised")]))
+   , ("OperatorH", (some "Operator", "in1:32 in2:32", "out1:32", [("op", m.find? "mc_store_op" |>.getD "unrecognised")]))
+
+   , ("OperatorI", (some "Operator", "in1:32", "out1:32", [("op", m.find? "ret_op" |>.getD "unrecognised")]))
 
    , ("MC", (some "MC", "in1:0", "out1:32", []))
+
 
   ].toAssocList
 
@@ -164,21 +172,6 @@ def dynamaticString (a: ExprHigh String) (m : AssocList String String): Option S
   -- let instances :=
   --   a.modules.foldl (λ s inst mod => s ++ s!"\n {inst} [mod = \"{mod}\"];") ""
   let a ← a.normaliseNames
-  -- let (io_decl, io_conn) := a.modules.foldl (λ (sdecl, sio) inst (pmap, typ) =>
-  --   let sdecl := (pmap.input ++ pmap.output).foldl (λ sdecl k v =>
-  --     if v.inst.isTop
-  --     then sdecl ++ s!"\n  {v.name} [type = \"io\", label = \"{v.name}: io\"];"
-  --     else sdecl) sdecl
-  --   let sio := pmap.input.foldl (λ io_conn k v =>
-  --     if v.inst.isTop
-  --     then io_conn ++ s!"\n  {v.name} -> {inst} [to = \"{k.name}\", headlabel = \"{k.name}\"];"
-  --     else io_conn) sio
-  --   let sio := pmap.output.foldl (λ io_conn k v =>
-  --     if v.inst.isTop
-  --     then io_conn ++ s!"\n  {inst} -> {v.name} [from = \"{k.name}\", taillabel = \"{k.name}\"];"
-  --     else io_conn) sio
-  --   (sdecl, sio)
-  -- ) ("", "")
   let modules ←
     a.modules.foldlM
       (λ s k v => do
@@ -196,5 +189,7 @@ def dynamaticString (a: ExprHigh String) (m : AssocList String String): Option S
 {modules}
 {connections}
 }"
+
+-- TODO: The addOneToFirstNumber is not working as expected as it does not add 1 :(
 
 end DataflowRewriter
