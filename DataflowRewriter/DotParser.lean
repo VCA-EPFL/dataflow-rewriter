@@ -252,6 +252,7 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
 
       if typVal = "Operator" then
         current_extra_args ← add current_extra_args "op"
+        typVal := s!"operator {keyArgNumbers l "in"}"
 
       if typVal = "MC" then
         current_extra_args ← add current_extra_args "memory"
