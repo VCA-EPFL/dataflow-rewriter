@@ -18,71 +18,11 @@ the Component.lean file.
 - It is also not clear what the type for tagged components should be.
 - TODO Check that the IO names correspond to the implementation.
 -/
-def OldinterfaceTypes (m : AssocList String String) :=
-  [ ("Join", (none, "in1:32 in2:32", "out1:64", []))
-  , ("TaggedJoin", (none, "in1:32 in2:32", "out1:64", []))
-
-  , ("Split", (none, "in1:64", "out1:32 out2:32", []))
-  , ("TaggedSplit", (none, "in1:64", "out1:32 out2:32", []))
-
-  , ("Merge", (none, "in1:32 in2:32", "out1:32", []))
-  , ("TagggedMerge", (none, "in1:32 in2:32", "out1:32", []))
-
-  , ("Fork", (none, "in1:32", "out1:32 out2:32", []))
-  , ("Fork3", (some "Fork", "in1:32", "out1:32 out2:32 out3:32", []))
-  , ("Fork4", (some "Fork", "in1:32", "out1:32 out2:32 out3:32 out4:32", []))
-  , ("Fork5", (some "Fork", "in1:32", "out1:32 out2:32 out3:32 out4:32 out5:32", []))
-  , ("Fork6", (some "Fork", "in1:32", "out1:32 out2:32 out3:32 out4:32 out5:32 out6:32", []))
-  , ("TagggedFork", (none, "in1:32", "out1:32 out2:32", []))
-
-  -- TODO FIX DELAY
-  , ("CntrlMerge", (none, "in1:32 in2:32", "out1:32 out2?:1", [("delay", "1.234510"), ("delay2", "1.234510")]))
-  , ("TagggedCntrlMerge", (none, "in1:32 in2:32", "out1:32 out2?:1", []))
-
-  , ("Branch", (some "Branch", "in1:32 in2?:1", "out1+:32 out2-:32", []))
- , ("BranchC", (some "Branch", "in1:0 in2?:1", "out1+:0 out2-:0", []))
- , ("TagggedBranch", (none, "in1:32 in2?:1", "out1+:32 out2-:32", []))
-
-  , ("Mux", (none, "in1?:1 in2:32 in3:32", "out1:32", []))
-  , ("MuxC", (some "Mux", "in1?:1 in2:0 in3:0", "out1:0", []))
-
-  , ("TagggedMux", (none, "in1?:1 in2:32 in3:32", "out1:32", []))
-  , ("Buffer", (none, "in1:32", "out1:32", []))
-  , ("BufferC", (some "Buffer", "in1:0", "out1:0", []))
-  , ("BufferB", (some "Buffer", "in1:1", "out1:1", []))
-  , ("TagggedBuffer", (none, "in1:32", "out1:32", []))
-
-  -- Should not appear in output
-  , ("Bag", (none, "in1:32", "out1:32", []))
-
-  -- Does not quite match the current formalisation, where you only output one
-  -- value.  Maybe the formalisation needs to add a split to the end.
-  , ("Aligner", (none, "in1:32 in2:32", "out1:32 out2:32", []))
-  , ("TaggerCntrlAligner", (none, "in1:32 in2:32", "out1:32 out2:32", []))
-
-  , ("Sink", (none, "in1:32", "", []))
-
-  -- Constants are currently axiomatised
-  , ("ConstantA", (some "Constant", "in1:0", "out1:32", [("value", m.find? "A" |>.getD "unrecognised")]))
-  , ("ConstantB", (some "Constant", "in1:0", "out1:32", [("value", m.find? "B" |>.getD "unrecognised")]))
-  , ("ConstantC", (some "Constant", "in1:0", "out1:32", [("value", m.find? "C" |>.getD "unrecognised")]))
-  , ("ConstantD", (some "Constant", "in1:0", "out1:32", [("value", m.find? "D" |>.getD "unrecognised")]))
-  , ("ConstantE", (some "Constant", "in1:0", "out1:32", [("value", m.find? "E" |>.getD "unrecognised")]))
-  , ("ConstantF", (some "Constant", "in1:0", "out1:32", [("value", m.find? "F" |>.getD "unrecognised")]))
-  , ("ConstantG", (some "Constant", "in1:0", "out1:32", [("value", m.find? "G" |>.getD "unrecognised")]))
-
-  -- Operations are also axiomatised
-  , ("Add", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "add")]))
-  , ("Mul", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "mul")]))
-  , ("Div", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "div")]))
-  , ("Shl", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "shl")]))
-  , ("Sub", (some "Operator", "in1:32 in2:32", "out1:32", [("op", "sub")]))
-  ].toAssocList
-
 def interfaceTypes (m : AssocList String String) :=
   [
      ("Merge", (some "Merge", "in1:32 in2:32", "out1:32", []))
      -- TODO: figure out how to distinguish phi_c from phi because they should have different delays
+     -- Aya: Follow Yann's way of differentiating the internal types of Branch vs. BranchC
    , ("mux T", (some "mux T", "in1?:1 in2:32 in3:32", "out1:32", [("delay", "0.366")]))
 
     -- Aya: Given our current loop rewrites, I do not think we will need a Cmerge
@@ -101,8 +41,19 @@ def interfaceTypes (m : AssocList String String) :=
 
   ].toAssocList
 
+
+def removeLetter (ch : Char) (s : String) : String :=
+  String.mk (s.toList.filter (λ c => c ≠ ch))
+
 def formatOptions : List (String × String) → String
-| x :: l => l.foldl (λ s (sl, sr) => s ++ s!", {sl} = \"{sr}\"") s!", {x.1} = \"{x.2}\""
+| x :: l => l.foldl
+    (λ s (sl, sr) =>
+      let v1 := if sl = "in" then removeLetter 'p' sr else sr
+      let v1_ := if sl = "bbID" then s!"{v1}" else s!"\"{v1}\""
+      s ++ s!", {sl} = {v1_}")
+    (let v2 := if x.1 = "in" then removeLetter 'p' x.2 else x.2
+     let v2_ := if x.1= "bbID" then s!"{v2}" else s!"\"{v2}\""
+     s!", {x.1} = {v2_}")
 | [] => ""
 
 def extractStandardType (s : String) : String :=
@@ -133,15 +84,17 @@ def addOneToFirstNumber (s : String) : String :=
     pref ++ newNumberStr ++ suff  -- Combine them to form the modified string
   | none => s  -- If no number is found, return the original string
 
-def removeLetter (ch : Char) (s : String) : String :=
-  String.mk (s.toList.filter (λ c => c ≠ ch))
-
+-- Aya: Add a functions to add a constant and trigger it from start then feed it to the Merge
 def renameInit (s : String) : String :=
   if s = "Init" then
     "Merge"
   else
     s  -- Otherwise, return the original string
 
+
+--fmt.1: Type
+--fmt.2.1 and fmt.2.2.1: Input and output attributes
+--fmt.2.2.2: Additional options.
 def dynamaticString (a: ExprHigh String) (m : AssocList String (AssocList String String)): Option String := do
   -- let instances :=
   --   a.modules.foldl (λ s inst mod => s ++ s!"\n {inst} [mod = \"{mod}\"];") ""
@@ -153,19 +106,19 @@ def dynamaticString (a: ExprHigh String) (m : AssocList String (AssocList String
         match m.find? k with
         | some input_fmt =>
           -- If we find that the node comes from the input, but just add the input arguments to it that we saved.
-          return s ++ s!"  {k} [ktype = \"{renameInit (capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd)))}\"{formatOptions input_fmt.toList}];\n"
+          return s ++ s!"  {k} [type = \"{renameInit (capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd)))}\"{formatOptions input_fmt.toList}];\n"
         | none =>
           -- If this is a new node, then we sue `fmt` to correctly add the right
           -- arguments.  We should never be generating constructs like MC, so
           -- this shouldn't be a problem.
-          return s ++ s!"  {k} [type = \"{renameInit (capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd)))}\", in = \"{fmt.2.1}\", out = \"{fmt.2.2.1}\"{formatOptions fmt.2.2.2}];\n"
+          return s ++ s!"  {k} [type = \"{renameInit (capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd)))}\", in = \"{removeLetter 'p' fmt.2.1}\", out = \"{fmt.2.2.1}\"{formatOptions fmt.2.2.2}];\n"
         ) ""
   let connections :=
     a.connections.foldl
       (λ s => λ | ⟨ oport, iport ⟩ =>
                   s ++ s!"\n  {oport.inst} -> {iport.inst} "
                     ++ s!"[from = \"{addOneToFirstNumber oport.name}\","
-                    ++ s!" to = \"{removeLetter 'p' (addOneToFirstNumber iport.name)}\" "
+                    ++ s!" to = \"{addOneToFirstNumber (removeLetter 'p' iport.name)}\" "
                     ++ "];") ""
   s!"digraph \{
 {modules}

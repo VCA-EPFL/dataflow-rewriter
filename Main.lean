@@ -97,9 +97,13 @@ def main (args : List String) : IO Unit := do
   let candid_muxes ← IO.ofExcept <| identifyCombineMux exprHigh
   let candid_branches ← IO.ofExcept <| identifyCombineBranch exprHigh
 
+  -- let rewrittenExprHigh ← IO.ofExcept <|
+  --   ({CombineMux.rewrite (candid_muxes.snd.get! 0) (candid_muxes.snd.get! 1) with pattern := fun _ => pure [candid_muxes.fst.get! 0, candid_muxes.fst.get! 1, candid_muxes.fst.get! 2]}).run "rw1_" exprHigh
+  -- let rewrittenExprHigh := exprHigh
+
   let rewrittenExprHigh ← IO.ofExcept <|
-    ({CombineMux.rewrite (candid_muxes.snd.get! 0) (candid_muxes.snd.get! 1) with pattern := fun _ => pure [candid_muxes.fst.get! 0, candid_muxes.fst.get! 1, candid_muxes.fst.get! 2]}).run "rw1_" exprHigh
-  let rewrittenExprHigh := exprHigh
+    rewrite_loop "rw" exprHigh [] 100
+  --let rewrittenExprHigh := exprHigh
 
   -- let rewrittenExprHigh ← IO.ofExcept <|
   --   ({CombineMux.rewrite "T" "T" with pattern := fun _ => pure ["phi_n0", "phiC_3", "fork_11_3"]}).run "rw1_" rewrittenExprHigh
