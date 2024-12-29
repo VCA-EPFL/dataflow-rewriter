@@ -45,14 +45,63 @@ def interfaceTypes (m : AssocList String String) :=
 def removeLetter (ch : Char) (s : String) : String :=
   String.mk (s.toList.filter (λ c => c ≠ ch))
 
+def returnNatInstring (s : String) : Option Nat :=
+  -- Convert the string to a list of characters
+  let chars := s.toList
+  let result := List.foldl (λ acc c =>
+      if c.isDigit then
+        acc * 10 + (Char.toNat c - Char.toNat '0')
+      else
+        acc) 0 chars
+  -- If no non-digit character was encountered, return the result
+  -- if result = 0 then
+  --   if s.isEmpty then some 0 else none
+  -- else
+  some result
+
+def incrementDefinitionPortIdx (s direction: String) : String :=
+  -- Split the string by spaces into individual parts (like "out0:32")
+  let parts := s.splitOn " "
+  -- Map over each part, incrementing the number after "out"
+  let updatedParts := parts.map (λ part =>
+    match part.splitOn ":" with
+    | [pref, num] =>
+      match (returnNatInstring pref) with
+      | some n =>
+        -- Increment the number found
+        let incremented := n + 1
+        -- Reconstruct the string with the incremented number
+        direction ++ Nat.repr incremented ++ ":" ++ (num)
+      | none => part -- If no number is found, keep the part unchanged
+    | _ => part -- If the part doesn't have ":" or a valid number, keep it unchanged
+  )
+  -- Join the updated parts into a single string with spaces
+  String.intercalate " " updatedParts
+
+#eval incrementDefinitionPortIdx "out1:32" "out"  --out1:324 out2:32 out3:32" "out"  -- Output: "out1:32 out4:32 out3:32"
+
+#eval "out132".splitOn ":"
+
+def incrementConnectionPortIdx (s direction: String) : String :=
+   match returnNatInstring s with
+  | some n =>
+    let incremented := n + 1
+    -- Convert incremented number to a string and concatenate with the direction part
+    let incrementedStr := Nat.repr incremented
+    direction ++ incrementedStr
+  | none => s  -- If no number is found, return the original string
+
+#eval incrementConnectionPortIdx "out33" "out"
+
+-- Function became messy...
 def formatOptions : List (String × String) → String
 | x :: l => l.foldl
     (λ s (sl, sr) =>
-      let v1 := if sl = "in" then removeLetter 'p' sr else sr
-      let v1_ := if sl = "bbID" then s!"{v1}" else s!"\"{v1}\""
+      let v1 := if sl = "in" then incrementDefinitionPortIdx (removeLetter 'p' sr) "in" else if sl = "out" then incrementDefinitionPortIdx sr "out" else sr
+      let v1_ := if sl = "bbID" || sl = "bbcount" || sl = "ldcount" || sl = "stcount" then s!"{v1}" else s!"\"{v1}\""
       s ++ s!", {sl} = {v1_}")
-    (let v2 := if x.1 = "in" then removeLetter 'p' x.2 else x.2
-     let v2_ := if x.1= "bbID" then s!"{v2}" else s!"\"{v2}\""
+    (let v2 := if x.1 = "in" then incrementDefinitionPortIdx (removeLetter 'p' x.2) "in" else if x.1 = "out" then incrementDefinitionPortIdx x.2 "out" else x.2
+     let v2_ := if x.1= "bbID" ||  x.1 = "bbcount" ||  x.1 = "ldcount" ||  x.1 = "stcount" then s!"{v2}" else s!"\"{v2}\""
      s!", {x.1} = {v2_}")
 | [] => ""
 
@@ -70,19 +119,11 @@ def capitalizeFirstChar (s : String) : String :=
                      c
     newChar.toString ++ s.drop 1
 
--- Function to extract the first multi-digit number from a string, add 1, and return the modified string
-def addOneToFirstNumber (s : String) : String :=
-  let digits := s.toList  -- Convert the string to a list of characters
-  -- Extract the first sequence of digits from the string
-  let (numList, rest) := digits.span (λ c => c.isDigit)  -- Extract the digits of the number
-  match numList.toString.toNat? with
-  | some n =>
-    let newNumber := n + 1  -- Add 1 to the extracted number
-    let newNumberStr := toString newNumber  -- Convert the updated number back to a string
-    let pref := s.take (s.length - rest.length - numList.length)  -- Take part of the string before the number
-    let suff := s.drop (s.length - rest.length)  -- Take part of the string after the number
-    pref ++ newNumberStr ++ suff  -- Combine them to form the modified string
-  | none => s  -- If no number is found, return the original string
+def CharToInt(c : Char) : Nat :=
+   if c.isDigit then
+    Char.toNat c - Char.toNat '0'  -- Subtract the Unicode value of '0' to get the integer value
+  else
+    0  -- Return 0 if the character is not a digit (you could handle this differently)
 
 -- Aya: Add a functions to add a constant and trigger it from start then feed it to the Merge
 def renameInit (s : String) : String :=
@@ -111,20 +152,18 @@ def dynamaticString (a: ExprHigh String) (m : AssocList String (AssocList String
           -- If this is a new node, then we sue `fmt` to correctly add the right
           -- arguments.  We should never be generating constructs like MC, so
           -- this shouldn't be a problem.
-          return s ++ s!"  {k} [type = \"{renameInit (capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd)))}\", in = \"{removeLetter 'p' fmt.2.1}\", out = \"{fmt.2.2.1}\"{formatOptions fmt.2.2.2}];\n"
+          return s ++ s!"  {k} [type = \"{renameInit (capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd)))}\", in = \"{incrementDefinitionPortIdx (removeLetter 'p' fmt.2.1) "in"}\", out = \" {incrementDefinitionPortIdx fmt.2.2.1 "out"} \"{formatOptions fmt.2.2.2}];\n"
         ) ""
   let connections :=
     a.connections.foldl
       (λ s => λ | ⟨ oport, iport ⟩ =>
                   s ++ s!"\n  {oport.inst} -> {iport.inst} "
-                    ++ s!"[from = \"{addOneToFirstNumber oport.name}\","
-                    ++ s!" to = \"{addOneToFirstNumber (removeLetter 'p' iport.name)}\" "
+                    ++ s!"[from = \"{ oport.name }\","
+                    ++ s!" to = \"{ (removeLetter 'p' iport.name) }\" "
                     ++ "];") ""
   s!"digraph \{
 {modules}
 {connections}
 }"
-
--- TODO: The addOneToFirstNumber is not working as expected as it does not add 1 :(
 
 end DataflowRewriter
