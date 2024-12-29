@@ -97,10 +97,10 @@ def incrementConnectionPortIdx (s direction: String) : String :=
 def formatOptions : List (String × String) → String
 | x :: l => l.foldl
     (λ s (sl, sr) =>
-      let v1 := if sl = "in" then incrementDefinitionPortIdx (removeLetter 'p' sr) "in" else if sl = "out" then incrementDefinitionPortIdx sr "out" else sr
+      let v1 := if sl = "in" then (removeLetter 'p' sr) else if sl = "out" then sr else sr
       let v1_ := if sl = "bbID" || sl = "bbcount" || sl = "ldcount" || sl = "stcount" then s!"{v1}" else s!"\"{v1}\""
       s ++ s!", {sl} = {v1_}")
-    (let v2 := if x.1 = "in" then incrementDefinitionPortIdx (removeLetter 'p' x.2) "in" else if x.1 = "out" then incrementDefinitionPortIdx x.2 "out" else x.2
+    (let v2 := if x.1 = "in" then (removeLetter 'p' x.2) else if x.1 = "out" then x.2 else x.2
      let v2_ := if x.1= "bbID" ||  x.1 = "bbcount" ||  x.1 = "ldcount" ||  x.1 = "stcount" then s!"{v2}" else s!"\"{v2}\""
      s!", {x.1} = {v2_}")
 | [] => ""
@@ -152,7 +152,7 @@ def dynamaticString (a: ExprHigh String) (m : AssocList String (AssocList String
           -- If this is a new node, then we sue `fmt` to correctly add the right
           -- arguments.  We should never be generating constructs like MC, so
           -- this shouldn't be a problem.
-          return s ++ s!"  {k} [type = \"{renameInit (capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd)))}\", in = \"{incrementDefinitionPortIdx (removeLetter 'p' fmt.2.1) "in"}\", out = \" {incrementDefinitionPortIdx fmt.2.2.1 "out"} \"{formatOptions fmt.2.2.2}];\n"
+          return s ++ s!"  {k} [type = \"{renameInit (capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd)))}\", in = \"{ (removeLetter 'p' fmt.2.1)}\", out = \" { fmt.2.2.1 } \"{formatOptions fmt.2.2.2}];\n"
         ) ""
   let connections :=
     a.connections.foldl
