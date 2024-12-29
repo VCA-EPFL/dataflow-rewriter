@@ -24,21 +24,21 @@ def matcher (g : ExprHigh String) : RewriteResult (List String) := do
   return list
 
 @[drunfold] def mergeLhs : ExprHigh String := [graph|
-    out0 [type = "io"];
-    inp0 [type = "io"];
-    inp1 [type = "io"];
-    inp2 [type = "io"];
+    out1 [type = "io"];
+    in1 [type = "io"];
+    in2 [type = "io"];
+    in3 [type = "io"];
 
     merge1 [type = "Merge"];
     merge2 [type = "Merge"];
 
-    inp0 -> merge1 [to = "in1"];
-    inp1 -> merge1 [to = "in2"];
-    inp2 -> merge2 [to = "in2"];
+    in1 -> merge1 [to = "in1"];
+    in2 -> merge1 [to = "in2"];
+    in3 -> merge2 [to = "in2"];
 
     merge1 -> merge2 [from = "out1", to = "in1"];
 
-    merge2 -> out0 [from = "out1"];
+    merge2 -> out1 [from = "out1"];
   ]
 
 #eval IO.print mergeLhs
@@ -64,18 +64,18 @@ ordering of instances.
 def mergeLhsLower := mergeLhsOrdered.fst.lower.get rfl
 
 @[drunfold] def mergeRhs : ExprHigh String := [graph|
-    out0 [type = "io"];
-    inp0 [type = "io"];
-    inp1 [type = "io"];
-    inp2 [type = "io"];
+    out1 [type = "io"];
+    in1 [type = "io"];
+    in2 [type = "io"];
+    in3 [type = "io"];
 
     merge3 [type = "Merge3"];
 
-    inp0 -> merge3 [to = "in1"];
-    inp1 -> merge3 [to = "in2"];
-    inp2 -> merge3 [to = "in3"];
+    in1 -> merge3 [to = "in1"];
+    in2 -> merge3 [to = "in2"];
+    in3 -> merge3 [to = "in3"];
 
-    merge3 -> out0 [from = "out1"];
+    merge3 -> out1 [from = "out1"];
   ]
 
 #eval IO.print mergeRhs

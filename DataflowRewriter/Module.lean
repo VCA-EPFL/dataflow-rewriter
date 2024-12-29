@@ -1234,7 +1234,7 @@ abbrev NatModule := Module Nat
 abbrev StringModule := Module String
 
 @[drunfold] def NatModule.stringify {T} (m : NatModule T) : StringModule T :=
-  m |>.mapIdent (λ x =>  "inp" ++ toString x) (λ x => "out" ++ toString x)
+  m |>.mapIdent (λ x =>  "in" ++ toString (x + 1)) (λ x => "out" ++ toString (x + 1))
 
 def IdentMap.toInterface {Ident} (i : IdentMap Ident (Σ T, Module Ident T))
   : IdentMap Ident (Interface Ident) :=
