@@ -27,7 +27,7 @@ def matchModLeft' (g : ExprHigh String) : RewriteResult (List String) := do
       return some (br, x)
     ) none | throw .done
   let (.some nn_first) := followOutput g pair.fst "true" | throw (.error "could not follow output")
-  let (.some nn_last) := followInput g pair.snd "inp0" | throw (.error "could not follow input")
+  let (.some nn_last) := followInput g pair.snd "in1" | throw (.error "could not follow input")
   ofOption (.error "could not find scc nodes") <| findSCCNodes g nn_first.inst nn_last.inst
 
 /--
@@ -56,13 +56,13 @@ def matchModLeft (g : ExprHigh String) : RewriteResult (List String) := do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
       unless typ = "TaggedFork" do return none
-      let (.some branch_nn) := followOutput g inst "out0" | return none
+      let (.some branch_nn) := followOutput g inst "out1" | return none
       unless branch_nn.typ = "TaggedBranch" && branch_nn.inputPort = "cond" do return none
-      let (.some mux_nn) := followOutput g inst "out1" | return none
+      let (.some mux_nn) := followOutput g inst "out2" | return none
       unless mux_nn.typ = "TaggedMux" && mux_nn.inputPort = "cond" do return none
-      let (.some bag_nn) := followOutput g mux_nn.inst "out0" | return none
+      let (.some bag_nn) := followOutput g mux_nn.inst "out1" | return none
       unless bag_nn.typ = "Bag" do return none
-      let (.some prev_mux_nn) := followInput g mux_nn.inst "inp0" | return none
+      let (.some prev_mux_nn) := followInput g mux_nn.inst "in1" | return none
       let (.some after_branch_nn) := followOutput g branch_nn.inst "true" | return none
       let (.some scc) := findSCCNodes g after_branch_nn.inst prev_mux_nn.inst | return none
       return some scc
@@ -76,13 +76,13 @@ def matchModRight (g : ExprHigh String) : RewriteResult (List String) := do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
       unless typ = "TaggedFork" do return none
-      let (.some branch_nn) := followOutput g inst "out0" | return none
+      let (.some branch_nn) := followOutput g inst "out1" | return none
       unless branch_nn.typ = "TaggedBranch" && branch_nn.inputPort = "cond" do return none
-      let (.some mux_nn) := followOutput g inst "out1" | return none
+      let (.some mux_nn) := followOutput g inst "out2" | return none
       unless mux_nn.typ = "TaggedMux" && mux_nn.inputPort = "cond" do return none
-      let (.some bag_nn) := followOutput g mux_nn.inst "out0" | return none
+      let (.some bag_nn) := followOutput g mux_nn.inst "out1" | return none
       unless bag_nn.typ = "Bag" do return none
-      let (.some prev_mux_nn) := followInput g mux_nn.inst "inp1" | return none
+      let (.some prev_mux_nn) := followInput g mux_nn.inst "in2" | return none
       let (.some after_branch_nn) := followOutput g branch_nn.inst "false" | return none
       let (.some scc) := findSCCNodes g after_branch_nn.inst prev_mux_nn.inst | return none
       return some scc
@@ -97,9 +97,9 @@ def matcher (g : ExprHigh String) : RewriteResult (List String) := do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
       unless typ = "TaggedFork" do return none
-      let (.some branch_nn) := followOutput g inst "out0" | return none
+      let (.some branch_nn) := followOutput g inst "out1" | return none
       unless branch_nn.typ = "TaggedBranch" && branch_nn.inputPort = "cond" do return none
-      let (.some mux_nn) := followOutput g inst "out1" | return none
+      let (.some mux_nn) := followOutput g inst "out2" | return none
       unless mux_nn.typ = "TaggedMux" && mux_nn.inputPort = "cond" do return none
       let (.some after_branch_nn0) := followOutput g branch_nn.inst "true" | return none
       let (.some after_branch_nn1) := followOutput g branch_nn.inst "false" | return none
@@ -125,17 +125,17 @@ def lhs' : ExprHigh String := [graph|
     fork [type = "TaggedFork"];
 
     i_branch -> branch [to = "val"];
-    i_cond -> fork [to = "inp0"];
-    fork -> branch [from = "out0", to = "cond"];
-    fork -> mux [from = "out1", to = "cond"];
+    i_cond -> fork [to = "in1"];
+    fork -> branch [from = "out1", to = "cond"];
+    fork -> mux [from = "out2", to = "cond"];
 
-    mux -> o_out [from = "out0"];
+    mux -> o_out [from = "out1"];
 
     branch -> m_left [from = "true", to = "m_in"];
     branch -> m_right [from = "false", to = "m_in"];
 
-    m_left -> mux [from = "m_out", to = "inp0"];
-    m_right -> mux [from = "m_out", to = "inp1"];
+    m_left -> mux [from = "m_out", to = "in1"];
+    m_right -> mux [from = "m_out", to = "in2"];
   ]
 
 #eval IO.print lhs'
@@ -166,8 +166,8 @@ def rhs : ExprHigh String := [graph|
     branch -> m_left [from = "true", to = "m_in"];
     branch -> m_right [from = "false", to = "m_in"];
 
-    m_left -> merge [from = "m_out", to = "inp0"];
-    m_right -> merge [from = "m_out", to = "inp1"];
+    m_left -> merge [from = "m_out", to = "in1"];
+    m_right -> merge [from = "m_out", to = "in2"];
   ]
 
 #eval IO.print rhs
@@ -201,19 +201,19 @@ def lhs' : ExprHigh String := [graph|
     bag [type = "Bag"];
 
     i_branch -> branch [to = "val"];
-    i_cond -> fork [to = "inp0"];
-    fork -> branch [from = "out0", to = "cond"];
-    fork -> mux [from = "out1", to = "cond"];
-    m_left1 -> m_left2 [from = "out0", to = "inp0"];
+    i_cond -> fork [to = "in1"];
+    fork -> branch [from = "out1", to = "cond"];
+    fork -> mux [from = "out2", to = "cond"];
+    m_left1 -> m_left2 [from = "out1", to = "in1"];
 
-    mux -> bag [from = "out0", to = "inp0"];
-    bag -> o_out [from = "out0"];
+    mux -> bag [from = "out1", to = "in1"];
+    bag -> o_out [from = "out1"];
 
     branch -> m_left1 [from = "true", to = "m_in"];
     branch -> m_right [from = "false", to = "m_in"];
 
-    m_left2 -> mux [from = "m_out", to = "inp0"];
-    m_right -> mux [from = "m_out", to = "inp1"];
+    m_left2 -> mux [from = "m_out", to = "in1"];
+    m_right -> mux [from = "m_out", to = "in2"];
   ]
 
 #eval matchModLeft lhs'
