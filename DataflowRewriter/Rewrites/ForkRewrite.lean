@@ -17,8 +17,8 @@ def matcher (g : ExprHigh String) : RewriteResult (List String) := do
   let (.some list) ← g.modules.foldlM (λ nodes inst (pmap, typ) => do
       if nodes.isSome then return nodes
       unless typ = "Fork" do return none
-      let (.some nn) := followOutput g inst "out1" | return none
-      unless nn.typ = "Fork" && nn.inputPort = "inp0" do return none
+      let (.some nn) := followOutput g inst "out2" | return none
+      unless nn.typ = "Fork" && nn.inputPort = "in1" do return none
       return some [inst, nn.inst]
     ) none | throw .done
   return list
@@ -32,13 +32,13 @@ def matcher (g : ExprHigh String) : RewriteResult (List String) := do
     fork1 [type = "Fork"];
     fork2 [type = "Fork"];
 
-    inp0 -> fork1 [to = "inp0"];
+    inp0 -> fork1 [to = "in1"];
 
-    fork1 -> out0 [from = "out0"];
-    fork1 -> fork2 [from = "out1", to = "inp0"];
+    fork1 -> out0 [from = "out1"];
+    fork1 -> fork2 [from = "out2", to = "in1"];
 
-    fork2 -> out1 [from = "out0"];
-    fork2 -> out2 [from = "out1"];
+    fork2 -> out1 [from = "out1"];
+    fork2 -> out2 [from = "out2"];
   ]
 
 /--
@@ -69,11 +69,11 @@ def LhsLower := LhsOrdered.fst.lower.get rfl
 
     fork3 [type = "Fork3"];
 
-    inp0 -> fork3 [to = "inp0"];
+    inp0 -> fork3 [to = "in1"];
 
-    fork3 -> out0 [from = "out0"];
-    fork3 -> out1 [from = "out1"];
-    fork3 -> out2 [from = "out2"];
+    fork3 -> out0 [from = "out1"];
+    fork3 -> out1 [from = "out2"];
+    fork3 -> out2 [from = "out3"];
   ]
 
 def RhsLower := Rhs.lower.get rfl
@@ -95,17 +95,17 @@ def fullCircuit : ExprHigh String :=
     merge2 [type="merge"];
     merge1 [type="merge"];
 
-    src0 -> fork1 [to = "inp0"];
+    src0 -> fork1 [to = "in1"];
 
-    fork1 -> fork2 [from = "out1",to = "inp0"];
+    fork1 -> fork2 [from = "out2",to = "in1"];
 
-    fork1 -> merge1 [from = "out0",to = "inp0"];
-    fork2 -> merge1 [from = "out0",to = "inp1"];
-    fork2 -> merge2 [from = "out1",to = "inp1"];
+    fork1 -> merge1 [from = "out1",to = "in1"];
+    fork2 -> merge1 [from = "out1",to = "in2"];
+    fork2 -> merge2 [from = "out2",to = "in2"];
 
-    merge1 -> merge2 [from = "out0",to = "inp0"];
+    merge1 -> merge2 [from = "out1",to = "in1"];
 
-    merge2 -> snk0 [from = "out0"];
+    merge2 -> snk0 [from = "out1"];
   ]
 
 end TestRewriter

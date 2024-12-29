@@ -17,8 +17,8 @@ def matcher (g : ExprHigh String) : RewriteResult (List String) := do
   let (.some list) ← g.modules.foldlM (λ nodes inst (pmap, typ) => do
       if nodes.isSome then return nodes
       unless typ = "Merge" do return none
-      let (.some nn) := followOutput g inst "out0" | return none
-      unless nn.typ = "Merge" && nn.inputPort = "inp0" do return none
+      let (.some nn) := followOutput g inst "out1" | return none
+      unless nn.typ = "Merge" && nn.inputPort = "in1" do return none
       return some [inst, nn.inst]
     ) none | throw .done
   return list
@@ -32,13 +32,13 @@ def matcher (g : ExprHigh String) : RewriteResult (List String) := do
     merge1 [type = "Merge"];
     merge2 [type = "Merge"];
 
-    inp0 -> merge1 [to = "inp0"];
-    inp1 -> merge1 [to = "inp1"];
-    inp2 -> merge2 [to = "inp1"];
+    inp0 -> merge1 [to = "in1"];
+    inp1 -> merge1 [to = "in2"];
+    inp2 -> merge2 [to = "in2"];
 
-    merge1 -> merge2 [from = "out0", to = "inp0"];
+    merge1 -> merge2 [from = "out1", to = "in1"];
 
-    merge2 -> out0 [from = "out0"];
+    merge2 -> out0 [from = "out1"];
   ]
 
 #eval IO.print mergeLhs
@@ -71,11 +71,11 @@ def mergeLhsLower := mergeLhsOrdered.fst.lower.get rfl
 
     merge3 [type = "Merge3"];
 
-    inp0 -> merge3 [to = "inp0"];
-    inp1 -> merge3 [to = "inp1"];
-    inp2 -> merge3 [to = "inp2"];
+    inp0 -> merge3 [to = "in1"];
+    inp1 -> merge3 [to = "in2"];
+    inp2 -> merge3 [to = "in3"];
 
-    merge3 -> out0 [from = "out0"];
+    merge3 -> out0 [from = "out1"];
   ]
 
 #eval IO.print mergeRhs
@@ -99,17 +99,17 @@ def mergeHigh : ExprHigh String :=
     merge2 [type="Merge"];
     merge1 [type="Merge"];
 
-    src0 -> fork1 [to="inp0"];
+    src0 -> fork1 [to="in1"];
 
-    fork1 -> fork2 [from="out0",to="inp0"];
+    fork1 -> fork2 [from="out1",to="in1"];
 
-    fork1 -> merge1 [from="out1",to="inp0"];
-    fork2 -> merge1 [from="out0",to="inp1"];
-    fork2 -> merge2 [from="out1",to="inp1"];
+    fork1 -> merge1 [from="out2",to="in1"];
+    fork2 -> merge1 [from="out1",to="in2"];
+    fork2 -> merge2 [from="out2",to="in2"];
 
-    merge1 -> merge2 [from="out0",to="inp0"];
+    merge1 -> merge2 [from="out1",to="in1"];
 
-    merge2 -> snk0 [from="out0"];
+    merge2 -> snk0 [from="out1"];
   ]
 
 /-
@@ -122,13 +122,13 @@ info: ok: digraph {
   rw0_0 [mod = "fork", label = "rw0_0: fork"];
 
 
-  rw0_2 -> snk0 [from = "out0", taillabel = "out0"];
-  src0 -> rw0_0 [to = "inp0", headlabel = "inp0"];
+  rw0_2 -> snk0 [from = "out1", taillabel = "out1"];
+  src0 -> rw0_0 [to = "in1", headlabel = "in1"];
 
-  rw0_0 -> rw0_1 [from = "out0", to = "inp0", taillabel = "out0", headlabel = "inp0",];
-  rw0_0 -> rw0_2 [from = "out1", to = "inp0", taillabel = "out1", headlabel = "inp0",];
-  rw0_1 -> rw0_2 [from = "out0", to = "inp1", taillabel = "out0", headlabel = "inp1",];
-  rw0_1 -> rw0_2 [from = "out1", to = "inp1", taillabel = "out1", headlabel = "inp1",];
+  rw0_0 -> rw0_1 [from = "out1", to = "in1", taillabel = "out1", headlabel = "in1",];
+  rw0_0 -> rw0_2 [from = "out2", to = "in1", taillabel = "out2", headlabel = "in1",];
+  rw0_1 -> rw0_2 [from = "out1", to = "in2", taillabel = "out1", headlabel = "in2",];
+  rw0_1 -> rw0_2 [from = "out2", to = "in2", taillabel = "out2", headlabel = "in2",];
 }
 -/
 -- #guard_msgs in

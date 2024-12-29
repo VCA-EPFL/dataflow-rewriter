@@ -45,13 +45,13 @@ section BranchMerge
         bags [mod="bag"];
         joiner [mod="join"];
         -- Producing the tagged values
-        m -> joiner [out="out", inp="inp1"];
+        m -> joiner [out="out", inp="in2"];
         -- Push into the bag
-        joiner -> bags [out = "out0", inp = "enq"];
+        joiner -> bags [out = "out1", inp = "enq"];
         -- Connecting with the exporting interface
         bags -> deq [out="deq"];
         enq -> m [inp ="inp"];
-        enqT -> joiner [inp="inp0"];
+        enqT -> joiner [inp="in1"];
     ]
 
 #reduce bagged
@@ -88,14 +88,14 @@ def tagged_ooo_h : ExprHigh String :=
 
     -- Match tag and input
     -- Top-level inputs: The second input to join which is unbound
-    tagger -> bagged [out = "out0", inp = "enqT"];
+    tagger -> bagged [out = "out1", inp = "enqT"];
     enq -> bagged [inp = "enq"];
 
     -- Output of the bag complete inside the tagger
-    bagged -> tagger [out = "deq", inp = "inp0"];
+    bagged -> tagger [out = "deq", inp = "in1"];
 
     -- Top-level outputs: Second output of the tagger, the untagged value which is unbound
-    tagger -> deq [out = "out1"];
+    tagger -> deq [out = "out2"];
   ]
 
 def test3 TagT [h: DecidableEq TagT] T S input output internals :=

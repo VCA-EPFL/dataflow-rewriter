@@ -47,14 +47,14 @@ def rhs : ExprHigh String := [graph|
     module [type = "module"];
 
     i_in -> tagger [to = "enq_untagged"];
-    tagger -> split [from = "tagged", to = "inp0"];
+    tagger -> split [from = "tagged", to = "in1"];
 
-    split -> module [from = "out1", to = "in"];
-    split -> join [from = "out0", to = "inp0"];
-    module -> join [from = "out", to = "inp1"];
+    split -> module [from = "out2", to = "in"];
+    split -> join [from = "out1", to = "in1"];
+    module -> join [from = "out", to = "in2"];
 
-    join -> bag [from = "out0", to = "inp0"];
-    bag -> tagger [from = "out0", to = "complete_tagged"];
+    join -> bag [from = "out1", to = "in1"];
+    bag -> tagger [from = "out1", to = "complete_tagged"];
 
     tagger -> o_out [from = "deq_untagged"];
   ]

@@ -57,10 +57,10 @@ def identifyCombineMux (g : ExprHigh String) : RewriteResult (List String × Lis
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
       unless typ = "fork Bool 2" do return none
-      let (.some mux_nn) := followOutput g inst "out0" | return none
-      let (.some mux_nn') := followOutput g inst "out1" | return none
-      unless String.isPrefixOf "mux" mux_nn.typ && mux_nn.inputPort = "inp0" do return none
-      unless String.isPrefixOf "mux" mux_nn'.typ && mux_nn'.inputPort = "inp0" do return none
+      let (.some mux_nn) := followOutput g inst "out1" | return none
+      let (.some mux_nn') := followOutput g inst "out2" | return none
+      unless String.isPrefixOf "mux" mux_nn.typ && mux_nn.inputPort = "in1" do return none
+      unless String.isPrefixOf "mux" mux_nn'.typ && mux_nn'.inputPort = "in1" do return none
       return some ([mux_nn.inst, mux_nn'.inst, inst], [extractType mux_nn.typ, extractType mux_nn'.typ])
     ) none | MonadExceptOf.throw RewriteError.done
   return list
@@ -69,10 +69,10 @@ def identifyCombineBranch (g : ExprHigh String) : RewriteResult (List String × 
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
       unless typ = "fork Bool 2" do return none
-      let (.some branch_nn) := followOutput g inst "out0" | return none
-      let (.some branch_nn') := followOutput g inst "out1" | return none
-      unless String.isPrefixOf "branch " branch_nn.typ && branch_nn.inputPort = "inp1" do return none
-      unless String.isPrefixOf "branch " branch_nn'.typ && branch_nn'.inputPort = "inp1" do return none
+      let (.some branch_nn) := followOutput g inst "out1" | return none
+      let (.some branch_nn') := followOutput g inst "out2" | return none
+      unless String.isPrefixOf "branch " branch_nn.typ && branch_nn.inputPort = "in2" do return none
+      unless String.isPrefixOf "branch " branch_nn'.typ && branch_nn'.inputPort = "in2" do return none
       return ([branch_nn.inst, branch_nn'.inst, inst], [extractType branch_nn.typ, extractType branch_nn'.typ])
     ) none | MonadExceptOf.throw RewriteError.done
   return list

@@ -22,8 +22,8 @@ open Batteries (AssocList)
 namespace DataflowRewriter
 
 @[drunfold] def merge T : StringModule (List T) :=
-      { inputs := [(⟨.top, "inp1"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
-                   (⟨.top, "inp2"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
+      { inputs := [(⟨.top, "in2"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
+                   (⟨.top, "in3"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
         outputs := [(⟨.top, "out"⟩, ⟨ T, λ oldList oldElement newList =>
                            ∃ i, newList = oldList.remove i
                              ∧ oldElement = oldList.get i ⟩)].toAssocList,
@@ -32,16 +32,16 @@ namespace DataflowRewriter
 
 @[drunfold] def fork T : StringModule (List T) :=
       { inputs := [(⟨.top, "inp"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
-        outputs := [ (⟨.top, "out1"⟩, ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)
-                   , (⟨.top, "out2"⟩, ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)
+        outputs := [ (⟨.top, "out2"⟩, ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)
+                   , (⟨.top, "out3"⟩, ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)
                    ].toAssocList,
         internals := []
       }
 
 def threemerge T : StringModule (List T):=
-  { inputs := [(⟨.top, "inp1"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
-               (⟨.top, "inp2"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
-               (⟨.top, "inp3"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
+  { inputs := [(⟨.top, "in2"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
+               (⟨.top, "in3"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
+               (⟨.top, "in4"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
     outputs := [(⟨.top, "out"⟩, ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)].toAssocList,
     internals := []
   }
@@ -60,13 +60,13 @@ def circuit : ExprHigh String :=
 
     src0 -> fork1 [inp="inp", out="inp"];
 
-    fork1 -> fork2 [out="out1",inp="inp"];
+    fork1 -> fork2 [out="out2",inp="inp"];
 
-    fork1 -> merge1 [out="out2",inp="inp1"];
-    fork2 -> merge1 [out="out1",inp="inp2"];
-    fork2 -> merge2 [out="out2",inp="inp1"];
+    fork1 -> merge1 [out="out3",inp="in2"];
+    fork2 -> merge1 [out="out2",inp="in3"];
+    fork2 -> merge2 [out="out3",inp="in2"];
 
-    merge1 -> merge2 [out="out",inp="inp2"];
+    merge1 -> merge2 [out="out",inp="in3"];
 
     merge2 -> snk0 [out="out", inp="out"];
   ]
@@ -75,7 +75,7 @@ def circuit : ExprHigh String :=
 #reallyReduce circuit.build_module ε
 
 def partition := circuit.partition ["merge1", "merge2"]
-  [("inp1", ⟨.internal "merge1", "inp1"⟩), ("inp2", ⟨.internal "merge1", "inp2"⟩), ("inp3", ⟨.internal "merge2", "inp1"⟩)].toAssocList
+  [("in2", ⟨.internal "merge1", "in2"⟩), ("in3", ⟨.internal "merge1", "in3"⟩), ("in4", ⟨.internal "merge2", "in2"⟩)].toAssocList
   [].toAssocList
 
 #eval partition
@@ -84,7 +84,7 @@ def partition := circuit.partition ["merge1", "merge2"]
 
 #reduce partition.fst
 
-def partition' := partition.fst.abstract'' "imerge3" "merge3" ["inp1", "inp2", "inp3"] ["out"]
+def partition' := partition.fst.abstract'' "imerge3" "merge3" ["in2", "in3", "in4"] ["out"]
 def partition'' := partition.fst.inlineD ((threemerge Nat).liftGraph "imerge3" "merge3")
 
 #reduce ((threemerge Nat).liftGraph "imerge3" "merge3")
@@ -94,9 +94,9 @@ def partition'' := partition.fst.inlineD ((threemerge Nat).liftGraph "imerge3" "
 /- generated from threemerge -/
 
 -- def threemerge_int T : StringModule (List T) :=
---   { inputs := [(⟨.internal "merge1", "inp1"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
---                (⟨.internal "merge1", "inp2"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
---                (⟨.internal "merge2", "inp2"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
+--   { inputs := [(⟨.internal "merge1", "in2"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
+--                (⟨.internal "merge1", "in3"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
+--                (⟨.internal "merge2", "in3"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
 --     outputs := [(⟨.internal "merge2", "out"⟩, ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)].toAssocList,
 --     internals := []
 --   }

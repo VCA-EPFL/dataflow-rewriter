@@ -15,10 +15,10 @@ def matcher (T T' : String) (g : ExprHigh String) : RewriteResult (List String) 
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
       unless typ = "fork Bool 2" do return none
-      let (.some branch_nn) := followOutput g inst "out0" | return none
-      let (.some branch_nn') := followOutput g inst "out1" | return none
-      unless branch_nn.typ = "branch " ++ T && branch_nn.inputPort = "inp1" do return none
-      unless branch_nn'.typ = "branch " ++ T' && branch_nn'.inputPort = "inp1" do return none
+      let (.some branch_nn) := followOutput g inst "out1" | return none
+      let (.some branch_nn') := followOutput g inst "out2" | return none
+      unless branch_nn.typ = "branch " ++ T && branch_nn.inputPort = "in2" do return none
+      unless branch_nn'.typ = "branch " ++ T' && branch_nn'.inputPort = "in2" do return none
       return some [branch_nn.inst, branch_nn'.inst, inst]
     ) none | throw .done
   return list
@@ -36,17 +36,17 @@ def lhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String
     branch2 [typeImp = $(⟨_, branch T'⟩), type = $("branch " ++ T'ₛ)];
     condFork [typeImp = $(⟨_, fork Bool 2⟩), type = "fork Bool 2"];
 
-    branch1 -> b1_t_o [from = "out0"];
-    branch1 -> b1_f_o [from = "out1"];
-    branch2 -> b2_t_o [from = "out0"];
-    branch2 -> b2_f_o [from = "out1"];
+    branch1 -> b1_t_o [from = "out1"];
+    branch1 -> b1_f_o [from = "out2"];
+    branch2 -> b2_t_o [from = "out1"];
+    branch2 -> b2_f_o [from = "out2"];
 
-    cond_i -> condFork [to = "inp0"];
-    b1_i -> branch1 [to = "inp0"];
-    b2_i -> branch2 [to = "inp0"];
+    cond_i -> condFork [to = "in1"];
+    b1_i -> branch1 [to = "in1"];
+    b2_i -> branch2 [to = "in1"];
 
-    condFork -> branch1 [from = "out0", to = "inp1"];
-    condFork -> branch2 [from = "out1", to = "inp1"];
+    condFork -> branch1 [from = "out1", to = "in2"];
+    condFork -> branch2 [from = "out2", to = "in2"];
   ]
 
 -- #reduce lhs Unit Unit "H" "Y"
@@ -75,18 +75,18 @@ def rhs (T T' : Type) (Tₛ Tₛ' : String) : ExprHigh String × IdentMap String
     splitT [typeImp = $(⟨_, split T T'⟩), type = $("split " ++ Tₛ ++ " " ++ Tₛ')];
     splitF [typeImp = $(⟨_, split T T'⟩), type = $("split " ++ Tₛ ++ " " ++ Tₛ')];
 
-    b1_i -> join [to = "inp0"];
-    b2_i -> join [to = "inp1"];
-    cond_i -> branch [to = "inp1"];
+    b1_i -> join [to = "in1"];
+    b2_i -> join [to = "in2"];
+    cond_i -> branch [to = "in2"];
 
-    splitT -> b1_t_o [from = "out0"];
-    splitT -> b2_t_o [from = "out1"];
-    splitF -> b1_f_o [from = "out0"];
-    splitF -> b2_f_o [from = "out1"];
+    splitT -> b1_t_o [from = "out1"];
+    splitT -> b2_t_o [from = "out2"];
+    splitF -> b1_f_o [from = "out1"];
+    splitF -> b2_f_o [from = "out2"];
 
-    join -> branch [from = "out0", to = "inp0"];
-    branch -> splitT [from = "out0", to = "inp0"];
-    branch -> splitF [from = "out1", to = "inp0"];
+    join -> branch [from = "out1", to = "in1"];
+    branch -> splitT [from = "out1", to = "in1"];
+    branch -> splitF [from = "out2", to = "in1"];
   ]
 
 def rhsLower T₁ T₂ := (rhs Unit Unit T₁ T₂).fst.lower.get rfl

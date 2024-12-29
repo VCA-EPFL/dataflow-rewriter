@@ -18,8 +18,8 @@ def matchModL (g : ExprHigh String) : RewriteResult (List String) := do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
       unless typ = "Join" do return none
-      let (.some tagger_l) := followInput g inst "inp0" | return none
-      let (.some tagger_r) := followInput g inst "inp1" | return none
+      let (.some tagger_l) := followInput g inst "in1" | return none
+      let (.some tagger_r) := followInput g inst "in2" | return none
       unless tagger_l.typ = "TaggerCntrlAligner" do return none
       unless tagger_r.typ = "TaggerCntrlAligner" do return none
       let (.some begin_l) := followOutput g tagger_l.inst "tagged" | return none
@@ -37,8 +37,8 @@ def matchModR (g : ExprHigh String) : RewriteResult (List String) := do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
       unless typ = "Join" do return none
-      let (.some tagger_l) := followInput g inst "inp0" | return none
-      let (.some tagger_r) := followInput g inst "inp1" | return none
+      let (.some tagger_l) := followInput g inst "in1" | return none
+      let (.some tagger_r) := followInput g inst "in2" | return none
       unless tagger_l.typ = "TaggerCntrlAligner" do return none
       unless tagger_r.typ = "TaggerCntrlAligner" do return none
       let (.some begin_r) := followOutput g tagger_r.inst "tagged" | return none
@@ -53,8 +53,8 @@ def matcher (g : ExprHigh String) : RewriteResult (List String) := do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
       unless typ = "Join" do return none
-      let (.some tagger_l) := followInput g inst "inp0" | return none
-      let (.some tagger_r) := followInput g inst "inp1" | return none
+      let (.some tagger_l) := followInput g inst "in1" | return none
+      let (.some tagger_r) := followInput g inst "in2" | return none
       unless tagger_l.typ = "TaggerCntrlAligner" do return none
       unless tagger_r.typ = "TaggerCntrlAligner" do return none
       let (.some begin_l) := followOutput g tagger_l.inst "tagged" | return none
@@ -88,8 +88,8 @@ def lhs' : ExprHigh String := [graph|
 
     m_r -> taggerr [from = "m_out", to = "complete_tagged"];
 
-    taggerl -> j [from = "deq_untagged", to = "inp0"];
-    taggerr -> j [from = "deq_untagged", to = "inp1"];
+    taggerl -> j [from = "deq_untagged", to = "in1"];
+    taggerr -> j [from = "deq_untagged", to = "in2"];
 
     j -> o_data [from = "deq_untagged"];
   ]
@@ -121,24 +121,24 @@ def rhs : ExprHigh String := [graph|
     i_datal -> j_in [to = "enq_untagged"];
     i_datar -> j_in [to = "enq_untagged"];
 
-    j_in -> tagger [to = "enq_untagged", from="out0"];
+    j_in -> tagger [to = "enq_untagged", from="out1"];
 
-    tagger -> sep_tag [from = "tagged", to="inp0"];
-    sep_tag -> fork_tag [from = "out0", to="inp0"];
-    sep_tag -> sep_data [from = "out1", to="inp0"];
+    tagger -> sep_tag [from = "tagged", to="in1"];
+    sep_tag -> fork_tag [from = "out1", to="in1"];
+    sep_tag -> sep_data [from = "out2", to="in1"];
 
-    sep_data -> pack1 [from = "out0", to="inp1"];
-    sep_data -> pack2 [from = "out1", to="inp1"];
-    fork_tag -> pack1 [from = "out0", to="inp0"];
-    fork_tag -> pack2 [from = "out1", to="inp0"];
-    pack1 -> m_l [from = "out0", to="m_in"];
-    pack2 -> m_r [from = "out0", to="m_in"];
+    sep_data -> pack1 [from = "out1", to="in2"];
+    sep_data -> pack2 [from = "out2", to="in2"];
+    fork_tag -> pack1 [from = "out1", to="in1"];
+    fork_tag -> pack2 [from = "out2", to="in1"];
+    pack1 -> m_l [from = "out1", to="m_in"];
+    pack2 -> m_r [from = "out1", to="m_in"];
 
 
-    m_l -> j_out [from = "m_out", to = "inp0"];
-    m_r -> j_out [from = "m_out", to = "inp1"];
+    m_l -> j_out [from = "m_out", to = "in1"];
+    m_r -> j_out [from = "m_out", to = "in2"];
 
-    j_out -> tagger [from = "out0", to = "complete_tagged"];
+    j_out -> tagger [from = "out1", to = "complete_tagged"];
     tagger -> o_data [from = "deq_untagged"];
   ]
 
@@ -187,8 +187,8 @@ def lhs' : ExprHigh String :=
 
     m_r -> taggerr [from = "m_out", to = "complete_tagged"];
 
-    taggerl -> j [from = "deq_untagged", to ="inp0"];
-    taggerr -> j [from = "deq_untagged", to ="inp1"];
+    taggerl -> j [from = "deq_untagged", to ="in1"];
+    taggerr -> j [from = "deq_untagged", to ="in2"];
 
     j -> o_data [from = "deq_untagged"];
   ]

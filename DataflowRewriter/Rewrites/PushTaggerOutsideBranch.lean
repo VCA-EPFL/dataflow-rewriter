@@ -97,10 +97,10 @@ def lhs' : ExprHigh String := [graph|
     m_left -> tagger1 [from = "m_out", to = "complete_tagged"];
     m_right -> tagger2 [from = "m_out", to = "complete_tagged"];
 
-    tagger1 -> merge [from = "deq_untagged", to = "inp0"];
-    tagger2 -> merge [from = "deq_untagged", to = "inp1"];
+    tagger1 -> merge [from = "deq_untagged", to = "in1"];
+    tagger2 -> merge [from = "deq_untagged", to = "in2"];
 
-    merge -> o_out [from = "out0"];
+    merge -> o_out [from = "out1"];
   ]
 
 def lhs := lhs'.extract ["branch", "tagger1", "tagger2", "m_left", "m_right", "merge"] |>.get rfl
@@ -124,21 +124,21 @@ def rhs : ExprHigh String := [graph|
     merge [type = "Merge"];
 
 
-    i_data -> join [to = "inp0"];
-    i_cond -> join [to = "inp1"];
+    i_data -> join [to = "in1"];
+    i_cond -> join [to = "in2"];
 
-    join -> tagger [from = "out0", to = "enq_untagged"];
-    tagger -> split [to = "inp0", from = "tagged"];
+    join -> tagger [from = "out1", to = "enq_untagged"];
+    tagger -> split [to = "in1", from = "tagged"];
 
-    split -> branch [from = "out0", to = "data"];
-    split -> branch [from = "out1", to = "cond"];
+    split -> branch [from = "out1", to = "data"];
+    split -> branch [from = "out2", to = "cond"];
 
     branch -> m_left [from = "true", to="m_in"];
     branch -> m_right [from = "false", to="m_in"];
 
 
-    m_left-> merge [from = "m_out", to = "inp0"];
-    m_right -> merge [from = "m_out", to = "inp1"];
+    m_left-> merge [from = "m_out", to = "in1"];
+    m_right -> merge [from = "m_out", to = "in2"];
     merge -> tagger [from = "m_out", to = "complete_tagged"];
 
     tagger -> o_out [from = "deq_untagged"];
@@ -181,7 +181,7 @@ def lhs' : ExprHigh String :=
 
     i_cond -> branch [to = "cond"];
 
-    merge -> o_out [from = "out0"];
+    merge -> o_out [from = "out1"];
 
     branch -> tagger1 [from = "true", to = "enq_untagged"];
     branch -> tagger2 [from = "false", to = "enq_untagged"];
@@ -194,8 +194,8 @@ def lhs' : ExprHigh String :=
     m_left2 -> tagger1 [from = "m_out", to = "complete_tagged"];
     m_right -> tagger2 [from = "m_out", to = "complete_tagged"];
 
-    tagger1 -> merge [from = "deq_untagged", to = "inp0"];
-    tagger2 -> merge [from = "deq_untagged", to = "inp1"];
+    tagger1 -> merge [from = "deq_untagged", to = "in1"];
+    tagger2 -> merge [from = "deq_untagged", to = "in2"];
 
   ]
 
