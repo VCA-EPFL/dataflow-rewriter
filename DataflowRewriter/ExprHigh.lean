@@ -342,7 +342,7 @@ def updateConnMaps (maps : InstMaps) (conns : List (Connection String))
   let some aInst := maps.instMap[outInst]? | throw (.outInstError s!"Instance has not been declared: {outInst}")
   let some bInst := maps.instMap[inInst]? | throw (.inInstError s!"Instance has not been declared: {inInst}")
   if aInst.fst = .top && bInst.fst = .top then
-    throw <| .outInstError s!"Both the output \"{outInst}\" and output \"{inInst}\" are IO ports"
+    throw <| .outInstError s!"Both the output \"{outInst}\" and input \"{inInst}\" are IO ports"
   -- If no port name is provided and the port is a top-level port, then use
   -- the instance name as the port name.
   if out.isNone && aInst.fst.isTop then out := some outInst
