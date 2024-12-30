@@ -339,10 +339,10 @@ def updateConnMaps (maps : InstMaps) (conns : List (Connection String))
     : Except ConnError (InstMaps × List (Connection String)) := do
   let mut out := outP
   let mut inp := inP
-  let some aInst := maps.instMap[outInst]? | throw (.outInstError "Instance has not been declared")
-  let some bInst := maps.instMap[inInst]? | throw (.inInstError "Instance has not been declared")
+  let some aInst := maps.instMap[outInst]? | throw (.outInstError s!"Instance has not been declared: {outInst}")
+  let some bInst := maps.instMap[inInst]? | throw (.inInstError s!"Instance has not been declared: {inInst}")
   if aInst.fst = .top && bInst.fst = .top then
-    throw <| .outInstError "Both the input and output are IO ports"
+    throw <| .outInstError s!"Both the output \"{outInst}\" and input \"{inInst}\" are IO ports"
   -- If no port name is provided and the port is a top-level port, then use
   -- the instance name as the port name.
   if out.isNone && aInst.fst.isTop then out := some outInst
@@ -350,9 +350,9 @@ def updateConnMaps (maps : InstMaps) (conns : List (Connection String))
   let some out' := out | throw <| .portError s!"No output found for: {aInst}"
   let some inp' := inp | throw <| .portError s!"No input found for: {bInst}"
   let some outPort := parseInternalPort out'
-    | throw <| .portError "Output port format incorrect"
+    | throw <| .portError s!"Output port format incorrect: {out'}"
   let some inPort := parseInternalPort inp'
-    | throw <| .portError "Input port format incorrect"
+    | throw <| .portError s!"Input port format incorrect: {inp'}"
   -- If the instance is a cluster do not modify the name, otherwise as the
   -- instance as a prefix.
   let outPort' := if aInst.snd then outPort else ⟨aInst.fst, outPort.name⟩
