@@ -240,6 +240,12 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
 
       let mut typVal := typ.value
 
+      if typVal != "MC" && typVal != "MC" && typVal != "Sink" && typVal != "Exit" then
+        current_extra_args ← add current_extra_args "tagged"
+        current_extra_args ← add current_extra_args "taggers_num"
+        current_extra_args ← add current_extra_args "tagger_id"
+
+
       -- Different bitwidths matter so we distinguish them with types: Unit vs. Bool vs. T
       if typVal = "Branch" then
         if keyStartsWith l "in" "in1:0" then
@@ -256,16 +262,34 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
         else typVal := s!"fork T {keyArgNumbers l "in"}"
 
       if typVal = "Mux" then
+        current_extra_args ← addOpt current_extra_args "delay"
         if splitAndSearch l "in" "in2:0" then
           typVal := s!"Mux Unit {keyArgNumbers l "in"}"
         else typVal := s!"Mux T {keyArgNumbers l "in"}"
+
+      if typVal = "Merge" then
+        current_extra_args ← addOpt current_extra_args "delay"
+
+      if typVal = "Entry" then
+        current_extra_args ← addOpt current_extra_args "control"
+
 
       if typVal = "Constant" then
         current_extra_args ← add current_extra_args "value"
 
       if typVal = "Operator" then
+        if splitAndSearch l "op" "mc_store_op" || splitAndSearch l "op" "mc_load_op" then
+          current_extra_args ← addOpt current_extra_args "portId"
+          current_extra_args ← addOpt current_extra_args "offset"
+
+        current_extra_args ← addOpt current_extra_args "delay"
+        current_extra_args ← addOpt current_extra_args "latency"
+        current_extra_args ← addOpt current_extra_args "II"
         current_extra_args ← add current_extra_args "op"
         typVal := s!"operator {keyArgNumbers l "in"}"
+
+
+       -- portId= 0, offset= 0  -- if mc_store_op and mc_load_op
 
       if typVal = "MC" then
         current_extra_args ← add current_extra_args "memory"
