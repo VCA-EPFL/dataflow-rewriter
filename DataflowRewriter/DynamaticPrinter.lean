@@ -98,10 +98,10 @@ def formatOptions : List (String × String) → String
 | x :: l => l.foldl
     (λ s (sl, sr) =>
       let v1 := if sl = "in" then removeLetter 'p' sr else sr
-      let v1_ := if sl = "bbID" || sl = "bbcount" || sl = "ldcount" || sl = "stcount" then s!"{v1}" else s!"\"{v1}\""
+      let v1_ := if sl = "bbID" || sl = "bbcount" || sl = "ldcount" || sl = "stcount" || sl = "II" || sl = "latency" || sl = "delay" || sl = "tagger_id" || sl = "taggers_num" || sl = "tagged" || sl = "offset" || sl = "portId"  then s!"{v1}" else s!"\"{v1}\""
       s ++ s!", {sl} = {v1_}")
     (let v2 := if x.1 = "in" then (removeLetter 'p' x.2) else x.2
-     let v2_ := if x.1= "bbID" ||  x.1 = "bbcount" ||  x.1 = "ldcount" ||  x.1 = "stcount" then s!"{v2}" else s!"\"{v2}\""
+     let v2_ := if x.1= "bbID" ||  x.1 = "bbcount" ||  x.1 = "ldcount" ||  x.1 = "stcount" || x.1 = "II" || x.1 = "latency" || x.1 = "delay" || x.1 = "tagger_id" || x.1 = "taggers_num" || x.1 = "tagged" || x.1 = "offset" || x.1 = "portId" then s!"{v2}" else s!"\"{v2}\""
      s!", {x.1} = {v2_}")
 | [] => ""
 
@@ -118,12 +118,6 @@ def capitalizeFirstChar (s : String) : String :=
                    else
                      c
     newChar.toString ++ s.drop 1
-
-def CharToInt(c : Char) : Nat :=
-   if c.isDigit then
-    Char.toNat c - Char.toNat '0'  -- Subtract the Unicode value of '0' to get the integer value
-  else
-    0  -- Return 0 if the character is not a digit (you could handle this differently)
 
 -- Aya: Add a functions to add a constant and trigger it from start then feed it to the Merge
 def InitToMerge (s : String) : String :=
@@ -147,23 +141,26 @@ def dynamaticString (a: ExprHigh String) (m : AssocList String (AssocList String
         match m.find? k with
         | some input_fmt =>
           -- TODO: If the node is of type Init, add a new constant node to later connect to the 2nd input of the Merge that'll implement the Init
+          -- if fmt.1.getD v.snd = "Init" then
+          --   s!"cst_777 [type = \"Constant\", value = \"0x00000000\", out = \"out1:32\", in = \"in1:32\", bbID = 1 ];\n"
+          --   else ""
           let constForInit := ""
           -- If we find that the node comes from the input, but just add the input arguments to it that we saved.
-          return s ++ constForInit ++ s!"  {k} [type = \"{InitToMerge (capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd)))}\"{formatOptions input_fmt.toList}];\n"
+          return s ++ constForInit ++ s!"\"{k}\" [type = \"{InitToMerge (capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd)))}\"{formatOptions input_fmt.toList}];\n"
         | none =>
           -- If this is a new node, then we sue `fmt` to correctly add the right
           -- arguments.  We should never be generating constructs like MC, so
           -- this shouldn't be a problem.
-          return s ++ s!"  {k} [type = \"{InitToMerge (capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd)))}\", in = \"{removeLetter 'p' fmt.2.1}\", out = \" {fmt.2.2.1} \"{formatOptions fmt.2.2.2}];\n"
+          return s ++ s!"\"{k}\" [type = \"{InitToMerge (capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd)))}\", in = \"{removeLetter 'p' fmt.2.1}\", out = \" {fmt.2.2.1} \"{formatOptions fmt.2.2.2}];\n"
         ) ""
   let connections :=
     a.connections.foldl
       (λ s => λ | ⟨ oport, iport ⟩ =>
-                  s ++ s!"\n  {oport.inst} -> {iport.inst} "
+                  s ++ s!"\n  \"{oport.inst}\" -> \"{iport.inst}\" "
                     ++ s!"[from = \"{oport.name}\","
                     ++ s!" to = \"{removeLetter 'p' iport.name}\" "
                     ++ "];") ""
-  s!"digraph \{
+  s!"Digraph G \{
 {modules}
 {connections}
 }"
