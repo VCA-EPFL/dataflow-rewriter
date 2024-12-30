@@ -339,8 +339,8 @@ def updateConnMaps (maps : InstMaps) (conns : List (Connection String))
     : Except ConnError (InstMaps × List (Connection String)) := do
   let mut out := outP
   let mut inp := inP
-  let some aInst := maps.instMap[outInst]? | throw (.outInstError "Instance has not been declared")
-  let some bInst := maps.instMap[inInst]? | throw (.inInstError "Instance has not been declared")
+  let some aInst := maps.instMap[outInst]? | throw (.outInstError s!"Instance has not been declared: {outInst}")
+  let some bInst := maps.instMap[inInst]? | throw (.inInstError s!"Instance has not been declared: {inInst}")
   if aInst.fst = .top && bInst.fst = .top then
     throw <| .outInstError "Both the input and output are IO ports"
   -- If no port name is provided and the port is a top-level port, then use
