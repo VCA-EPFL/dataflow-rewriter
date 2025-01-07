@@ -77,6 +77,8 @@ def identifyCombineBranch (g : ExprHigh String) : RewriteResult (List String × 
     ) none | MonadExceptOf.throw RewriteError.done
   return list
 
+def topLevel (e : ExprHigh String) : RewriteResult (ExprHigh String) :=
+  {CombineMux.rewrite "T" "T" with pattern := fun _ => pure ["phi_n0", "phiC_3", "fork_11_3"]}.run "rw1_" e
 
 def main (args : List String) : IO Unit := do
   let parsed ←
@@ -102,10 +104,10 @@ def main (args : List String) : IO Unit := do
   let mut rewrittenExprHigh := exprHigh
   let mut st : List RewriteInfo := default
 
-  match ({CombineMux.rewrite "T" "T" with pattern := fun _ => pure ["phi_n0", "phiC_3", "fork_11_3"]}).run "rw1_" rewrittenExprHigh |>.run default with
+  match topLevel rewrittenExprHigh |>.run default with
   | .ok rewrittenExprHigh' st' => rewrittenExprHigh := rewrittenExprHigh'; st := st'
   | .error p st' => IO.eprintln p; st := st'
-    -- pure exprHigh
+
   let some l := dynamaticString rewrittenExprHigh assoc
     | IO.eprintln s!"Failed to print ExprHigh: {rewrittenExprHigh}"
   IO.println <| Lean.toJson st
