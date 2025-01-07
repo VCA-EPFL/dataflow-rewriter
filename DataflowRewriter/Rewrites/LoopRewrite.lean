@@ -15,12 +15,18 @@ instance : MonadExcept IO.Error RewriteResult where
   throw e := throw <| .error <| toString e
   tryCatch m h := throw (.error "Cannot catch IO.Error")
 
-unsafe def matcher (T₁ T₂ : String) (g : ExprHigh String) : RewriteResult (List String) := do
-  let mergeId ← ofExcept <| unsafeIO do
-    -- read file or whatever else one wants to do, then return the mux instance
-    -- name
-    return "mux"
-  return [mergeId]
+unsafe def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := do
+  let merges ← ofExcept <| unsafeIO do
+    -- Here you can run an arbitrary command with arguments, where stdout will be passed to `result`.  This can be used
+    -- to implement the matcher completely externally.
+    let result ← IO.Process.run { cmd := "echo", args := #["merge1, merge2, merge3"] }
+    return result.trim.splitOn ", "
+  return (merges, [])
+
+-- It can then be tested using the below command
+#eval (matcher [graph| merge1 [type = "merge"]; merge2 [type = "merge"];
+               merge1 -> merge2 [from = "out1", to = "in1"]; ] /- <--- replace this with the input graph to test with (as an ExprHigh). -/
+       ).run' default
 
 def makeMockModule {S} (mockIn1 mockOut1 : Type)
     (mockIn1Rule : S → mockIn1 → S → Prop)
@@ -112,10 +118,14 @@ theorem rhs_type_independent a b c e f a₂ b₂ c₂ e₂ f₂ T₁ T₂ [Decid
 
 #eval IO.print ((rhs Unit Unit Unit "T" "T'" (λ _ _ _ => False) (λ _ _ _ => False)).fst)
 
-def rewrite (T₁ T₂ : String) : Rewrite String :=
+def rewrite : Rewrite String :=
   { abstractions := [],
-    pattern := unsafe matcher T₁ T₂,
-    input_expr := lhsLower T₁ T₂,
-    output_expr := rhsLower T₁ T₂ }
+    pattern := unsafe matcher,
+    rewrite := λ l => do
+      let T ← l.get? 0
+      let TagT ← l.get? 1
+      return ⟨lhsLower T TagT, rhsLower T TagT⟩
+    name := .some "loop-rewrite"
+  }
 
 end DataflowRewriter.LoopRewrite

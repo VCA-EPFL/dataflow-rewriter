@@ -34,13 +34,15 @@ structure RewriteInfo where
   matched_subgraph : List String
   renamed_input_nodes : AssocList String (Option String)
   new_output_nodes : List String
-  debug : Option String
+  debug : Option String := .none
+  name : Option String := .none
   deriving Repr, Inhabited
 
 instance : Lean.ToJson RewriteInfo where
   toJson r :=
     Lean.Json.mkObj
       [ ("type", Lean.Format.pretty <| repr r.type)
+      , ("name", Lean.toJson r.name)
       , ("input_graph", toString r.input_graph)
       , ("output_graph", toString r.output_graph)
       , ("matched_subgraph", Lean.toJson r.matched_subgraph)
@@ -56,7 +58,7 @@ section Rewrite
 variable (Ident)
 variable [DecidableEq Ident]
 
-@[simp] abbrev Pattern := ExprHigh Ident → RewriteResult (List Ident)
+@[simp] abbrev Pattern := ExprHigh Ident → RewriteResult (List Ident × List Ident)
 
 structure Abstraction where
   pattern : Pattern Ident
@@ -67,11 +69,15 @@ structure Concretisation where
   typ : Ident
 deriving Repr, Inhabited
 
-structure Rewrite where
-  pattern : Pattern Ident
+structure DefiniteRewrite where
   input_expr : ExprLow Ident
   output_expr : ExprLow Ident
+
+structure Rewrite where
+  pattern : Pattern Ident
+  rewrite : List Ident → Option (DefiniteRewrite Ident)
   abstractions : List (Abstraction Ident) := []
+  name : Option String := .none
 
 variable {Ident}
 variable [Inhabited Ident]
@@ -147,7 +153,8 @@ however, currently the low-level expression language does not remember any names
   : RewriteResult (ExprHigh String) := do
 
   -- Pattern match on the graph and extract the first list of nodes that correspond to the first subgraph.
-  let sub ← rewrite.pattern g
+  let (sub, types) ← rewrite.pattern g
+  let def_rewrite ← ofOption (.error s!"types {repr types} are not correct for rewrite {fresh_prefix}") <| rewrite.rewrite types
 
   -- Extract the actual subgraph from the input graph using the list of nodes `sub`.
   let (g₁, g₂) ← ofOption (.error "could not extract graph") <| g.extract sub
@@ -161,7 +168,7 @@ however, currently the low-level expression language does not remember any names
 
   -- beq is an α-equivalence check that returns a mapping to rename one expression into the other.  This mapping is
   -- split into the external mapping and internal mapping.
-  let (ext_mapping, int_mapping) ← liftError <| e_sub.weak_beq rewrite.input_expr
+  let (ext_mapping, int_mapping) ← liftError <| e_sub.weak_beq def_rewrite.input_expr
 
   let comb_mapping := ExprLow.filterId <| ext_mapping.append int_mapping
   unless ExprLow.invertible comb_mapping.input do
@@ -173,8 +180,8 @@ however, currently the low-level expression language does not remember any names
   -- replacing.  In addition to that, we also rename the internal ports of the input_expr so that they match the
   -- internal ports of the extracted subgraph.  We apply the same renaming map to the output_expr, which will mainly
   -- just rename the external ports though.
-  let e_sub_output := rewrite.output_expr.renamePorts comb_mapping
-  let e_sub_input := rewrite.input_expr.renamePorts comb_mapping
+  let e_sub_output := def_rewrite.output_expr.renamePorts comb_mapping
+  let e_sub_input := def_rewrite.input_expr.renamePorts comb_mapping
 
   -- We are now left with `e_sub_output` which contains an expression where the external ports are renamed, and the
   -- internal ports have not been renamed from the original graph.  `e_sub_input` where all signals have been renamed so
@@ -204,7 +211,7 @@ however, currently the low-level expression language does not remember any names
   let portMap ← portmappingToNameRename' sub norm
   let inputPortMap := portMap.filter (λ lhs _ => ¬ nameMap'.inverse.contains lhs)
   let outputPortMap := portMap.filter (λ lhs _ => nameMap'.inverse.contains lhs)
-  addRewriteInfo <| RewriteInfo.mk RewriteType.rewrite g out sub inputPortMap (outputPortMap.toList.map Prod.snd |>.reduceOption) .none
+  addRewriteInfo <| RewriteInfo.mk RewriteType.rewrite g out sub inputPortMap (outputPortMap.toList.map Prod.snd |>.reduceOption) .none rewrite.name
   return out
 
 /--
@@ -217,7 +224,7 @@ framework should be enough.
 @[drunfold] def Abstraction.run (fresh_prefix : String) (g : ExprHigh String)
   (abstraction : Abstraction String)
   : RewriteResult (ExprHigh String × Concretisation String) := do
-  let sub ← abstraction.pattern g
+  let (sub, _) ← abstraction.pattern g
   let (g₁, g₂) ← ofOption (.error "could not extract graph") <| g.extract sub
   let e_sub ← ofOption (.error "could not lower subgraph: graph is empty") <| g₁ |>.lower
   let g_lower := g₂ |>.lower' e_sub
@@ -235,7 +242,8 @@ framework should be enough.
   let norm := abstracted.normalisedNamesMap fresh_prefix
   let highered ← abstracted.renamePorts norm |>.higherSS |> ofOption (.error "Could not normalise names")
   let portMap ← portmappingToNameRename' sub norm
-  addRewriteInfo <| RewriteInfo.mk RewriteType.abstraction g highered sub portMap [abstraction.typ] .none
+  addRewriteInfo <| RewriteInfo.mk RewriteType.abstraction g highered sub
+                      portMap [abstraction.typ] .none (.some s!"{abstraction.typ}")
   return (highered, ⟨e_sub', abstraction.typ⟩)
   -- return (abstracted.higherS fresh_prefix, ⟨e_sub, abstraction.typ⟩)
 
@@ -258,7 +266,8 @@ still fresh in the graph.
   let concr_g ← concr.renamePorts norm |>.higherSS |> ofOption (.error "Could not normalise names")
   let portMap ← portmappingToNameRename' [concretisation.typ] norm
   let outputPortMap := portMap.filter (λ lhs _ => lhs = concretisation.typ)
-  addRewriteInfo <| RewriteInfo.mk RewriteType.concretisation g concr_g [concretisation.typ] portMap (outputPortMap.toList.map Prod.snd |>.reduceOption) .none
+  addRewriteInfo <| RewriteInfo.mk RewriteType.concretisation g concr_g [concretisation.typ] portMap
+                      (outputPortMap.toList.map Prod.snd |>.reduceOption) .none (.some s!"{concretisation.typ}")
   return concr_g
 
 @[drunfold] def Rewrite.run (fresh_prefix : String) (g : ExprHigh String) (rewrite : Rewrite String)
@@ -280,15 +289,17 @@ started.
 def rewrite_loop' (orig_n : Nat) (pref : String) (g : ExprHigh String)
     : (rewrites : List (Rewrite String)) → Nat → RewriteResult (ExprHigh String)
 | _, 0 | [], _ => return g
-| r :: rs, fuel' + 1 => do
-  let g' ← try r.run (pref ++ "_f" ++ toString (orig_n - fuel') ++ "_l" ++ toString (List.length <| r :: rs) ++ "_") g
-            catch
-            | .done => rewrite_loop' orig_n pref g rs orig_n
-            | .error s => throw <| .error s
-  rewrite_loop' orig_n pref g' (r :: rs) fuel'
+| r :: rs, fuel' + 1 =>
+  try
+    let g' ← r.run (pref ++ "_f" ++ toString (orig_n - fuel') ++ "_l" ++ toString (List.length <| r :: rs) ++ "_") g
+    rewrite_loop' orig_n pref g' (r :: rs) fuel'
+  catch
+  | .done => rewrite_loop' orig_n pref g rs orig_n
+  | .error s => throw <| .error s
 
-def rewrite_loop (pref : String) (g : ExprHigh String) (rewrites : List (Rewrite String)) : RewriteResult (ExprHigh String) :=
-  rewrite_loop' 10000 pref g rewrites 10000
+def rewrite_loop (g : ExprHigh String) (rewrites : List (Rewrite String)) (pref : String := "rw") (depth : Nat := 10000)
+    : RewriteResult (ExprHigh String) :=
+  rewrite_loop' depth pref g rewrites depth
 
 structure NextNode (Ident) where
   inst : Ident
@@ -500,5 +511,9 @@ def findSCCNodes (g : ExprHigh String) (startN endN : String) : Option (List Str
   let l ← findSCCNodes' (← fullCalcSucc g) startN endN
   let l' ← findSCCNodes' (← fullCalcSucc g.invert) endN startN
   return l.union l'
+
+def extractType (s : String) : String :=
+  let parts := s.splitOn " "
+  parts.tail.foldl (λ a b => a ++ " " ++ b) "" |>.drop 1
 
 end DataflowRewriter
