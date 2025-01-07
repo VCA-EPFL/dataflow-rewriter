@@ -11,7 +11,7 @@ namespace DataflowRewriter.LoopRewrite
 
 open StringModule
 
-instance : MonadExcept IO.Error RewriteResult where
+local instance : MonadExcept IO.Error RewriteResult where
   throw e := throw <| .error <| toString e
   tryCatch m h := throw (.error "Cannot catch IO.Error")
 
