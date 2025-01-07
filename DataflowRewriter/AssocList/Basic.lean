@@ -43,4 +43,15 @@ def inverse {α β} : AssocList α β → AssocList β α
 | .nil => .nil
 | .cons a b xs => xs.inverse |>.cons b a
 
+def beq_left_ooo {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) : Bool :=
+  match a with
+  | .cons k v a' =>
+    match b.find? k with
+    | some v' => v = v' ∧ beq_left_ooo a' b
+    | none => false
+  | .nil => true
+
+def beq_ooo {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) : Bool :=
+  beq_left_ooo a b ∧ beq_left_ooo b a
+
 end Batteries.AssocList

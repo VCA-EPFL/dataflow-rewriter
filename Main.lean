@@ -99,13 +99,16 @@ def main (args : List String) : IO Unit := do
 
   -- let rewrittenExprHigh ← IO.ofExcept <|
   --   ({CombineMux.rewrite (candid_muxes.snd.get! 0) (candid_muxes.snd.get! 1) with pattern := fun _ => pure [candid_muxes.fst.get! 0, candid_muxes.fst.get! 1, candid_muxes.fst.get! 2]}).run "rw1_" exprHigh
-  let rewrittenExprHigh := exprHigh
+  let mut rewrittenExprHigh := exprHigh
+  let mut st : List RewriteInfo := default
 
-  -- let rewrittenExprHigh ← IO.ofExcept <|
-  --   ({CombineMux.rewrite "T" "T" with pattern := fun _ => pure ["phi_n0", "phiC_3", "fork_11_3"]}).run "rw1_" rewrittenExprHigh
+  match ({CombineMux.rewrite "T" "T" with pattern := fun _ => pure ["phi_n0", "phiC_3", "fork_11_3"]}).run "rw1_" rewrittenExprHigh |>.run default with
+  | .ok rewrittenExprHigh' st' => rewrittenExprHigh := rewrittenExprHigh'; st := st'
+  | .error p st' => IO.eprintln p; st := st'
     -- pure exprHigh
   let some l := dynamaticString rewrittenExprHigh assoc
     | IO.eprintln s!"Failed to print ExprHigh: {rewrittenExprHigh}"
+  IO.println <| Lean.toJson st
   match parsed.outputFile with
   | some ofile =>
     IO.FS.writeFile ofile l

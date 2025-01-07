@@ -7,15 +7,15 @@ digraph {
     "merge2" [type="Merge"];
     "merge1" [type="Merge"];
 
-    "src0" -> "fork1" [inp="inp0"];
+    "src0" -> "fork1" [inp="in1"];
 
-    "fork1" -> "fork2" [out="out1",inp="inp0"];
+    "fork1" -> "fork2" [out="out2",inp="in1"];
 
-    "fork1" -> "merge1" [out="out0",inp="inp0"];
-    "fork2" -> "merge1" [out="out0",inp="inp1"];
-    "fork2" -> "merge2" [out="out1",inp="inp1"];
+    "fork1" -> "merge1" [out="out1",inp="in1"];
+    "fork2" -> "merge1" [out="out1",inp="in2"];
+    "fork2" -> "merge2" [out="out2",inp="in2"];
 
-    "merge1" -> "merge2" [out="out0",inp="inp0"];
+    "merge1" -> "merge2" [out="out1",inp="in1"];
 
-    "merge2" -> "snk0" [out="out0"];
+    "merge2" -> "snk0" [out="out1"];
 }
