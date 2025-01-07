@@ -25,7 +25,7 @@ structure CmdArgs where
   help : Bool
 deriving Inhabited
 
-def CmdArgs.empty : CmdArgs := ⟨none, none, none, false, true, false⟩
+def CmdArgs.empty : CmdArgs := ⟨none, none, none, false, false, false⟩
 
 def parseArgs (args : List String) : Except String CmdArgs := go CmdArgs.empty args
   where
@@ -64,6 +64,13 @@ OPTIONS
 def topLevel (e : ExprHigh String) : RewriteResult (ExprHigh String) :=
   rewrite_loop e [CombineMux.rewrite, CombineBranch.rewrite]
 
+def renameAssoc (assoc : AssocList String (AssocList String String)) (r : RewriteInfo) : AssocList String (AssocList String String) :=
+  assoc.mapKey (λ x => match r.renamed_input_nodes.find? x with
+                       | .some (.some x') => x'
+                       | _ => x)
+
+def renameAssocAll assoc (rlist : List RewriteInfo) := rlist.foldl renameAssoc assoc
+
 def main (args : List String) : IO Unit := do
   let parsed ←
     try IO.ofExcept <| parseArgs args
@@ -88,7 +95,7 @@ def main (args : List String) : IO Unit := do
 
   let some l :=
     if parsed.noDynamaticDot then pure (toString rewrittenExprHigh)
-    else dynamaticString rewrittenExprHigh assoc
+    else dynamaticString rewrittenExprHigh (renameAssocAll assoc st)
     | IO.eprintln s!"Failed to print ExprHigh: {rewrittenExprHigh}"
 
   match parsed.logFile with

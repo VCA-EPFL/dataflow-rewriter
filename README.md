@@ -16,7 +16,7 @@ lake build
 The dataflow rewriter can be executed using:
 
 ```shell
-lake exe dataflow-rewriter
+lake exe dataflow-rewriter tests/mulvec.dot -o out.dot -l out.json --no-dynamatic-dot
 ```
 
 ```text
