@@ -42,23 +42,27 @@ The rewrites that were performed can be traced using the output JSON log file.  
 following format:
 
 ```json5
-{
-  // name of the rewrite
-  "name": "combine-mux",
-  // type of rewrite, one of rewrite, abstraction or concretisation
-  "type": "DataflowRewriter.RewriteType.rewrite",
-  // input dot graph that was received by the rewrite
-  "input_graph": "digraph { ... }",
-  // output dot graph that was produced by the rewrite
-  "output_graph": "digraph { ... }",
-  // a list of nodes making up the subgraph that was matched
-  "matched_subgraph": ["node1", "node2"],
-  // nodes that were untouched but renamed when going from input to output
-  // a null value means the node was removed
-  "renamed_input_nodes": {"a": "b", "c": "d", "e": null},
-  // name of nodes that were added to the output
-  "new_output_nodes": ["x", "y", "z"],
-  // optional debug information
-  "debug": null
-}
+// List of objects, each representing a rewrite.
+[
+  {
+    // name of the rewrite
+    "name": "combine-mux",
+    // type of rewrite, one of rewrite, abstraction or concretisation
+    "type": "DataflowRewriter.RewriteType.rewrite",
+    // input dot graph that was received by the rewrite
+    "input_graph": "digraph { ... }",
+    // output dot graph that was produced by the rewrite
+    "output_graph": "digraph { ... }",
+    // a list of nodes making up the subgraph that was matched
+    "matched_subgraph": ["node1", "node2"],
+    // nodes that were untouched but renamed when going from input to output
+    // a null value means the node was removed
+    "renamed_input_nodes": {"a": "b", "c": "d", "e": null},
+    // name of nodes that were added to the output
+    "new_output_nodes": ["x", "y", "z"],
+    // optional debug information
+    "debug": null
+  },
+  { "...": "..." }
+]
 ```
