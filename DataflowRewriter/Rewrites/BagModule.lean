@@ -9,12 +9,24 @@ import DataflowRewriter.ExprHighElaborator
 
 namespace DataflowRewriter.BagModule
 
+local instance : MonadExcept IO.Error RewriteResult where
+  throw e := throw <| .error <| toString e
+  tryCatch m h := throw (.error "Cannot catch IO.Error")
+
+unsafe def oracle (g : ExprHigh String) : RewriteResult (List String × List String) := do
+  let merges ← ofExcept <| unsafeIO do
+    -- Here you can run an arbitrary command with arguments, where stdout will be passed to `result`.  This can be used
+    -- to implement the matcher completely externally.
+    let result ← IO.Process.run { cmd := "echo", args := #["merge1, merge2, merge3"] }
+    return result.trim.splitOn ", "
+  return (merges, [])
+
 /--
-Instead of using dominators we can also use the fork and the condition circuit
-to match the graph.
+We can just return a constant node here because the abstraction mechanism will have already lifted the circuit into
+`module`.
 -/
-def matcher (g : ExprHigh String) : RewriteResult (List String) := do
-  return findType g "module"
+def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := do
+  return (["module"], [])
 
 def lhs' : ExprHigh String := [graph|
     i_in [type = "io"];
@@ -27,10 +39,8 @@ def lhs' : ExprHigh String := [graph|
   ]
 
 #eval IO.print lhs'
--- #eval IO.print lhs'.invert
-#eval IO.print lhs'
 
-def lhs := lhs'.extract (matcher lhs' |>.toOption |>.get rfl) |>.get rfl
+def lhs := lhs'.extract (matcher lhs' |>.run' default |>.get rfl |>.fst) |>.get rfl
 
 theorem double_check_empty_snd : lhs.snd = ExprHigh.mk ∅ ∅ := by rfl
 
@@ -68,10 +78,11 @@ This rewrite adds abstractions to the definition, which provide patterns to
 extract parts of the graph.  The `type` given to each extracted node has to
 match the `type` of the node in LHS and RHS graphs.
 -/
-def rewrite (oracle : ExprHigh String → RewriteResult (List String)) : Rewrite String :=
-  { abstractions := [⟨oracle, "module"⟩],
+def rewrite : Rewrite String :=
+  { abstractions := [⟨unsafe oracle, "module"⟩],
     pattern := matcher,
-    input_expr := lhsLower,
-    output_expr := rhsLower }
+    rewrite := fun _ => pure ⟨lhsLower, rhsLower⟩,
+    name := .some "bag-module"
+  }
 
 end DataflowRewriter.BagModule

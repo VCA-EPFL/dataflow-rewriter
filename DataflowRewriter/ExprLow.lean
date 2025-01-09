@@ -183,6 +183,24 @@ def abstract (e e_sub : ExprLow Ident) (i_inst : PortMapping Ident) (i_typ : Ide
 def concretise (e e_sub : ExprLow Ident) (i_inst : PortMapping Ident) (i_typ : Ident) : ExprLow Ident :=
   .base i_inst i_typ |> (e.replace · e_sub)
 
+@[drunfold]
+def normalisedNamesMap' (pref : String) (count : Nat) : ExprLow String → (PortMapping String × Nat)
+| .base port typ' =>
+  let p := port.inverse.mapPairs
+    (λ | ⟨.top, n⟩, v => ⟨.top, n⟩
+       | ⟨.internal _, _⟩, ⟨_, n⟩ => ⟨.internal <| pref ++ toString count, n⟩)
+    |>.filter (λ | ⟨.top, _⟩, _ => false | _, _ => true)
+  (p, count + 1)
+| .connect _ _ e => normalisedNamesMap' pref count e
+| .product e₁ e₂ =>
+  let (p₁, count₁) := normalisedNamesMap' pref count e₁
+  let (p₂, count₂) := normalisedNamesMap' pref count₁ e₂
+  (p₁.append p₂, count₂)
+
+@[drunfold]
+def normalisedNamesMap (pref : String) (e : ExprLow String) : PortMapping String :=
+  normalisedNamesMap' pref 0 e |>.fst
+
 def findBase (typ : Ident) : ExprLow Ident → Option (PortMapping Ident)
 | .base port typ' => if typ = typ' then some port else none
 | .connect o i e => e.findBase typ

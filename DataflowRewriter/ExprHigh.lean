@@ -96,10 +96,9 @@ def normaliseModules (g : ExprHigh Ident) : Option (ExprHigh Ident) := do
 def normaliseNames (g : ExprHigh Ident) : Option (ExprHigh Ident) := do
   let newConnections ← g.connections.mapM (λ
     | ⟨i₁@⟨.internal _, n₁⟩, i₂@⟨.internal _, n₂⟩⟩ => do
-      match findOutputPort' i₁ g.modules, findInputPort' i₂ g.modules with
-      | .some (outInst, outInstName), .some (inInst, inInstName) =>
-        return Connection.mk ⟨.internal outInst, outInstName⟩ ⟨.internal inInst, inInstName⟩
-      | _, _ => failure
+      let (outInst, outInstName) ← findOutputPort' i₁ g.modules
+      let (inInst, inInstName) ← findInputPort' i₂ g.modules
+      return Connection.mk ⟨.internal outInst, outInstName⟩ ⟨.internal inInst, inInstName⟩
     | ⟨i₁@⟨.top, n₁⟩, i₂@⟨.internal _, n₂⟩⟩ => do
       let (inInst, inInstName) ← findInputPort' i₂ g.modules
       return Connection.mk ⟨.top, n₁⟩ ⟨.internal inInst, inInstName⟩
@@ -218,6 +217,28 @@ def higherS' (fresh : Nat) (fresh_prefix : String) : ExprLow String → (ExprHig
 
 def higherS (fresh_prefix : String) (e: ExprLow String) : ExprHigh String :=
   e.higherS' 0 fresh_prefix |>.fst
+
+def _root_.DataflowRewriter.PortMap.getInstanceName' (a : PortMap Ident (InternalPort Ident)) (i : Option Ident) : Option Ident :=
+  match a with
+  | .cons _ ⟨.top, n⟩ xs => getInstanceName' xs (match i with | .some _ => i | _ => .some n)
+  | .cons _ ⟨.internal a, _⟩ _ => .some a
+  | .nil => i
+
+def _root_.DataflowRewriter.PortMap.getInstanceName (a : PortMap Ident (InternalPort Ident)) : Option Ident := a.getInstanceName' .none
+
+def _root_.DataflowRewriter.PortMapping.getInstanceName (a : PortMapping Ident) : Option Ident :=
+  a.output.getInstanceName' a.input.getInstanceName
+
+def higherSS : ExprLow String → Option (ExprHigh String)
+| .base a b => do
+  return ExprHigh.mk [(← a.getInstanceName, (a, b))].toAssocList ∅
+| .connect o i e => do
+  let e' ← e.higherSS
+  return {e' with connections := e'.connections.cons ⟨ o, i ⟩}
+| .product e₁ e₂ => do
+  let e₁' ← e₁.higherSS
+  let e₂' ← e₂.higherSS
+  return ⟨ e₁'.1.append e₂'.1, e₁'.2.append e₂'.2 ⟩
 
 end ExprLow
 

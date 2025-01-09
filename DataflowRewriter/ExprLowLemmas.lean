@@ -263,7 +263,6 @@ universe v w
 
 variable {Ident : Type w}
 variable [DecidableEq Ident]
-variable [Inhabited Ident]
 
 variable (ε : IdentMap Ident ((T : Type _) × Module Ident T))
 
@@ -373,28 +372,33 @@ theorem substition {I I' i i' mod mod' iexpr} :
     have some_isSome : (ε.find? i').isSome := by simp only [*]; simp
     apply refines_connect <;> solve_by_elim [wf_modify_expression]
 
+attribute [-drunfold] check_eq
+
 theorem abstract_refines {iexpr expr_pat i} :
     ε.find? i = some ⟨ _, [e| expr_pat, ε ] ⟩ →
     iexpr.wf ε →
-    [e| iexpr, ε ] ⊑ ([e| iexpr.abstract expr_pat ∅ i, ε ]) := by stop
+    [e| iexpr, ε ] ⊑ ([e| iexpr.abstract expr_pat ∅ i, ε ]) := by
   unfold build_module_expr; intro hfind;
   induction iexpr with
   | base inst typ =>
     intro hwf
     dsimp [drunfold, Option.bind, Option.getD] at *
-    by_cases h : .base inst typ = expr_pat
+    by_cases h : (ExprLow.base inst typ).check_eq expr_pat
     · rw [h];
-      have : (if expr_pat = expr_pat then .base ∅ i else expr_pat) = .base ∅ i := by simp
-      rw [this]; clear this; simp [drunfold, Option.bind]
+      dsimp
+      simp [drunfold, Option.bind]
       rw [hfind]; simp
       have : ∃ m, Batteries.AssocList.find? typ ε = some m := by
         simp only [wf, all] at hwf
         simp only [←Option.isSome_iff_exists, Batteries.AssocList.contains_some, hwf]
       rcases this with ⟨ m, hb ⟩; rw [hb]; simp
+      cases expr_pat <;> simp [check_eq] at h
+      rcases h with ⟨h1, h2, h3⟩
       subst_vars
-      simp [drunfold, Option.bind, Option.getD, hb]
-      rw [hb]; simp
-      rw [filterId_empty,Module.renamePorts_empty]; apply Module.refines_reflexive
+      dsimp [drunfold, Option.bind] at *
+      rw [hb] at hfind ⊢; simp [-AssocList.find?_eq] at *
+      rw [filterId_empty,Module.renamePorts_empty]
+      apply Module.refines_reflexive
     · have : (if base inst typ = expr_pat then base ∅ i else base inst typ) = base inst typ := by
         simp [h]
       rw [this]; clear this

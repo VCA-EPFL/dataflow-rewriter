@@ -19,10 +19,13 @@ open DataflowRewriter
 structure CmdArgs where
   outputFile : Option System.FilePath
   inputFile : Option System.FilePath
+  logFile : Option System.FilePath
+  logStdout : Bool
+  noDynamaticDot : Bool
   help : Bool
 deriving Inhabited
 
-def CmdArgs.empty : CmdArgs := ⟨none, none, false⟩
+def CmdArgs.empty : CmdArgs := ⟨none, none, none, false, false, false⟩
 
 def parseArgs (args : List String) : Except String CmdArgs := go CmdArgs.empty args
   where
@@ -30,6 +33,12 @@ def parseArgs (args : List String) : Except String CmdArgs := go CmdArgs.empty a
     | .cons "-h" _rst | .cons "--help" _rst => .ok {c with help := true}
     | .cons "-o" (.cons fp rst) | .cons "--output" (.cons fp rst) =>
       go {c with outputFile := some fp} rst
+    | .cons "-l" (.cons fp rst) | .cons "--log" (.cons fp rst) =>
+      go {c with logFile := some fp} rst
+    | .cons "--log-stdout" rst =>
+      go {c with logStdout := true} rst
+    | .cons "--no-dynamatic-dot" rst =>
+      go {c with noDynamaticDot := true} rst
     | .cons fp rst => do
       if "-".isPrefixOf fp then throw s!"argument '{fp}' not recognised"
       if c.inputFile.isSome then throw s!"more than one input file passed"
@@ -45,38 +54,22 @@ FORMAT
   dataflow-rewriter [OPTIONS...] FILE
 
 OPTIONS
-  -h, --help         Print this help text
-  -o, --output FILE  Set output file
+  -h, --help          Print this help text
+  -o, --output FILE   Set output file
+  -l, --log FILE      Set JSON log output
+  --log-stdout        Set JSON log output to STDOUT
+  --no-dynamatic-dot  Don't output dynamatic DOT, instead output the raw
+                      dot that is easier for debugging purposes.
 "
+def topLevel (e : ExprHigh String) : RewriteResult (ExprHigh String) :=
+  rewrite_loop e [CombineMux.rewrite, CombineBranch.rewrite]
 
-def extractType (s : String) : String :=
-  let parts := s.splitOn " "
-  parts.tail.foldl (λ a b => a ++ " " ++ b) "" |>.drop 1
+def renameAssoc (assoc : AssocList String (AssocList String String)) (r : RewriteInfo) : AssocList String (AssocList String String) :=
+  assoc.mapKey (λ x => match r.renamed_input_nodes.find? x with
+                       | .some (.some x') => x'
+                       | _ => x)
 
-def identifyCombineMux (g : ExprHigh String) : RewriteResult (List String × List String) := do
-  let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
-      if s.isSome then return s
-      unless typ = "fork Bool 2" do return none
-      let (.some mux_nn) := followOutput g inst "out1" | return none
-      let (.some mux_nn') := followOutput g inst "out2" | return none
-      unless String.isPrefixOf "mux" mux_nn.typ && mux_nn.inputPort = "in1" do return none
-      unless String.isPrefixOf "mux" mux_nn'.typ && mux_nn'.inputPort = "in1" do return none
-      return some ([mux_nn.inst, mux_nn'.inst, inst], [extractType mux_nn.typ, extractType mux_nn'.typ])
-    ) none | MonadExceptOf.throw RewriteError.done
-  return list
-
-def identifyCombineBranch (g : ExprHigh String) : RewriteResult (List String × List String) := do
-  let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
-      if s.isSome then return s
-      unless typ = "fork Bool 2" do return none
-      let (.some branch_nn) := followOutput g inst "out1" | return none
-      let (.some branch_nn') := followOutput g inst "out2" | return none
-      unless String.isPrefixOf "branch " branch_nn.typ && branch_nn.inputPort = "in2" do return none
-      unless String.isPrefixOf "branch " branch_nn'.typ && branch_nn'.inputPort = "in2" do return none
-      return ([branch_nn.inst, branch_nn'.inst, inst], [extractType branch_nn.typ, extractType branch_nn'.typ])
-    ) none | MonadExceptOf.throw RewriteError.done
-  return list
-
+def renameAssocAll assoc (rlist : List RewriteInfo) := rlist.foldl renameAssoc assoc
 
 def main (args : List String) : IO Unit := do
   let parsed ←
@@ -93,19 +86,23 @@ def main (args : List String) : IO Unit := do
   let fileContents ← IO.FS.readFile parsed.inputFile.get!
   let (exprHigh, assoc) ← IO.ofExcept fileContents.toExprHigh
 
-  -- TODO: iteratively repeat this until candid_muxes is empty
-  -- let candid_muxes ← IO.ofExcept <| identifyCombineMux exprHigh
-  -- let candid_branches ← IO.ofExcept <| identifyCombineBranch exprHigh
+  let mut rewrittenExprHigh := exprHigh
+  let mut st : List RewriteInfo := default
 
-  let rewrittenExprHigh ← IO.ofExcept <|
-    rewrite_loop "rw" exprHigh [] 100
-  --let rewrittenExprHigh := exprHigh
+  match topLevel rewrittenExprHigh |>.run default with
+  | .ok rewrittenExprHigh' st' => rewrittenExprHigh := rewrittenExprHigh'; st := st'
+  | .error p st' => IO.eprintln p; st := st'
 
-  -- let rewrittenExprHigh ← IO.ofExcept <|
-  --   ({CombineMux.rewrite "T" "T" with pattern := fun _ => pure ["phi_n0", "phiC_3", "fork_11_3"]}).run "rw1_" rewrittenExprHigh
-    -- pure exprHigh
-  let some l := dynamaticString rewrittenExprHigh assoc
+  let some l :=
+    if parsed.noDynamaticDot then pure (toString rewrittenExprHigh)
+    else dynamaticString rewrittenExprHigh (renameAssocAll assoc st)
     | IO.eprintln s!"Failed to print ExprHigh: {rewrittenExprHigh}"
+
+  match parsed.logFile with
+  | .some lfile => IO.FS.writeFile lfile <| toString <| Lean.toJson st
+  | .none =>
+    if parsed.logStdout then IO.println <| Lean.toJson st
+
   match parsed.outputFile with
   | some ofile =>
     IO.FS.writeFile ofile l

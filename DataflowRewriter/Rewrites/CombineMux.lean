@@ -11,16 +11,16 @@ namespace DataflowRewriter.CombineMux
 
 open StringModule
 
-def matcher (T T' : String) (g : ExprHigh String) : RewriteResult (List String) := do
+def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
       unless typ = "fork Bool 2" do return none
       let (.some mux_nn) := followOutput g inst "out1" | return none
       let (.some mux_nn') := followOutput g inst "out2" | return none
-      unless mux_nn.typ = "mux " ++ T && mux_nn.inputPort = "in1" do return none
-      unless mux_nn'.typ = "mux " ++ T' && mux_nn'.inputPort = "in1" do return none
-      return some [mux_nn.inst, mux_nn'.inst, inst]
-    ) none | throw .done
+      unless String.isPrefixOf "mux" mux_nn.typ && mux_nn.inputPort = "in1" do return none
+      unless String.isPrefixOf "mux" mux_nn'.typ && mux_nn'.inputPort = "in1" do return none
+      return some ([mux_nn.inst, mux_nn'.inst, inst], [extractType mux_nn.typ, extractType mux_nn'.typ])
+    ) none | MonadExceptOf.throw RewriteError.done
   return list
 
 def lhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
@@ -96,10 +96,14 @@ def rhsLower T₁ T₂ := (rhs Unit Unit T₁ T₂).fst.lower.get rfl
 
 theorem rhs_type_independent a b c d T₁ T₂ : (rhs a b T₁ T₂).fst = (rhs c d T₁ T₂).fst := by rfl
 
-def rewrite (T₁ T₂ : String) : Rewrite String :=
+def rewrite : Rewrite String :=
   { abstractions := [],
-    pattern := matcher T₁ T₂,
-    input_expr := lhsLower T₁ T₂,
-    output_expr := rhsLower T₁ T₂ }
+    pattern := matcher,
+    rewrite := λ l => do
+      let T₁ ← l.get? 0
+      let T₂ ← l.get? 1
+      return ⟨lhsLower T₁ T₂, rhsLower T₁ T₂⟩
+    name := .some "combine-mux"
+  }
 
 end DataflowRewriter.CombineMux

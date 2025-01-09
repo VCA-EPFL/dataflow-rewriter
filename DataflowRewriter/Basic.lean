@@ -138,6 +138,9 @@ def append (a b : PortMapping Ident) :=
 
 instance : Append (PortMapping Ident) := ⟨append⟩
 
+def filter (f : InternalPort Ident → InternalPort Ident → Bool) (a : PortMapping Ident) :=
+  PortMapping.mk (a.input.filter f) (a.output.filter f)
+
 instance : EmptyCollection (PortMapping Ident) := ⟨⟨∅, ∅⟩⟩
 
 def ofPortMapping [DecidableEq Ident] (p : PortMapping Ident) : Option Ident :=
@@ -154,6 +157,9 @@ def ofPortMapping [DecidableEq Ident] (p : PortMapping Ident) : Option Ident :=
 def map {α β} (f : α → β) : PortMapping α → PortMapping β
 | ⟨ a, b ⟩ => ⟨a.mapKey (λ k => k.map f) |>.mapVal (λ _ v => v.map f)
               , b.mapKey (λ k => k.map f ) |>.mapVal (λ _ v => v.map f)⟩
+
+def mapPairs (f : InternalPort Ident → InternalPort Ident → InternalPort Ident) : PortMapping Ident → PortMapping Ident
+| ⟨ a, b ⟩ => ⟨a.mapVal f, b.mapVal f⟩
 
 def inverse (p : PortMapping Ident) :=
   {p with input := p.input.inverse, output := p.output.inverse}

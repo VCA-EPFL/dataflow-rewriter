@@ -19,12 +19,12 @@ digraph {
     "e" -> "mul_2" [to = "in2"];
     "a" -> "add_0" [to = "in1"];
     "b" -> "add_0" [to = "in2"];
-    "mul_2" -> "o" [from = "out1"];
+    "mul_2" -> "o" [from = "out2"];
 
-    "add_0" -> "fork" [from = "out1", to = "in1"];
-    "fork" -> "mul_0" [from = "out1", to = "in2"];
-    "fork" -> "mul_1" [from = "out2", to = "in1"];
-    "mul_0" -> "add_1" [from = "out1", to = "in1"];
-    "mul_1" -> "add_1" [from = "out1", to = "in2"];
-    "add_1" -> "mul_2" [from = "out1", to = "in1"];
+    "add_0" -> "fork" [from = "out2", to = "in1"];
+    "fork" -> "mul_0" [from = "out2", to = "in2"];
+    "fork" -> "mul_1" [from = "out3", to = "in1"];
+    "mul_0" -> "add_1" [from = "out2", to = "in1"];
+    "mul_1" -> "add_1" [from = "out2", to = "in2"];
+    "add_1" -> "mul_2" [from = "out2", to = "in1"];
 }

@@ -24,25 +24,25 @@ Digraph G {
 	}
 	"end_0" [type = "Exit", bbID= 0, in = " in1:32 ", out = "out1:32" ];
 
-	"arg" -> "fork_0" [color = "red", from = "out1", to = "in1"];
-	"mul_0" -> "add_1" [color = "red", from = "out1", to = "in1"];
-	"cst_0" -> "add_1" [color = "red", from = "out1", to = "in2"];
-	"add_1" -> "add_3" [color = "red", from = "out1", to = "in1"];
-	"cst_1" -> "shl_2" [color = "red", from = "out1", to = "in2"];
-	"shl_2" -> "add_3" [color = "red", from = "out1", to = "in2"];
-	"add_3" -> "mul_4" [color = "red", from = "out1", to = "in1"];
-	"cst_2" -> "mul_4" [color = "red", from = "out1", to = "in2"];
-	"mul_4" -> "mul_5" [color = "red", from = "out1", to = "in1"];
-	"mul_5" -> "ret_0" [color = "red", from = "out1", to = "in1"];
-	"ret_0" -> "end_0" [color = "red", from = "out1", to = "in1"];
-	"start_0" -> "forkC_1" [color = "gold3", from = "out1", to = "in1"];
-	"fork_0" -> "mul_0" [color = "red", from = "out1", to = "in1"];
-	"fork_0" -> "mul_0" [color = "red", from = "out2", to = "in2"];
-    "fork_0" -> "fork_1" [color = "red", from = "out3", to = "in1"];
-	"fork_1" -> "shl_2" [color = "red", from = "out1", to = "in1"];
-	"fork_1" -> "mul_5" [color = "red", from = "out2", to = "in2"];
-	"forkC_1" -> "cst_0" [color = "gold3", from = "out1", to = "in1"];
-	"forkC_1" -> "cst_1" [color = "gold3", from = "out2", to = "in1"];
-	"forkC_1" -> "cst_2" [color = "gold3", from = "out3", to = "in1"];
+	"arg" -> "fork_0" [color = "red", from = "out2", to = "in1"];
+	"mul_0" -> "add_1" [color = "red", from = "out2", to = "in1"];
+	"cst_0" -> "add_1" [color = "red", from = "out2", to = "in2"];
+	"add_1" -> "add_3" [color = "red", from = "out2", to = "in1"];
+	"cst_1" -> "shl_2" [color = "red", from = "out2", to = "in2"];
+	"shl_2" -> "add_3" [color = "red", from = "out2", to = "in2"];
+	"add_3" -> "mul_4" [color = "red", from = "out2", to = "in1"];
+	"cst_2" -> "mul_4" [color = "red", from = "out2", to = "in2"];
+	"mul_4" -> "mul_5" [color = "red", from = "out2", to = "in1"];
+	"mul_5" -> "ret_0" [color = "red", from = "out2", to = "in1"];
+	"ret_0" -> "end_0" [color = "red", from = "out2", to = "in1"];
+	"start_0" -> "forkC_1" [color = "gold3", from = "out2", to = "in1"];
+	"fork_0" -> "mul_0" [color = "red", from = "out2", to = "in1"];
+	"fork_0" -> "mul_0" [color = "red", from = "out3", to = "in2"];
+    "fork_0" -> "fork_1" [color = "red", from = "out4", to = "in1"];
+	"fork_1" -> "shl_2" [color = "red", from = "out2", to = "in1"];
+	"fork_1" -> "mul_5" [color = "red", from = "out3", to = "in2"];
+	"forkC_1" -> "cst_0" [color = "gold3", from = "out2", to = "in1"];
+	"forkC_1" -> "cst_1" [color = "gold3", from = "out3", to = "in1"];
+	"forkC_1" -> "cst_2" [color = "gold3", from = "out4", to = "in1"];
 
 }
