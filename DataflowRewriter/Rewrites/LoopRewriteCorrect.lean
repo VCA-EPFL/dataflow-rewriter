@@ -137,9 +137,9 @@ def lhsEvaled : Module String
         rw [(Module.connect''_dep_rw (h := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl)
                                      (h' := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl))]; rfl
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter]
     unfold Module.connect''
     dsimp
-    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter]
 
 
 set_option maxHeartbeats 0 in
