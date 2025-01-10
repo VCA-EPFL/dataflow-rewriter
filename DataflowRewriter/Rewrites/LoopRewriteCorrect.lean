@@ -55,7 +55,7 @@ info: ["branch T", "pure f", "mux T", "fork Bool 2", "init Bool false", "split T
 #eval @environmentLhs Unit "T" (λ _ => default) _ |>.keysList
 
 /--
-info: ["pure f", "fork Bool 2", "merge T 2", "branch T", "split T Bool"]
+info: ["pure f", "merge T 2", "branch T", "split T Bool"]
 -/
 #guard_msgs in
 #eval @environmentRhs Unit "T" (λ _ => default) _ |>.keysList
