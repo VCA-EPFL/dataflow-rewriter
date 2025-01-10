@@ -28,103 +28,81 @@ unsafe def matcher (g : ExprHigh String) : RewriteResult (List String × List St
                merge1 -> merge2 [from = "out1", to = "in1"]; ] /- <--- replace this with the input graph to test with (as an ExprHigh). -/
        ).run' default
 
-def makeMockModule {S} (mockIn1 mockOut1 : Type)
-    (mockIn1Rule : S → mockIn1 → S → Prop)
-    (mockOut1Rule : S → mockOut1 → S → Prop) : Module String S :=
-  { inputs := [(⟨.top, "in1"⟩, ⟨mockIn1, mockIn1Rule⟩)].toAssocList
-  , outputs := [(⟨.top, "out1"⟩, ⟨mockOut1, mockOut1Rule⟩)].toAssocList
-  , internals := []
-  }
-
-def lhs (S T TagT : Type) [DecidableEq TagT]
-      (Tₛ TagTₛ : String)
-      (inRule : S → TagT × T → S → Prop)
-      (outRule : S → TagT × T × Bool → S → Prop)
-      -- (outRule : S → T' → S → Prop)
-    : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
+def lhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
+      : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i_in [type = "io"];
     o_out [type = "io"];
 
     mux [typeImp = $(⟨_, mux T⟩), type = $("mux " ++ Tₛ)];
     condition_fork [typeImp = $(⟨_, fork Bool 2⟩), type = "fork Bool 2"];
     branch [typeImp = $(⟨_, branch T⟩), type = $("branch " ++ Tₛ)];
-    inside_tagger [typeImp = $(⟨_, tagger_untagger_val TagT T (T × Bool)⟩), type = $("tagger_untagger_val " ++ TagTₛ ++ " " ++ Tₛ ++ " (" ++ Tₛ ++ " × Bool)")];
     tag_split [typeImp = $(⟨_, split T Bool⟩), type = $("split " ++ Tₛ ++ " Bool")];
-    mod [typeImp = $(⟨_, makeMockModule (TagT × T) (TagT × (T × Bool)) inRule outRule⟩), type = "M"];
+    mod [typeImp = $(⟨_, pure f⟩), type = "pure f"];
     loop_init [typeImp = $(⟨_, init Bool false⟩), type = "init Bool false"];
     bag [typeImp = $(⟨_, bag T⟩), type = $("bag " ++ Tₛ)];
+
+    i_in -> mux [to="in3"];
+    bag -> o_out [from="out1"];
 
     loop_init -> mux [from="out1", to="in1"];
     condition_fork -> loop_init [from="out2", to="in1"];
     condition_fork -> branch [from="out1", to="in2"];
-    inside_tagger -> mod [from="out1", to="in1"];
-    mod -> inside_tagger [from="out1", to="in1"];
-    inside_tagger -> tag_split [from="out2", to="in1"];
+    mod -> tag_split [from="out1", to="in1"];
     tag_split -> branch [from="out1", to="in1"];
     tag_split -> condition_fork [from="out2", to="in1"];
-    mux -> inside_tagger [from="out1", to="in2"];
+    mux -> mod [from="out1", to="in1"];
     branch -> mux [from="out1", to="in2"];
-    i_in -> mux [to="in3"];
     branch -> bag [from="out2", to="in1"];
-    bag -> o_out [from="out1"];
   ]
 
-#eval IO.print ((lhs Unit Unit Unit "T" "T'" (λ _ _ _ => False) (λ _ _ _ => False)).fst)
+#eval IO.print ((lhs Unit "T" (λ _ => default)).fst)
 
 -- #eval lhs Unit Unit Unit (λ _ _ _ => False) (λ _ _ _ => False) |>.1 |> IO.print
 
-def lhs_extract T₁ T₂ := lhs Unit Unit Unit T₁ T₂ (λ _ _ _ => False) (λ _ _ _ => False) |>.1
-  |>.extract ["mux", "condition_fork", "branch", "inside_tagger", "tag_split", "mod", "loop_init", "bag"]
+def lhs_extract T := lhs Unit T (λ _ => default) |>.1
+  |>.extract ["mux", "condition_fork", "branch", "tag_split", "mod", "loop_init", "bag"]
   |>.get rfl
 
-theorem double_check_empty_snd T₁ T₂: (lhs_extract T₁ T₂).snd = ExprHigh.mk ∅ ∅ := by rfl
+theorem double_check_empty_snd T: (lhs_extract T).snd = ExprHigh.mk ∅ ∅ := by rfl
 
-theorem lhs_type_independent a b c e f a₂ b₂ c₂ e₂ f₂ T₁ T₂ [DecidableEq c] [DecidableEq c₂]
-  : (lhs a b c T₁ T₂ e f).fst = (lhs a₂ b₂ c₂ T₁ T₂ e₂ f₂).fst := by rfl
+theorem lhs_type_independent a f a₂ f₂ T
+        [Inhabited a] [Inhabited a₂]
+  : (lhs a T f).fst = (lhs a₂ T f₂).fst := by rfl
 
-def lhsLower T₁ T₂ := (lhs_extract T₁ T₂).fst.lower.get rfl
+def lhsLower T := (lhs_extract T).fst.lower.get rfl
 
-def rhs (S T TagT : Type) [DecidableEq TagT]
-      (Tₛ TagTₛ : String)
-      (inRule : S → TagT × T → S → Prop)
-      (outRule : S → TagT × T × Bool → S → Prop)
-      -- (outRule : S → T' → S → Prop)
+def rhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
     : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i_in [type = "io"];
     o_out [type = "io"];
 
     merge [typeImp = $(⟨_, merge T 2⟩), type = $("merge " ++ Tₛ ++ " 2")];
-    condition_fork [typeImp = $(⟨_, fork Bool 2⟩), type = "fork Bool 2"];
     branch [typeImp = $(⟨_, branch T⟩), type = $("branch " ++ Tₛ)];
-    inside_tagger [typeImp = $(⟨_, tagger_untagger_val TagT T (T × Bool)⟩), type = $("tagger_untagger_val " ++ TagTₛ ++ " " ++ Tₛ ++ " (" ++ Tₛ ++ " × Bool)")];
     tag_split [typeImp = $(⟨_, split T Bool⟩), type = $("split " ++ Tₛ ++ " Bool")];
-    mod [typeImp = $(⟨_, makeMockModule (TagT × T) (TagT × (T × Bool)) inRule outRule⟩), type = "M"];
+    mod [typeImp = $(⟨_, pure f⟩), type = "pure f"];
 
     tag_split -> branch [from="out2", to="in2"];
-    inside_tagger -> mod [from="out1", to="in1"];
-    mod -> inside_tagger [from="out1", to="in1"];
-    inside_tagger -> tag_split [from="out2", to="in1"];
+    merge -> mod [from="out1", to="in1"];
+    mod -> tag_split [from="out1", to="in1"];
     tag_split -> branch [from="out1", to="in1"];
-    merge -> inside_tagger [from="out1", to="in2"];
     branch -> merge [from="out1", to="in1"];
     i_in -> merge [to="in2"];
     branch -> o_out [from="out2"];
   ]
 
-def rhsLower T₁ T₂ := (rhs Unit Unit Unit T₁ T₂ (λ _ _ _ => False) (λ _ _ _ => False) |>.1).lower.get rfl
+def rhsLower T := (rhs Unit T (λ _ => default) |>.1).lower.get rfl
 
-theorem rhs_type_independent a b c e f a₂ b₂ c₂ e₂ f₂ T₁ T₂ [DecidableEq c] [DecidableEq c₂]
-  : (rhs a b c T₁ T₂ e f).fst = (rhs a₂ b₂ c₂ T₁ T₂ e₂ f₂).fst := by rfl
+theorem rhs_type_independent b f b₂ f₂ T [Inhabited b] [Inhabited b₂]
+  : (rhs b T f).fst = (rhs b₂ T f₂).fst := by rfl
 
-#eval IO.print ((rhs Unit Unit Unit "T" "T'" (λ _ _ _ => False) (λ _ _ _ => False)).fst)
+#eval IO.print ((rhs Unit "T" (λ _ => default)).fst)
 
 def rewrite : Rewrite String :=
   { abstractions := [],
     pattern := unsafe matcher,
     rewrite := λ l => do
       let T ← l.get? 0
-      let TagT ← l.get? 1
-      return ⟨lhsLower T TagT, rhsLower T TagT⟩
+      return ⟨lhsLower T, rhsLower T⟩
     name := .some "loop-rewrite"
   }
 

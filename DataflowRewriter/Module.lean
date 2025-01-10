@@ -41,7 +41,7 @@ return a value.
 structure Module (Ident S : Type _) where
   inputs : PortMap Ident (Σ T : Type, (S → T → S → Prop))
   outputs : PortMap Ident (Σ T : Type, (S → T → S → Prop))
-  internals : List (S → S → Prop)
+  internals : List (S → S → Prop) := []
 deriving Inhabited
 
 -- mklenses Module
