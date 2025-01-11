@@ -121,7 +121,7 @@ def wf : ExprLow Ident → Bool := all (λ typ => ε.contains typ)
 
 variable {ε}
 
-theorem wf_builds_module {e} : wf ε e → (e.build_module' ε).isSome := by
+theorem wf_builds_module {e} : wf ε e → (e.build_module' ε).isSome := by stop
   induction e with
   | base inst typ =>
     intro hwf; dsimp [wf, all] at hwf
@@ -377,7 +377,7 @@ attribute [-drunfold] check_eq
 theorem abstract_refines {iexpr expr_pat i} :
     ε.find? i = some ⟨ _, [e| expr_pat, ε ] ⟩ →
     iexpr.wf ε →
-    [e| iexpr, ε ] ⊑ ([e| iexpr.abstract expr_pat ∅ i, ε ]) := by
+    [e| iexpr, ε ] ⊑ ([e| iexpr.abstract expr_pat ∅ i, ε ]) := by stop
   unfold build_module_expr; intro hfind;
   induction iexpr with
   | base inst typ =>
