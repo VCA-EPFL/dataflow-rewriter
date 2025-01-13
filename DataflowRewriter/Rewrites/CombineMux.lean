@@ -11,7 +11,17 @@ namespace DataflowRewriter.CombineMux
 
 open StringModule
 
+local instance : MonadExcept IO.Error RewriteResult where
+  throw e := throw <| .error <| toString e
+  tryCatch m h := throw (.error "Cannot catch IO.Error")
+
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := do
+  let l ← ofExcept <| unsafe unsafeIO do
+    -- Call command with argument `-f tmpfile`.
+    let result ← IO.FS.withTempFile λ handle filePath => do
+      handle.putStrLn <| toString g
+      let result ← IO.Process.run { cmd := "echo", args := #[filePath.toString] }
+      return result.splitOn ", " |>.map String.trim
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
       unless typ = "fork Bool 2" do return none
