@@ -59,7 +59,7 @@ Digraph G {
 		"phi_n0" [type = "mux T", bbID= 3, in = "in1?:1 in2:32 in3:32 ", out = "out1:32", delay=0.366, tagged=false, taggers_num=0, tagger_id=-1];
 		"phiC_3" [type = "mux T", bbID= 3, in = "in1?:1 in2:0 in3:0 ", out = "out1:0", delay=0.166, tagged=false, taggers_num=0, tagger_id=-1];
 		"branch_1" [type = "branch T", bbID= 3,  in = "in1:32 in2?:1*i", out = "out1+:32 out2-:32", tagged=false, taggers_num=0, tagger_id=-1];
-		"phi_n23" [type = "Merge", bbID= 3, in = "in1:32 in2:32 ", out = "out1:32", delay=0.366, tagged=false, taggers_num=0, tagger_id=-1];
+		"init_1" [type = "init Bool false", bbID= 3, in = "in1:32 ", out = "out1:32", delay=0.366, tagged=false, taggers_num=0, tagger_id=-1];
 		"branch_2" [type = "branch T", bbID= 3,  in = "in1:32 in2?:1*i", out = "out1+:32 out2-:32", tagged=false, taggers_num=0, tagger_id=-1];
 		"branch_9" [type = "branch T", bbID= 3,  in = "in1:32 in2?:1*i", out = "out1+:32 out2-:32", tagged=false, taggers_num=0, tagger_id=-1];
 		"branchC_12" [type = "branch T", bbID= 3,  in = "in1:0 in2?:1*i", out = "out1+:0 out2-:0", tagged=false, taggers_num=0, tagger_id=-1];
@@ -146,7 +146,7 @@ Digraph G {
 		"phi_n1" [type = "mux T", bbID= 7, in = "in1?:1 in2:32 in3:32 ", out = "out1:32", delay=0.366, tagged=false, taggers_num=0, tagger_id=-1];
 		"phiC_10" [type = "mux T", bbID= 7, in = "in1?:1 in2:0 in3:0 ", out = "out1:0", delay=0.166, tagged=false, taggers_num=0, tagger_id=-1];
 		"branch_5" [type = "branch T", bbID= 7,  in = "in1:32 in2?:1*i", out = "out1+:32 out2-:32", tagged=false, taggers_num=0, tagger_id=-1];
-		"phi_n25" [type = "Merge", bbID= 7, in = "in1:32 in2:32 ", out = "out1:32", delay=0.366, tagged=false, taggers_num=0, tagger_id=-1];
+		"init_2" [type = "init Bool false", bbID= 7, in = "in1:32 ", out = "out1:32", delay=0.366, tagged=false, taggers_num=0, tagger_id=-1];
 		"branch_6" [type = "branch T", bbID= 7,  in = "in1:32 in2?:1*i", out = "out1+:32 out2-:32", tagged=false, taggers_num=0, tagger_id=-1];
 		"branch_10" [type = "branch T", bbID= 7,  in = "in1:32 in2?:1*i", out = "out1+:32 out2-:32", tagged=false, taggers_num=0, tagger_id=-1];
 		"branchC_14" [type = "branch T", bbID= 7,  in = "in1:0 in2?:1*i", out = "out1+:0 out2-:0", tagged=false, taggers_num=0, tagger_id=-1];
@@ -286,7 +286,7 @@ Digraph G {
 	"cst_16" -> "fork_20" [color = "red", from = "out1", to = "in1"];
 	"branch_1" -> "sink_1" [color = "blue", minlen = 3, from = "out1", to = "in1"];
 	"branch_1" -> "phi_6" [color = "blue", minlen = 3, from = "out2", to = "in3"];
-	"phi_n23" -> "fork_21" [color = "red", from = "out1", to = "in1"];
+	"init_1" -> "fork_21" [color = "red", from = "out1", to = "in1"];
 	"branch_2" -> "store_0" [color = "blue", minlen = 3, from = "out1", to = "in1"];
 	"branch_2" -> "phi_7" [color = "blue", minlen = 3, from = "out2", to = "in3"];
 	"branch_4" -> "ret_0" [color = "blue", minlen = 3, from = "out1", to = "in1"];
@@ -294,7 +294,7 @@ Digraph G {
 	"phi_n24" -> "fork_22" [color = "red", from = "out1", to = "in1"];
 	"branch_5" -> "sink_2" [color = "blue", minlen = 3, from = "out1", to = "in1"];
 	"branch_5" -> "phi_31" [color = "blue", minlen = 3, from = "out2", to = "in3"];
-	"phi_n25" -> "fork_23" [color = "red", from = "out1", to = "in1"];
+	"init_2" -> "fork_23" [color = "red", from = "out1", to = "in1"];
 	"branch_6" -> "store_1" [color = "blue", minlen = 3, from = "out1", to = "in1"];
 	"branch_6" -> "phi_32" [color = "blue", minlen = 3, from = "out2", to = "in3"];
 	"branch_9" -> "sink_3" [color = "blue", minlen = 3, from = "out1", to = "in1"];
@@ -309,8 +309,6 @@ Digraph G {
 	"branchC_13" -> "phiC_9" [color = "gold3", minlen = 3, from = "out2", to = "in3"];
 	"branchC_14" -> "sink_8" [color = "gold3", minlen = 3, from = "out1", to = "in1"];
 	"branchC_14" -> "phiC_10" [color = "gold3", minlen = 3, from = "out2", to = "in3"];
-	"cst_17" -> "phi_n23" [color = "red", from = "out1", to = "in1"];
-	"cst_18" -> "phi_n25" [color = "red", from = "out1", to = "in1"];
     "fork_0_0" -> "phi_n0" [color = "red", from = "out1", to = "in2"];
     "fork_0_0" -> "add_22" [color = "red", from = "out2", to = "in1"];
     "fork_0_1" -> "load_4" [color = "red", from = "out1", to = "in2"];
@@ -324,7 +322,7 @@ Digraph G {
 	"fork_2" -> "icmp_18" [color = "red", from = "out1", to = "in1"];
 	"fork_2" -> "branch_1" [color = "red", from = "out2", to = "in1"];
     "fork_3_0" -> "branch_1" [color = "red", from = "out1", to = "in2"];
-    "fork_3_0" -> "phi_n23" [color = "red", from = "out2", to = "in2"];
+    "fork_3_0" -> "init_1" [color = "red", from = "out2", to = "in1"];
     "fork_3_1" -> "branch_2" [color = "red", from = "out1", to = "in2"];
     "fork_3_1" -> "branch_9" [color = "red", from = "out2", to = "in2"];
     "fork_3_2" -> "branchC_12" [color = "gold3", from = "out1", to = "in2"];
@@ -350,7 +348,7 @@ Digraph G {
 	"fork_8" -> "icmp_43" [color = "red", from = "out1", to = "in1"];
 	"fork_8" -> "branch_5" [color = "red", from = "out2", to = "in1"];
     "fork_9_0" -> "branch_5" [color = "red", from = "out1", to = "in2"];
-    "fork_9_0" -> "phi_n25" [color = "red", from = "out2", to = "in2"];
+    "fork_9_0" -> "init_2" [color = "red", from = "out2", to = "in1"];
     "fork_9_1" -> "branch_6" [color = "red", from = "out1", to = "in2"];
     "fork_9_1" -> "branch_10" [color = "red", from = "out2", to = "in2"];
     "fork_9_2" -> "branchC_14" [color = "gold3", from = "out1", to = "in2"];

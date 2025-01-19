@@ -27,7 +27,7 @@ Digraph G {
 		"cst_3" [type = "Constant", bbID= 2, in = "in1:32", out = "out1:32", value = "0x00000000", tagged=false, taggers_num=0, tagger_id=-1];
 		"fcmp_10" [type = "Operator", bbID= 2, op = "fcmp_ult_op", in = "in1:32 in2:32 ", out = "out1:1 ", delay=0.966, latency=2, II=1, tagged=false, taggers_num=0, tagger_id=-1];
 		"phiC_0" [type = "mux T", bbID= 2, in = "in1?:1 in2:0 in3:0 ", out = "out1:0", delay=0.166, tagged=false, taggers_num=0, tagger_id=-1];
-		"phi_n8" [type = "Merge", bbID= 2, in = "in1:32 in2:32 ", out = "out1:32", delay=0.366, tagged=false, taggers_num=0, tagger_id=-1];
+		"init" [type = "init Bool false", bbID= 2, in = "in1:32 ", out = "out1:32", delay=0.366, tagged=false, taggers_num=0, tagger_id=-1];
 		"branch_2" [type = "branch T", bbID= 2,  in = "in1:32 in2?:1", out = "out1+:32 out2-:32", tagged=false, taggers_num=0, tagger_id=-1];
 		"branch_7" [type = "branch T", bbID= 2,  in = "in1:32 in2?:1", out = "out1+:32 out2-:32", tagged=false, taggers_num=0, tagger_id=-1];
 		"branchC_10" [type = "branch T", bbID= 2,  in = "in1:0 in2?:1", out = "out1+:0 out2-:0", tagged=false, taggers_num=0, tagger_id=-1];
@@ -141,8 +141,7 @@ Digraph G {
 	"phiC_0" -> "forkC_5" [color = "gold3", from = "out1", to = "in1"];
 	"branch_0" -> "sink_0" [color = "blue", minlen = 3, from = "out1", to = "in1"];
 	"branch_0" -> "phi_1" [color = "blue", minlen = 3, from = "out2", to = "in3"];
-	"phi_n8" -> "fork_6" [color = "red", from = "out1", to = "in1"];
-	"cst_10" -> "phi_n8" [color = "red", from = "out1", to = "in1"];
+	"init" -> "fork_6" [color = "red", from = "out1", to = "in1"];
 	"branch_1" -> "ret_0" [color = "blue", minlen = 3, from = "out1", to = "in1"];
 	"branch_1" -> "phi_2" [color = "blue", minlen = 3, from = "out2", to = "in3"];
 	"branch_2" -> "sink_1" [color = "blue", minlen = 3, from = "out1", to = "in1"];
@@ -174,7 +173,7 @@ Digraph G {
 	"fork_2" -> "icmp_24" [color = "red", from = "out1", to = "in1"];
 	"fork_2" -> "branch_1" [color = "red", from = "out2", to = "in1"];
     "fork_3_0" -> "branch_0" [color = "red", from = "out1", to = "in2"];
-    "fork_3_0" -> "phi_n8" [color = "red", from = "out2", to = "in2"];
+    "fork_3_0" -> "init" [color = "red", from = "out2", to = "in1"];
     "fork_3_1" -> "branch_1" [color = "red", from = "out1", to = "in2"];
     "fork_3_1" -> "branchC_14" [color = "gold3", from = "out2", to = "in2"];
     "fork_3" -> "fork_3_0" [color = "gold3", from = "out1", to = "in1"];
