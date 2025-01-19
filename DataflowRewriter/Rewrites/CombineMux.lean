@@ -11,17 +11,31 @@ namespace DataflowRewriter.CombineMux
 
 open StringModule
 
+local instance : MonadExcept IO.Error RewriteResult where
+  throw e := throw <| .error <| toString e
+  tryCatch m h := throw (.error "Cannot catch IO.Error")
+
+-- Return any 2 Muxes fed by the same fork if the fork has the init as a predecessor (directly or through a tree of forks)
+-- TODO: Currently, it assumes that the init is either the direct predecessor or is a predecessor of the predecessor. We should make it more general to accommodate any number of forks until the init
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := do
-  let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
+ let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
-      unless typ = "fork Bool 2" do return none
+        unless typ = "fork Bool 2" do return none
+      let (.some fork_input) := followInput g inst "in1" | return none
+      let (.some fork_input_input) := followInput g fork_input.inst "in1" | return none
+      let (.some fork_input_input_input) := followInput g fork_input_input.inst "in1" | return none
+
+      unless fork_input.typ  = "init Bool false" || fork_input_input.typ = "init Bool false" || fork_input_input_input.typ = "init Bool false"  do return none
+
       let (.some mux_nn) := followOutput g inst "out1" | return none
       let (.some mux_nn') := followOutput g inst "out2" | return none
+
       unless String.isPrefixOf "mux" mux_nn.typ && mux_nn.inputPort = "in1" do return none
       unless String.isPrefixOf "mux" mux_nn'.typ && mux_nn'.inputPort = "in1" do return none
       return some ([mux_nn.inst, mux_nn'.inst, inst], [extractType mux_nn.typ, extractType mux_nn'.typ])
     ) none | MonadExceptOf.throw RewriteError.done
   return list
+
 
 def lhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     b1_t_i [type = "io"];
