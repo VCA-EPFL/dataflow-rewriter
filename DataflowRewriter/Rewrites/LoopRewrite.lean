@@ -34,7 +34,7 @@ def lhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
     o_out [type = "io"];
 
     mux [typeImp = $(⟨_, mux T⟩), type = $("mux " ++ Tₛ)];
-    condition_fork [typeImp = $(⟨_, fork Bool 2⟩), type = "fork Bool 2"];
+    condition_fork [typeImp = $(⟨_, fork2 Bool ⟩), type = "fork2 Bool"];
     branch [typeImp = $(⟨_, branch T⟩), type = $("branch " ++ Tₛ)];
     tag_split [typeImp = $(⟨_, split T Bool⟩), type = $("split " ++ Tₛ ++ " Bool")];
     mod [typeImp = $(⟨_, pure f⟩), type = "pure f"];
