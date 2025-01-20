@@ -11,25 +11,34 @@ namespace DataflowRewriter.ReduceSplitJoin
 
 open StringModule
 
-def matcher (T T' : String) (g : ExprHigh String) : RewriteResult (List String) := do
+def extractFirstWordAfterJoin (s : String) : String :=
+  match s.drop 5 |>.splitOn " " with
+  | []      => ""
+  | x :: _  => x
+
+
+def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
-      unless typ = "split" do return none
+        unless String.isPrefixOf "split" typ do return none
       let (.some join_nn) := followOutput g inst "out1" | return none
       let (.some join_nn') := followOutput g inst "out2" | return none
-      unless join_nn.typ = "join " ++ T ++ " " ++ T' do return none
-      unless join_nn'.typ = "join " ++ T ++ " " ++ T' do return none
-      /-TODO: Add logic to ensure that join_nn == join_nn' ? -/
-      return some [join_nn.inst, join_nn'.inst, inst]
+
+      unless String.isPrefixOf "join" join_nn.typ && String.isPrefixOf "join" join_nn'.typ do return none
+      unless join_nn.inst = join_nn'.inst do return none
+      unless extractType join_nn.typ = extractType typ do return none
+
+      return some ([join_nn.inst, inst], [extractFirstWordAfterJoin join_nn.typ, extractFirstWordAfterJoin join_nn.typ])
     ) none | throw .done
   return list
+
 
 def lhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i [type = "io"];
     o [type = "io"];
 
-    split [typeImp = $(⟨_, split T T'⟩), type = $("split " ++ Tₛ ++ " " ++ Tₛ')];
-    join [typeImp = $(⟨_, join T T'⟩), type = $("join " ++ Tₛ ++ " " ++ Tₛ')];
+    split [typeImp = $(⟨_, split T T'⟩), type = $("split " ++ Tₛ ++ " " ++ T'ₛ)];
+    join [typeImp = $(⟨_, join T T'⟩), type = $("join " ++ Tₛ ++ " " ++ T'ₛ)];
 
     i -> split [to="in1"];
     split -> join [from="out1", to="in1"];
@@ -37,7 +46,7 @@ def lhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String
     join -> o [from="out1"];
   ]
 
-def lhs_extract T₁ T₂ := (lhs Unit Unit T₁ T₂).fst.extract ["split", "join"] |>.get rfl
+def lhs_extract T₁ T₂ := (lhs Unit Unit T₁ T₂).fst.extract ["join", "split"] |>.get rfl
 
 #eval IO.print ((lhs Unit Unit "T" "T'").fst)
 
@@ -47,11 +56,14 @@ theorem double_check_empty_snd T₁ T₂ : (lhs_extract T₁ T₂).snd = ExprHig
 
 def lhsLower T₁ T₂ := lhs_extract T₁ T₂ |>.fst.lower.get rfl
 
-def rhs (T T' : Type) (Tₛ Tₛ' : String) : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
+def rhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i [type = "io"];
     o [type = "io"];
 
-    i -> o [];
+    queue [typeImp = $(⟨_, queue T⟩), type = $("queue" ++ " " ++ Tₛ)];
+
+    i -> queue [to="in1"];
+    queue -> o [from="out1"];
   ]
 
 def rhsLower T₁ T₂ := (rhs Unit Unit T₁ T₂).fst.lower.get rfl
@@ -60,10 +72,14 @@ def rhsLower T₁ T₂ := (rhs Unit Unit T₁ T₂).fst.lower.get rfl
 
 theorem rhs_type_independent a b c d T₁ T₂ : (rhs a b T₁ T₂).fst = (rhs c d T₁ T₂).fst := by rfl
 
-def rewrite (T₁ T₂ : String) : Rewrite String :=
+def rewrite : Rewrite String :=
   { abstractions := [],
-    pattern := matcher T₁ T₂,
-    input_expr := lhsLower T₁ T₂,
-    output_expr := rhsLower T₁ T₂ }
+    pattern := matcher,
+    rewrite := λ l => do
+      let T₁ ← l.get? 0
+      let T₂ ← l.get? 1
+      return ⟨lhsLower T₁ T₂, rhsLower T₁ T₂⟩
+    name := .some "reduce-split-join"
+  }
 
 end DataflowRewriter.ReduceSplitJoin
