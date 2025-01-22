@@ -54,11 +54,11 @@ info: ["branch T", "pure f", "mux T", "init Bool false", "fork2 Bool", "split T 
 #guard_msgs in
 #eval @environmentLhs Unit "T" (λ _ => default) _ |>.keysList
 
-/--
-info: ["pure f", "branch T", "split T Bool", "merge T 2"]
--/
-#guard_msgs in
-#eval @environmentRhs Unit "T" (λ _ => default) _ |>.keysList
+-- /--
+-- info: ["pure f", "merge T 2", "branch T", "split T Bool"]
+-- -/
+-- #guard_msgs in
+-- #eval @environmentRhs Unit "T" (λ _ => default) _ |>.keysList
 
 open Lean Meta Simp in
 /-- Simplification procedure for decide expressions that tries to prove
@@ -90,11 +90,12 @@ open Lean Meta Simp in
 @[drcompute] theorem find?_fork_bool : (Batteries.AssocList.find? ("fork2 Bool") (environmentLhs DataS f)) = .some ⟨_, fork2 Bool⟩ := sorry
 @[drcompute] theorem find?_split_data : (Batteries.AssocList.find? ("split " ++ DataS ++ " Bool") (environmentLhs DataS f)) = .some ⟨_, split Data Bool⟩ := sorry
 
-@[drcompute] theorem find?_branch_data2 : (Batteries.AssocList.find? ("branch " ++ DataS) (environmentRhs DataS f)) = .some ⟨_, branch Data⟩ := sorry
-@[drcompute] theorem find?_pure_f2 : (Batteries.AssocList.find? ("pure f") (environmentRhs DataS f)) = .some ⟨_, pure f⟩ := sorry
-@[drcompute] theorem find?_merge_data2 : (Batteries.AssocList.find? ("merge " ++ DataS ++ " 2") (environmentRhs DataS f)) = .some ⟨_, merge Data 2⟩ := sorry
-@[drcompute] theorem find?_fork_bool2 : (Batteries.AssocList.find? ("fork2 Bool") (environmentRhs DataS f)) = .some ⟨_, fork2 Bool⟩ := sorry
-@[drcompute] theorem find?_split_data2 : (Batteries.AssocList.find? ("split " ++ DataS ++ " Bool") (environmentRhs DataS f)) = .some ⟨_, split Data Bool⟩ := sorry
+-- @[drcompute] theorem find?_fork_bool2 : (Batteries.AssocList.find? ("fork2 Bool") (environmentRhs DataS f)) = .some ⟨_, fork2 Bool⟩ := sorry
+@[drcompute] theorem find?_branch_data2 : (Batteries.AssocList.find? ("branch (TagT × " ++ DataS ++ ")") (environmentRhs DataS f)) = .some ⟨_, branch (TagT × Data)⟩ := sorry
+@[drcompute] theorem find?_pure_f2 : (Batteries.AssocList.find? ("pure (liftF f)") (environmentRhs DataS f)) = .some ⟨_, pure (liftF (γ := TagT) f)⟩ := sorry
+@[drcompute] theorem find?_merge_data2 : (Batteries.AssocList.find? ("merge (TagT × " ++ DataS ++ ") 2") (environmentRhs DataS f)) = .some ⟨_, merge (TagT × Data) 2⟩ := sorry
+@[drcompute] theorem find?_split_data2 : (Batteries.AssocList.find? ("split (TagT × " ++ DataS ++ ") Bool") (environmentRhs DataS f)) = .some ⟨_, split (TagT × Data) Bool⟩ := sorry
+@[drcompute] theorem find?_tagger_data2 : (Batteries.AssocList.find? ("tagger_untagger_val TagT " ++ DataS ++ " " ++ DataS) (environmentRhs DataS f)) = .some ⟨_, tagger_untagger_val TagT Data Data⟩ := sorry
 
 def lhsTypeEvaled : Type := by
   precomputeTac ([T| (rewriteLhsRhs DataS).input_expr, environmentLhs DataS f ]) by
@@ -150,7 +151,7 @@ set_option maxHeartbeats 0 in
 def rhsEvaled : Module String (rhsType Data) := by
   precomputeTac [e| (rewriteLhsRhs DataS).output_expr, environmentRhs DataS f ] by
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
-    rw [find?_branch_data2,find?_pure_f2,find?_split_data2,find?_merge_data2]
+    rw [find?_branch_data2,find?_pure_f2,find?_split_data2,find?_merge_data2,find?_tagger_data2]
     simp [-AssocList.find?_eq]
     unfold Module.liftR Module.liftL
     dsimp

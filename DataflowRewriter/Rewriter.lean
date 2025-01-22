@@ -82,11 +82,11 @@ structure Rewrite where
 variable {Ident}
 variable [Inhabited Ident]
 
-def ofOption {m ε} [Monad m] [MonadExcept ε m] {α} (e : ε) : Option α → m α
+def ofOption {ε α σ} (e : ε) : Option α → EStateM ε σ α
 | some o => pure o
 | none => throw e
 
-def liftError {m} [Monad m] [MonadExcept RewriteError m] {α} : Except String α → m α
+def liftError {α σ} : Except String α → EStateM RewriteError σ α
 | .ok o => pure o
 | .error s => throw (.error s)
 
@@ -142,6 +142,9 @@ def addRewriteInfo (rinfo : RewriteInfo) : RewriteResult Unit := do
   let l ← EStateM.get
   EStateM.set <| l.concat rinfo
 
+def EStateM.guard {ε σ} (e : ε) (b : Bool) : EStateM ε σ Unit :=
+  if b then pure () else EStateM.throw e
+
 /--
 Perform a rewrite in the graph by lowering it into an inductive expression using the right ordering, replacing it, and
 then reconstructing the graph.
@@ -171,10 +174,8 @@ however, currently the low-level expression language does not remember any names
   let (ext_mapping, int_mapping) ← liftError <| e_sub.weak_beq def_rewrite.input_expr
 
   let comb_mapping := ExprLow.filterId <| ext_mapping.append int_mapping
-  unless ExprLow.invertible comb_mapping.input do
-    throw (.error "input mapping not invertible")
-  unless ExprLow.invertible comb_mapping.output do
-    throw (.error "output mapping not invertible")
+  EStateM.guard (.error "input mapping not invertible") <| ExprLow.invertible comb_mapping.input
+  EStateM.guard (.error "output mapping not invertible") <| ExprLow.invertible comb_mapping.output
 
   -- We rewrite the output expression external ports to match the external ports of the internal expression it is
   -- replacing.  In addition to that, we also rename the internal ports of the input_expr so that they match the

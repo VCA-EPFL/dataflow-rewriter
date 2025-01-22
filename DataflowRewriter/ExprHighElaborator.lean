@@ -408,26 +408,26 @@ def dotGraphElab' : TermElab := λ stx _typ? => do
 
 namespace mergemod
 
-open StringModule in
-def mergeHigh (T : Type _) : ExprHigh String × (IdentMap String (TModule1 String)) :=
-  ([graph|
-    src0 [type="io"];
-    snk0 [type="io"];
+-- open StringModule in
+-- def mergeHigh (T : Type _) : ExprHigh String × (IdentMap String (TModule1 String)) :=
+--   ([graph|
+--     src0 [type="io"];
+--     snk0 [type="io"];
 
-    fork1 [type="sten"];
+--     fork1 [type="sten"];
 
-    fork1 -> snk0 [from=""];
-  ], [("⟨_, fork T 2⟩", ⟨List T, fork T 2⟩)].toAssocList)
+--     fork1 -> snk0 [from=""];
+--   ], [("⟨_, fork T 2⟩", ⟨List T, fork T 2⟩)].toAssocList)
 
-open StringModule in
-def mergeHigh2 (T : Type _) : ExprHigh String × (IdentMap String (TModule1 String)) :=
-  [graphEnv|
-    src0 [type="io"];
-    snk0 [type="io"];
+-- open StringModule in
+-- def mergeHigh2 (T : Type _) : ExprHigh String × (IdentMap String (TModule1 String)) :=
+--   [graphEnv|
+--     src0 [type="io"];
+--     snk0 [type="io"];
 
-    fork1 [typeImp=$(⟨_, fork T 2⟩), type=$("hllo" ++ "Y")];
-    fork2 [typeImp=$(⟨_, fork T 3⟩)];
-  ]
+--     fork1 [typeImp=$(⟨_, fork T 2⟩), type=$("hllo" ++ "Y")];
+--     fork2 [typeImp=$(⟨_, fork T 3⟩)];
+--   ]
 
 end mergemod
 

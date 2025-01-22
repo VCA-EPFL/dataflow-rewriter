@@ -34,6 +34,9 @@ variable (ε : IdentMap Ident ((T: Type) × Module Ident T))
 @[drunfold] def build_module' (e : ExprHigh Ident) : Option (Σ T, Module Ident T) :=
   e.lower.bind (·.build_module ε)
 
+-- @[drunfold] def build_module_named (e : ExprHigh Ident) : Option (Σ T, Module Ident T) :=
+--   e.lower.bind (·.build_module_named ε)
+
 @[drunfold] def build_moduleP (e : ExprHigh Ident)
     (h : (build_module' ε e).isSome = true := by rfl)
     : Σ T, Module Ident T :=

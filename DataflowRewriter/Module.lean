@@ -131,6 +131,14 @@ theorem connect''_dep_rw {C : Type} {x y x' y' : Σ (T : Type), C → T → C �
     internals := mod1.internals.map liftL' ++ mod2.internals.map liftR'
   }
 
+def NamedProduct (s : String) T₁ T₂ := T₁ × T₂
+
+@[drunfold] def named_product {S S'} (mod1 : Module Ident S) (mod2: Module Ident S') (str : String := "") : Module Ident (NamedProduct str S S') :=
+  { inputs := (mod1.inputs.mapVal (λ _ => liftL)).append (mod2.inputs.mapVal (λ _ => liftR)),
+    outputs := (mod1.outputs.mapVal (λ _ => liftL)).append (mod2.outputs.mapVal (λ _ => liftR)),
+    internals := mod1.internals.map liftL' ++ mod2.internals.map liftR'
+  }
+
 @[drunfold] def productD {α} {l₁ l₂ : List α} {f} (mod1 : Module Ident (HVector f l₁)) (mod2: Module Ident (HVector f l₂)) : Module Ident (HVector f (l₁ ++ l₂)) :=
   { inputs := (mod1.inputs.mapVal (λ _ => liftLD)).append (mod2.inputs.mapVal (λ _ => liftRD)),
     outputs := (mod1.outputs.mapVal (λ _ => liftLD)).append (mod2.outputs.mapVal (λ _ => liftRD)),
@@ -338,7 +346,7 @@ instance MatchInterface_connect {I S} {o i} {imod : Module Ident I} {smod : Modu
          [mm : MatchInterface imod smod]
          : MatchInterface (imod.connect' o i) (smod.connect' o i) := by
   simp only [MatchInterface_simpler_iff] at *; intro ident; specializeAll ident
-  rcases mm with ⟨mm1, mm2⟩
+  let ⟨mm1, mm2⟩ := mm; clear mm
   dsimp [Module.connect']
   constructor
   · simp only [AssocList.eraseAll_map_comm]

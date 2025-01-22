@@ -71,23 +71,31 @@ theorem lhs_type_independent a f a₂ f₂ T
 
 def lhsLower T := (lhs_extract T).fst.lower.get rfl
 
+abbrev TagT := Nat
+
+def liftF {α β γ δ} (f : α -> β × δ) : γ × α -> (γ × β) × δ | (g, a) => ((g, f a |>.fst), f a |>.snd)
+
 def rhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
     : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i_in [type = "io"];
     o_out [type = "io"];
 
-    merge [typeImp = $(⟨_, merge T 2⟩), type = $("merge " ++ Tₛ ++ " 2")];
-    branch [typeImp = $(⟨_, branch T⟩), type = $("branch " ++ Tₛ)];
-    tag_split [typeImp = $(⟨_, split T Bool⟩), type = $("split " ++ Tₛ ++ " Bool")];
-    mod [typeImp = $(⟨_, pure f⟩), type = "pure f"];
+    tagger [typeImp = $(⟨_, tagger_untagger_val TagT T T ⟩), type = $("tagger_untagger_val TagT " ++ Tₛ ++ " " ++ Tₛ)];
+    merge [typeImp = $(⟨_, merge (TagT × T) 2⟩), type = $("merge (TagT × " ++ Tₛ ++ ") 2")];
+    branch [typeImp = $(⟨_, branch (TagT × T)⟩), type = $("branch (TagT × " ++ Tₛ ++ ")")];
+    tag_split [typeImp = $(⟨_, split (TagT × T) Bool⟩), type = $("split (TagT × " ++ Tₛ ++ ") Bool")];
+    mod [typeImp = $(⟨_, pure (liftF f)⟩), type = "pure (liftF f)"];
 
-    tag_split -> branch [from="out2", to="in2"];
+    i_in -> tagger [to="in2"];
+    tagger -> o_out [from="out2"];
+
+    tagger -> merge [from="out1",to="in2"];
     merge -> mod [from="out1", to="in1"];
     mod -> tag_split [from="out1", to="in1"];
     tag_split -> branch [from="out1", to="in1"];
+    tag_split -> branch [from="out2", to="in2"];
     branch -> merge [from="out1", to="in1"];
-    i_in -> merge [to="in2"];
-    branch -> o_out [from="out2"];
+    branch -> tagger [from="out2", to="in1"];
   ]
 
 def rhsLower T := (rhs Unit T (λ _ => default) |>.1).lower.get rfl
