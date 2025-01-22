@@ -142,8 +142,8 @@ def lhsEvaled : Module String (lhsType Data) := by
       all_goals
         rw [(Module.connect''_dep_rw (h := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl)
                                      (h' := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl))]; rfl
-    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
-    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter]
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,-Prod.exists]
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
     unfold Module.connect''
     dsimp
 
@@ -171,7 +171,7 @@ def rhsEvaled : Module String (rhsType Data) := by
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
     unfold Module.connect''
     dsimp
-    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter]
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
 
 #print lhsEvaled
 
@@ -273,7 +273,8 @@ def rhsGhostEvaled : Module String (rhsGhostType Data) := by
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
     unfold Module.connect''
     dsimp
-    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter]
+    simp [Batteries.AssocList.find?, -Prod.exists]
+
 
 --Invariants
 
