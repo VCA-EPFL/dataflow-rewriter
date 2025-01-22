@@ -211,7 +211,10 @@ Essentially tagger + join without internal rule
 @[drunfold] def StringModule.tagger_untagger_val_ghost TagT [DecidableEq TagT] T :=
   NatModule.tagger_untagger_val_ghost TagT T |>.stringify
 
-def liftF2 {α β γ δ} (f : α -> β × δ) : α × γ -> (β × γ) × δ | (a, g) => ((f a |>.fst, g), f a |>.snd)
+def liftF2 {α β γ δ} (f : α -> β × δ) : α × (Nat × γ) -> (β × (Nat × γ)) × δ
+| (a, g) =>
+  let b := f a
+  ((b.1, (g.1 + 1, g.2)), b.2)
 
 def ghost_rhs
     : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
@@ -244,7 +247,7 @@ theorem rhs_ghost_type_independent b f b₂ f₂ T [Inhabited b] [Inhabited b₂
   : (@ghost_rhs b T f).fst = (@ghost_rhs b₂ T f₂).fst := by rfl
 
 @[drcompute] theorem find?_branch_data3 : (Batteries.AssocList.find? ("branch ((TagT × " ++ DataS ++ ") × (Nat × " ++ DataS ++ ")") (environmentRhsGhost DataS f)) = .some ⟨_, branch ((TagT × Data) × (Nat × Data))⟩ := sorry
-@[drcompute] theorem find?_pure_f3 : (Batteries.AssocList.find? "pure (liftF2 (liftF f))" (environmentRhsGhost DataS f)) = .some ⟨_, pure (liftF2 (γ := (Nat × Data)) (liftF (γ := TagT) f))⟩ := sorry
+@[drcompute] theorem find?_pure_f3 : (Batteries.AssocList.find? "pure (liftF2 (liftF f))" (environmentRhsGhost DataS f)) = .some ⟨_, pure (liftF2 (γ := Data) (liftF (γ := TagT) f))⟩ := sorry
 @[drcompute] theorem find?_merge_data3 : (Batteries.AssocList.find? ("merge ((TagT × " ++ DataS ++ ") × (Nat × " ++ DataS ++ ") 2") (environmentRhsGhost DataS f)) = .some ⟨_, merge ((TagT × Data) × (Nat × Data)) 2⟩ := sorry
 @[drcompute] theorem find?_split_data3 : (Batteries.AssocList.find? ("split ((TagT × " ++ DataS ++ ") × (Nat × " ++ DataS ++ ") Bool") (environmentRhsGhost DataS f)) = .some ⟨_, split ((TagT × Data) × (Nat × Data)) Bool⟩ := sorry
 @[drcompute] theorem find?_tagger_data3 : (Batteries.AssocList.find? ("tagger_untagger_val_ghost TagT " ++ DataS) (environmentRhsGhost DataS f)) = .some ⟨_, StringModule.tagger_untagger_val_ghost TagT Data ⟩ := sorry
