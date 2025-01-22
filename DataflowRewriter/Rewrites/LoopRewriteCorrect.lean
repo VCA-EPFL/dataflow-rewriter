@@ -6,7 +6,7 @@ Authors: Yann Herklotz
 
 import DataflowRewriter.Rewrites.LoopRewrite
 import DataflowRewriter.ExprLowLemmas
-import Mathlib
+import DataflowRewriter.ExprHighElaborator
 
 namespace DataflowRewriter.LoopRewrite
 
@@ -118,9 +118,12 @@ def lhsTypeEvaled : Type := by
 
 variable (Data) in
 abbrev lhsType := (List Data ×
-              (List Bool × Bool) ×
-                List (Data × Bool) ×
-                  (List Data × List Bool) × (List Data × List Bool) × (List Bool × List Bool) × List Data × List Data × List Bool)
+          NatModule.Named "init" (List Bool × Bool) ×
+            NatModule.Named "pure" (List (Data × Bool)) ×
+              NatModule.Named "split" (List Data × List Bool) ×
+                NatModule.Named "branch" (List Data × List Bool) ×
+                  NatModule.Named "fork2" (List Bool × List Bool) ×
+                    NatModule.Named "mux" (List Data × List Data × List Bool))
 
 set_option maxHeartbeats 0 in
 def lhsEvaled : Module String (lhsType Data) := by
@@ -145,7 +148,12 @@ def lhsEvaled : Module String (lhsType Data) := by
     dsimp
 
 variable (Data) in
-abbrev rhsType := (List (Data × Bool) × (List Data × List Bool) × List Data × List Data × List Bool)
+abbrev rhsType :=
+        (NatModule.Named "pure" (List ((TagT × Data) × Bool)) ×
+          NatModule.Named "branch" (List (TagT × Data) × List Bool) ×
+            NatModule.Named "merge" (List (TagT × Data)) ×
+              NatModule.Named "tagger_untagger_val" (List TagT × AssocList TagT Data × List Data) ×
+                NatModule.Named "split" (List (TagT × Data) × List Bool))
 
 set_option maxHeartbeats 0 in
 def rhsEvaled : Module String (rhsType Data) := by
@@ -166,6 +174,106 @@ def rhsEvaled : Module String (rhsType Data) := by
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter]
 
 #print lhsEvaled
+
+/--
+Essentially tagger + join without internal rule
+-/
+@[drunfold] def NatModule.tagger_untagger_val_ghost (TagT : Type 0) [_i: DecidableEq TagT] (T : Type 0) (name := "tagger_untagger_val_ghost") : NatModule (NatModule.Named name (List TagT × AssocList TagT T × List (T × (Nat × T)))) :=
+  { inputs := [
+        -- Complete computation
+        -- Models the input of the Cal + Untagger (coming from a previously tagged region)
+        (0, ⟨ (TagT × T) × (Nat × T), λ (oldOrder, oldMap, oldVal) ((tag,el), r) (newOrder, newMap, newVal) =>
+          -- Tag must be used, but no value ready, otherwise block:
+          (tag ∈ oldOrder ∧ oldMap.find? tag = none) ∧
+          newMap = oldMap.cons tag el ∧ newOrder = oldOrder ∧ newVal = oldVal ⟩),
+        -- Enq a value to be tagged
+        -- Models the input of the Tagger (coming from outside)
+        (1, ⟨ T, λ (oldOrder, oldMap, oldVal) v (newOrder, newMap, newVal) =>
+          newMap = oldMap ∧ newOrder = oldOrder ∧ newVal = oldVal.concat (v, 0, v) ⟩)
+      ].toAssocList,
+    outputs := [
+        -- Allocate fresh tag and output with value
+        -- Models the output of the Tagger
+      (0, ⟨ (TagT × T) × (Nat × T), λ (oldOrder, oldMap, oldVal) ((tag, v), z) (newOrder, newMap, newVal) =>
+        -- Tag must be unused otherwise block (alternatively we
+        -- could an implication to say undefined behavior):
+        (tag ∉ oldOrder ∧ oldMap.find? tag = none) ∧
+        newMap = oldMap ∧ newOrder = oldOrder.concat tag ∧ (v, z) :: newVal = oldVal⟩),
+        -- Dequeue + free tag
+        -- Models the output of the Cal + Untagger
+      (1, ⟨ T, λ (oldorder, oldmap, oldVal) el (neworder, newmap, newVal) =>
+        -- tag must be used otherwise, but no value brought, undefined behavior:
+        ∃ tag , oldorder = tag :: neworder ∧ oldmap.find? tag = some el ∧
+        newmap = oldmap.eraseAll tag ∧ newVal = oldVal ⟩),
+        ].toAssocList
+  }
+
+@[drunfold] def StringModule.tagger_untagger_val_ghost TagT [DecidableEq TagT] T :=
+  NatModule.tagger_untagger_val_ghost TagT T |>.stringify
+
+def liftF2 {α β γ δ} (f : α -> β × δ) : α × γ -> (β × γ) × δ | (a, g) => ((f a |>.fst, g), f a |>.snd)
+
+def ghost_rhs
+    : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
+    i_in [type = "io"];
+    o_out [type = "io"];
+
+    tagger [typeImp = $(⟨_, StringModule.tagger_untagger_val_ghost TagT Data ⟩), type = $("tagger_untagger_val_ghost TagT " ++ DataS)];
+    merge [typeImp = $(⟨_, merge ((TagT × Data) × (Nat × Data)) 2⟩), type = $("merge ((TagT × " ++ DataS ++ ") × (Nat × " ++ DataS ++ ") 2")];
+    branch [typeImp = $(⟨_, branch ((TagT × Data) × (Nat × Data))⟩), type = $("branch ((TagT × " ++ DataS ++ ") × (Nat × " ++ DataS ++ ")")];
+    tag_split [typeImp = $(⟨_, split ((TagT × Data) × (Nat × Data)) Bool⟩), type = $("split ((TagT × " ++ DataS ++ ") × (Nat × " ++ DataS ++ ") Bool")];
+    mod [typeImp = $(⟨_, pure (liftF2 (liftF f))⟩), type = "pure (liftF2 (liftF f))"];
+
+    i_in -> tagger [to="in2"];
+    tagger -> o_out [from="out2"];
+
+    tagger -> merge [from="out1",to="in2"];
+    merge -> mod [from="out1", to="in1"];
+    mod -> tag_split [from="out1", to="in1"];
+    tag_split -> branch [from="out1", to="in1"];
+    tag_split -> branch [from="out2", to="in2"];
+    branch -> merge [from="out1", to="in1"];
+    branch -> tagger [from="out2", to="in1"];
+  ]
+
+def environmentRhsGhost : IdentMap String (TModule1 String) := ghost_rhs DataS f |>.snd
+
+def rhsGhostLower := (@ghost_rhs Unit DataS (λ _ => default) |>.1).lower.get rfl
+
+theorem rhs_ghost_type_independent b f b₂ f₂ T [Inhabited b] [Inhabited b₂]
+  : (@ghost_rhs b T f).fst = (@ghost_rhs b₂ T f₂).fst := by rfl
+
+@[drcompute] theorem find?_branch_data3 : (Batteries.AssocList.find? ("branch ((TagT × " ++ DataS ++ ") × (Nat × " ++ DataS ++ ")") (environmentRhsGhost DataS f)) = .some ⟨_, branch ((TagT × Data) × (Nat × Data))⟩ := sorry
+@[drcompute] theorem find?_pure_f3 : (Batteries.AssocList.find? "pure (liftF2 (liftF f))" (environmentRhsGhost DataS f)) = .some ⟨_, pure (liftF2 (γ := (Nat × Data)) (liftF (γ := TagT) f))⟩ := sorry
+@[drcompute] theorem find?_merge_data3 : (Batteries.AssocList.find? ("merge ((TagT × " ++ DataS ++ ") × (Nat × " ++ DataS ++ ") 2") (environmentRhsGhost DataS f)) = .some ⟨_, merge ((TagT × Data) × (Nat × Data)) 2⟩ := sorry
+@[drcompute] theorem find?_split_data3 : (Batteries.AssocList.find? ("split ((TagT × " ++ DataS ++ ") × (Nat × " ++ DataS ++ ") Bool") (environmentRhsGhost DataS f)) = .some ⟨_, split ((TagT × Data) × (Nat × Data)) Bool⟩ := sorry
+@[drcompute] theorem find?_tagger_data3 : (Batteries.AssocList.find? ("tagger_untagger_val_ghost TagT " ++ DataS) (environmentRhsGhost DataS f)) = .some ⟨_, StringModule.tagger_untagger_val_ghost TagT Data ⟩ := sorry
+
+variable (Data) in
+abbrev rhsGhostType :=
+        (NatModule.Named "pure" (List (((TagT × Data) × ℕ × Data) × Bool)) ×
+          NatModule.Named "branch" (List ((TagT × Data) × ℕ × Data) × List Bool) ×
+            NatModule.Named "merge" (List ((TagT × Data) × ℕ × Data)) ×
+              NatModule.Named "tagger_untagger_val_ghost" (List TagT × AssocList TagT Data × List (Data × ℕ × Data)) ×
+                NatModule.Named "split" (List ((TagT × Data) × ℕ × Data) × List Bool))
+
+set_option maxHeartbeats 0 in
+def rhsGhostEvaled : Module String (rhsGhostType Data) := by
+  precomputeTac [e| rhsGhostLower DataS, environmentRhsGhost DataS f ] by
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
+    rw [find?_branch_data3,find?_pure_f3,find?_split_data3,find?_merge_data3,find?_tagger_data3]
+    simp [-AssocList.find?_eq]
+    unfold Module.liftR Module.liftL
+    dsimp
+    conv =>
+      pattern (occs := *) Module.connect'' _ _
+      all_goals
+        rw [(Module.connect''_dep_rw (h := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl)
+                                     (h' := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl))]; rfl
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
+    unfold Module.connect''
+    dsimp
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter]
 
 --Invariants
 
