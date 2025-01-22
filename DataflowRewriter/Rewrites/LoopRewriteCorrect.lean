@@ -178,14 +178,14 @@ def rhsEvaled : Module String (rhsType Data) := by
 /--
 Essentially tagger + join without internal rule
 -/
-@[drunfold] def NatModule.tagger_untagger_val_ghost (TagT : Type 0) [_i: DecidableEq TagT] (T : Type 0) (name := "tagger_untagger_val_ghost") : NatModule (NatModule.Named name (List TagT × AssocList TagT T × List (T × (Nat × T)))) :=
+@[drunfold] def NatModule.tagger_untagger_val_ghost (TagT : Type 0) [_i: DecidableEq TagT] (T : Type 0) (name := "tagger_untagger_val_ghost") : NatModule (NatModule.Named name (List TagT × AssocList TagT (T × (Nat × T)) × List (T × (Nat × T)))) :=
   { inputs := [
         -- Complete computation
         -- Models the input of the Cal + Untagger (coming from a previously tagged region)
         (0, ⟨ (TagT × T) × (Nat × T), λ (oldOrder, oldMap, oldVal) ((tag,el), r) (newOrder, newMap, newVal) =>
           -- Tag must be used, but no value ready, otherwise block:
           (tag ∈ oldOrder ∧ oldMap.find? tag = none) ∧
-          newMap = oldMap.cons tag el ∧ newOrder = oldOrder ∧ newVal = oldVal ⟩),
+          newMap = oldMap.cons tag (el, r) ∧ newOrder = oldOrder ∧ newVal = oldVal ⟩),
         -- Enq a value to be tagged
         -- Models the input of the Tagger (coming from outside)
         (1, ⟨ T, λ (oldOrder, oldMap, oldVal) v (newOrder, newMap, newVal) =>
@@ -203,7 +203,7 @@ Essentially tagger + join without internal rule
         -- Models the output of the Cal + Untagger
       (1, ⟨ T, λ (oldorder, oldmap, oldVal) el (neworder, newmap, newVal) =>
         -- tag must be used otherwise, but no value brought, undefined behavior:
-        ∃ tag , oldorder = tag :: neworder ∧ oldmap.find? tag = some el ∧
+        ∃ tag r, oldorder = tag :: neworder ∧ oldmap.find? tag = some (el, r) ∧
         newmap = oldmap.eraseAll tag ∧ newVal = oldVal ⟩),
         ].toAssocList
   }
@@ -257,7 +257,7 @@ abbrev rhsGhostType :=
         (NatModule.Named "pure" (List (((TagT × Data) × ℕ × Data) × Bool)) ×
           NatModule.Named "branch" (List ((TagT × Data) × ℕ × Data) × List Bool) ×
             NatModule.Named "merge" (List ((TagT × Data) × ℕ × Data)) ×
-              NatModule.Named "tagger_untagger_val_ghost" (List TagT × AssocList TagT Data × List (Data × ℕ × Data)) ×
+              NatModule.Named "tagger_untagger_val_ghost" (List TagT × AssocList TagT (Data × (Nat × Data)) × List (Data × ℕ × Data)) ×
                 NatModule.Named "split" (List ((TagT × Data) × ℕ × Data) × List Bool))
 
 set_option maxHeartbeats 0 in
@@ -279,115 +279,42 @@ def rhsGhostEvaled : Module String (rhsGhostType Data) := by
     simp [Batteries.AssocList.find?, -Prod.exists]
 
 
---Invariants
 
--- def apply (n : Nat) (i : Data) : Data × Bool :=
--- match n with
--- | 0 => f i
--- | n' + 1 => f (apply n' i).fst
-
--- def iterate (i: Data) (n : Nat) (i': Data) : Prop :=
---   (∀ m, m < n -> (apply f m i).snd = true) ∧ apply f n i = (i', false)
+def apply (n : Nat) (i : Data) : Data × Bool :=
+match n with
+| 0 => f i
+| n' + 1 => f (apply n' i).fst
 
 
--- -- theorem compute_n (i : Data) :
--- --   ∃ n i', iterate f i n i' = true := by
--- -- constructor; constructor
--- -- . unfold iterate
--- --   simp
--- --   and_intros
--- --   . intro m h1
--- --     unfold apply;
+def iterate (i: Data) (n : Nat) (i': Data) : Prop :=
+  (∀ m, m < n -> (apply f m i).snd = true) ∧ apply f n i = (i', false)
 
--- omit [Inhabited Data] in
--- @[simp]
--- theorem input_rule_isData {input_rule} :
---   ((lhsEvaled f).inputs.find? ↑"i_in") = .some input_rule ->
---   Data = input_rule.fst := by
---   unfold lhsEvaled
---   simp; intro h1
---   subst_vars; rfl
+#print rhsGhostType
 
--- #check lhsEvaled
-
-
--- -- theorem flushing (n : Nat) input_rule s i i' s' s_int
--- --   (h : ((lhsEvaled f).inputs.find? ↑"i_in") = .some input_rule) :
--- --   input_rule.snd s i s' ->
--- --   check_output f n (input_rule_isData f h i) i' ->
--- --   existSR (lhsEvaled f).internals s' s_int ->
--- --   ∃ s'', existSR (lhsEvaled f).internals s_int s'' ∧ s''.1 = i' := by admit
-
--- --Invariant flush
+inductive state_relation : rhsGhostType Data -> Prop where
+| intros : ∀ (s :  rhsGhostType Data) x_merge x_module x_branchD x_branchB x_tagT x_tagM x_tagD x_splitD x_splitB x_branchT x_branchF x_splitT x_splitF x_moduleT x_moduleF,
+  ⟨ x_module, ⟨x_branchD, x_branchB⟩, x_merge, ⟨x_tagT, x_tagM, x_tagD ⟩, ⟨x_splitD, x_splitB⟩⟩ = s ->
+  ∀ elem n i', elem ∈ x_merge -> iterate f elem.2.2 n i' -> elem.2.1 ≥ 0 ∧ elem.2.1 - 1 < n ->
+  List.map Prod.fst (List.filter (fun x => x.2 == true) (List.zip x_branchD x_branchB)) = x_branchT ->
+  List.map Prod.fst (List.filter (fun x => x.2 == false) (List.zip x_branchD x_branchB)) = x_branchF->
+  List.map Prod.fst (List.filter (fun x => x.2 == true) (List.zip x_splitD x_splitB)) = x_splitT ->
+  List.map Prod.fst (List.filter (fun x => x.2 == false) (List.zip x_splitD x_splitB)) = x_splitF ->
+  List.map Prod.fst (List.filter (fun x => x.2 == true) (x_module)) = x_moduleT ->
+  List.map Prod.fst (List.filter (fun x => x.2 == false) (x_module)) = x_moduleF ->
+ ( ∀ elem n i', elem ∈ x_moduleT ++ x_splitT ++ x_branchT -> iterate f elem.2.2 n i' -> elem.2.1 > 0 ∧ elem.2.1-1 < n) ->
+  (∀ elem n i', elem ∈ x_moduleF ++ x_splitF ++ x_branchF -> iterate f elem.2.2 n i' -> elem.2.1 > 0 ∧ elem.2.1-1 = n) ->
+  --∀ elem n i', elem ∈ x_module.map Prod.fst -> iterate f elem.2.2 n i' -> x_module = [(apply f elem.2.1 elem.2.2)] ->
 
 
 
--- inductive flush_relation : lhsType Data -> Prop where
--- | intros : ∀ (s : lhsType Data) x_bag x_initL x_initB x_module x_splitD x_splitB x_branchD x_branchB x_forkR x_forkL x_muxB x_muxI x_muxC,
---   ⟨x_bag, ⟨x_initL, x_initB⟩, x_module, ⟨x_splitD, x_splitB⟩ ,⟨x_branchD, x_branchB⟩, ⟨x_forkR, x_forkL⟩, x_muxB, x_muxI, x_muxC ⟩ = s ->
---   (x_module.map Prod.fst ++ x_splitD ++ x_branchD ++ x_muxB = []
---     ∨
---     ∃ elem, x_module.map Prod.fst ++ x_splitD ++ x_branchD ++ x_muxB = [elem]) ->
---   (x_initB = true -> x_splitB ++ x_forkL ++ x_initL ++ x_muxC = []) ->
---   (x_initB = false -> ∃ elem, x_splitB ++ x_forkL ++ x_initL ++ x_muxC = [elem]) ->
---   flush_relation s
-
-
--- inductive computation_relation : (lhsType Data) -> (Data) -> Prop where
--- | intros : ∀ (s : lhsType Data) (i_in : Data) k n x_bag x_initL x_initB x_module x_splitD x_splitB x_branchD x_branchB x_forkR x_forkL x_muxB x_muxI x_muxC,
---   ⟨x_bag, ⟨x_initL, x_initB⟩, x_module, ⟨x_splitD, x_splitB⟩ ,⟨x_branchD, x_branchB⟩, ⟨x_forkR, x_forkL⟩, x_muxB, x_muxI, x_muxC ⟩ = s ->
---   (∃ elem, x_branchD = [elem] -> x_splitB ++ x_forkL ++ x_initL ++ x_muxC = [true]) ->
---   (∀ n i', iterate f i_in n i' ->
---   (
---     k < n -> x_module = [(apply f k i_in )] ∧ x_module.map Prod.snd = [true]
---     ∧
---     k = n -> x_module = [(apply f n i_in )] ∧ x_module.map Prod.snd = [false]) ->
---   x_splitB = [true] -> ∃ k, k < n ∧  x_splitD = [(apply f k i_in )].map Prod.fst ->
---   x_splitB = [false] -> ∃ k, k = n ∧  x_splitD = [(apply f k i_in )].map Prod.fst )->
---   computation_relation s i_in
-
--- inductive state_relation : lhsType Data -> Data -> Prop where
--- | base: ∀ (s : lhsType Data) i_in,
---   flush_relation s ->
---   computation_relation f s i_in ->
---   state_relation s i_in
-
-
--- #print lhsEvaled
-
-
--- theorem only_one_data_in_flight:
---   ∀ (s s' : lhsType Data) i_in rule,
---     rule ∈ (lhsEvaled f).internals ->
---     rule s s' ->
---     state_relation f s i_in ->
---     state_relation f s' i_in := by
---   intro s s' i_in rule h1 h2 h3
---   let ⟨x_bag, ⟨x_initL, x_initB⟩, x_module, ⟨x_splitD, x_splitB⟩ ,⟨x_branchD, x_branchB⟩, ⟨x_forkR, x_forkL⟩, x_muxB, x_muxI, x_muxC ⟩ := s
---   let ⟨x_bag', ⟨x_initL', x_initB'⟩, x_module', ⟨x_splitD', x_splitB'⟩ ,⟨x_branchD', x_branchB'⟩, ⟨x_forkR', x_forkL'⟩, x_muxB', x_muxI', x_muxC'⟩ := s'
---   fin_cases h1
---   . dsimp at h2
---     obtain ⟨h2, _⟩ := h2
---     specialize h2 rfl
---     obtain ⟨cons, newC, h⟩ := h2
---     obtain ⟨x_bag'_int, ⟨x_initL'_int, x_initB'_int⟩, x_module'_int, ⟨x_splitD'_int, x_splitB'_int⟩ ,⟨x_branchD'_int, x_branchB'_int⟩, ⟨x_forkR'_int, x_forkL'_int⟩, x_muxB'_int, x_muxI'_int, x_muxC'_int⟩ := cons
---     dsimp at h
---     simp at *
---     rcases h with ⟨⟨⟨h4, ⟨h15, ⟨⟨h20, h26⟩, ⟨h21, h27⟩, ⟨h22, h28⟩, h23, h24, h25⟩⟩⟩, h5⟩ , ⟨⟨⟨⟨⟨⟨ h6, h13, h14⟩, ⟨h12, h17⟩⟩, ⟨h11, h16⟩⟩, ⟨h10, h18⟩⟩, h8⟩, ⟨h9, h19⟩⟩, h7⟩
---     subst_vars
---     rcases h3 with ⟨ h3, h3'⟩
---     constructor
---     . cases h3
---       rename_i h3 _ _
---       cases h3
---       constructor
---       . rfl
---       . simp at *; rename_i H1 H2 H3 H4
---         rcases H1 with ⟨_ ,⟨ _, _ , _ , _, _, _, _ ⟩⟩
---         rename_i H5 H6 H7 H8 H9 H10 H11 H12
---         cases H12; cases H10; cases H9; cases H8; cases H6; rcases H4 with ⟨ _, _, _ ⟩
---         rename_i H; cases H
---         subst_vars
+--  ( ∀ n k i',
+--     iterate f i_in n i' ->
+--     k ≤ n ->
+--     (k < n -> x_module = [(apply f k i_in )] ∧ x_module.map Prod.snd = [true]) ->
+--     (k = n -> x_module = [(apply f n i_in )] ∧ x_module.map Prod.snd = [false]) ->
+--     (x_splitB = [true] -> k < n ∧  x_splitD = [(apply f k i_in )].map Prod.fst) ->
+--     (x_splitB = [false] -> k = n ∧  x_splitD = [(apply f k i_in )].map Prod.fst)) ->
+  state_relation s
 
 
 

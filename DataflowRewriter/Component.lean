@@ -40,7 +40,7 @@ namespace DataflowRewriter.NatModule
              inputs := mod.inputs,
              internals := mod.internals }
 
-def Named (s : String) (T : Type _) := T
+abbrev Named (s : String) (T : Type _) := T
 
 @[drunfold] def merge T (n : Nat) (name : String := "merge") : NatModule (Named name (List T)) :=
   { inputs := List.range n |>.map (Prod.mk ↑· (⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)) |>.toAssocList,
