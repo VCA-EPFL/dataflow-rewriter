@@ -173,7 +173,7 @@ however, currently the low-level expression language does not remember any names
   -- split into the external mapping and internal mapping.
   let (ext_mapping, int_mapping) ← liftError <| e_sub.weak_beq def_rewrite.input_expr
 
-  let comb_mapping := PortMapping.filterId <| ext_mapping.append int_mapping
+  let comb_mapping := ext_mapping.append int_mapping
   EStateM.guard (.error "input mapping not invertible") <| ExprLow.invertible comb_mapping.input
   EStateM.guard (.error "output mapping not invertible") <| ExprLow.invertible comb_mapping.output
 

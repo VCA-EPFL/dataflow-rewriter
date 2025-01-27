@@ -254,4 +254,13 @@ theorem filderId_Nodup {α} [DecidableEq α] (p : AssocList α α) : p.keysList.
 
 -- theorem filterId_EqExt {α} [DecidableEq α] (p : AssocList α α) := sorry
 
+theorem mapVal_mapKey {α β γ σ} {f : α → γ} {g : β → σ} {m : AssocList α β}:
+  (m.mapKey f).mapVal (λ _ => g) = (m.mapVal (λ _ => g)).mapKey f := by sorry
+
+theorem mapKey_append {α β γ} {f : α → γ} {m n : AssocList α β}:
+  (m.mapKey f).append (n.mapKey f) = (m.append n).mapKey f := by sorry
+
+theorem eraseAll_comm_mapKey {α β γ} [DecidableEq α] [DecidableEq γ] {f : α → γ} {i} {m : AssocList α β} :
+  (m.mapKey f).eraseAll (f i) = (m.eraseAll i).mapKey f := sorry
+
 end Batteries.AssocList

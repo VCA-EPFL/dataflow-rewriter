@@ -162,17 +162,17 @@ fully specified and therefore symmetric in both expressions.
 -/
 @[drunfold] def check_eq : ExprLow Ident → ExprLow Ident → Bool
 | .base inst typ, .base inst' typ' =>
-  let inst_i := inst.input.filterId
-  let inst_o := inst.output.filterId
-  let inst'_i := inst'.input.filterId
-  let inst'_o := inst'.output.filterId
+  -- let inst_i := inst.input.filterId
+  -- let inst_o := inst.output.filterId
+  -- let inst'_i := inst'.input.filterId
+  -- let inst'_o := inst'.output.filterId
   typ = typ'
-  -- ∧ inst.input.EqExt inst'.input ∧ inst.output.EqExt inst'.output
-  -- ∧ inst'.input.keysList.Nodup ∧ inst.output.keysList.Nodup
-  -- ∧ inst'.output.keysList.Nodup ∧ inst.input.keysList.Nodup
-  ∧ inst'_i.EqExt inst_i ∧ inst'_o.EqExt inst_o
-  ∧ inst'_i.keysList.Nodup ∧ inst_i.keysList.Nodup
-  ∧ inst'_o.keysList.Nodup ∧ inst_o.keysList.Nodup
+  ∧ inst'.input.EqExt inst.input ∧ inst'.output.EqExt inst.output
+  ∧ inst'.input.keysList.Nodup ∧ inst.output.keysList.Nodup
+  ∧ inst'.output.keysList.Nodup ∧ inst.input.keysList.Nodup
+  -- ∧ inst'_i.EqExt inst_i ∧ inst'_o.EqExt inst_o
+  -- ∧ inst'_i.keysList.Nodup ∧ inst_i.keysList.Nodup
+  -- ∧ inst'_o.keysList.Nodup ∧ inst_o.keysList.Nodup
 | .connect o i e, .connect o' i' e' => o = o' ∧ i = i' ∧ e.check_eq e'
 | .product e₁ e₂, .product e₁' e₂' => e₁.check_eq e₁' ∧ e₂.check_eq e₂'
 | _, _ => false

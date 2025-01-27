@@ -7,6 +7,7 @@ Authors: Yann Herklotz
 import DataflowRewriter.Module
 import DataflowRewriter.ExprLow
 import Mathlib.Tactic
+import Mathlib.Logic.Function.Basic
 
 open Batteries (AssocList)
 
@@ -261,6 +262,43 @@ def cast_module {S T} (h : S = T): Module Ident S = Module Ident T := by
 
 def _root_.Sigma.map2 {α t} (pair : @Sigma α t) (f : ∀ {a}, t a → t a) : Sigma t := ⟨ _, f pair.snd ⟩
 
+theorem mapKey_comm {α} {m : PortMap Ident α} {inst f}:
+  /- Pretty sure these are true based on wf_mapping. -/
+  m.mapKey (Module.bijectivePortRenaming (inst.mapVal (fun x => f))) =
+      (m.mapKey (Module.bijectivePortRenaming inst)).mapKey f := by sorry
+
+theorem eraseAll_comm_inputs {S f g i} {m : Module Ident S}:
+  AssocList.eraseAll (f i) (m.mapPorts2 f g).inputs = AssocList.mapKey f (AssocList.eraseAll i m.inputs) := by
+  obtain ⟨min, mout, mint⟩ := m
+  unfold Module.mapPorts2 Module.mapInputPorts Module.mapOutputPorts
+  exact AssocList.eraseAll_comm_mapKey
+
+theorem eraseAll_comm_outputs {S f g i} {m : Module Ident S}:
+  AssocList.eraseAll (g i) (m.mapPorts2 f g).outputs = AssocList.mapKey g (AssocList.eraseAll i m.outputs) := by
+  obtain ⟨min, mout, mint⟩ := m
+  unfold Module.mapPorts2 Module.mapInputPorts Module.mapOutputPorts
+  exact AssocList.eraseAll_comm_mapKey
+
+theorem find?_comm_inputs {S f g i} {m : Module Ident S} (inj : Function.Injective f) :
+  (AssocList.find? (f i) (m.mapPorts2 f g).inputs) = (AssocList.find? i m.inputs) := by
+  obtain ⟨min, mout, mint⟩ := m
+  unfold Module.mapPorts2 Module.mapInputPorts Module.mapOutputPorts
+  exact AssocList.mapKey_find? inj
+
+theorem find?_comm_outputs {S f g i} {m : Module Ident S} (inj : Function.Injective g):
+  (AssocList.find? (g i) (m.mapPorts2 f g).outputs) = (AssocList.find? i m.outputs) := by
+  obtain ⟨min, mout, mint⟩ := m
+  unfold Module.mapPorts2 Module.mapInputPorts Module.mapOutputPorts
+  exact AssocList.mapKey_find? inj
+
+omit [DecidableEq Ident] in
+theorem mapPorts2_mapKey_inputs {S} {f g} {m : Module Ident S} :
+  (m.mapPorts2 f g).inputs = m.inputs.mapKey f := rfl
+
+omit [DecidableEq Ident] in
+theorem mapPorts2_mapKey_outputs {S} {f g} {m : Module Ident S} :
+  (m.mapPorts2 f g).outputs = m.outputs.mapKey g := rfl
+
 theorem rename_build_module_eq {e : ExprLow Ident} {f g} (h : Function.Bijective f) (h' : Function.Bijective g) :
   e.wf_mapping ε →
   ((e.mapPorts2 f g).build_module' ε) = ((e.build_module' ε).map (·.map id (fun _ y => y.mapPorts2 f g))) := by
@@ -283,8 +321,8 @@ theorem rename_build_module_eq {e : ExprLow Ident} {f g} (h : Function.Bijective
       unfold Module.mapPorts2
       unfold Module.mapInputPorts Module.mapOutputPorts; dsimp
       congr 1
-      · sorry /- Pretty sure these are true based on wf_mapping. -/
-      . sorry
+      · rw [mapKey_comm]
+      . rw [mapKey_comm]
   | connect o i e ih =>
     intro hwf_mapping
     dsimp [wf_mapping] at hwf_mapping; specialize ih hwf_mapping
@@ -297,9 +335,9 @@ theorem rename_build_module_eq {e : ExprLow Ident} {f g} (h : Function.Bijective
       rw [hbuild1]; dsimp [Sigma.map];
       unfold Sigma.map at hbuild2; rename_i val; cases val; cases m; dsimp at *
       cases hbuild2; congr 3
-      · sorry
-      · sorry
-      · sorry
+      · rw [eraseAll_comm_inputs]
+      · rw [eraseAll_comm_outputs]
+      · rw [find?_comm_outputs h'.injective, find?_comm_inputs h.injective]; rfl
   | product e₁ e₂ ih₁ ih₂ =>
     intro hwf_mapping
     dsimp [wf_mapping] at hwf_mapping; simp at hwf_mapping
@@ -325,10 +363,10 @@ theorem rename_build_module_eq {e : ExprLow Ident} {f g} (h : Function.Bijective
       rename_i val val1; cases val; cases val1
       cases ih2₁; cases ih2₂
       dsimp; congr 3
-      · sorry
-      · sorry
+      · simp [mapPorts2_mapKey_inputs,AssocList.mapVal_mapKey,AssocList.mapVal_mapKey,AssocList.mapKey_append]
+      · simp [mapPorts2_mapKey_outputs,AssocList.mapVal_mapKey,AssocList.mapVal_mapKey,AssocList.mapKey_append]
 
-theorem rename_build_module_eq {e : ExprLow Ident} {f g} (h : Function.Bijective f) (h' : Function.Bijective g) :
+theorem rename_build_module_heq {e : ExprLow Ident} {f g} (h : Function.Bijective f) (h' : Function.Bijective g) :
   HEq ([e| e.mapPorts2 f g, ε]) ([e| e, ε ].mapPorts2 f g) := by
   induction e with
   | base map typ =>
@@ -344,7 +382,7 @@ theorem rename_build_module_eq {e : ExprLow Ident} {f g} (h : Function.Bijective
       obtain ⟨mT, me⟩ := m
       obtain ⟨min, mout, mint⟩ := me; dsimp
       congr
-      unfold PortMapping.filterId; dsimp
+      -- unfold PortMapping.filterId; dsimp
       unfold Module.renamePorts
       dsimp
       unfold Module.mapPorts2
@@ -355,7 +393,8 @@ theorem rename_build_module_eq {e : ExprLow Ident} {f g} (h : Function.Bijective
   | connect o i e ih =>
     dsimp [drunfold]
     cases hfind : (build_module' ε e)
-    · dsimp
+    all_goals sorry
+  | _ => sorry
 
 theorem rename_build_module1 {e f g} :
   Function.Bijective f → Function.Bijective g →
@@ -511,7 +550,7 @@ theorem check_eq_refines {iexpr iexpr'} :
     | none =>
       apply Module.refines_reflexive
     | some mod =>
-      dsimp; rw (occs := .pos [2]) [Module.renamePorts_EqExt (p' := inst.filterId)]
+      dsimp; rw (occs := .pos [2]) [Module.renamePorts_EqExt (p' := inst)]
       apply Module.refines_reflexive
       any_goals (unfold PortMapping.wf; solve_by_elim)
       cases map'; cases inst; solve_by_elim
@@ -560,13 +599,13 @@ theorem abstract_refines {iexpr expr_pat i} :
       subst_vars
       dsimp [drunfold, Option.bind] at *
       rw [hb] at hfind ⊢; simp [-AssocList.find?_eq] at *
-      rw [filterId_empty,Module.renamePorts_empty]
+      rw [Module.renamePorts_empty]
       rename_i m _; cases m
-      rw (occs := .pos [2]) [Module.renamePorts_EqExt (p' := inst.filterId)]
+      rw (occs := .pos [2]) [Module.renamePorts_EqExt (p' := inst)]
       · apply Module.refines_reflexive
-      · unfold PortMapping.filterId PortMapping.wf AssocList.wf; simp only [*, and_self]
-      · unfold PortMapping.filterId PortMapping.wf AssocList.wf; simp only [*, and_self]
-      · cases inst; unfold PortMapping.filterId; constructor <;> simp only [*]
+      · unfold PortMapping.wf AssocList.wf; simp only [*, and_self]
+      · unfold PortMapping.wf AssocList.wf; simp only [*, and_self]
+      · cases inst; constructor <;> simp only [*]
     · have : (if (base inst typ).check_eq expr_pat = true then base ∅ i else base inst typ) = base inst typ := by
         simp [h]
       rw [this]; clear this
@@ -585,7 +624,7 @@ theorem abstract_refines {iexpr expr_pat i} :
       rw [h]; dsimp; rw [build_module_unfold_1 hfind]; dsimp
       apply Module.refines_transitive (imod' := (build_module ε expr_pat).snd)
       · apply check_eq_refines; assumption; unfold wf all; aesop
-      · rw [filterId_empty, Module.renamePorts_empty]; apply Module.refines_reflexive
+      · rw [Module.renamePorts_empty]; apply Module.refines_reflexive
     · unfold abstract at ihe₁ ihe₂
       have : wf ε (e₁.replace expr_pat (base ∅ i)) := by
         apply wf_abstract; simp_all [wf, all]
@@ -608,7 +647,7 @@ theorem abstract_refines {iexpr expr_pat i} :
       rw [h]; dsimp; rw [build_module_unfold_1 hfind]; dsimp
       apply Module.refines_transitive (imod' := (build_module ε expr_pat).snd)
       · apply check_eq_refines; assumption; unfold wf all; aesop
-      · rw [filterId_empty, Module.renamePorts_empty]; apply Module.refines_reflexive
+      · rw [Module.renamePorts_empty]; apply Module.refines_reflexive
     · have : wf ε (connect x y (e.replace expr_pat (base ∅ i))) := by
         simp [wf, all]
         convert_to wf ε (e.replace expr_pat (base ∅ i));
@@ -640,13 +679,13 @@ theorem abstract_refines2 {iexpr expr_pat i} :
       subst_vars
       dsimp [drunfold, Option.bind] at *
       rw [hb] at hfind ⊢; simp [-AssocList.find?_eq] at *
-      rw [filterId_empty,Module.renamePorts_empty]
+      rw [Module.renamePorts_empty]
       rename_i m _; cases m
-      rw (occs := .pos [1]) [Module.renamePorts_EqExt (p' := inst.filterId)]
+      rw (occs := .pos [1]) [Module.renamePorts_EqExt (p' := inst)]
       · apply Module.refines_reflexive
-      · unfold PortMapping.filterId PortMapping.wf AssocList.wf; simp only [*, and_self]
-      · unfold PortMapping.filterId PortMapping.wf AssocList.wf; simp only [*, and_self]
-      · cases inst; unfold PortMapping.filterId; constructor <;> simp only [*]
+      · unfold PortMapping.wf AssocList.wf; simp only [*, and_self]
+      · unfold PortMapping.wf AssocList.wf; simp only [*, and_self]
+      · cases inst; constructor <;> simp only [*]
     · have : (if (base inst typ).check_eq expr_pat = true then base ∅ i else base inst typ) = base inst typ := by
         simp [h]
       rw [this]; clear this
@@ -664,7 +703,7 @@ theorem abstract_refines2 {iexpr expr_pat i} :
       specialize ihe₁ hwf1; specialize ihe₂ hwf2
       rw [h]; dsimp; rw [build_module_unfold_1 hfind]; dsimp
       apply Module.refines_transitive (imod' := (build_module ε expr_pat).snd)
-      · rw [filterId_empty, Module.renamePorts_empty]; apply Module.refines_reflexive
+      · rw [Module.renamePorts_empty]; apply Module.refines_reflexive
       · apply check_eq_refines; apply check_eq_symm; assumption
         apply check_eq_wf; assumption; unfold wf all; aesop
     · unfold abstract at ihe₁ ihe₂
@@ -688,7 +727,7 @@ theorem abstract_refines2 {iexpr expr_pat i} :
       specialize ih hwf
       rw [h]; dsimp; rw [build_module_unfold_1 hfind]; dsimp
       apply Module.refines_transitive (imod' := (build_module ε expr_pat).snd)
-      · rw [filterId_empty, Module.renamePorts_empty]; apply Module.refines_reflexive
+      · rw [Module.renamePorts_empty]; apply Module.refines_reflexive
       · apply check_eq_refines; apply check_eq_symm; assumption
         apply check_eq_wf; assumption; unfold wf all; aesop
     · have : wf ε (connect x y (e.replace expr_pat (base ∅ i))) := by
