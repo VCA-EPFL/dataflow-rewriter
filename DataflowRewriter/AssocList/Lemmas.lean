@@ -240,4 +240,18 @@ theorem mapKey_find? {α β γ} [DecidableEq α] [DecidableEq γ] {a : AssocList
       have t2 : (k == i) = false := by simp [*]
       rw [t1, t2]
 
+theorem keysList_EqExt {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) :
+  a.EqExt b → a.wf → b.wf → a.keysList.Perm b.keysList := by
+  sorry
+
+/-
+These are needed because ExprLow currently only checks equality and uniqueness against the map
+-/
+
+theorem filterId_wf {α} [DecidableEq α] (p : AssocList α α) : p.wf → p.filterId.wf := sorry
+
+theorem filderId_Nodup {α} [DecidableEq α] (p : AssocList α α) : p.keysList.Nodup → p.filterId.keysList.Nodup := sorry
+
+-- theorem filterId_EqExt {α} [DecidableEq α] (p : AssocList α α) := sorry
+
 end Batteries.AssocList

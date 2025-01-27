@@ -54,4 +54,33 @@ def beq_left_ooo {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α �
 def beq_ooo {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) : Bool :=
   beq_left_ooo a b ∧ beq_left_ooo b a
 
+def filterId {α} [DecidableEq α] (p : AssocList α α) : AssocList α α :=
+  p.filter (λ a b => a ≠ b)
+
+def subsetOf {α β} [DecidableEq α] (a b : AssocList α β) : Prop :=
+  ∀ i v, a.find? i = .some v → b.find? i = .some v
+
+def EqExt {α β} [DecidableEq α] (a b : AssocList α β) : Prop :=
+  -- a.subsetOf b ∧ b.subsetOf a
+  ∀ i, a.find? i = b.find? i
+
+theorem EqExt.refl {α β} [DecidableEq α] (a : AssocList α β) : a.EqExt a := by simp [EqExt]
+theorem EqExt.symm {α β} [DecidableEq α] {b a : AssocList α β} : a.EqExt b → b.EqExt a := by simp +contextual [EqExt]
+theorem EqExt.trans {α β} [DecidableEq α] {a b c : AssocList α β} : a.EqExt b → b.EqExt c → a.EqExt c := by
+  simp +contextual [EqExt]
+
+instance AssocListExtSetoid {α β} [DecidableEq α] : Setoid (AssocList α β) :=
+  ⟨EqExt, ⟨EqExt.refl, EqExt.symm, EqExt.trans⟩⟩
+
+theorem beq_ooo_ext {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) :
+  a.EqExt b ↔ a.beq_ooo b := by sorry
+
+def DecidableEqExt {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) : Decidable (EqExt a b) :=
+  if h : a.beq_ooo b then isTrue ((beq_ooo_ext a b).mpr h)
+  else isFalse (fun h' => by apply h; rw [← beq_ooo_ext]; assumption)
+
+instance {α β} [DecidableEq α] [DecidableEq β] : DecidableRel (@EqExt α β _) := DecidableEqExt
+
+def wf {α β} (a : AssocList α β) : Prop := a.keysList.Nodup
+
 end Batteries.AssocList

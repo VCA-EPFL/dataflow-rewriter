@@ -116,6 +116,11 @@ theorem getIO_some {S} (m : PortMap Ident ((T : Type) × (S → T → S → Prop
   m.getIO ident = t := by
   intros H; simp only [PortMap.getIO, H]; simp
 
+theorem EqExt_getIO {S} {m m' : PortMap Ident ((T : Type) × (S → T → S → Prop))} :
+  m.EqExt m' →
+  ∀ i, m.getIO i = m'.getIO i := by
+  unfold getIO AssocList.EqExt at *; intro hext i; rw [hext]
+
 end PortMap
 
 structure PortMapping (Ident) where
@@ -163,6 +168,16 @@ def mapPairs (f : InternalPort Ident → InternalPort Ident → InternalPort Ide
 
 def inverse (p : PortMapping Ident) :=
   {p with input := p.input.inverse, output := p.output.inverse}
+
+variable [DecidableEq Ident]
+
+def filterId (p : PortMapping Ident) : PortMapping Ident :=
+  ⟨p.input.filterId, p.output.filterId⟩
+
+def EqExt (a b : PortMapping Ident) : Prop :=
+  a.input.EqExt b.input ∧ a.output.EqExt b.output
+
+def wf (a : PortMapping Ident) : Prop := a.input.wf ∧ a.output.wf
 
 end PortMapping
 

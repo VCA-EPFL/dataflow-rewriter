@@ -16,6 +16,7 @@ import DataflowRewriter.HVector
 import DataflowRewriter.Tactic
 import Mathlib.Tactic.Tauto
 import Mathlib.Tactic.Convert
+import Aesop
 
 open Batteries (AssocList)
 
@@ -101,6 +102,9 @@ variable [DecidableEq Ident]
     : HVector f [a] → HVector f [a] → Prop :=
   λ | .cons a .nil, .cons a' .nil => x a a'
 
+def EqExt {S} (m₁ m₂ : Module Ident S) : Prop :=
+  m₁.inputs.EqExt m₂.inputs ∧ m₁.outputs.EqExt m₂.outputs ∧ m₁.internals.Perm m₂.internals
+
 def connect'' {Ti To S} (ruleO : S → To → S → Prop) (ruleI : S → Ti → S → Prop)
   -- (int : S → S → Prop)
   : S → S → Prop :=
@@ -164,30 +168,37 @@ def NamedProduct (s : String) T₁ T₂ := T₁ × T₂
   mod.mapInputPorts f |>.mapOutputPorts g
 
 def invertible {α} [DecidableEq α] (p : AssocList α α) : Prop :=
-  p.keysList.inter p.inverse.keysList = ∅ ∧ p.keysList.Nodup ∧ p.inverse.keysList.Nodup
+  p.filterId.keysList.inter p.inverse.filterId.keysList = ∅ ∧ p.keysList.Nodup ∧ p.inverse.keysList.Nodup
 
 def bijectivePortRenaming (p : PortMap Ident (InternalPort Ident)) (i: InternalPort Ident) : InternalPort Ident :=
   let p' := p.inverse
-  if p.keysList.inter p'.keysList = ∅ && p.keysList.Nodup && p'.keysList.Nodup then
-    let map := p.append p.inverse
+  if p.filterId.keysList.inter p'.filterId.keysList = ∅ && p.keysList.Nodup && p'.keysList.Nodup then
+    let map := p.filterId.append p'.filterId
     map.find? i |>.getD i
   else i
 
+/- With the length argument this should be true, and we can easily check length in practice. -/
+theorem bijectivePortRenaming_EqExt (p p' : PortMap Ident (InternalPort Ident)) :
+  p.EqExt p' → p.wf → p'.wf → bijectivePortRenaming p = bijectivePortRenaming p' := by
+  intro Heq Hwf Hwf'; ext i
+  simp [bijectivePortRenaming]
+  sorry
+
 theorem invertibleMap {α} [DecidableEq α] {p : AssocList α α} {a b} :
   invertible p →
-  (p.append p.inverse).find? a = some b → (p.append p.inverse).find? b = some a := by sorry
+  (p.filterId.append p.inverse.filterId).find? a = some b → (p.filterId.append p.inverse.filterId).find? b = some a := by sorry
 
 theorem bijectivePortRenaming_bijective {p : PortMap Ident (InternalPort Ident)} :
   Function.Bijective (bijectivePortRenaming p) := by
   rw [Function.bijective_iff_existsUnique]
   intro b
-  by_cases h : p.keysList.inter p.inverse.keysList = ∅ && p.keysList.Nodup && p.inverse.keysList.Nodup
-  · cases h' : (p.append p.inverse).find? b
+  by_cases h : p.filterId.keysList.inter p.inverse.filterId.keysList = ∅ && p.keysList.Nodup && p.inverse.keysList.Nodup
+  · cases h' : (p.filterId.append p.inverse.filterId).find? b
     · refine ⟨b, ?_, ?_⟩
       unfold bijectivePortRenaming; simp [*, -AssocList.find?_eq]
       unfold bijectivePortRenaming; simp [*, -AssocList.find?_eq]
       intro y Hy; simp at h; simp [h, -AssocList.find?_eq] at Hy
-      cases h'' : AssocList.find? y (AssocList.append p (AssocList.inverse p))
+      cases h'' : AssocList.find? y (p.filterId.append p.inverse.filterId)
       · rw [h''] at Hy; dsimp at Hy; assumption
       · rw [h''] at Hy; dsimp at Hy; subst b
         have := invertibleMap (by unfold invertible; simp [*]) h''
@@ -199,7 +210,7 @@ theorem bijectivePortRenaming_bijective {p : PortMap Ident (InternalPort Ident)}
         rw [invertibleMap]; rfl; simp [invertible, *]; assumption
       · unfold bijectivePortRenaming; simp [*, -AssocList.find?_eq]; intros y hY
         simp at h; simp [h, -AssocList.find?_eq] at hY
-        cases h'' : AssocList.find? y (AssocList.append p (AssocList.inverse p))
+        cases h'' : AssocList.find? y (p.filterId.append p.inverse.filterId)
         · rw [h''] at hY; dsimp at hY; subst y; rw [h''] at h'; injection h'
         · rename_i val'; rw [h''] at hY; dsimp at *; subst b
           have := invertibleMap (by simp [invertible, *]) h''; rw [this] at h'; injection h'
@@ -208,8 +219,18 @@ theorem bijectivePortRenaming_bijective {p : PortMap Ident (InternalPort Ident)}
     unfold bijectivePortRenaming; simp [*]; split; exfalso; apply h; simp [*]
     simp
 
+-- #eval (bijectivePortRenaming (Ident := Nat) [(⟨.top, 1⟩, ⟨.top, 2⟩), (⟨.top, 4⟩, ⟨.top, 3⟩)].toAssocList) ⟨.top, 3⟩
+
 def renamePorts {S} (m : Module Ident S) (p : PortMapping Ident) : Module Ident S :=
   m.mapPorts2 (bijectivePortRenaming p.input) (bijectivePortRenaming p.output)
+
+theorem renamePorts_EqExt {S} (m : Module Ident S) (p p' : PortMapping Ident) :
+  p.wf → p'.wf →
+  p.EqExt p' →
+  m.renamePorts p = m.renamePorts p' := by
+  unfold Module.renamePorts
+  intro ⟨hwf1, hwf2⟩ ⟨hwf1', hwf2'⟩ ⟨Heq1, Heq2⟩
+  simp [*, bijectivePortRenaming_EqExt (p' := p'.input), bijectivePortRenaming_EqExt (p' := p'.output)]
 
 -- theorem find?_inputs_left {S T} {mod1 : Module Ident S} {mod2 : Module Ident T} {ident rule} :
 --   mod1.inputs.find? ident = some rule →
@@ -328,6 +349,8 @@ instance : MatchInterface (@Module.empty Ident S) (Module.empty I) :=
 
 instance {m : Module Ident S} : MatchInterface m m :=
   ⟨ fun _ => rfl, fun _ => rfl, fun _ => rfl, fun _ => rfl ⟩
+
+theorem MatchInterface_EqExt {S} {imod imod' : Module Ident S} : imod.EqExt imod' → MatchInterface imod imod' := by sorry
 
 theorem MatchInterface_transitive {I J S} {imod : Module Ident I} {smod : Module Ident S} (jmod : Module Ident J) :
   MatchInterface imod jmod →
@@ -542,6 +565,17 @@ theorem indistinguishable_reflexive i_init :
   indistinguishable imod imod i_init i_init := by
   constructor <;> (intros; solve_by_elim)
 
+theorem indistinguishable_reflexive_ext {imod'} i_init (h : imod.EqExt imod') (mm := MatchInterface_EqExt h) :
+  indistinguishable imod imod' i_init i_init := by
+  let ⟨hl, hr, hint⟩ := h; clear h
+  constructor
+  · intro ident new_i v rule
+    rw [rw_rule_execution (PortMap.EqExt_getIO hl ident)] at *
+    solve_by_elim
+  · intro ident new_i v rule
+    rw [rw_rule_execution (PortMap.EqExt_getIO hr ident)] at *
+    solve_by_elim
+
 theorem indistinguishable_transitive {J} (jmod : Module Ident J)
         [MatchInterface imod jmod] [MatchInterface jmod smod] :
   ∀ i_init j_init s_init,
@@ -581,6 +615,24 @@ theorem refines_φ_reflexive : imod ⊑_{Eq} imod := by
   · intro ident mid_i v hrule
     refine ⟨ mid_i, hrule, rfl ⟩
   · intro ident mid_i hcont hrule
+    refine ⟨ mid_i, ?_, rfl ⟩
+    constructor <;> try assumption
+    exact .done _
+
+theorem refines_φ_reflexive_ext imod' (h : imod.EqExt imod') (mm := MatchInterface_EqExt h) :
+    imod ⊑_{Eq} imod' := by
+  intro init_i init_s heq; subst_vars
+  let ⟨hl, hr, hint⟩ := h; clear h
+  constructor
+  · intro ident mid_i v hrule
+    rw [rw_rule_execution (PortMap.EqExt_getIO hl ident)] at *
+    refine ⟨ mid_i, mid_i, hrule, existSR.done _, rfl ⟩
+  · intro ident mid_i v hrule
+    rw [rw_rule_execution (PortMap.EqExt_getIO hr ident)] at *
+    refine ⟨ mid_i, hrule, rfl ⟩
+  · intro ident mid_i hcont hrule
+    have : ident ∈ imod'.internals := by
+      simp_all only [List.Perm.mem_iff hint]
     refine ⟨ mid_i, ?_, rfl ⟩
     constructor <;> try assumption
     exact .done _
@@ -714,9 +766,13 @@ theorem refines'_refines_iff :
   solve_by_elim [refines'_refines, refines_refines']
 
 theorem refines_reflexive : imod ⊑ imod := by
-  apply refines_φ_refines (φ := Eq) (smod := imod)
-  intros; subst_vars; apply indistinguishable_reflexive
-  apply refines_φ_reflexive
+  apply refines_φ_refines (φ := Eq) (smod := imod); intros; subst_vars
+  all_goals solve_by_elim [refines_φ_reflexive, indistinguishable_reflexive]
+
+theorem refines_reflexive_ext imod' (h : imod.EqExt imod') : imod ⊑ imod' := by
+  have _ := MatchInterface_EqExt h
+  apply refines_φ_refines (φ := Eq) (smod := imod'); intros; subst_vars
+  all_goals solve_by_elim [indistinguishable_reflexive_ext, refines_φ_reflexive_ext]
 
 theorem refines_transitive {J} (imod' : Module Ident J):
     imod ⊑ imod' →

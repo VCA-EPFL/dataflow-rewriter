@@ -8,6 +8,7 @@ import DataflowRewriter.Module
 import DataflowRewriter.Simp
 import DataflowRewriter.ExprHigh
 import DataflowRewriter.AssocList.Basic
+import DataflowRewriter.TypeExpr
 
 open Batteries (AssocList)
 
@@ -520,6 +521,29 @@ def ε (Tag : Type) [DecidableEq Tag] (T : Type) [Inhabited T] : IdentMap String
   |>.stringify
 
 @[drunfold] def joinC T T' T'' := NatModule.joinC T T' T'' |>.stringify
+
+def ε_global' (s : String) (args : List FuncExpr) : Option (Σ (T : Type), StringModule T) :=
+  match s, args with
+  | "merge", [.typ t] => .some ⟨ _, merge t.denote 2 ⟩
+  | "cntrl_merge", [.typ t] => .some ⟨ _, cntrl_merge t.denote ⟩
+  | "fork2", [.typ t] => .some ⟨ _, fork2 t.denote ⟩
+  | "queue", [.typ t] => .some ⟨ _, queue t.denote ⟩
+  | "init", [.typ b, .val v] =>
+    if h: v.type = b
+    then .some ⟨ _, init b.denote (h ▸ v.denote) ⟩
+    else .none
+  | "join", [.typ t1, .typ t2] => .some ⟨ _, join t1.denote t2.denote ⟩
+  | "split", [.typ t1, .typ t2] => .some ⟨ _, split t1.denote t2.denote ⟩
+  | "branch", [.typ t] => .some ⟨ _, branch t.denote ⟩
+  | "mux", [.typ t] => .some ⟨ _, mux t.denote ⟩
+  | "muxC", [.typ t] => .some ⟨ _, muxC t.denote ⟩
+  | "joinC", [.typ t1, .typ t2, .typ t3] => .some ⟨ _, joinC t1.denote t2.denote t3.denote ⟩
+  | "bag", [.typ t] => .some ⟨ _, bag t.denote ⟩
+  | "tagger_untagger_val", [.typ t1, .typ t2] => .some ⟨ _, tagger_untagger_val Nat t1.denote t2.denote ⟩
+  | "aligner", [.typ t] => .some ⟨ _, aligner Nat t.denote ⟩
+  | "sink", [.typ t] => .some ⟨ _, sink t.denote ⟩
+  -- | "pure", [f] => .some ⟨ _, pure f ⟩
+  | _, _ => .none
 
 namespace FixedSize
 
