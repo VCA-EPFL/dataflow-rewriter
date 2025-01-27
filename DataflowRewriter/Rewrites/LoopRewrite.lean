@@ -34,12 +34,13 @@ def lhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
     o_out [type = "io"];
 
     mux [typeImp = $(⟨_, mux T⟩), type = $("mux " ++ Tₛ)];
-    condition_fork [typeImp = $(⟨_, fork2 Bool ⟩), type = "fork2 Bool"];
+    condition_fork [typeImp = $(⟨_, fork Bool 2 ⟩), type = "fork Bool 2"];
     branch [typeImp = $(⟨_, branch T⟩), type = $("branch " ++ Tₛ)];
     tag_split [typeImp = $(⟨_, split T Bool⟩), type = $("split " ++ Tₛ ++ " Bool")];
     mod [typeImp = $(⟨_, pure f⟩), type = "pure f"];
     loop_init [typeImp = $(⟨_, init Bool false⟩), type = "init Bool false"];
     bag [typeImp = $(⟨_, bag T⟩), type = $("bag " ++ Tₛ)];
+    queue [typeImp = $(⟨_, queue T⟩), type = $("queue " ++ Tₛ)];
 
     i_in -> mux [to="in3"];
     bag -> o_out [from="out1"];
@@ -51,7 +52,8 @@ def lhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
     tag_split -> branch [from="out1", to="in1"];
     tag_split -> condition_fork [from="out2", to="in1"];
     mux -> mod [from="out1", to="in1"];
-    branch -> mux [from="out1", to="in2"];
+    branch -> queue [from="out1", to="in1"];
+    queue -> mux [from="out1", to="in2"];
     branch -> bag [from="out2", to="in1"];
   ]
 
