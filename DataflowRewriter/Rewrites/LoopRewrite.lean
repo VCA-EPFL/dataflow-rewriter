@@ -39,11 +39,10 @@ def lhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
     tag_split [typeImp = $(⟨_, split T Bool⟩), type = $("split " ++ Tₛ ++ " Bool")];
     mod [typeImp = $(⟨_, pure f⟩), type = "pure f"];
     loop_init [typeImp = $(⟨_, init Bool false⟩), type = "init Bool false"];
-    bag [typeImp = $(⟨_, bag T⟩), type = $("bag " ++ Tₛ)];
     queue [typeImp = $(⟨_, queue T⟩), type = $("queue " ++ Tₛ)];
 
     i_in -> mux [to="in3"];
-    bag -> o_out [from="out1"];
+    branch -> o_out [from="out2"];
 
     loop_init -> mux [from="out1", to="in1"];
     condition_fork -> loop_init [from="out2", to="in1"];
@@ -54,7 +53,6 @@ def lhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
     mux -> mod [from="out1", to="in1"];
     branch -> queue [from="out1", to="in1"];
     queue -> mux [from="out1", to="in2"];
-    branch -> bag [from="out2", to="in1"];
   ]
 
 #eval IO.print ((lhs Unit "T" (λ _ => default)).fst)
@@ -62,7 +60,7 @@ def lhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
 -- #eval lhs Unit Unit Unit (λ _ _ _ => False) (λ _ _ _ => False) |>.1 |> IO.print
 
 def lhs_extract T := lhs Unit T (λ _ => default) |>.1
-  |>.extract ["mux", "condition_fork", "branch", "tag_split", "mod", "loop_init", "bag", "queue"]
+  |>.extract ["mux", "condition_fork", "branch", "tag_split", "mod", "loop_init", "queue"]
   |>.get rfl
 
 theorem double_check_empty_snd T: (lhs_extract T).snd = ExprHigh.mk ∅ ∅ := by rfl
@@ -110,9 +108,7 @@ theorem rhs_type_independent b f b₂ f₂ T [Inhabited b] [Inhabited b₂]
 def rewrite : Rewrite String :=
   { abstractions := [],
     pattern := unsafe matcher,
-    rewrite := λ l => do
-      let T ← l.get? 0
-      return ⟨lhsLower T, rhsLower T⟩
+    rewrite := λ | [T] => pure ⟨lhsLower T, rhsLower T⟩ | _ => failure
     name := .some "loop-rewrite"
   }
 
