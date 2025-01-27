@@ -62,7 +62,7 @@ def lhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
 -- #eval lhs Unit Unit Unit (λ _ _ _ => False) (λ _ _ _ => False) |>.1 |> IO.print
 
 def lhs_extract T := lhs Unit T (λ _ => default) |>.1
-  |>.extract ["mux", "condition_fork", "branch", "tag_split", "mod", "loop_init", "bag"]
+  |>.extract ["mux", "condition_fork", "branch", "tag_split", "mod", "loop_init", "bag", "queue"]
   |>.get rfl
 
 theorem double_check_empty_snd T: (lhs_extract T).snd = ExprHigh.mk ∅ ∅ := by rfl

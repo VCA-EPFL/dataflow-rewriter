@@ -16,7 +16,6 @@ import DataflowRewriter.HVector
 import DataflowRewriter.Tactic
 import Mathlib.Tactic.Tauto
 import Mathlib.Tactic.Convert
-import Aesop
 
 open Batteries (AssocList)
 
