@@ -64,7 +64,7 @@ inductive FuncExpr where
 | right (f : FuncExpr)
 | app (n : FuncName) (n : FuncExpr)
 
-namespace Parser
+namespace TypeExpr.Parser
 
 @[inline] def skipStringWs (s : String) := skipString s <* ws
 
@@ -91,5 +91,5 @@ def parseTypeExpr (s : String): Option TypeExpr :=
 def parseType (s : String): Option Type :=
   parseTypeExpr s |>.map TypeExpr.denote
 
-end Parser
+end TypeExpr.Parser
 end DataflowRewriter

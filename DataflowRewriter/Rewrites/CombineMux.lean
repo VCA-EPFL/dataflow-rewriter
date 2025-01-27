@@ -15,35 +15,47 @@ local instance : MonadExcept IO.Error RewriteResult where
   throw e := throw <| .error <| toString e
   tryCatch m h := throw (.error "Cannot catch IO.Error")
 
+-- Return any 2 Muxes fed by the same fork if the fork has the init as a predecessor (directly or through a tree of forks)
+-- TODO: Currently, it assumes that the init is either the direct predecessor or is a predecessor of the predecessor. We should make it more general to accommodate any number of forks until the init
+
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := do
-  let .some l ← ofExcept <| unsafe unsafeIO do
-    -- Create a temporary file which contains the dot graph to match on.
-    let result ← IO.FS.withTempFile λ handle filePath => do
-      handle.putStrLn <| toString g
-      -- Call command with argument `tmpfile`.
-      let cmd := { cmd := "echo", args := #[filePath.toString] }
-      let result ← IO.Process.output cmd
-      -- If exit code of script is 100, then ignore the return string and signal that this rewrite didn't match any
-      -- pattern anymore.  The top-level runner should move to a new rewrite.
-      if result.exitCode == 100 then return none
-      -- If the exit code is non-zero, then throw an error
-      if result.exitCode != 0 then
-        throw <| IO.userError <| "process '" ++ cmd.cmd ++ "' exited with code " ++ toString result.exitCode
-      -- Otherwise return the `stdout` of the command and split up the resulting string based on `, `.
-      return result.stdout.splitOn ", " |>.map String.trim |> pure
-    return result
-    | MonadExceptOf.throw RewriteError.done
-  -- TODO: The matched things by the script are currently in the `l` variable, but is NOT used in the code below.
+  -- let .some l ← ofExcept <| unsafe unsafeIO do
+  --   -- Create a temporary file which contains the dot graph to match on.
+  --   let result ← IO.FS.withTempFile λ handle filePath => do
+  --     handle.putStrLn <| toString g
+  --     -- Call command with argument `tmpfile`.
+  --     let cmd := { cmd := "echo", args := #[filePath.toString] }
+  --     let result ← IO.Process.output cmd
+  --     -- If exit code of script is 100, then ignore the return string and signal that this rewrite didn't match any
+  --     -- pattern anymore.  The top-level runner should move to a new rewrite.
+  --     if result.exitCode == 100 then return none
+  --     -- If the exit code is non-zero, then throw an error
+  --     if result.exitCode != 0 then
+  --       throw <| IO.userError <| "process '" ++ cmd.cmd ++ "' exited with code " ++ toString result.exitCode
+  --     -- Otherwise return the `stdout` of the command and split up the resulting string based on `, `.
+  --     return result.stdout.splitOn ", " |>.map String.trim |> pure
+  --   return result
+  --   | MonadExceptOf.throw RewriteError.done
+  -- -- TODO: The matched things by the script are currently in the `l` variable, but is NOT used in the code below.
+  -- let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
-      unless typ = "fork Bool 2" do return none
+        unless typ = "fork Bool 2" do return none
+      let (.some fork_input) := followInput g inst "in1" | return none
+      let (.some fork_input_input) := followInput g fork_input.inst "in1" | return none
+      let (.some fork_input_input_input) := followInput g fork_input_input.inst "in1" | return none
+
+      unless fork_input.typ  = "init Bool false" || fork_input_input.typ = "init Bool false" || fork_input_input_input.typ = "init Bool false"  do return none
+
       let (.some mux_nn) := followOutput g inst "out1" | return none
       let (.some mux_nn') := followOutput g inst "out2" | return none
+
       unless String.isPrefixOf "mux" mux_nn.typ && mux_nn.inputPort = "in1" do return none
       unless String.isPrefixOf "mux" mux_nn'.typ && mux_nn'.inputPort = "in1" do return none
       return some ([mux_nn.inst, mux_nn'.inst, inst], [extractType mux_nn.typ, extractType mux_nn'.typ])
     ) none | MonadExceptOf.throw RewriteError.done
   return list
+
 
 def lhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     b1_t_i [type = "io"];

@@ -197,6 +197,14 @@ end Parser
 def keyStartsWith (l : List Parser.DotAttr) key val :=
   (l.find? (·.key = key) |>.map (·.value) |>.getD "" |>.startsWith val)
 
+def splitAndSearch (l : List Parser.DotAttr) (key searchStr : String) : Bool :=
+  match l.find? (λ x => x.key = key) with
+  | some x =>
+    -- Split the value of the key found and search for a prefix match
+    (x.value.splitOn " ").find? (λ part => part.startsWith searchStr) |>.isSome
+  | none => false
+
+
 def keyArgNumbers (l : List Parser.DotAttr) key :=
   (l.find? (·.key = key) |>.map (·.value) |>.getD "" |>.splitOn |>.length)
 
@@ -232,10 +240,13 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
 
       let mut typVal := typ.value
 
-      -- Aya: I do not think this is necessary. We have only 1 Branch type and only vary the bitwidths
-      -- Yann: Different bit widths do matter for us though and we want to give
-      -- them the right type.  I have now changed it so that it will assign the
-      -- right types, let me know if there are more we should be handling.
+      if typVal != "MC" && typVal != "MC" && typVal != "Sink" && typVal != "Exit" then
+        current_extra_args ← add current_extra_args "tagged"
+        current_extra_args ← add current_extra_args "taggers_num"
+        current_extra_args ← add current_extra_args "tagger_id"
+
+
+      -- Different bitwidths matter so we distinguish them with types: Unit vs. Bool vs. T
       if typVal = "Branch" then
         if keyStartsWith l "in" "in1:0" then
           typVal := "branch Unit"
@@ -244,15 +255,41 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
         -- Else, if the bitwidth is 32, then:
         else typVal := "branch T"
 
+      -- Different bitwidths matter so we distinguish them with types: Unit vs. Bool vs. T
       if typVal = "Fork" then
-        typVal := s!"fork T {keyArgNumbers l "in"}"
+        if keyStartsWith l "in" "in1:0" then
+          typVal := s!"fork Unit {keyArgNumbers l "in"}"
+        else typVal := s!"fork T {keyArgNumbers l "in"}"
+
+      if typVal = "Mux" then
+        current_extra_args ← addOpt current_extra_args "delay"
+        if splitAndSearch l "in" "in2:0" then
+          typVal := s!"Mux Unit {keyArgNumbers l "in"}"
+        else typVal := s!"Mux T {keyArgNumbers l "in"}"
+
+      if typVal = "Merge" then
+        current_extra_args ← addOpt current_extra_args "delay"
+
+      if typVal = "Entry" then
+        current_extra_args ← addOpt current_extra_args "control"
+
 
       if typVal = "Constant" then
         current_extra_args ← add current_extra_args "value"
 
       if typVal = "Operator" then
+        if splitAndSearch l "op" "mc_store_op" || splitAndSearch l "op" "mc_load_op" then
+          current_extra_args ← addOpt current_extra_args "portId"
+          current_extra_args ← addOpt current_extra_args "offset"
+
+        current_extra_args ← addOpt current_extra_args "delay"
+        current_extra_args ← addOpt current_extra_args "latency"
+        current_extra_args ← addOpt current_extra_args "II"
         current_extra_args ← add current_extra_args "op"
         typVal := s!"operator {keyArgNumbers l "in"}"
+
+
+       -- portId= 0, offset= 0  -- if mc_store_op and mc_load_op
 
       if typVal = "MC" then
         current_extra_args ← add current_extra_args "memory"
