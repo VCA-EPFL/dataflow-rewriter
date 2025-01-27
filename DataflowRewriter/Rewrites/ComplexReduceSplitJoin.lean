@@ -47,34 +47,34 @@ def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :
     ) none | throw .done
   return list
 
-def lhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
+def lhs (T₁ T₂ T₃ : Type) (T₁ₛ T₂ₛ T₃ₛ : String) : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i [type = "io"];
     o [type = "io"];
 
-    split1 [typeImp = $(⟨_, split T T'⟩), type = $("split " ++ Tₛ ++ " (" ++ T'ₛ ++ ")")];
-    split2 [typeImp = $(⟨_, split T T⟩), type = $("split " ++ Tₛ ++ " " ++ Tₛ)];
-    join1 [typeImp = $(⟨_, join T T⟩), type = $("join " ++ Tₛ ++ " " ++ Tₛ)];
-    join2 [typeImp = $(⟨_, join T T'⟩), type = $("join " ++ Tₛ ++ " (" ++ T'ₛ ++ ")")];
+    split1 [typeImp = $(⟨_, split T₁ (T₂ × T₃)⟩), type = $("split " ++ T₁ₛ ++ " (" ++ T₂ₛ ++ " × " ++ T₃ₛ ++ ")")];
+    split2 [typeImp = $(⟨_, split T₂ T₃⟩), type = $("split " ++ T₂ₛ ++ " " ++ T₃ₛ)];
+    join2 [typeImp = $(⟨_, join T₁ T₂⟩), type = $("join " ++ T₁ₛ ++ T₂ₛ)];
+    join1 [typeImp = $(⟨_, join T₃ (T₁ × T₂)⟩), type = $("join " ++ T₃ₛ ++ " (" ++ T₁ₛ ++ " × " ++ T₂ₛ ++ ")")];
 
     i -> split1 [to="in1"];
-    split1 -> join1 [from="out1", to="in1"];
+    split1 -> join2 [from="out1", to="in1"];
     split1 -> split2 [from="out2", to="in1"];
 
-    split2 -> join1 [from="out1", to="in2"];
-    split2 -> join2 [from="out2", to="in2"];
+    split2 -> join2 [from="out1", to="in2"];
+    split2 -> join1 [from="out2", to="in1"];
 
-    join1 -> join2 [from="out2", to="in2"];
+    join2 -> join1 [from="out1", to="in2"];
 
-    join2 -> o [from="out1"];
+    join1 -> o [from="out1"];
   ]
 
-def lhs_extract T₁ T₂ := (lhs Unit Unit T₁ T₂).fst.extract ["join2", "join1", "split2", "split1"] |>.get rfl
+def lhs_extract T₁ T₂ T₃ := (lhs Unit Unit Unit T₁ T₂ T₃).fst.extract ["join2", "join1", "split2", "split1"] |>.get rfl
 
-theorem lhs_type_independent a b c d T₁ T₂ : (lhs a b T₁ T₂).fst = (lhs c d T₁ T₂).fst := by rfl
+theorem lhs_type_independent a b c d e f T₁ T₂ T₃ : (lhs a b f T₁ T₂ T₃).fst = (lhs c d e T₁ T₂ T₃).fst := by rfl
 
-theorem double_check_empty_snd T₁ T₂ : (lhs_extract T₁ T₂).snd = ExprHigh.mk ∅ ∅ := by rfl
+theorem double_check_empty_snd T₁ T₂ T₃ : (lhs_extract T₁ T₂ T₃).snd = ExprHigh.mk ∅ ∅ := by rfl
 
-def lhsLower T₁ T₂ := lhs_extract T₁ T₂ |>.fst.lower.get rfl
+def lhsLower T₁ T₂ T₃ := lhs_extract T₁ T₂ T₃ |>.fst.lower.get rfl
 
 def rhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i [type = "io"];
@@ -95,10 +95,7 @@ theorem rhs_type_independent a b c d T₁ T₂ : (rhs a b T₁ T₂).fst = (rhs 
 def rewrite : Rewrite String :=
   { abstractions := [],
     pattern := matcher,
-    rewrite := λ l => do
-      let T₁ ← l.get? 0
-      let T₂ ← l.get? 1
-      return ⟨lhsLower T₁ T₂, rhsLower T₁ T₂⟩
+    rewrite := λ | [T₁, T₂, T₃] => pure ⟨lhsLower T₁ T₂ T₃, rhsLower T₁ T₂⟩ | _ => failure
     name := .some "reduce-split-join"
   }
 

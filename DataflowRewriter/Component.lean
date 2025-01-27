@@ -80,6 +80,20 @@ namespace DataflowRewriter.NatModule
     outputs := [(0, ⟨ T, λ (oldListL, oldListR) oldElement (newListL, newListR) => oldElement :: newListL = oldListL ∧ newListR = oldListR ⟩), (1, ⟨ T, λ (oldListL, oldListR) oldElement (newListL, newListR) => oldElement :: newListR = oldListR ∧ newListL = oldListL ⟩)] |>.toAssocList
   }
 
+def push_n {T} (n : Nat) (l : List (List T)) (t : T) : Option (List (List T)) :=
+  List.range n |>.foldlM (λ m i => l.get? i >>= λ l' => m.set i (l'.concat t)) (List.replicate n [])
+
+def cons_n {T} (n : Nat) (l : List (List T)) (t : T) : Option (List (List T)) :=
+  l.get? n >>= λ l' => l.set n (t :: l')
+
+@[drunfold] def forkN T (n : Nat) : NatModule (List (List T)) :=
+  { inputs := [(0, ⟨ T, λ ol el nl => .some nl = push_n n ol el ⟩)].toAssocList,
+    outputs := List.range n |>.map (
+        λ ind => (↑ind, ⟨ T, λ ol el nl =>
+          .some ol = cons_n ind nl el
+      ⟩)) |>.toAssocList
+  }
+
 @[drunfold] def queue T : NatModule (List T) :=
   { inputs := [(⟨ .top, 0 ⟩, ⟨ T, λ oldList newElement newList => newList = oldList.concat newElement ⟩)].toAssocList,
     outputs := [(⟨ .top, 0 ⟩, ⟨ T, λ oldList oldElement newList =>  oldElement :: newList = oldList ⟩)].toAssocList
@@ -385,6 +399,8 @@ namespace DataflowRewriter.StringModule
 @[drunfold] def merge T n := NatModule.merge T n |>.stringify
 
 @[drunfold] def fork T n := NatModule.fork T n |>.stringify
+
+@[drunfold] def forkN T n := NatModule.forkN T n |>.stringify
 
 @[drunfold] def cntrl_merge T := NatModule.cntrl_merge T |>.stringify
 
