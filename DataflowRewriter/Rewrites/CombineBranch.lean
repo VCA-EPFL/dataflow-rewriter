@@ -11,7 +11,11 @@ namespace DataflowRewriter.CombineBranch
 
 open StringModule
 
--- Apply the rewrite only if the 2 Branches feed a Split (or a Join) at one of their outputs indicating that they are feeding CombinedMuxes
+-- Apply the rewrite only if the 2 Branches feed a a Join at one of their outputs
+-- indicating that they are feeding a Mux that was combined.
+-- Additionally, accept Branches that feed a Split at one of their outputs because
+-- this is an indication that the combineBranches rewrite has been already applied
+-- to them and we need to apply it one more time including an uncombined Branch.
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
@@ -24,11 +28,11 @@ def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :
       let (.some branch_nn'_out_1) := followOutput g branch_nn'.inst "out1" | return none
       let (.some branch_nn'_out_2) := followOutput g branch_nn'.inst "out2" | return none
 
-      unless String.isPrefixOf "branch " branch_nn.typ && branch_nn.inputPort = "in2" do return none
-      unless String.isPrefixOf "branch " branch_nn'.typ && branch_nn'.inputPort = "in2" do return none
+      unless String.isPrefixOf "branch" branch_nn.typ && branch_nn.inputPort = "in2" do return none
+      unless String.isPrefixOf "branch" branch_nn'.typ && branch_nn'.inputPort = "in2" do return none
 
-      unless String.isPrefixOf "join " branch_nn_out_1.typ || String.isPrefixOf "split " branch_nn_out_1.typ || String.isPrefixOf "join " branch_nn_out_2.typ || String.isPrefixOf "split " branch_nn_out_2.typ do return none
-      unless String.isPrefixOf "join " branch_nn'_out_1.typ || String.isPrefixOf "split " branch_nn'_out_1.typ || String.isPrefixOf "join " branch_nn'_out_2.typ || String.isPrefixOf "split " branch_nn'_out_2.typ do return none
+      unless String.isPrefixOf "join" branch_nn_out_1.typ || String.isPrefixOf "split" branch_nn_out_1.typ || String.isPrefixOf "join" branch_nn_out_2.typ || String.isPrefixOf "split" branch_nn_out_2.typ do return none
+      unless String.isPrefixOf "join" branch_nn'_out_1.typ || String.isPrefixOf "split" branch_nn'_out_1.typ || String.isPrefixOf "join" branch_nn'_out_2.typ || String.isPrefixOf "split" branch_nn'_out_2.typ do return none
 
       return ([branch_nn.inst, branch_nn'.inst, inst], [extractType branch_nn.typ, extractType branch_nn'.typ])
     ) none | MonadExceptOf.throw RewriteError.done
