@@ -262,8 +262,15 @@ def cast_module {S T} (h : S = T): Module Ident S = Module Ident T := by
 
 def _root_.Sigma.map2 {α t} (pair : @Sigma α t) (f : ∀ {a}, t a → t a) : Sigma t := ⟨ _, f pair.snd ⟩
 
+/-
+Pretty sure these are true based on wf_mapping.  But it also relies on the correctness of bijectivePortRenaming, that it
+will actually produce the desired renamings, under the assumption that inst is an invertible map.  It is a bit strange
+that the invertibility check needs to be performed twice, once inside of the bijectivePortRenaming function and once
+before it to ensure that it will actually perform the renaming correctly.  However, I think this is due to one wanting
+to ensure two different properties.  In many cases just having bijectiveness is useful, in others one actually has to
+ensure that one is renaming correctly.
+-/
 theorem mapKey_comm {α} {m : PortMap Ident α} {inst f}:
-  /- Pretty sure these are true based on wf_mapping. -/
   m.mapKey (Module.bijectivePortRenaming (inst.mapVal (fun x => f))) =
       (m.mapKey (Module.bijectivePortRenaming inst)).mapKey f := by sorry
 
