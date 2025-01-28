@@ -205,7 +205,8 @@ however, currently the low-level expression language does not remember any names
   -- `norm` is a function that canonicalises the connections of the input expression given a list of connections as the
   -- ordering guide.
   let canon := comm_connections g₁.connections
-  let rewritten := (canon g_lower).replace (canon e_renamed_input_sub) e_renamed_output_sub
+  let (rewritten, b) := (canon g_lower).force_replace (canon e_sub_input) e_sub_output
+  EStateM.guard (.error s!"subexpression not found in the graph") b
 
   let norm := rewritten.normalisedNamesMap fresh_prefix
   let out ← rewritten.renamePorts norm |>.higherSS |> ofOption (.error "could not lift expression to graph")

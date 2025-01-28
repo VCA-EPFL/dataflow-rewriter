@@ -185,6 +185,18 @@ fully specified and therefore symmetric in both expressions.
   | .product e_sub₁ e_sub₂ =>
     .product (e_sub₁.replace e_sub e_new) (e_sub₂.replace e_sub e_new)
 
+@[drunfold] def force_replace (e e_sub e_new : ExprLow Ident) : (ExprLow Ident × Bool) :=
+  if e.check_eq e_sub then (e_new, true) else
+  match e with
+  | .base inst typ => (e, false)
+  | .connect x y e_sub' =>
+    let rep := e_sub'.force_replace e_sub e_new
+    (.connect x y rep.1, rep.2)
+  | .product e_sub₁ e_sub₂ =>
+    let e_sub₁_rep := e_sub₁.force_replace e_sub e_new
+    let e_sub₂_rep := e_sub₂.force_replace e_sub e_new
+    (.product e_sub₁_rep.1 e_sub₂_rep.1, e_sub₁_rep.2 || e_sub₂_rep.2)
+
 @[drunfold]
 def abstract (e e_sub : ExprLow Ident) (i_inst : PortMapping Ident) (i_typ : Ident) : ExprLow Ident :=
   .base i_inst i_typ |> e.replace e_sub
