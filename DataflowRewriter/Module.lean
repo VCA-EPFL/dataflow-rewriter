@@ -166,62 +166,10 @@ def NamedProduct (s : String) T₁ T₂ := T₁ × T₂
 @[drunfold] def mapPorts2 {S} (mod : Module Ident S) (f g : InternalPort Ident → InternalPort Ident) : Module Ident S :=
   mod.mapInputPorts f |>.mapOutputPorts g
 
-def invertible {α} [DecidableEq α] (p : AssocList α α) : Prop :=
-  p.filterId.keysList.inter p.inverse.filterId.keysList = ∅ ∧ p.keysList.Nodup ∧ p.inverse.keysList.Nodup
-
-def bijectivePortRenaming (p : PortMap Ident (InternalPort Ident)) (i: InternalPort Ident) : InternalPort Ident :=
-  let p' := p.inverse
-  if p.filterId.keysList.inter p'.filterId.keysList = ∅ && p.keysList.Nodup && p'.keysList.Nodup then
-    let map := p.filterId.append p'.filterId
-    map.find? i |>.getD i
-  else i
-
-/- With the length argument this should be true, and we can easily check length in practice. -/
-theorem bijectivePortRenaming_EqExt (p p' : PortMap Ident (InternalPort Ident)) :
-  p.EqExt p' → p.wf → p'.wf → bijectivePortRenaming p = bijectivePortRenaming p' := by
-  intro Heq Hwf Hwf'; ext i
-  simp [bijectivePortRenaming]
-  sorry
-
-theorem invertibleMap {α} [DecidableEq α] {p : AssocList α α} {a b} :
-  invertible p →
-  (p.filterId.append p.inverse.filterId).find? a = some b → (p.filterId.append p.inverse.filterId).find? b = some a := by sorry
-
-theorem bijectivePortRenaming_bijective {p : PortMap Ident (InternalPort Ident)} :
-  Function.Bijective (bijectivePortRenaming p) := by
-  rw [Function.bijective_iff_existsUnique]
-  intro b
-  by_cases h : p.filterId.keysList.inter p.inverse.filterId.keysList = ∅ && p.keysList.Nodup && p.inverse.keysList.Nodup
-  · cases h' : (p.filterId.append p.inverse.filterId).find? b
-    · refine ⟨b, ?_, ?_⟩
-      unfold bijectivePortRenaming; simp [*, -AssocList.find?_eq]
-      unfold bijectivePortRenaming; simp [*, -AssocList.find?_eq]
-      intro y Hy; simp at h; simp [h, -AssocList.find?_eq] at Hy
-      cases h'' : AssocList.find? y (p.filterId.append p.inverse.filterId)
-      · rw [h''] at Hy; dsimp at Hy; assumption
-      · rw [h''] at Hy; dsimp at Hy; subst b
-        have := invertibleMap (by unfold invertible; simp [*]) h''
-        rw [this] at h'; injection h'
-    · rename_i val
-      refine ⟨val, ?_, ?_⟩
-      · unfold bijectivePortRenaming; simp [*, -AssocList.find?_eq];
-        simp at h; simp [h, -AssocList.find?_eq]
-        rw [invertibleMap]; rfl; simp [invertible, *]; assumption
-      · unfold bijectivePortRenaming; simp [*, -AssocList.find?_eq]; intros y hY
-        simp at h; simp [h, -AssocList.find?_eq] at hY
-        cases h'' : AssocList.find? y (p.filterId.append p.inverse.filterId)
-        · rw [h''] at hY; dsimp at hY; subst y; rw [h''] at h'; injection h'
-        · rename_i val'; rw [h''] at hY; dsimp at *; subst b
-          have := invertibleMap (by simp [invertible, *]) h''; rw [this] at h'; injection h'
-  · refine ⟨b, ?_, ?_⟩
-    unfold bijectivePortRenaming; simp [*]; intro a b c; exfalso; apply h; simp [*]
-    unfold bijectivePortRenaming; simp [*]; split; exfalso; apply h; simp [*]
-    simp
-
 -- #eval (bijectivePortRenaming (Ident := Nat) [(⟨.top, 1⟩, ⟨.top, 2⟩), (⟨.top, 4⟩, ⟨.top, 3⟩)].toAssocList) ⟨.top, 3⟩
 
 def renamePorts {S} (m : Module Ident S) (p : PortMapping Ident) : Module Ident S :=
-  m.mapPorts2 (bijectivePortRenaming p.input) (bijectivePortRenaming p.output)
+  m.mapPorts2 p.input.bijectivePortRenaming p.output.bijectivePortRenaming
 
 theorem renamePorts_EqExt {S} (m : Module Ident S) (p p' : PortMapping Ident) :
   p.wf → p'.wf →
@@ -229,7 +177,7 @@ theorem renamePorts_EqExt {S} (m : Module Ident S) (p p' : PortMapping Ident) :
   m.renamePorts p = m.renamePorts p' := by
   unfold Module.renamePorts
   intro ⟨hwf1, hwf2⟩ ⟨hwf1', hwf2'⟩ ⟨Heq1, Heq2⟩
-  simp [*, bijectivePortRenaming_EqExt (p' := p'.input), bijectivePortRenaming_EqExt (p' := p'.output)]
+  simp [*, AssocList.bijectivePortRenaming_EqExt (p' := p'.input), AssocList.bijectivePortRenaming_EqExt (p' := p'.output)]
 
 -- theorem find?_inputs_left {S T} {mod1 : Module Ident S} {mod2 : Module Ident T} {ident rule} :
 --   mod1.inputs.find? ident = some rule →
@@ -274,15 +222,13 @@ theorem mapOutputPorts_id {m : Module Ident S} :
 
 variable [DecidableEq Ident]
 
-theorem bijectivePortRenaming_id : bijectivePortRenaming (Ident := Ident) ∅ = id := by rfl
-
 theorem renamePorts_empty {m : Module Ident S} :
   m.renamePorts ∅ = m := by
   unfold renamePorts
   have i : (∅ : PortMapping Ident).input = ∅ := by rfl
   have o : (∅ : PortMapping Ident).output = ∅ := by rfl
   rw [i,o]
-  rw [bijectivePortRenaming_id]; unfold Module.mapPorts2; rw [mapInputPorts_id,mapOutputPorts_id]
+  rw [AssocList.bijectivePortRenaming_id]; unfold Module.mapPorts2; rw [mapInputPorts_id,mapOutputPorts_id]
 
 def mapIdent {Ident Ident' T} (inpR outR: Ident → Ident') (m : Module Ident T)
  : Module Ident' T :=
@@ -1280,7 +1226,7 @@ theorem refines_renamePorts {I S} {imod : Module Ident I} {smod : Module Ident S
   imod ⊑ smod →
   imod.renamePorts p ⊑ smod.renamePorts p := by
   intro Href; unfold renamePorts
-  solve_by_elim [refines_mapPorts2, bijectivePortRenaming_bijective]
+  solve_by_elim [refines_mapPorts2, AssocList.bijectivePortRenaming_bijective]
 
 end Refinement
 

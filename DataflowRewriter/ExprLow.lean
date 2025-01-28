@@ -235,15 +235,8 @@ def mapPorts2 (f g : InternalPort Ident → InternalPort Ident) (e : ExprLow Ide
 def invertible {α} [DecidableEq α] (p : Batteries.AssocList α α) : Bool :=
   p.keysList.inter p.inverse.keysList = ∅ ∧ p.keysList.Nodup ∧ p.inverse.keysList.Nodup
 
-def bijectivePortRenaming (p : PortMap Ident (InternalPort Ident)) (i: InternalPort Ident) : InternalPort Ident :=
-  let p' := p.inverse
-  if p.keysList.inter p'.keysList = ∅ && p.keysList.Nodup && p'.keysList.Nodup then
-    let map := p.append p.inverse
-    map.find? i |>.getD i
-  else i
-
 def renamePorts (m : ExprLow Ident) (p : PortMapping Ident) : ExprLow Ident :=
-  m.mapPorts2 (bijectivePortRenaming p.input) (bijectivePortRenaming p.output)
+  m.mapPorts2 p.input.bijectivePortRenaming p.output.bijectivePortRenaming
 
 /--
 Assume that the input is currently not mapped.

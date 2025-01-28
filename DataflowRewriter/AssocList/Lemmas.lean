@@ -263,4 +263,37 @@ theorem mapKey_append {α β γ} {f : α → γ} {m n : AssocList α β}:
 theorem eraseAll_comm_mapKey {α β γ} [DecidableEq α] [DecidableEq γ] {f : α → γ} {i} {m : AssocList α β} :
   (m.mapKey f).eraseAll (f i) = (m.eraseAll i).mapKey f := sorry
 
+theorem bijectivePortRenaming_bijective {α} [DecidableEq α] {p : AssocList α α} :
+  Function.Bijective p.bijectivePortRenaming := by
+  rw [Function.bijective_iff_existsUnique]
+  intro b
+  by_cases h : p.filterId.keysList.inter p.inverse.filterId.keysList = ∅ && p.keysList.Nodup && p.inverse.keysList.Nodup
+  · cases h' : (p.filterId.append p.inverse.filterId).find? b
+    · refine ⟨b, ?_, ?_⟩
+      unfold bijectivePortRenaming; simp [*, -AssocList.find?_eq]
+      unfold bijectivePortRenaming; simp [*, -AssocList.find?_eq]
+      intro y Hy; simp at h; simp [h, -AssocList.find?_eq] at Hy
+      cases h'' : AssocList.find? y (p.filterId.append p.inverse.filterId)
+      · rw [h''] at Hy; dsimp at Hy; assumption
+      · rw [h''] at Hy; dsimp at Hy; subst b
+        have := invertibleMap (by unfold invertible; simp [*]) h''
+        rw [this] at h'; injection h'
+    · rename_i val
+      refine ⟨val, ?_, ?_⟩
+      · unfold bijectivePortRenaming; simp [*, -AssocList.find?_eq];
+        simp at h; simp [h, -AssocList.find?_eq]
+        rw [invertibleMap]; rfl; simp [invertible, *]; assumption
+      · unfold bijectivePortRenaming; simp [*, -AssocList.find?_eq]; intros y hY
+        simp at h; simp [h, -AssocList.find?_eq] at hY
+        cases h'' : AssocList.find? y (p.filterId.append p.inverse.filterId)
+        · rw [h''] at hY; dsimp at hY; subst y; rw [h''] at h'; injection h'
+        · rename_i val'; rw [h''] at hY; dsimp at *; subst b
+          have := invertibleMap (by simp [invertible, *]) h''; rw [this] at h'; injection h'
+  · refine ⟨b, ?_, ?_⟩
+    unfold bijectivePortRenaming; simp [*]; intro a b c; exfalso; apply h; simp [*]
+    unfold bijectivePortRenaming; simp [*]; split; exfalso; apply h; simp [*]
+    simp
+
+theorem bijectivePortRenaming_id {α} [DecidableEq α] : @bijectivePortRenaming α _ ∅ = id := by rfl
+
 end Batteries.AssocList

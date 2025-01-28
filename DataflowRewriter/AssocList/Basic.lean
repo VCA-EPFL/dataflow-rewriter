@@ -83,4 +83,25 @@ instance {α β} [DecidableEq α] [DecidableEq β] : DecidableRel (@EqExt α β 
 
 def wf {α β} (a : AssocList α β) : Prop := a.keysList.Nodup
 
+def invertible {α} [DecidableEq α] (p : AssocList α α) : Prop :=
+  p.filterId.keysList.inter p.inverse.filterId.keysList = ∅ ∧ p.keysList.Nodup ∧ p.inverse.keysList.Nodup
+
+def bijectivePortRenaming {α} [DecidableEq α] (p : AssocList α α) (i: α) : α :=
+  let p' := p.inverse
+  if p.filterId.keysList.inter p'.filterId.keysList = ∅ && p.keysList.Nodup && p'.keysList.Nodup then
+    let map := p.filterId.append p'.filterId
+    map.find? i |>.getD i
+  else i
+
+/- With the length argument this should be true, and we can easily check length in practice. -/
+theorem bijectivePortRenaming_EqExt {α} [DecidableEq α] (p p' : AssocList α α) :
+  p.EqExt p' → p.wf → p'.wf → bijectivePortRenaming p = bijectivePortRenaming p' := by
+  intro Heq Hwf Hwf'; ext i
+  simp [bijectivePortRenaming]
+  sorry
+
+theorem invertibleMap {α} [DecidableEq α] {p : AssocList α α} {a b} :
+  invertible p →
+  (p.filterId.append p.inverse.filterId).find? a = some b → (p.filterId.append p.inverse.filterId).find? b = some a := by sorry
+
 end Batteries.AssocList

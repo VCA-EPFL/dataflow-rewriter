@@ -403,13 +403,41 @@ theorem rename_build_module_heq {e : ExprLow Ident} {f g} (h : Function.Bijectiv
     all_goals sorry
   | _ => sorry
 
-theorem rename_build_module1 {e f g} :
-  Function.Bijective f → Function.Bijective g →
-  ([e| e, ε ]).mapPorts2 f g ⊑ ([e| e.mapPorts2 f g, ε]) := by sorry
+theorem refines_mapPorts2_1 {e f g} :
+  Function.Bijective f → Function.Bijective g → e.wf_mapping ε →
+  ([e| e, ε ]).mapPorts2 f g ⊑ ([e| e.mapPorts2 f g, ε]) := by
+  unfold build_module_expr; intro hbijf hbijg hwf;
+  unfold build_module; rw [rename_build_module_eq]
+  any_goals assumption
+  unfold Sigma.map; dsimp
+  generalize h : (Option.map (fun x : TModule Ident =>
+      (⟨x.fst, x.snd.mapPorts2 f g⟩ : TModule Ident)) (build_module' ε e)).getD ⟨Unit, Module.empty Unit⟩ = y
+  have : (fun x : TModule Ident => (⟨x.fst, x.snd.mapPorts2 f g⟩ : TModule Ident)) ⟨Unit, Module.empty Unit⟩
+    = ⟨Unit, Module.empty Unit⟩ := rfl
+  rw [← this, Option.getD_map] at h; subst y
+  apply Module.refines_reflexive
 
-theorem rename_build_module2 {e f g} :
-  Function.Bijective f → Function.Bijective g →
-  ([e| e.mapPorts2 f g, ε]) ⊑ ([e| e, ε ]).mapPorts2 f g := by sorry
+theorem refines_mapPorts2_2 {e f g} :
+  Function.Bijective f → Function.Bijective g → e.wf_mapping ε →
+  ([e| e.mapPorts2 f g, ε]) ⊑ ([e| e, ε ]).mapPorts2 f g := by
+  unfold build_module_expr; intro hbijf hbijg hwf;
+  unfold build_module; rw [rename_build_module_eq]
+  any_goals assumption
+  unfold Sigma.map; dsimp
+  generalize h : (Option.map (fun x : TModule Ident =>
+      (⟨x.fst, x.snd.mapPorts2 f g⟩ : TModule Ident)) (build_module' ε e)).getD ⟨Unit, Module.empty Unit⟩ = y
+  have : (fun x : TModule Ident => (⟨x.fst, x.snd.mapPorts2 f g⟩ : TModule Ident)) ⟨Unit, Module.empty Unit⟩
+    = ⟨Unit, Module.empty Unit⟩ := rfl
+  rw [← this, Option.getD_map] at h; subst y
+  apply Module.refines_reflexive
+
+#check refines_mapPorts2_1
+
+theorem refines_renamePorts_1 {e inst} :
+  e.wf_mapping ε → ([e| e, ε ]).renamePorts inst ⊑ ([e| e.renamePorts inst, ε]) := by
+  intro hwf; unfold renamePorts Module.renamePorts
+  set_option pp.analyze true in
+  apply refines_mapPorts2_1 (f := (Module.bijectivePortRenaming inst.input)) (g := (Module.bijectivePortRenaming inst.output)) (e := e) (ε := ε)
 
 section Refinement
 
