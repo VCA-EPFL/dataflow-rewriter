@@ -270,9 +270,9 @@ before it to ensure that it will actually perform the renaming correctly.  Howev
 to ensure two different properties.  In many cases just having bijectiveness is useful, in others one actually has to
 ensure that one is renaming correctly.
 -/
-theorem mapKey_comm {α} {m : PortMap Ident α} {inst f}:
-  m.mapKey (Module.bijectivePortRenaming (inst.mapVal (fun x => f))) =
-      (m.mapKey (Module.bijectivePortRenaming inst)).mapKey f := by sorry
+theorem mapKey_comm {α} {m : PortMap Ident α} {inst : PortMap Ident (InternalPort Ident)} {f}:
+  m.mapKey ((inst.mapVal λ _ => f).bijectivePortRenaming)
+  = (m.mapKey inst.bijectivePortRenaming).mapKey f := by sorry
 
 theorem eraseAll_comm_inputs {S f g i} {m : Module Ident S}:
   AssocList.eraseAll (f i) (m.mapPorts2 f g).inputs = AssocList.mapKey f (AssocList.eraseAll i m.inputs) := by
@@ -431,13 +431,15 @@ theorem refines_mapPorts2_2 {e f g} :
   rw [← this, Option.getD_map] at h; subst y
   apply Module.refines_reflexive
 
-#check refines_mapPorts2_1
-
 theorem refines_renamePorts_1 {e inst} :
   e.wf_mapping ε → ([e| e, ε ]).renamePorts inst ⊑ ([e| e.renamePorts inst, ε]) := by
   intro hwf; unfold renamePorts Module.renamePorts
-  set_option pp.analyze true in
-  apply refines_mapPorts2_1 (f := (Module.bijectivePortRenaming inst.input)) (g := (Module.bijectivePortRenaming inst.output)) (e := e) (ε := ε)
+  solve_by_elim [refines_mapPorts2_1, AssocList.bijectivePortRenaming_bijective]
+
+theorem refines_renamePorts_2 {e inst} :
+  e.wf_mapping ε → ([e| e.renamePorts inst, ε]) ⊑ ([e| e, ε ]).renamePorts inst := by
+  intro hwf; unfold renamePorts Module.renamePorts
+  solve_by_elim [refines_mapPorts2_2, AssocList.bijectivePortRenaming_bijective]
 
 section Refinement
 
