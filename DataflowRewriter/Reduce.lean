@@ -80,7 +80,7 @@ where
         let e ← withTransparency (mode := TransparencyMode.all) <| reallyReduce e false false true false true
         logInfoAt tk e
 
-#reduce (proofs := true) (types := true) 1 + 1 = 2 → True
+-- #reduce (proofs := true) (types := true) 1 + 1 = 2 → True
 -- #reallyReduce 1 + 1 = 2 → True
 
 /--

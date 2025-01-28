@@ -38,7 +38,7 @@ def lhs' : ExprHigh String := [graph|
     module -> o_out [from = "out"];
   ]
 
-#eval IO.print lhs'
+-- #eval IO.print lhs'
 
 def lhs := lhs'.extract (matcher lhs' |>.run' default |>.get rfl |>.fst) |>.get rfl
 
@@ -69,7 +69,7 @@ def rhs : ExprHigh String := [graph|
     tagger -> o_out [from = "deq_untagged"];
   ]
 
-#eval IO.print rhs
+-- #eval IO.print rhs
 
 def rhsLower := rhs.lower.get rfl
 

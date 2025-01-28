@@ -160,8 +160,8 @@ example : ∀ y, y = denoteType " (Unit × Unit)" := by
   intro y
   simp +ground
 
-open Lean Elab Term Meta Core in
-#eval show IO Expr from TermElabM.toIO (do elabTerm (← `(StringModule.queue Nat)) .none) {fileName := "<rewriter environment>", fileMap := default} {}
+-- open Lean Elab Term Meta Core in
+-- #eval show IO Expr from TermElabM.toIO (do elabTerm (← `(StringModule.queue Nat)) .none) {fileName := "<rewriter environment>", fileMap := default} {}
 
   -- unfold EStateM.bind ofOption at *
   -- repeat (dsimp -failIfUnchanged at *; split at hrewrite <;> try injection hrewrite)

@@ -90,9 +90,9 @@ def incrementDefinitionPortIdx (s direction: String) : String :=
   -- Join the updated parts into a single string with spaces
   String.intercalate " " updatedParts
 
-#eval incrementDefinitionPortIdx "out1:32" "out"  --out1:324 out2:32 out3:32" "out"  -- Output: "out1:32 out4:32 out3:32"
+-- #eval incrementDefinitionPortIdx "out1:32" "out"  --out1:324 out2:32 out3:32" "out"  -- Output: "out1:32 out4:32 out3:32"
 
-#eval "out132".splitOn ":"
+-- #eval "out132".splitOn ":"
 
 def incrementConnectionPortIdx (s direction: String) : String :=
    match returnNatInstring s with
@@ -103,7 +103,7 @@ def incrementConnectionPortIdx (s direction: String) : String :=
     direction ++ incrementedStr
   | none => s  -- If no number is found, return the original string
 
-#eval incrementConnectionPortIdx "out33" "out"
+-- #eval incrementConnectionPortIdx "out33" "out"
 
 -- Function became messy...
 def formatOptions : List (String × String) → String

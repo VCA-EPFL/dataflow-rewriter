@@ -107,6 +107,37 @@ def generate_renaming (nameMap : AssocList String String) (fresh_prefix : String
     | ⟨.top, name⟩ :: b => go n nameMap p b
     | [] => (p, nameMap)
 
+
+def findInput {Ident} [DecidableEq Ident] (i : InternalPort Ident) : ExprLow Ident → Bool
+| .base inst _typ => inst.input.any (λ _ a => a == i)
+| .product e₁ e₂ => findInput i e₁ && findInput i e₂
+| .connect _o _i e => findInput i e
+
+def findOutput {Ident} [DecidableEq Ident] (o : InternalPort Ident) : ExprLow Ident → Bool
+| .base inst _typ => inst.output.any (λ _ a => a == o)
+| .product e₁ e₂ => findInput o e₁ && findInput o e₂
+| .connect _o _i e => findInput o e
+
+def comm_connection' {Ident} [DecidableEq Ident] (conn : Connection Ident) : ExprLow Ident → ExprLow Ident
+| orig@(.connect o i e) =>
+  if o = conn.output ∧ i = conn.input then
+    match e with
+    | .connect o' i' e' =>
+      if o ≠ o' ∨ i ≠ i' then
+        .connect o' i' (comm_connection' conn <| .connect o i e')
+      else orig
+    | .product e₁ e₂ =>
+      if findInput i e₁ && findOutput o e₁ then
+        .product (comm_connection' conn <| .connect o i e₁) e₂
+      else if findInput i e₂ && findOutput o e₂ then
+        .product e₁ (comm_connection' conn <| .connect o i e₂)
+      else orig
+    | _ => orig
+  else .connect o i <| comm_connection' conn e
+| .product e₁ e₂ =>
+  .product (comm_connection' conn e₁) (comm_connection' conn e₂)
+| e => e
+
 def comm_connection {Ident} [DecidableEq Ident] (conn : Connection Ident) : ExprLow Ident → ExprLow Ident
 | orig@(.connect o i e) =>
   if o = conn.output ∧ i = conn.input then
@@ -120,6 +151,9 @@ def comm_connection {Ident} [DecidableEq Ident] (conn : Connection Ident) : Expr
 | .product e₁ e₂ =>
   .product (comm_connection conn e₁) (comm_connection conn e₂)
 | e => e
+
+def comm_connections' {Ident} [DecidableEq Ident] (conn : List (Connection Ident)) (e : ExprLow Ident): ExprLow Ident :=
+  conn.foldr comm_connection' e
 
 def comm_connections {Ident} [DecidableEq Ident] (conn : List (Connection Ident)) (e : ExprLow Ident): ExprLow Ident :=
   conn.foldr comm_connection e
@@ -167,7 +201,7 @@ however, currently the low-level expression language does not remember any names
 
   -- g_lower is the fully lowered graph with the sub expression that is to be replaced rearranged so that it can be
   -- pattern matched.
-  let g_lower := g₂.lower' e_sub
+  let g_lower ← ofOption (.error "failed lowering of the graph: graph is empty") g.lower
 
   -- beq is an α-equivalence check that returns a mapping to rename one expression into the other.  This mapping is
   -- split into the external mapping and internal mapping.
@@ -204,7 +238,7 @@ however, currently the low-level expression language does not remember any names
 
   -- `norm` is a function that canonicalises the connections of the input expression given a list of connections as the
   -- ordering guide.
-  let canon := comm_connections g₁.connections
+  let canon := comm_connections' g₁.connections
   let (rewritten, b) := (canon g_lower).force_replace (canon e_sub_input) e_sub_output
   EStateM.guard (.error s!"subexpression not found in the graph") b
 

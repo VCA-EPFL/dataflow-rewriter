@@ -462,7 +462,7 @@ opaque polymorphic_mult {T} [Inhabited T] : T → T → T
 opaque polymorphic_div {T} [Inhabited T] : T → T → T
 opaque polymorphic_shift_left {T} [Inhabited T] : T → T → T
 
-#reduce (types := true) Lean.MetaM Unit
+-- #reduce (types := true) Lean.MetaM Unit
 
 opaque constant_a {T} [Inhabited T] : T
 opaque constant_b {T} [Inhabited T] : T
