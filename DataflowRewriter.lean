@@ -6,3 +6,4 @@ import «DataflowRewriter».ExprLow
 import «DataflowRewriter».Component
 import «DataflowRewriter».ExprHigh
 import «DataflowRewriter».Rewrites
+import «DataflowRewriter».RewriterLemmas

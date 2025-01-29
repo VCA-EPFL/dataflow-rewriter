@@ -224,7 +224,7 @@ def PortMapping.toInterface {Ident} (p : PortMapping Ident) : Interface Ident :=
 def PortMapping.toInterface' {Ident} (p : PortMapping Ident) : Interface Ident :=
   ⟨p.input.toList.map Prod.snd, p.output.toList.map Prod.snd⟩
 
-theorem reverse_cases {α} l : l = [] ∨ ∃ (l' : List α) (a : α), l = l'.concat a := by sorry
+axiom reverse_cases {α} l : l = [] ∨ ∃ (l' : List α) (a : α), l = l'.concat a
 
 noncomputable def List.concat_induction {α : Sort _}
   {motive : List α → Prop}

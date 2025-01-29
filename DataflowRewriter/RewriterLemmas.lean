@@ -158,53 +158,20 @@ theorem Rewrite_run'_correct {g g' : ExprHigh String} {s _st _st'} {rw : Correct
 
 #print axioms Rewrite_run'_correct
 
-structure Pair (S T : Type) : Type where
-  leftright : S × T
+-- theorem Rewrite_abstraction_correct {g g' : ExprHigh String} {s a c} :
+--   Abstraction.run s g a = .ok (g', c) →
+--   ([Ge| g', ε ]) ⊑ ([Ge| g, ε ]) := by sorry
 
-def denoteType' (str : String) (n : Nat) : Option (Type × String) :=
-  match n with
-  | n+1 =>
-    let t := str.trim
-    if t.front = '×' then denoteType' (t.drop 1) n
-    else if "Nat".isPrefixOf t then pure (Nat, t.drop 3)
-    else if "Bool".isPrefixOf t then pure (Bool, t.drop 4)
-    else if "Unit".isPrefixOf t then pure (Unit, t.drop 4)
-    else if t.front = '(' then do
-      let (typ, c) ← denoteType' (t.drop 1) n
-      let (typ', c') ← denoteType' c n
-      return (typ × typ', c'.trim.drop 1)
-    else failure
-  | _ => .none
+-- theorem Rewrite_concretisation_correct {g g' : ExprHigh String} {s c} :
+--   Concretisation.run s g c = .ok g' →
+--   ([Ge| g', ε ]) ⊑ ([Ge| g, ε ]) := by sorry
 
-def denoteType (str : String) : Option (Type × String) :=
-  denoteType' str str.length
+-- theorem Rewrite_run_correct {g g' : ExprHigh String} {s rw} :
+--   Rewrite.run s g rw = .ok g' →
+--   ([Ge| g', ε ]) ⊑ ([Ge| g, ε ]) := by sorry
 
-example : ∀ y, y = denoteType " (Unit × Unit)" := by
-  intro y
-  simp +ground
-
--- open Lean Elab Term Meta Core in
--- #eval show IO Expr from TermElabM.toIO (do elabTerm (← `(StringModule.queue Nat)) .none) {fileName := "<rewriter environment>", fileMap := default} {}
-
-  -- unfold EStateM.bind ofOption at *
-  -- repeat (dsimp -failIfUnchanged at *; split at hrewrite <;> try injection hrewrite)
-  -- set_option pp.explicit true in trace_state
-
-
-theorem Rewrite_abstraction_correct {g g' : ExprHigh String} {s a c} :
-  Abstraction.run s g a = .ok (g', c) →
-  ([Ge| g', ε ]) ⊑ ([Ge| g, ε ]) := by sorry
-
-theorem Rewrite_concretisation_correct {g g' : ExprHigh String} {s c} :
-  Concretisation.run s g c = .ok g' →
-  ([Ge| g', ε ]) ⊑ ([Ge| g, ε ]) := by sorry
-
-theorem Rewrite_run_correct {g g' : ExprHigh String} {s rw} :
-  Rewrite.run s g rw = .ok g' →
-  ([Ge| g', ε ]) ⊑ ([Ge| g, ε ]) := by sorry
-
-theorem rewrite_loop_correct {g g' : ExprHigh String} {s rws n} :
-  rewrite_loop s g rws n = .ok g' →
-  ([Ge| g', ε ]) ⊑ ([Ge| g, ε ]) := by sorry
+-- theorem rewrite_loop_correct {g g' : ExprHigh String} {s rws n} :
+--   rewrite_loop s g rws n = .ok g' →
+--   ([Ge| g', ε ]) ⊑ ([Ge| g, ε ]) := by sorry
 
 end DataflowRewriter
