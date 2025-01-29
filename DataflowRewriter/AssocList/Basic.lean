@@ -78,8 +78,8 @@ theorem EqExt.trans {α β} [DecidableEq α] {a b c : AssocList α β} : a.EqExt
 instance AssocListExtSetoid {α β} [DecidableEq α] : Setoid (AssocList α β) :=
   ⟨EqExt, ⟨EqExt.refl, EqExt.symm, EqExt.trans⟩⟩
 
-theorem beq_ooo_ext {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) :
-  a.EqExt b ↔ a.beq_ooo b := by sorry
+axiom beq_ooo_ext {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) :
+  a.EqExt b ↔ a.beq_ooo b
 
 def DecidableEqExt {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) : Decidable (EqExt a b) :=
   if h : a.beq_ooo b then isTrue ((beq_ooo_ext a b).mpr h)
@@ -100,14 +100,14 @@ def bijectivePortRenaming {α} [DecidableEq α] (p : AssocList α α) (i: α) : 
   else i
 
 /- With the length argument this should be true, and we can easily check length in practice. -/
-theorem bijectivePortRenaming_EqExt {α} [DecidableEq α] (p p' : AssocList α α) :
-  p.EqExt p' → p.wf → p'.wf → bijectivePortRenaming p = bijectivePortRenaming p' := by
-  intro Heq Hwf Hwf'; ext i
-  simp [bijectivePortRenaming]
-  sorry
+axiom bijectivePortRenaming_EqExt {α} [DecidableEq α] (p p' : AssocList α α) :
+  p.EqExt p' → p.wf → p'.wf → bijectivePortRenaming p = bijectivePortRenaming p'
+  -- intro Heq Hwf Hwf'; ext i
+  -- simp [bijectivePortRenaming]
+  -- sorry
 
-theorem invertibleMap {α} [DecidableEq α] {p : AssocList α α} {a b} :
+axiom invertibleMap {α} [DecidableEq α] {p : AssocList α α} {a b} :
   invertible p →
-  (p.filterId.append p.inverse.filterId).find? a = some b → (p.filterId.append p.inverse.filterId).find? b = some a := by sorry
+  (p.filterId.append p.inverse.filterId).find? a = some b → (p.filterId.append p.inverse.filterId).find? b = some a
 
 end Batteries.AssocList

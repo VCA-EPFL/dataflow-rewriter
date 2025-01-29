@@ -60,15 +60,15 @@ theorem EStateM.map_eq_ok {ε σ α β} {f : α → β} {o : EStateM ε σ α} {
 --   unfold addRewriteInfo; simp
 --   sorry
 
-theorem refines_higherSS {e : ExprLow String} {e' : ExprHigh String} :
+axiom refines_higherSS {e : ExprLow String} {e' : ExprHigh String} :
   e.higherSS = .some e' →
-  [Ge| e', ε_global] ⊑ ([e| e, ε_global]) := by sorry
+  [Ge| e', ε_global] ⊑ ([e| e, ε_global])
 
-theorem wf_mapping_all {e : ExprLow String}:
-  e.wf_mapping ε_global := by sorry
+axiom wf_mapping_all {e : ExprLow String}:
+  e.wf_mapping ε_global
 
-theorem wf_expr_all {e : ExprLow String}:
-  e.wf ε_global := by sorry
+axiom wf_expr_all {e : ExprLow String}:
+  e.wf ε_global
 
 theorem Rewrite_run'_correct {g g' : ExprHigh String} {s _st _st'} {rw : CorrectRewrite} :
   Rewrite.run' s g rw.rewrite _st = .ok g' _st' →
@@ -155,6 +155,8 @@ theorem Rewrite_run'_correct {g g' : ExprHigh String} {s _st _st'} {rw : Correct
   rw [‹g.lower = _›]
   dsimp
   apply Module.refines_reflexive
+
+#print axioms Rewrite_run'_correct
 
 structure Pair (S T : Type) : Type where
   leftright : S × T

@@ -161,10 +161,10 @@ theorem wf_builds_module {e} : wf ε e → (e.build_module' ε).isSome := by
     cases ihe₁; cases ihe₂
     simp only [*]; rfl
 
-theorem wf_modify_expression {e : ExprLow Ident} {i i'}:
+axiom wf_modify_expression {e : ExprLow Ident} {i i'}:
   (ε.find? i').isSome →
   e.wf ε →
-  (e.modify i i').wf ε := by sorry
+  (e.modify i i').wf ε
 
 theorem build_base_in_env {T inst i mod} :
   ε.find? i = some ⟨ T, mod ⟩ →
@@ -271,9 +271,9 @@ before it to ensure that it will actually perform the renaming correctly.  Howev
 to ensure two different properties.  In many cases just having bijectiveness is useful, in others one actually has to
 ensure that one is renaming correctly.
 -/
-theorem mapKey_comm {α} {m : PortMap Ident α} {inst : PortMap Ident (InternalPort Ident)} {f}:
+axiom mapKey_comm {α} {m : PortMap Ident α} {inst : PortMap Ident (InternalPort Ident)} {f}:
   m.mapKey ((inst.mapVal λ _ => f).bijectivePortRenaming)
-  = (m.mapKey inst.bijectivePortRenaming).mapKey f := by sorry
+  = (m.mapKey inst.bijectivePortRenaming).mapKey f
 
 theorem eraseAll_comm_inputs {S f g i} {m : Module Ident S}:
   AssocList.eraseAll (f i) (m.mapPorts2 f g).inputs = AssocList.mapKey f (AssocList.eraseAll i m.inputs) := by
@@ -469,9 +469,9 @@ theorem check_eq_symm {iexpr iexpr' : ExprLow Ident} :
   · aesop
   · aesop
 
-theorem check_eq_wf {iexpr iexpr' : ExprLow Ident} :
+axiom check_eq_wf {iexpr iexpr' : ExprLow Ident} :
   iexpr.check_eq iexpr' →
-  iexpr.wf ε → iexpr'.wf ε := by sorry
+  iexpr.wf ε → iexpr'.wf ε
 
 theorem check_eq_refines {iexpr iexpr'} :
   iexpr.check_eq iexpr' → iexpr.wf ε →
@@ -714,26 +714,26 @@ theorem replacement {iexpr e_new e_pat} :
     · simp at h; rw [h]
       apply refines_connect <;> solve_by_elim [wf_modify_expression,wf_replace]
 
-theorem findInput_iff_contains {e T m i o} :
+axiom findInput_iff_contains {e T m i o} :
   build_module' ε e = some ⟨T, m⟩ →
-  findInput i e = m.inputs.contains o := by sorry
+  findInput i e = m.inputs.contains o
 
-theorem findOutput_iff_contains {e T m i o} :
+axiom findOutput_iff_contains {e T m i o} :
   build_module' ε e = some ⟨T, m⟩ →
-  findOutput i e = m.outputs.contains o := by sorry
+  findOutput i e = m.outputs.contains o
 
-theorem wf_comm_connection'_ {e e' : ExprLow Ident} {conn}:
+axiom wf_comm_connection'_ {e e' : ExprLow Ident} {conn}:
   e.comm_connection'_ conn = .some e' →
   e.wf ε →
-  e'.wf ε := by sorry
+  e'.wf ε
 
-theorem refines_comm_base_ {iexpr e' inst typ} :
-    iexpr.wf ε → comm_base_ inst typ iexpr = .some e' → [e| e', ε ] ⊑ ([e| iexpr, ε ]) := by sorry
+axiom refines_comm_base_ {iexpr e' inst typ} :
+    iexpr.wf ε → comm_base_ inst typ iexpr = .some e' → [e| e', ε ] ⊑ ([e| iexpr, ε ])
 
-theorem wf_comm_base_ {e e' : ExprLow Ident} {inst typ}:
+axiom wf_comm_base_ {e e' : ExprLow Ident} {inst typ}:
   e.comm_base_ inst typ = .some e' →
   e.wf ε →
-  e'.wf ε := by sorry
+  e'.wf ε
 
 theorem refines_comm_connection'_ {iexpr e' conn} :
     iexpr.wf ε → comm_connection'_ conn iexpr = .some e' → [e| e', ε ] ⊑ ([e| iexpr, ε ]) := by
@@ -965,17 +965,17 @@ theorem refines_comm_connections2' {iexpr l} :
       all_goals solve_by_elim [refines_comm_connection'_, wf_comm_connection'_]
   · assumption
 
-theorem ensureIOUnmodified_correct {e : ExprLow Ident} {p} :
-  e.ensureIOUnmodified p → [e| e, ε ].renamePorts p = ([e| e, ε ]) := by sorry
+axiom ensureIOUnmodified_correct {e : ExprLow Ident} {p} :
+  e.ensureIOUnmodified p → [e| e, ε ].renamePorts p = ([e| e, ε ])
 
 theorem force_replace_eq_replace {e e₁ e₂ : ExprLow Ident} :
     (e.force_replace e₁ e₂).1 = e.replace e₁ e₂ := by
   induction e <;> simp [force_replace, replace] <;> split <;> simp [*]
 
-theorem refines_subset {e e' : ExprLow Ident} (ε' : IdentMap Ident (Σ T : Type, Module Ident T)) :
+axiom refines_subset {e e' : ExprLow Ident} (ε' : IdentMap Ident (Σ T : Type, Module Ident T)) :
   ε.subsetOf ε' → e.wf ε → e'.wf ε →
   [e| e, ε ] ⊑ ([e| e', ε ]) →
-  [e| e, ε' ] ⊑ ([e| e', ε' ]) := by sorry
+  [e| e, ε' ] ⊑ ([e| e', ε' ])
 
 end Refinement
 

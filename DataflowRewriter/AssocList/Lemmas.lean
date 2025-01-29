@@ -180,22 +180,22 @@ theorem append_find_right_disjoint {α β} [DecidableEq α] {a b : AssocList α 
 -- @[simp] theorem erase_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} ident (f : α → β → γ) :
 --   (a.erase ident).mapVal f = (a.mapVal f).erase ident := by sorry
 
-@[simp] theorem eraseAll_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} ident (f : α → β → γ) :
-  (a.eraseAll ident).mapVal f = (a.mapVal f).eraseAll ident := by sorry
+@[simp] axiom eraseAll_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} ident (f : α → β → γ) :
+  (a.eraseAll ident).mapVal f = (a.mapVal f).eraseAll ident
 
-@[simp] theorem find?_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} ident (f : β → γ) :
-  (a.find? ident).map f = (a.mapVal (λ _ => f)).find? ident := by sorry
+@[simp] axiom find?_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} ident (f : β → γ) :
+  (a.find? ident).map f = (a.mapVal (λ _ => f)).find? ident
 
-theorem erase_equiv {α β} [DecidableEq α] {a b : AssocList α β} ident ident' :
+axiom erase_equiv {α β} [DecidableEq α] {a b : AssocList α β} ident ident' :
   a.find? ident = b.find? ident →
-  (a.erase ident').find? ident = (b.erase ident').find? ident := by sorry
+  (a.erase ident').find? ident = (b.erase ident').find? ident
 
-@[simp] theorem find?_eraseAll_eq {α β} [DecidableEq α] (a : AssocList α β) i :
-  (a.eraseAll i).find? i = none := by sorry
+@[simp] axiom find?_eraseAll_eq {α β} [DecidableEq α] (a : AssocList α β) i :
+  (a.eraseAll i).find? i = none
 
-@[simp] theorem find?_eraseAll_neq {α β} [DecidableEq α] (a : AssocList α β) i i' :
+@[simp] axiom find?_eraseAll_neq {α β} [DecidableEq α] (a : AssocList α β) i i' :
   i ≠ i' →
-  (a.eraseAll i).find? i' = a.find? i' := by sorry
+  (a.eraseAll i).find? i' = a.find? i'
 
 theorem find?_eraseAll {α β} [DecidableEq α] {a : AssocList α β} {i i' v} :
   (a.eraseAll i').find? i = some v → a.find? i = some v := by
@@ -218,8 +218,8 @@ theorem keysNotInMap {α β} [DecidableEq α] {m : AssocList α β} {k} : ¬ m.c
   unfold Batteries.AssocList.contains Batteries.AssocList.keysList
   intro Hk; simp_all
 
-theorem disjoint_keys_mapVal {α β γ μ} [DecidableEq α] {a : AssocList α β} {b : AssocList α γ} {f : α → γ → μ} :
-  a.disjoint_keys b → a.disjoint_keys (b.mapVal f) := by sorry
+axiom disjoint_keys_mapVal {α β γ μ} [DecidableEq α] {a : AssocList α β} {b : AssocList α γ} {f : α → γ → μ} :
+  a.disjoint_keys b → a.disjoint_keys (b.mapVal f)
 
 theorem disjoint_keys_mapVal_both {α β γ μ η} [DecidableEq α] {a : AssocList α β} {b : AssocList α γ} {f : α → γ → μ} {g : α → β → η} :
   a.disjoint_keys b → (a.mapVal g).disjoint_keys (b.mapVal f) := by
@@ -240,28 +240,27 @@ theorem mapKey_find? {α β γ} [DecidableEq α] [DecidableEq γ] {a : AssocList
       have t2 : (k == i) = false := by simp [*]
       rw [t1, t2]
 
-theorem keysList_EqExt {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) :
-  a.EqExt b → a.wf → b.wf → a.keysList.Perm b.keysList := by
-  sorry
+axiom keysList_EqExt {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) :
+  a.EqExt b → a.wf → b.wf → a.keysList.Perm b.keysList
 
 /-
 These are needed because ExprLow currently only checks equality and uniqueness against the map
 -/
 
-theorem filterId_wf {α} [DecidableEq α] (p : AssocList α α) : p.wf → p.filterId.wf := sorry
+axiom filterId_wf {α} [DecidableEq α] (p : AssocList α α) : p.wf → p.filterId.wf
 
-theorem filderId_Nodup {α} [DecidableEq α] (p : AssocList α α) : p.keysList.Nodup → p.filterId.keysList.Nodup := sorry
+axiom filderId_Nodup {α} [DecidableEq α] (p : AssocList α α) : p.keysList.Nodup → p.filterId.keysList.Nodup
 
 -- theorem filterId_EqExt {α} [DecidableEq α] (p : AssocList α α) := sorry
 
-theorem mapVal_mapKey {α β γ σ} {f : α → γ} {g : β → σ} {m : AssocList α β}:
-  (m.mapKey f).mapVal (λ _ => g) = (m.mapVal (λ _ => g)).mapKey f := by sorry
+axiom mapVal_mapKey {α β γ σ} {f : α → γ} {g : β → σ} {m : AssocList α β}:
+  (m.mapKey f).mapVal (λ _ => g) = (m.mapVal (λ _ => g)).mapKey f
 
-theorem mapKey_append {α β γ} {f : α → γ} {m n : AssocList α β}:
-  (m.mapKey f).append (n.mapKey f) = (m.append n).mapKey f := by sorry
+axiom mapKey_append {α β γ} {f : α → γ} {m n : AssocList α β}:
+  (m.mapKey f).append (n.mapKey f) = (m.append n).mapKey f
 
-theorem eraseAll_comm_mapKey {α β γ} [DecidableEq α] [DecidableEq γ] {f : α → γ} {i} {m : AssocList α β} :
-  (m.mapKey f).eraseAll (f i) = (m.eraseAll i).mapKey f := sorry
+axiom eraseAll_comm_mapKey {α β γ} [DecidableEq α] [DecidableEq γ] {f : α → γ} {i} {m : AssocList α β} :
+  (m.mapKey f).eraseAll (f i) = (m.eraseAll i).mapKey f
 
 theorem bijectivePortRenaming_bijective {α} [DecidableEq α] {p : AssocList α α} :
   Function.Bijective p.bijectivePortRenaming := by
