@@ -6,6 +6,7 @@ Authors: Yann Herklotz
 
 import DataflowRewriter.Module
 import DataflowRewriter.ExprLow
+import DataflowRewriter.Environment
 import Mathlib.Tactic
 import Mathlib.Logic.Function.Basic
 
@@ -373,36 +374,6 @@ theorem rename_build_module_eq {e : ExprLow Ident} {f g} (h : Function.Bijective
       · simp [mapPorts2_mapKey_inputs,AssocList.mapVal_mapKey,AssocList.mapVal_mapKey,AssocList.mapKey_append]
       · simp [mapPorts2_mapKey_outputs,AssocList.mapVal_mapKey,AssocList.mapVal_mapKey,AssocList.mapKey_append]
 
-theorem rename_build_module_heq {e : ExprLow Ident} {f g} (h : Function.Bijective f) (h' : Function.Bijective g) :
-  HEq ([e| e.mapPorts2 f g, ε]) ([e| e, ε ].mapPorts2 f g) := by
-  induction e with
-  | base map typ =>
-    cases hfind : (AssocList.find? typ ε).isSome
-    · simp [-AssocList.find?_eq] at hfind
-      unfold build_module_expr build_module
-      rw [build_module_unfold_2 hfind]
-      dsimp [drunfold]; rw [hfind]; dsimp; constructor
-    · rw [Option.isSome_iff_exists] at hfind; obtain ⟨m, hfind⟩ := hfind
-      unfold build_module_expr build_module
-      rw [build_base_in_env hfind]
-      dsimp [drunfold]; rw [hfind]; dsimp
-      obtain ⟨mT, me⟩ := m
-      obtain ⟨min, mout, mint⟩ := me; dsimp
-      congr
-      -- unfold PortMapping.filterId; dsimp
-      unfold Module.renamePorts
-      dsimp
-      unfold Module.mapPorts2
-      unfold Module.mapInputPorts Module.mapOutputPorts; dsimp
-      congr 1
-      · sorry
-      . sorry
-  | connect o i e ih =>
-    dsimp [drunfold]
-    cases hfind : (build_module' ε e)
-    all_goals sorry
-  | _ => sorry
-
 theorem refines_mapPorts2_1 {e f g} :
   Function.Bijective f → Function.Bijective g → e.wf_mapping ε →
   ([e| e, ε ]).mapPorts2 f g ⊑ ([e| e.mapPorts2 f g, ε]) := by
@@ -487,74 +458,6 @@ theorem refines_connect {e e' o i} :
   simp only [build_module_expr, build_module, build_module'] at *
   rw [wf1,wf2] at ref ⊢
   solve_by_elim [Module.refines_connect]
-
--- theorem substition' {I I' i i' mod mod' iexpr} :
---     iexpr.wf ε →
---     ε.find? i = some ⟨ I, mod ⟩ →
---     ε.find? i' = some ⟨ I', mod' ⟩ →
---     mod ⊑ mod' →
---     [e| iexpr, ε ] ⊑ ([e| iexpr.modify i i', ε ]) := by
---   unfold build_module_expr
---   induction iexpr generalizing i i' mod mod' with
---   | base inst typ =>
---     intro hwf hfind₁ hfind₂ Href
---     dsimp [drunfold]
---     by_cases h : typ = i
---     · subst typ
---       rw [hfind₁]; dsimp [drunfold]
---       have : (if i = i then ExprLow.base inst i' else .base inst i) = .base inst i' := by
---         simp only [↓reduceIte]
---       rw [this, build_base_in_env hfind₂]; simp
---       solve_by_elim [Module.refines_renamePorts]
---     · have : (if typ = i then ExprLow.base inst i' else .base inst typ) = .base inst typ := by
---         simp only [↓reduceIte, h]
---       rw [this]; simp [drunfold,Module.refines_reflexive]
---   | product e₁ e₂ ihe₁ ihe₂ =>
---     intro hwf hf₁ hf₂ href
---     have e₁wf : e₁.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
---     have e₂wf : e₂.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
---     have some_isSome : (ε.find? i').isSome := by simp only [*]; simp
---     apply refines_product <;> solve_by_elim [wf_modify_expression]
---   | connect o i e =>
---     intro hwf hfind₁ hfind₂ href
---     simp only [modify]
---     have e₁wf : e.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
---     have some_isSome : (ε.find? i').isSome := by simp only [*]; simp
---     apply refines_connect <;> solve_by_elim [wf_modify_expression]
-
--- theorem substition {I I' i i' mod mod' iexpr} :
---     iexpr.wf ε →
---     ε.find? i = some ⟨ I, mod ⟩ →
---     ε.find? i' = some ⟨ I', mod' ⟩ →
---     mod' ⊑ mod →
---     [e| iexpr.modify i i', ε ] ⊑ ([e| iexpr, ε ]) := by
---   unfold build_module_expr
---   induction iexpr generalizing i i' mod mod' with
---   | base inst typ =>
---     intro hwf hfind₁ hfind₂ Href
---     dsimp [drunfold]
---     by_cases h : typ = i
---     · subst typ
---       rw [hfind₁]; dsimp [drunfold]
---       have : (if i = i then ExprLow.base inst i' else .base inst i) = .base inst i' := by
---         simp only [↓reduceIte]
---       rw [this, build_base_in_env hfind₂]; simp
---       solve_by_elim [Module.refines_renamePorts]
---     · have : (if typ = i then ExprLow.base inst i' else .base inst typ) = .base inst typ := by
---         simp only [↓reduceIte, h]
---       rw [this]; simp [drunfold,Module.refines_reflexive]
---   | product e₁ e₂ ihe₁ ihe₂ =>
---     intro hwf hf₁ hf₂ href
---     have e₁wf : e₁.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
---     have e₂wf : e₂.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
---     have some_isSome : (ε.find? i').isSome := by simp only [*]; simp
---     apply refines_product <;> solve_by_elim [wf_modify_expression]
---   | connect o i e =>
---     intro hwf hfind₁ hfind₂ href
---     simp only [modify]
---     have e₁wf : e.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
---     have some_isSome : (ε.find? i').isSome := by simp only [*]; simp
---     apply refines_connect <;> solve_by_elim [wf_modify_expression]
 
 attribute [-drunfold] check_eq
 
@@ -810,6 +713,269 @@ theorem replacement {iexpr e_new e_pat} :
       apply check_eq_symm at h; solve_by_elim [check_eq_refines]
     · simp at h; rw [h]
       apply refines_connect <;> solve_by_elim [wf_modify_expression,wf_replace]
+
+theorem findInput_iff_contains {e T m i o} :
+  build_module' ε e = some ⟨T, m⟩ →
+  findInput i e = m.inputs.contains o := by sorry
+
+theorem findOutput_iff_contains {e T m i o} :
+  build_module' ε e = some ⟨T, m⟩ →
+  findOutput i e = m.outputs.contains o := by sorry
+
+theorem wf_comm_connection'_ {e e' : ExprLow Ident} {conn}:
+  e.comm_connection'_ conn = .some e' →
+  e.wf ε →
+  e'.wf ε := by sorry
+
+theorem refines_comm_base_ {iexpr e' inst typ} :
+    iexpr.wf ε → comm_base_ inst typ iexpr = .some e' → [e| e', ε ] ⊑ ([e| iexpr, ε ]) := by sorry
+
+theorem wf_comm_base_ {e e' : ExprLow Ident} {inst typ}:
+  e.comm_base_ inst typ = .some e' →
+  e.wf ε →
+  e'.wf ε := by sorry
+
+theorem refines_comm_connection'_ {iexpr e' conn} :
+    iexpr.wf ε → comm_connection'_ conn iexpr = .some e' → [e| e', ε ] ⊑ ([e| iexpr, ε ]) := by
+-- Proof
+  unfold build_module_expr
+  induction iexpr generalizing e' with
+  | base inst typ => intro hwf₁ hcomm; contradiction
+  | product e₁ e₂ ihe₁ ihe₂ =>
+    intro hwf hcomm
+    have e₁wf : e₁.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
+    have e₂wf : e₂.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
+    dsimp [comm_connection'_] at hcomm
+    split at hcomm
+    · cases hcomm; apply ExprLow.refines_product <;> try solve_by_elim [wf_comm_connection'_]
+    · cases hcomm; apply ExprLow.refines_product <;> try solve_by_elim [wf_comm_connection'_, Module.refines_reflexive]
+    · cases hcomm; apply ExprLow.refines_product <;> try solve_by_elim [wf_comm_connection'_, Module.refines_reflexive]
+    · cases hcomm
+  | connect o i e ih =>
+    intro hwf hcomm
+    dsimp [comm_connection'_] at hcomm
+    split at hcomm
+    · split at hcomm <;> try contradiction
+      · (split at hcomm <;> try contradiction); cases hcomm
+        dsimp [build_module, build_module']
+        simp [wf, all, -AssocList.contains_eq] at hwf
+        have hbuild_module₁ := wf_builds_module hwf
+        simp [Option.isSome_iff_exists ] at hbuild_module₁
+        obtain ⟨T₁, e₁, hbuild₁⟩ := hbuild_module₁
+        rw [hbuild₁]; dsimp
+        apply Module.refines_reflexive_ext
+        repeat cases ‹_ ∧ _›; subst_vars
+        apply Module.comm_conn_conn_EqExt <;> (symm; assumption)
+      · (repeat' (split at hcomm <;> try contradiction)); cases hcomm
+        dsimp [build_module, build_module']
+        simp [wf, all, -AssocList.contains_eq] at hwf; obtain ⟨hwfl, hwfr⟩ := hwf
+        have hbuild_module₁ := wf_builds_module hwfl
+        have hbuild_module₂ := wf_builds_module hwfr
+        simp [Option.isSome_iff_exists ] at hbuild_module₁ hbuild_module₂
+        obtain ⟨T₁, e₁, hbuild₁⟩ := hbuild_module₁
+        obtain ⟨T₂, e₂, hbuild₂⟩ := hbuild_module₂
+        rw [hbuild₁]; rw [hbuild₂]; dsimp
+        rename_i hfi
+        apply Module.refines_reflexive_ext
+        apply Module.comm_conn_product_EqExt
+        · rw [←findOutput_iff_contains] <;> solve_by_elim [hfi.2.1]
+        · rw [←findInput_iff_contains] <;> solve_by_elim [hfi.1]
+    · simp at hcomm; obtain ⟨e'', hcomm, hconn⟩ := hcomm; subst e'
+      apply ExprLow.refines_connect <;> solve_by_elim [wf_comm_connection'_]
+
+theorem refines_comm_connection'_2 {iexpr e' conn} :
+    iexpr.wf ε → comm_connection'_ conn iexpr = .some e' → [e| iexpr, ε ] ⊑ ([e| e', ε ]) := by
+-- Proof
+  unfold build_module_expr
+  induction iexpr generalizing e' with
+  | base inst typ => intro hwf₁ hcomm; contradiction
+  | product e₁ e₂ ihe₁ ihe₂ =>
+    intro hwf hcomm
+    have e₁wf : e₁.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
+    have e₂wf : e₂.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
+    dsimp [comm_connection'_] at hcomm
+    split at hcomm
+    · cases hcomm; apply ExprLow.refines_product <;> try solve_by_elim [wf_comm_connection'_]
+    · cases hcomm; apply ExprLow.refines_product <;> try solve_by_elim [wf_comm_connection'_, Module.refines_reflexive]
+    · cases hcomm; apply ExprLow.refines_product <;> try solve_by_elim [wf_comm_connection'_, Module.refines_reflexive]
+    · cases hcomm
+  | connect o i e ih =>
+    intro hwf hcomm
+    dsimp [comm_connection'_] at hcomm
+    split at hcomm
+    · split at hcomm <;> try contradiction
+      · (split at hcomm <;> try contradiction); cases hcomm
+        dsimp [build_module, build_module']
+        simp [wf, all, -AssocList.contains_eq] at hwf
+        have hbuild_module₁ := wf_builds_module hwf
+        simp [Option.isSome_iff_exists ] at hbuild_module₁
+        obtain ⟨T₁, e₁, hbuild₁⟩ := hbuild_module₁
+        rw [hbuild₁]; dsimp
+        apply Module.refines_reflexive_ext
+        repeat cases ‹_ ∧ _›; subst_vars
+        apply Module.comm_conn_conn_EqExt <;> assumption
+      · (repeat' (split at hcomm <;> try contradiction)); cases hcomm
+        dsimp [build_module, build_module']
+        simp [wf, all, -AssocList.contains_eq] at hwf; obtain ⟨hwfl, hwfr⟩ := hwf
+        have hbuild_module₁ := wf_builds_module hwfl
+        have hbuild_module₂ := wf_builds_module hwfr
+        simp [Option.isSome_iff_exists ] at hbuild_module₁ hbuild_module₂
+        obtain ⟨T₁, e₁, hbuild₁⟩ := hbuild_module₁
+        obtain ⟨T₂, e₂, hbuild₂⟩ := hbuild_module₂
+        rw [hbuild₁]; rw [hbuild₂]; dsimp
+        rename_i hfi
+        apply Module.refines_reflexive_ext
+        apply Module.EqExt.symm
+        apply Module.comm_conn_product_EqExt
+        · rw [←findOutput_iff_contains] <;> solve_by_elim [hfi.2.1]
+        · rw [←findInput_iff_contains] <;> solve_by_elim [hfi.1]
+    · simp at hcomm; obtain ⟨e'', hcomm, hconn⟩ := hcomm; subst e'
+      apply ExprLow.refines_connect <;> solve_by_elim [wf_comm_connection'_]
+
+theorem refines_fix_point_opt {iexpr e' f n} :
+    (∀ e e', e.wf ε → f e = .some e' → ([e| e', ε ] ⊑ ([e| e, ε ])) ∧ e'.wf ε) →
+    [e| e', ε ] ⊑ ([e| iexpr, ε ]) →
+    e'.wf ε →
+    [e| fix_point_opt f e' n , ε ] ⊑ ([e| iexpr, ε ]) := by
+-- Proof
+  induction n generalizing iexpr e' with
+  | zero => intros; simp [fix_point_opt]; assumption
+  | succ n ih =>
+    intro h href hwf
+    dsimp [fix_point_opt]
+    split <;> simp
+    · have hrand := h _ _ ‹_› ‹_›; apply ih; assumption; apply Module.refines_transitive
+      apply hrand.1; solve_by_elim; apply hrand.2
+    · assumption
+
+theorem refines_fix_point_opt2' {iexpr e' f n} :
+    (∀ e e', e.wf ε → f e = .some e' → ([e| e, ε ] ⊑ ([e| e', ε ])) ∧ e'.wf ε) →
+    [e| iexpr, ε ] ⊑ ([e| e', ε ]) →
+    e'.wf ε →
+    [e| iexpr, ε ] ⊑ ([e| fix_point_opt f e' n, ε ]) := by
+-- Proof
+  induction n generalizing iexpr e' with
+  | zero => intros; simp [fix_point_opt]; assumption
+  | succ n ih =>
+    intro h href hwf
+    dsimp [fix_point_opt]
+    split <;> simp
+    · have hrand := h _ _ ‹_› ‹_›; apply ih; assumption; apply Module.refines_transitive
+      assumption; apply hrand.1; apply hrand.2
+    · assumption
+
+theorem wf_fix_point_opt {iexpr f n} :
+    (∀ e e', e.wf ε → f e = .some e' → e'.wf ε) →
+    iexpr.wf ε →
+    (fix_point_opt f iexpr n).wf ε := by
+-- Proof
+  induction n generalizing iexpr with
+  | zero => intros; simp [fix_point_opt]; assumption
+  | succ n ih =>
+    intro h hwf
+    dsimp [fix_point_opt]
+    split <;> solve_by_elim
+
+theorem refines_fix_point_opt1 {iexpr f n} :
+    (∀ e e', e.wf ε → f e = .some e' → ([e| e', ε ] ⊑ ([e| e, ε ])) ∧ e'.wf ε) →
+    iexpr.wf ε →
+    [e| fix_point_opt f iexpr n , ε ] ⊑ ([e| iexpr, ε ]) := by
+  intros; solve_by_elim [refines_fix_point_opt, Module.refines_reflexive]
+
+theorem refines_fix_point_opt2 {iexpr f n} :
+    (∀ e e', e.wf ε → f e = .some e' → ([e| e, ε ] ⊑ ([e| e', ε ])) ∧ e'.wf ε) →
+    iexpr.wf ε →
+    [e| iexpr, ε ] ⊑ ([e| fix_point_opt f iexpr n, ε ]) := by
+  intros; solve_by_elim [refines_fix_point_opt2', Module.refines_reflexive]
+
+theorem refines_foldr' {α} {iexpr e'} {l : List α} (f : α → ExprLow Ident → ExprLow Ident) :
+    (∀ e a, e.wf ε → ([e| f a e, ε ] ⊑ ([e| e, ε ])) ∧ (f a e).wf ε) →
+    [e| e', ε ] ⊑ ([e| iexpr, ε ]) → e'.wf ε →
+    ([e| l.foldr f e', ε ] ⊑ ([e| iexpr, ε ])) ∧ (l.foldr f e').wf ε := by
+  induction l generalizing iexpr e' with
+  | nil => intros; solve_by_elim
+  | cons x xs ih =>
+    intro h href hwf; dsimp
+    have ⟨ih', ihwf⟩ := ih h href hwf
+    have ⟨hrand₁, hrand₂⟩ := h _ x ihwf
+    solve_by_elim [Module.refines_transitive]
+
+theorem refines_foldr2' {α} {iexpr e'} {l : List α} (f : α → ExprLow Ident → ExprLow Ident) :
+    (∀ e a, e.wf ε → ([e| e, ε ] ⊑ ([e| f a e, ε ])) ∧ (f a e).wf ε) →
+    [e| iexpr, ε ] ⊑ ([e| e', ε ]) → e'.wf ε →
+    ([e| iexpr, ε ] ⊑ ([e| l.foldr f e', ε ])) ∧ (l.foldr f e').wf ε := by
+  induction l generalizing iexpr e' with
+  | nil => intros; solve_by_elim
+  | cons x xs ih =>
+    intro h href hwf; dsimp
+    have ⟨ih', ihwf⟩ := ih h href hwf
+    have ⟨hrand₁, hrand₂⟩ := h _ x ihwf
+    solve_by_elim [Module.refines_transitive]
+
+theorem refines_foldr {α} {iexpr} {l : List α} (f : α → ExprLow Ident → ExprLow Ident) :
+    (∀ e a, e.wf ε → ([e| f a e, ε ] ⊑ ([e| e, ε ])) ∧ (f a e).wf ε) → iexpr.wf ε →
+    ([e| l.foldr f iexpr, ε ] ⊑ ([e| iexpr, ε ])) := by
+  intros; exact refines_foldr' (l := l) ε f ‹_› Module.refines_reflexive ‹_› |>.1
+
+theorem refines_foldr2 {α} {iexpr} {l : List α} (f : α → ExprLow Ident → ExprLow Ident) :
+    (∀ e a, e.wf ε → ([e| e, ε ] ⊑ ([e| f a e, ε ])) ∧ (f a e).wf ε) → iexpr.wf ε →
+    ([e| iexpr, ε ] ⊑ ([e| l.foldr f iexpr, ε ])) := by
+  intros; exact refines_foldr2' (l := l) ε f ‹_› Module.refines_reflexive ‹_› |>.1
+
+theorem wf_foldr {α} {iexpr} {l : List α} (f : α → ExprLow Ident → ExprLow Ident) :
+    (∀ e a, e.wf ε → ([e| f a e, ε ] ⊑ ([e| e, ε ])) ∧ (f a e).wf ε) → iexpr.wf ε → (l.foldr f iexpr).wf ε := by
+  intros; exact refines_foldr' (l := l) ε f ‹_› Module.refines_reflexive ‹_› |>.2
+
+theorem refines_comm_bases {iexpr l} :
+  iexpr.wf ε → [e| comm_bases l iexpr, ε ] ⊑ ([e| iexpr, ε ]) := by
+  unfold comm_bases; intro hwf
+  apply refines_foldr
+  · intros; and_intros
+    · unfold Function.uncurry; unfold comm_base
+      apply refines_fix_point_opt1; intros; and_intros
+      all_goals solve_by_elim [refines_comm_base_, wf_comm_base_]
+    · unfold Function.uncurry; unfold comm_base
+      apply wf_fix_point_opt; intros
+      all_goals solve_by_elim [wf_comm_base_]
+  · assumption
+
+theorem refines_comm_connections' {iexpr l} :
+  iexpr.wf ε → [e| comm_connections' l iexpr, ε ] ⊑ ([e| iexpr, ε ]) := by
+  unfold comm_connections'; intro hwf
+  apply refines_foldr
+  · intros; and_intros
+    · unfold comm_connection'
+      apply refines_fix_point_opt1; intros; and_intros
+      all_goals solve_by_elim [refines_comm_connection'_, wf_comm_connection'_]
+    · unfold comm_connection'
+      apply wf_fix_point_opt; intros
+      all_goals solve_by_elim [refines_comm_connection'_, wf_comm_connection'_]
+  · assumption
+
+theorem refines_comm_connections2' {iexpr l} :
+  iexpr.wf ε → [e| iexpr, ε ] ⊑ ([e| comm_connections' l iexpr, ε ]) := by
+  unfold comm_connections'; intro hwf
+  apply refines_foldr2
+  · intros; and_intros
+    · unfold comm_connection'
+      apply refines_fix_point_opt2; intros; and_intros
+      all_goals solve_by_elim [refines_comm_connection'_2, wf_comm_connection'_]
+    · unfold comm_connection'
+      apply wf_fix_point_opt; intros
+      all_goals solve_by_elim [refines_comm_connection'_, wf_comm_connection'_]
+  · assumption
+
+theorem ensureIOUnmodified_correct {e : ExprLow Ident} {p} :
+  e.ensureIOUnmodified p → [e| e, ε ].renamePorts p = ([e| e, ε ]) := by sorry
+
+theorem force_replace_eq_replace {e e₁ e₂ : ExprLow Ident} :
+    (e.force_replace e₁ e₂).1 = e.replace e₁ e₂ := by
+  induction e <;> simp [force_replace, replace] <;> split <;> simp [*]
+
+theorem refines_subset {e e' : ExprLow Ident} (ε' : IdentMap Ident (Σ T : Type, Module Ident T)) :
+  ε.subsetOf ε' → e.wf ε → e'.wf ε →
+  [e| e, ε ] ⊑ ([e| e', ε ]) →
+  [e| e, ε' ] ⊑ ([e| e', ε' ]) := by sorry
 
 end Refinement
 

@@ -17,6 +17,7 @@ structure CorrectRewrite where
   env : List String → Option Env
   consistent : ∀ l env', env l = .some env' → env'.subsetOf ε_global
   defined : ∀ l, (rewrite.rewrite l).isSome → (env l).isSome
+  wf : ∀ l env' defrw, env l = .some env' → rewrite.rewrite l = .some defrw → defrw.input_expr.wf env' ∧ defrw.output_expr.wf env'
   refines :
     ∀ l defrw env',
       env l = .some env' →
@@ -58,6 +59,16 @@ theorem EStateM.map_eq_ok {ε σ α β} {f : α → β} {o : EStateM ε σ α} {
 --   addRewriteInfo r s = .ok o' s' → s' = r :: s := by
 --   unfold addRewriteInfo; simp
 --   sorry
+
+theorem refines_higherSS {e : ExprLow String} {e' : ExprHigh String} :
+  e.higherSS = .some e' →
+  [Ge| e', ε_global] ⊑ ([e| e, ε_global]) := by sorry
+
+theorem wf_mapping_all {e : ExprLow String}:
+  e.wf_mapping ε_global := by sorry
+
+theorem wf_expr_all {e : ExprLow String}:
+  e.wf ε_global := by sorry
 
 theorem Rewrite_run'_correct {g g' : ExprHigh String} {s _st _st'} {rw : CorrectRewrite} :
   Rewrite.run' s g rw.rewrite _st = .ok g' _st' →
@@ -107,33 +118,43 @@ theorem Rewrite_run'_correct {g g' : ExprHigh String} {s _st _st'} {rw : Correct
   rename ExprHigh String => outGraph
   clear ‹AssocList String (Option String)›
   rename ExprLow.higherSS _ = _ => Hhighering
-  generalize HrenameMap :
-    ({ input := (generate_renaming AssocList.nil s
-                          (List.filter (fun x => !decide (x ∈ AssocList.keysList ioPortMap.fst.input))
-                            (defrw.output_expr.renamePorts
-                                  (ExprLow.filterId (ioPortMap.fst.append ioPortMap.snd))).allVars.fst)).fst,
-       output := (generate_renaming
-                          (generate_renaming AssocList.nil s
-                              (List.filter (fun x => !decide (x ∈ AssocList.keysList ioPortMap.fst.input))
-                                (defrw.output_expr.renamePorts
-                                      (ExprLow.filterId (ioPortMap.fst.append ioPortMap.snd))).allVars.fst)).snd
-                          s
-                          (List.filter (fun x => !decide (x ∈ AssocList.keysList ioPortMap.fst.output))
-                            (defrw.output_expr.renamePorts
-                                  (ExprLow.filterId (ioPortMap.fst.append ioPortMap.snd))).allVars.snd)).fst } : PortMapping String) = renameMap at *
-  generalize HrenameMap' :
-     (ExprLow.filterId (ioPortMap.fst.append ioPortMap.snd)) = renameMap' at *
-  generalize HrenameMap'' :
-     (ExprLow.normalisedNamesMap s
-            ((comm_connections extractedGraphs.fst.connections (ExprHigh.lower' lowered extractedGraphs.snd)).replace
-              (comm_connections extractedGraphs.fst.connections
-                ((defrw.input_expr.renamePorts renameMap').renamePorts renameMap))
-              ((defrw.output_expr.renamePorts renameMap').renamePorts renameMap))) = renameMap'' at *
-
-
-#check Lean.Elab.Term.TermElab
-
-#check String
+  have := rw.defined _ (by rw [Hrewrite]; apply Option.isSome_some)
+  rw [Option.isSome_iff_exists] at this; obtain ⟨l, r⟩ := this
+  apply Module.refines_transitive
+  apply refines_higherSS; assumption
+  apply Module.refines_transitive
+  apply ExprLow.refines_renamePorts_2
+  apply wf_mapping_all
+  rw [ExprLow.ensureIOUnmodified_correct] <;> try assumption
+  rw [ExprLow.force_replace_eq_replace]
+  apply Module.refines_transitive
+  apply ExprLow.replacement
+  apply wf_expr_all; apply wf_expr_all; apply wf_expr_all
+  apply Module.refines_transitive
+  apply ExprLow.refines_renamePorts_2
+  apply wf_mapping_all
+  apply Module.refines_transitive
+  apply Module.refines_renamePorts
+  apply ExprLow.refines_subset
+  apply rw.consistent; assumption
+  apply (rw.wf _ _ _ ‹_› ‹_›).2
+  apply (rw.wf _ _ _ ‹_› ‹_›).1
+  solve_by_elim [rw.refines]
+  apply Module.refines_transitive
+  apply ExprLow.refines_renamePorts_1
+  apply wf_mapping_all
+  apply ExprLow.refines_comm_connections2'
+  apply wf_expr_all
+  apply Module.refines_transitive
+  apply ExprLow.refines_comm_connections'
+  apply wf_expr_all
+  apply Module.refines_transitive
+  apply ExprLow.refines_comm_bases
+  apply wf_expr_all
+  unfold ExprHigh.build_module_expr ExprHigh.build_module ExprHigh.build_module'
+  rw [‹g.lower = _›]
+  dsimp
+  apply Module.refines_reflexive
 
 structure Pair (S T : Type) : Type where
   leftright : S × T

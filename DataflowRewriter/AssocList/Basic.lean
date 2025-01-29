@@ -30,8 +30,14 @@ instance {α β} : Append (AssocList α β) := ⟨ append ⟩
 def keysList {α β} (map : AssocList α β) : List α :=
   map.toList.map (·.fst)
 
+def valsList {α β} (map : AssocList α β) : List β :=
+  map.toList.map (·.snd)
+
 def disjoint_keys {α β γ} [DecidableEq α] (a : AssocList α β) (b : AssocList α γ) : Bool :=
   a.keysList.inter b.keysList = []
+
+def disjoint_vals {α β γ} [DecidableEq γ] (a : AssocList α γ) (b : AssocList β γ) : Bool :=
+  a.valsList.inter b.valsList = []
 
 def filter {α β} (f : α → β → Bool) (l : AssocList α β) :=
   l.foldl (λ c a b => if f a b then c.cons a b else c) (∅ : AssocList α β)

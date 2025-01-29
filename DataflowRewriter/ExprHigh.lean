@@ -9,11 +9,6 @@ import DataflowRewriter.ExprLow
 
 namespace DataflowRewriter
 
-structure Connection (Ident : Type _) where
-  output : InternalPort Ident
-  input  : InternalPort Ident
-deriving Repr, Hashable, DecidableEq, Ord, Inhabited
-
 /--
 Graph description of a cicruit.  Note that currently one cannot describe an
 input that connects directly to the output.  Instead, these always have to pass

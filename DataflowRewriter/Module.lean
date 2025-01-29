@@ -104,6 +104,10 @@ variable [DecidableEq Ident]
 def EqExt {S} (m₁ m₂ : Module Ident S) : Prop :=
   m₁.inputs.EqExt m₂.inputs ∧ m₁.outputs.EqExt m₂.outputs ∧ m₁.internals.Perm m₂.internals
 
+theorem EqExt.symm {S} (m₁ m₂ : Module Ident S) :
+  m₁.EqExt m₂ → m₂.EqExt m₁ := by
+  unfold EqExt; intros; simp [*, AssocList.EqExt.symm, List.Perm.symm]
+
 def connect'' {Ti To S} (ruleO : S → To → S → Prop) (ruleI : S → Ti → S → Prop)
   -- (int : S → S → Prop)
   : S → S → Prop :=
@@ -178,6 +182,14 @@ theorem renamePorts_EqExt {S} (m : Module Ident S) (p p' : PortMapping Ident) :
   unfold Module.renamePorts
   intro ⟨hwf1, hwf2⟩ ⟨hwf1', hwf2'⟩ ⟨Heq1, Heq2⟩
   simp [*, AssocList.bijectivePortRenaming_EqExt (p' := p'.input), AssocList.bijectivePortRenaming_EqExt (p' := p'.output)]
+
+theorem comm_conn_product_EqExt {I S} {m₁ : Module Ident I} {m₂ : Module Ident S} {o i}:
+  ¬ (m₁.outputs.contains o) → ¬ (m₁.inputs.contains i) →
+  (m₁.product (m₂.connect' o i)).EqExt ((m₁.product m₂).connect' o i) := by sorry
+
+theorem comm_conn_conn_EqExt {I} {m : Module Ident I} {o i o' i'}:
+  o ≠ o' → i ≠ i' →
+  ((m.connect' o' i').connect' o i).EqExt ((m.connect' o i).connect' o' i') := by sorry
 
 -- theorem find?_inputs_left {S T} {mod1 : Module Ident S} {mod2 : Module Ident T} {ident rule} :
 --   mod1.inputs.find? ident = some rule →
