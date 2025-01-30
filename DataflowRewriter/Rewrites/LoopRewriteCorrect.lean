@@ -178,13 +178,13 @@ def rhsEvaled : Module String (rhsType Data) := by
 /--
 Essentially tagger + join without internal rule
 -/
-@[drunfold] def NatModule.tagger_untagger_val_ghost (TagT : Type 0) [_i: DecidableEq TagT] (T : Type 0) (name := "tagger_untagger_val_ghost") : NatModule (NatModule.Named name (List TagT × AssocList TagT (T × (Nat × T)) × List (T × (Nat × T)))) :=
+@[drunfold] def NatModule.tagger_untagger_val_ghost (TagT : Type 0) [_i: DecidableEq TagT] (T : Type 0) (name := "tagger_untagger_val_ghost") : NatModule (NatModule.Named name (List (TagT × T) × AssocList TagT (T × (Nat × T)) × List (T × (Nat × T)))) :=
   { inputs := [
         -- Complete computation
         -- Models the input of the Cal + Untagger (coming from a previously tagged region)
         (0, ⟨ (TagT × T) × (Nat × T), λ (oldOrder, oldMap, oldVal) ((tag,el), r) (newOrder, newMap, newVal) =>
           -- Tag must be used, but no value ready, otherwise block:
-          (tag ∈ oldOrder ∧ oldMap.find? tag = none) ∧
+          (tag ∈ oldOrder.map Prod.fst ∧ oldMap.find? tag = none) ∧
           newMap = oldMap.cons tag (el, r) ∧ newOrder = oldOrder ∧ newVal = oldVal ⟩),
         -- Enq a value to be tagged
         -- Models the input of the Tagger (coming from outside)
@@ -197,14 +197,14 @@ Essentially tagger + join without internal rule
       (0, ⟨ (TagT × T) × (Nat × T), λ (oldOrder, oldMap, oldVal) ((tag, v), z) (newOrder, newMap, newVal) =>
         -- Tag must be unused otherwise block (alternatively we
         -- could an implication to say undefined behavior):
-        (tag ∉ oldOrder ∧ oldMap.find? tag = none) ∧
-        newMap = oldMap ∧ newOrder = oldOrder.concat tag ∧ (v, z) :: newVal = oldVal⟩),
+        (tag ∉ oldOrder.map Prod.fst ∧ oldMap.find? tag = none) ∧
+        newMap = oldMap ∧ newOrder = oldOrder.concat (tag, v) ∧ (v, z) :: newVal = oldVal⟩),
         -- Dequeue + free tag
         -- Models the output of the Cal + Untagger
       (1, ⟨ T, λ (oldorder, oldmap, oldVal) el (neworder, newmap, newVal) =>
         -- tag must be used otherwise, but no value brought, undefined behavior:
-        ∃ tag r, oldorder = tag :: neworder ∧ oldmap.find? tag = some (el, r) ∧
-        newmap = oldmap.eraseAll tag ∧ newVal = oldVal ⟩),
+        ∃ tag r, oldorder = tag :: neworder ∧ oldmap.find? tag.fst = some (el, r) ∧
+        newmap = oldmap.eraseAll tag.fst ∧ newVal = oldVal ⟩),
         ].toAssocList
   }
 
@@ -257,7 +257,7 @@ abbrev rhsGhostType :=
         (NatModule.Named "pure" (List (((TagT × Data) × ℕ × Data) × Bool)) ×
           NatModule.Named "branch" (List ((TagT × Data) × ℕ × Data) × List Bool) ×
             NatModule.Named "merge" (List ((TagT × Data) × ℕ × Data)) ×
-              NatModule.Named "tagger_untagger_val_ghost" (List TagT × AssocList TagT (Data × (Nat × Data)) × List (Data × ℕ × Data)) ×
+              NatModule.Named "tagger_untagger_val_ghost" (List (TagT × Data) × AssocList TagT (Data × (Nat × Data)) × List (Data × ℕ × Data)) ×
                 NatModule.Named "split" (List ((TagT × Data) × ℕ × Data) × List Bool))
 
 set_option maxHeartbeats 0 in
@@ -277,54 +277,6 @@ def rhsGhostEvaled : Module String (rhsGhostType Data) := by
     unfold Module.connect''
     dsimp
     simp [Batteries.AssocList.find?, -Prod.exists]
-
-
-
-def apply (n : Nat) (i : Data) : Data × Bool :=
-match n with
-| 0 => f i
-| n' + 1 => f (apply n' i).fst
-
-
-def iterate (i: Data) (n : Nat) (i': Data) : Prop :=
-  (∀ m, m < n -> (apply f m i).snd = true) ∧ apply f n i = (i', false)
-
-#print rhsGhostType
-
-inductive state_relation : rhsGhostType Data -> Prop where
-| intros : ∀ (s :  rhsGhostType Data) x_merge x_module x_branchD x_branchB x_tagT x_tagM x_tagD x_splitD x_splitB x_branchT x_branchF x_splitT x_splitF x_moduleT x_moduleF,
-  ⟨ x_module, ⟨x_branchD, x_branchB⟩, x_merge, ⟨x_tagT, x_tagM, x_tagD ⟩, ⟨x_splitD, x_splitB⟩⟩ = s ->
-  ∀ elem n i', elem ∈ x_merge -> iterate f elem.2.2 n i' -> elem.2.1 ≥ 0 ∧ elem.2.1 - 1 < n ->
-  List.map Prod.fst (List.filter (fun x => x.2 == true) (List.zip x_branchD x_branchB)) = x_branchT ->
-  List.map Prod.fst (List.filter (fun x => x.2 == false) (List.zip x_branchD x_branchB)) = x_branchF->
-  List.map Prod.fst (List.filter (fun x => x.2 == true) (List.zip x_splitD x_splitB)) = x_splitT ->
-  List.map Prod.fst (List.filter (fun x => x.2 == false) (List.zip x_splitD x_splitB)) = x_splitF ->
-  List.map Prod.fst (List.filter (fun x => x.2 == true) (x_module)) = x_moduleT ->
-  List.map Prod.fst (List.filter (fun x => x.2 == false) (x_module)) = x_moduleF ->
- ( ∀ elem n i', elem ∈ x_moduleT ++ x_splitT ++ x_branchT -> iterate f elem.2.2 n i' -> elem.2.1 > 0 ∧ elem.2.1-1 < n) ->
-  (∀ elem n i', elem ∈ x_moduleF ++ x_splitF ++ x_branchF -> iterate f elem.2.2 n i' -> elem.2.1 > 0 ∧ elem.2.1-1 = n) ->
-  --∀ elem n i', elem ∈ x_module.map Prod.fst -> iterate f elem.2.2 n i' -> x_module = [(apply f elem.2.1 elem.2.2)] ->
-
-
-
---  ( ∀ n k i',
---     iterate f i_in n i' ->
---     k ≤ n ->
---     (k < n -> x_module = [(apply f k i_in )] ∧ x_module.map Prod.snd = [true]) ->
---     (k = n -> x_module = [(apply f n i_in )] ∧ x_module.map Prod.snd = [false]) ->
---     (x_splitB = [true] -> k < n ∧  x_splitD = [(apply f k i_in )].map Prod.fst) ->
---     (x_splitB = [false] -> k = n ∧  x_splitD = [(apply f k i_in )].map Prod.fst)) ->
-  state_relation s
-
-
-
-
-
-
-
-
-
-
 
 
 
