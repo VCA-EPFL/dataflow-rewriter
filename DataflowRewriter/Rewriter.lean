@@ -107,23 +107,6 @@ def generate_renaming (nameMap : AssocList String String) (fresh_prefix : String
     | ⟨.top, name⟩ :: b => go n nameMap p b
     | [] => (p, nameMap)
 
-def comm_connection {Ident} [DecidableEq Ident] (conn : Connection Ident) : ExprLow Ident → ExprLow Ident
-| orig@(.connect o i e) =>
-  if o = conn.output ∧ i = conn.input then
-    match e with
-    | .connect o' i' e' =>
-      if o ≠ o' ∨ i ≠ i' then
-        .connect o' i' (comm_connection conn <| .connect o i e')
-      else orig
-    | _ => orig
-  else .connect o i <| comm_connection conn e
-| .product e₁ e₂ =>
-  .product (comm_connection conn e₁) (comm_connection conn e₂)
-| e => e
-
-def comm_connections {Ident} [DecidableEq Ident] (conn : List (Connection Ident)) (e : ExprLow Ident): ExprLow Ident :=
-  conn.foldr comm_connection e
-
 def portmappingToNameRename' (sub : List String) (p : PortMapping String) : RewriteResult (AssocList String (Option String)) :=
   p.input.foldlM
     (λ | (a : AssocList String (Option String)), ⟨.internal lport, _⟩, ⟨.internal rport, _⟩ =>
@@ -167,13 +150,18 @@ however, currently the low-level expression language does not remember any names
 
   -- g_lower is the fully lowered graph with the sub expression that is to be replaced rearranged so that it can be
   -- pattern matched.
-  let g_lower := g₂.lower' e_sub
+  let canon := ExprLow.comm_connections' g₁.connections
+  let g_lower ← ofOption (.error "failed lowering of the graph: graph is empty") g.lower
+  let sub' ← ofOption (.error "could not extract base information") <| sub.mapM (λ a => g.modules.find? a)
+  let g_lower := canon <| ExprLow.comm_bases sub' g_lower
+
+  -- throw (.error s!"mods :: {repr sub'}\n\nlhs :: {repr g_lower}\n\nrhs :: {repr g_lower'}\n\n{repr def_rewrite.input_expr}")
 
   -- beq is an α-equivalence check that returns a mapping to rename one expression into the other.  This mapping is
   -- split into the external mapping and internal mapping.
   let (ext_mapping, int_mapping) ← liftError <| e_sub.weak_beq def_rewrite.input_expr
 
-  let comb_mapping := PortMapping.filterId <| ext_mapping.append int_mapping
+  let comb_mapping := ext_mapping.append int_mapping
   EStateM.guard (.error "input mapping not invertible") <| ExprLow.invertible comb_mapping.input
   EStateM.guard (.error "output mapping not invertible") <| ExprLow.invertible comb_mapping.output
 
@@ -204,10 +192,13 @@ however, currently the low-level expression language does not remember any names
 
   -- `norm` is a function that canonicalises the connections of the input expression given a list of connections as the
   -- ordering guide.
-  let canon := comm_connections g₁.connections
-  let rewritten := (canon g_lower).replace (canon e_renamed_input_sub) e_renamed_output_sub
+  let (rewritten, b) := g_lower.force_replace (canon e_sub_input) e_sub_output
+
+  -- throw (.error s!"mods :: {repr sub'}rhs :: {repr g_lower}\n\ndep :: {repr (canon e_sub_input)}")
+  EStateM.guard (.error s!"subexpression not found in the graph") b
 
   let norm := rewritten.normalisedNamesMap fresh_prefix
+  EStateM.guard (.error s!"trying to remap IO ports which is forbidden") <| rewritten.ensureIOUnmodified norm
   let out ← rewritten.renamePorts norm |>.higherSS |> ofOption (.error "could not lift expression to graph")
   let portMap ← portmappingToNameRename' sub norm
   let inputPortMap := portMap.filter (λ lhs _ => ¬ nameMap'.inverse.contains lhs)

@@ -183,16 +183,16 @@ theorem only_one_data_in_flight:
   let ⟨x_bag, ⟨x_initL, x_initB⟩, x_module, ⟨x_splitD, x_splitB⟩ ,⟨x_branchD, x_branchB⟩, ⟨x_forkR, x_forkL⟩, x_muxB, x_muxI, x_muxC ⟩ := s
   let ⟨x_bag', ⟨x_initL', x_initB'⟩, x_module', ⟨x_splitD', x_splitB'⟩ ,⟨x_branchD', x_branchB'⟩, ⟨x_forkR', x_forkL'⟩, x_muxB', x_muxI', x_muxC'⟩ := s'
   fin_cases h1
-  -- . dsimp at h2
-  --   obtain ⟨h2, _⟩ := h2
-  --   specialize h2 rfl
-  --   obtain ⟨cons, newC, h⟩ := h2
-  --   obtain ⟨x_bag'_int, ⟨x_initL'_int, x_initB'_int⟩, x_module'_int, ⟨x_splitD'_int, x_splitB'_int⟩ ,⟨x_branchD'_int, x_branchB'_int⟩, ⟨x_forkR'_int, x_forkL'_int⟩, x_muxB'_int, x_muxI'_int, x_muxC'_int⟩ := cons
-  --   dsimp at h
-  --   simp_all; repeat cases ‹_ ∧ _›
-  --   --let ⟨⟨⟨h4, ⟨h15, ⟨⟨h20, h26⟩, ⟨h21, h27⟩, ⟨h22, h28⟩, h23, h24, h25⟩⟩⟩, h5⟩ , ⟨⟨⟨⟨⟨⟨ h6, h13, h14⟩, ⟨h12, h17⟩⟩, ⟨h11, h16⟩⟩, ⟨h10, h18⟩⟩, h8⟩, ⟨h9, h19⟩⟩, h7⟩ := h
-  --   subst_vars
-  --   rcases h3 with ⟨ h3, h3'⟩
+  . dsimp at h2
+    obtain ⟨h2, _⟩ := h2
+    specialize h2 rfl
+    obtain ⟨cons, newC, h⟩ := h2
+    obtain ⟨x_bag'_int, ⟨x_initL'_int, x_initB'_int⟩, x_module'_int, ⟨x_splitD'_int, x_splitB'_int⟩ ,⟨x_branchD'_int, x_branchB'_int⟩, ⟨x_forkR'_int, x_forkL'_int⟩, x_muxB'_int, x_muxI'_int, x_muxC'_int⟩ := cons
+    dsimp at h
+    simp_all; repeat cases ‹_ ∧ _›
+    --let ⟨⟨⟨h4, ⟨h15, ⟨⟨h20, h26⟩, ⟨h21, h27⟩, ⟨h22, h28⟩, h23, h24, h25⟩⟩⟩, h5⟩ , ⟨⟨⟨⟨⟨⟨ h6, h13, h14⟩, ⟨h12, h17⟩⟩, ⟨h11, h16⟩⟩, ⟨h10, h18⟩⟩, h8⟩, ⟨h9, h19⟩⟩, h7⟩ := h
+    subst_vars
+    rcases h3 with ⟨ h3, h3'⟩
   --   constructor
   --   . cases h3
   --     rename_i h3 _ _

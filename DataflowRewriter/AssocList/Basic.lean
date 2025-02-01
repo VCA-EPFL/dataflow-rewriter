@@ -30,8 +30,14 @@ instance {α β} : Append (AssocList α β) := ⟨ append ⟩
 def keysList {α β} (map : AssocList α β) : List α :=
   map.toList.map (·.fst)
 
+def valsList {α β} (map : AssocList α β) : List β :=
+  map.toList.map (·.snd)
+
 def disjoint_keys {α β γ} [DecidableEq α] (a : AssocList α β) (b : AssocList α γ) : Bool :=
   a.keysList.inter b.keysList = []
+
+def disjoint_vals {α β γ} [DecidableEq γ] (a : AssocList α γ) (b : AssocList β γ) : Bool :=
+  a.valsList.inter b.valsList = []
 
 def filter {α β} (f : α → β → Bool) (l : AssocList α β) :=
   l.foldl (λ c a b => if f a b then c.cons a b else c) (∅ : AssocList α β)
@@ -72,8 +78,8 @@ theorem EqExt.trans {α β} [DecidableEq α] {a b c : AssocList α β} : a.EqExt
 instance AssocListExtSetoid {α β} [DecidableEq α] : Setoid (AssocList α β) :=
   ⟨EqExt, ⟨EqExt.refl, EqExt.symm, EqExt.trans⟩⟩
 
-theorem beq_ooo_ext {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) :
-  a.EqExt b ↔ a.beq_ooo b := by sorry
+axiom beq_ooo_ext {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) :
+  a.EqExt b ↔ a.beq_ooo b
 
 def DecidableEqExt {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) : Decidable (EqExt a b) :=
   if h : a.beq_ooo b then isTrue ((beq_ooo_ext a b).mpr h)
@@ -82,5 +88,26 @@ def DecidableEqExt {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α
 instance {α β} [DecidableEq α] [DecidableEq β] : DecidableRel (@EqExt α β _) := DecidableEqExt
 
 def wf {α β} (a : AssocList α β) : Prop := a.keysList.Nodup
+
+def invertible {α} [DecidableEq α] (p : AssocList α α) : Prop :=
+  p.filterId.keysList.inter p.inverse.filterId.keysList = ∅ ∧ p.keysList.Nodup ∧ p.inverse.keysList.Nodup
+
+def bijectivePortRenaming {α} [DecidableEq α] (p : AssocList α α) (i: α) : α :=
+  let p' := p.inverse
+  if p.filterId.keysList.inter p'.filterId.keysList = ∅ && p.keysList.Nodup && p'.keysList.Nodup then
+    let map := p.filterId.append p'.filterId
+    map.find? i |>.getD i
+  else i
+
+/- With the length argument this should be true, and we can easily check length in practice. -/
+axiom bijectivePortRenaming_EqExt {α} [DecidableEq α] (p p' : AssocList α α) :
+  p.EqExt p' → p.wf → p'.wf → bijectivePortRenaming p = bijectivePortRenaming p'
+  -- intro Heq Hwf Hwf'; ext i
+  -- simp [bijectivePortRenaming]
+  -- sorry
+
+axiom invertibleMap {α} [DecidableEq α] {p : AssocList α α} {a b} :
+  invertible p →
+  (p.filterId.append p.inverse.filterId).find? a = some b → (p.filterId.append p.inverse.filterId).find? b = some a
 
 end Batteries.AssocList

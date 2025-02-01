@@ -17,6 +17,7 @@ structure CorrectRewrite where
   env : List String → Option Env
   consistent : ∀ l env', env l = .some env' → env'.subsetOf ε_global
   defined : ∀ l, (rewrite.rewrite l).isSome → (env l).isSome
+  wf : ∀ l env' defrw, env l = .some env' → rewrite.rewrite l = .some defrw → defrw.input_expr.wf env' ∧ defrw.output_expr.wf env'
   refines :
     ∀ l defrw env',
       env l = .some env' →
@@ -58,6 +59,16 @@ theorem EStateM.map_eq_ok {ε σ α β} {f : α → β} {o : EStateM ε σ α} {
 --   addRewriteInfo r s = .ok o' s' → s' = r :: s := by
 --   unfold addRewriteInfo; simp
 --   sorry
+
+axiom refines_higherSS {e : ExprLow String} {e' : ExprHigh String} :
+  e.higherSS = .some e' →
+  [Ge| e', ε_global] ⊑ ([e| e, ε_global])
+
+axiom wf_mapping_all {e : ExprLow String}:
+  e.wf_mapping ε_global
+
+axiom wf_expr_all {e : ExprLow String}:
+  e.wf ε_global
 
 theorem Rewrite_run'_correct {g g' : ExprHigh String} {s _st _st'} {rw : CorrectRewrite} :
   Rewrite.run' s g rw.rewrite _st = .ok g' _st' →
@@ -107,81 +118,60 @@ theorem Rewrite_run'_correct {g g' : ExprHigh String} {s _st _st'} {rw : Correct
   rename ExprHigh String => outGraph
   clear ‹AssocList String (Option String)›
   rename ExprLow.higherSS _ = _ => Hhighering
-  generalize HrenameMap :
-    ({ input := (generate_renaming AssocList.nil s
-                          (List.filter (fun x => !decide (x ∈ AssocList.keysList ioPortMap.fst.input))
-                            (defrw.output_expr.renamePorts
-                                  (ExprLow.filterId (ioPortMap.fst.append ioPortMap.snd))).allVars.fst)).fst,
-       output := (generate_renaming
-                          (generate_renaming AssocList.nil s
-                              (List.filter (fun x => !decide (x ∈ AssocList.keysList ioPortMap.fst.input))
-                                (defrw.output_expr.renamePorts
-                                      (ExprLow.filterId (ioPortMap.fst.append ioPortMap.snd))).allVars.fst)).snd
-                          s
-                          (List.filter (fun x => !decide (x ∈ AssocList.keysList ioPortMap.fst.output))
-                            (defrw.output_expr.renamePorts
-                                  (ExprLow.filterId (ioPortMap.fst.append ioPortMap.snd))).allVars.snd)).fst } : PortMapping String) = renameMap at *
-  generalize HrenameMap' :
-     (ExprLow.filterId (ioPortMap.fst.append ioPortMap.snd)) = renameMap' at *
-  generalize HrenameMap'' :
-     (ExprLow.normalisedNamesMap s
-            ((comm_connections extractedGraphs.fst.connections (ExprHigh.lower' lowered extractedGraphs.snd)).replace
-              (comm_connections extractedGraphs.fst.connections
-                ((defrw.input_expr.renamePorts renameMap').renamePorts renameMap))
-              ((defrw.output_expr.renamePorts renameMap').renamePorts renameMap))) = renameMap'' at *
+  have := rw.defined _ (by rw [Hrewrite]; apply Option.isSome_some)
+  rw [Option.isSome_iff_exists] at this; obtain ⟨l, r⟩ := this
+  apply Module.refines_transitive
+  apply refines_higherSS; assumption
+  apply Module.refines_transitive
+  apply ExprLow.refines_renamePorts_2
+  apply wf_mapping_all
+  rw [ExprLow.ensureIOUnmodified_correct] <;> try assumption
+  rw [ExprLow.force_replace_eq_replace]
+  apply Module.refines_transitive
+  apply ExprLow.replacement
+  apply wf_expr_all; apply wf_expr_all; apply wf_expr_all
+  apply Module.refines_transitive
+  apply ExprLow.refines_renamePorts_2
+  apply wf_mapping_all
+  apply Module.refines_transitive
+  apply Module.refines_renamePorts
+  apply ExprLow.refines_subset
+  apply rw.consistent; assumption
+  apply (rw.wf _ _ _ ‹_› ‹_›).2
+  apply (rw.wf _ _ _ ‹_› ‹_›).1
+  solve_by_elim [rw.refines]
+  apply Module.refines_transitive
+  apply ExprLow.refines_renamePorts_1
+  apply wf_mapping_all
+  apply ExprLow.refines_comm_connections2'
+  apply wf_expr_all
+  apply Module.refines_transitive
+  apply ExprLow.refines_comm_connections'
+  apply wf_expr_all
+  apply Module.refines_transitive
+  apply ExprLow.refines_comm_bases
+  apply wf_expr_all
+  unfold ExprHigh.build_module_expr ExprHigh.build_module ExprHigh.build_module'
+  rw [‹g.lower = _›]
+  dsimp
+  apply Module.refines_reflexive
 
+#print axioms Rewrite_run'_correct
 
-#check Lean.Elab.Term.TermElab
+-- theorem Rewrite_abstraction_correct {g g' : ExprHigh String} {s a c} :
+--   Abstraction.run s g a = .ok (g', c) →
+--   ([Ge| g', ε ]) ⊑ ([Ge| g, ε ]) := by sorry
 
-#check String
+-- theorem Rewrite_concretisation_correct {g g' : ExprHigh String} {s c} :
+--   Concretisation.run s g c = .ok g' →
+--   ([Ge| g', ε ]) ⊑ ([Ge| g, ε ]) := by sorry
 
-structure Pair (S T : Type) : Type where
-  leftright : S × T
+-- theorem Rewrite_run_correct {g g' : ExprHigh String} {s rw} :
+--   Rewrite.run s g rw = .ok g' →
+--   ([Ge| g', ε ]) ⊑ ([Ge| g, ε ]) := by sorry
 
-def denoteType' (str : String) (n : Nat) : Option (Type × String) :=
-  match n with
-  | n+1 =>
-    let t := str.trim
-    if t.front = '×' then denoteType' (t.drop 1) n
-    else if "Nat".isPrefixOf t then pure (Nat, t.drop 3)
-    else if "Bool".isPrefixOf t then pure (Bool, t.drop 4)
-    else if "Unit".isPrefixOf t then pure (Unit, t.drop 4)
-    else if t.front = '(' then do
-      let (typ, c) ← denoteType' (t.drop 1) n
-      let (typ', c') ← denoteType' c n
-      return (typ × typ', c'.trim.drop 1)
-    else failure
-  | _ => .none
-
-def denoteType (str : String) : Option (Type × String) :=
-  denoteType' str str.length
-
-example : ∀ y, y = denoteType " (Unit × Unit)" := by
-  intro y
-  simp +ground
-
-open Lean Elab Term Meta Core in
-#eval show IO Expr from TermElabM.toIO (do elabTerm (← `(StringModule.queue Nat)) .none) {fileName := "<rewriter environment>", fileMap := default} {}
-
-  -- unfold EStateM.bind ofOption at *
-  -- repeat (dsimp -failIfUnchanged at *; split at hrewrite <;> try injection hrewrite)
-  -- set_option pp.explicit true in trace_state
-
-
-theorem Rewrite_abstraction_correct {g g' : ExprHigh String} {s a c} :
-  Abstraction.run s g a = .ok (g', c) →
-  ([Ge| g', ε ]) ⊑ ([Ge| g, ε ]) := by sorry
-
-theorem Rewrite_concretisation_correct {g g' : ExprHigh String} {s c} :
-  Concretisation.run s g c = .ok g' →
-  ([Ge| g', ε ]) ⊑ ([Ge| g, ε ]) := by sorry
-
-theorem Rewrite_run_correct {g g' : ExprHigh String} {s rw} :
-  Rewrite.run s g rw = .ok g' →
-  ([Ge| g', ε ]) ⊑ ([Ge| g, ε ]) := by sorry
-
-theorem rewrite_loop_correct {g g' : ExprHigh String} {s rws n} :
-  rewrite_loop s g rws n = .ok g' →
-  ([Ge| g', ε ]) ⊑ ([Ge| g, ε ]) := by sorry
+-- theorem rewrite_loop_correct {g g' : ExprHigh String} {s rws n} :
+--   rewrite_loop s g rws n = .ok g' →
+--   ([Ge| g', ε ]) ⊑ ([Ge| g, ε ]) := by sorry
 
 end DataflowRewriter

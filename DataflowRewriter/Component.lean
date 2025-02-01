@@ -126,9 +126,9 @@ def cons_n {T} (n : Nat) (l : List (List T)) (t : T) : Option (List (List T)) :=
   { inputs := [ (0, ⟨ T × T', λ (oldListL, oldListR) (newElementL, newElementR) (newListL, newListR) =>
                        newListL = oldListL.concat newElementL ∧ newListR = oldListR.concat newElementR⟩)].toAssocList,
     outputs := [(0, ⟨ T, λ (oldListL, oldListR) oldElementL (newListL, newListR) =>
-                       oldListL = oldElementL :: newListL ∧ oldListR = oldListR ⟩),
+                       oldListL = oldElementL :: newListL ∧ oldListR = newListR ⟩),
                 (1, ⟨ T', λ (oldListL, oldListR) oldElementR (newListL, newListR) =>
-                       oldListR = oldElementR :: newListR ∧ oldListL = oldListL ⟩)].toAssocList
+                       oldListR = oldElementR :: newListR ∧ oldListL = newListL ⟩)].toAssocList
   }
 
 @[drunfold] def branch T (name := "branch") : NatModule (Named name (List T × List Bool)) :=
@@ -462,7 +462,7 @@ opaque polymorphic_mult {T} [Inhabited T] : T → T → T
 opaque polymorphic_div {T} [Inhabited T] : T → T → T
 opaque polymorphic_shift_left {T} [Inhabited T] : T → T → T
 
-#reduce (types := true) Lean.MetaM Unit
+-- #reduce (types := true) Lean.MetaM Unit
 
 opaque constant_a {T} [Inhabited T] : T
 opaque constant_b {T} [Inhabited T] : T

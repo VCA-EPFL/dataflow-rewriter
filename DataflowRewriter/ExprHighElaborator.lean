@@ -212,7 +212,7 @@ def dotGraphElab : TermElab := λ stx _typ? => do
 -- instance {α : Q(Type)} : Lean.ToExpr Q($α) where
 --   toExpr := id
 --   toTypeExpr := α
-#check Lean.getRef
+-- #check Lean.getRef
 
 open Lean Qq in
 structure InstMaps' where

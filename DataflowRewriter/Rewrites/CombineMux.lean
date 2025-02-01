@@ -87,7 +87,7 @@ def lhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String
 
 def lhs_extract T₁ T₂ := (lhs Unit Unit T₁ T₂).fst.extract ["mux1", "mux2", "condFork"] |>.get rfl
 
-#eval IO.print (lhs_extract "T" "T'").fst
+-- #eval IO.print (lhs_extract "T" "T'").fst
 
 theorem lhs_type_independent a b c d T₁ T₂ : (lhs a b T₁ T₂).fst = (lhs c d T₁ T₂).fst := by rfl
 
@@ -126,7 +126,7 @@ def rhs (T T' : Type) (Tₛ Tₛ' : String) : ExprHigh String × IdentMap String
 
 def rhsLower T₁ T₂ := (rhs Unit Unit T₁ T₂).fst.lower.get rfl
 
-#eval IO.print ((rhs Unit Unit "T" "T'").fst)
+-- #eval IO.print ((rhs Unit Unit "T" "T'").fst)
 
 theorem rhs_type_independent a b c d T₁ T₂ : (rhs a b T₁ T₂).fst = (rhs c d T₁ T₂).fst := by rfl
 

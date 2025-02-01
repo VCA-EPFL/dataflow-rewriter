@@ -53,6 +53,11 @@ structure NamelessMapping (Ident) where
   output : PortMap Ident (NamelessPort Ident)
 deriving Repr, Inhabited, DecidableEq
 
+structure Connection (Ident : Type _) where
+  output : InternalPort Ident
+  input  : InternalPort Ident
+deriving Repr, Hashable, DecidableEq, Ord, Inhabited
+
 namespace ExprLow
 
 variable {Ident}
@@ -162,17 +167,17 @@ fully specified and therefore symmetric in both expressions.
 -/
 @[drunfold] def check_eq : ExprLow Ident → ExprLow Ident → Bool
 | .base inst typ, .base inst' typ' =>
-  let inst_i := inst.input.filterId
-  let inst_o := inst.output.filterId
-  let inst'_i := inst'.input.filterId
-  let inst'_o := inst'.output.filterId
+  -- let inst_i := inst.input.filterId
+  -- let inst_o := inst.output.filterId
+  -- let inst'_i := inst'.input.filterId
+  -- let inst'_o := inst'.output.filterId
   typ = typ'
-  -- ∧ inst.input.EqExt inst'.input ∧ inst.output.EqExt inst'.output
-  -- ∧ inst'.input.keysList.Nodup ∧ inst.output.keysList.Nodup
-  -- ∧ inst'.output.keysList.Nodup ∧ inst.input.keysList.Nodup
-  ∧ inst'_i.EqExt inst_i ∧ inst'_o.EqExt inst_o
-  ∧ inst'_i.keysList.Nodup ∧ inst_i.keysList.Nodup
-  ∧ inst'_o.keysList.Nodup ∧ inst_o.keysList.Nodup
+  ∧ inst'.input.EqExt inst.input ∧ inst'.output.EqExt inst.output
+  ∧ inst'.input.keysList.Nodup ∧ inst.output.keysList.Nodup
+  ∧ inst'.output.keysList.Nodup ∧ inst.input.keysList.Nodup
+  -- ∧ inst'_i.EqExt inst_i ∧ inst'_o.EqExt inst_o
+  -- ∧ inst'_i.keysList.Nodup ∧ inst_i.keysList.Nodup
+  -- ∧ inst'_o.keysList.Nodup ∧ inst_o.keysList.Nodup
 | .connect o i e, .connect o' i' e' => o = o' ∧ i = i' ∧ e.check_eq e'
 | .product e₁ e₂, .product e₁' e₂' => e₁.check_eq e₁' ∧ e₂.check_eq e₂'
 | _, _ => false
@@ -184,6 +189,18 @@ fully specified and therefore symmetric in both expressions.
   | .connect x y e_sub' => .connect x y (e_sub'.replace e_sub e_new)
   | .product e_sub₁ e_sub₂ =>
     .product (e_sub₁.replace e_sub e_new) (e_sub₂.replace e_sub e_new)
+
+@[drunfold] def force_replace (e e_sub e_new : ExprLow Ident) : (ExprLow Ident × Bool) :=
+  if e.check_eq e_sub then (e_new, true) else
+  match e with
+  | .base inst typ => (e, false)
+  | .connect x y e_sub' =>
+    let rep := e_sub'.force_replace e_sub e_new
+    (.connect x y rep.1, rep.2)
+  | .product e_sub₁ e_sub₂ =>
+    let e_sub₁_rep := e_sub₁.force_replace e_sub e_new
+    let e_sub₂_rep := e_sub₂.force_replace e_sub e_new
+    (.product e_sub₁_rep.1 e_sub₂_rep.1, e_sub₁_rep.2 || e_sub₂_rep.2)
 
 @[drunfold]
 def abstract (e e_sub : ExprLow Ident) (i_inst : PortMapping Ident) (i_typ : Ident) : ExprLow Ident :=
@@ -235,15 +252,8 @@ def mapPorts2 (f g : InternalPort Ident → InternalPort Ident) (e : ExprLow Ide
 def invertible {α} [DecidableEq α] (p : Batteries.AssocList α α) : Bool :=
   p.keysList.inter p.inverse.keysList = ∅ ∧ p.keysList.Nodup ∧ p.inverse.keysList.Nodup
 
-def bijectivePortRenaming (p : PortMap Ident (InternalPort Ident)) (i: InternalPort Ident) : InternalPort Ident :=
-  let p' := p.inverse
-  if p.keysList.inter p'.keysList = ∅ && p.keysList.Nodup && p'.keysList.Nodup then
-    let map := p.append p.inverse
-    map.find? i |>.getD i
-  else i
-
 def renamePorts (m : ExprLow Ident) (p : PortMapping Ident) : ExprLow Ident :=
-  m.mapPorts2 (bijectivePortRenaming p.input) (bijectivePortRenaming p.output)
+  m.mapPorts2 p.input.bijectivePortRenaming p.output.bijectivePortRenaming
 
 /--
 Assume that the input is currently not mapped.
@@ -330,6 +340,128 @@ def any (P : Ident → Bool) : ExprLow Ident → Bool
 | product e₁ e₂ => e₁.any P || e₂.any P
 
 def excludes (ident : Ident) : ExprLow Ident → Bool := all (· ≠ ident)
+
+def _root_.List.eraseAll {α} [DecidableEq α] : List α → α → List α
+| [],    _ => []
+| a::as, b => match a == b with
+  | true  => List.eraseAll as b
+  | false => a :: List.eraseAll as b
+
+def findAllInputs : ExprLow Ident → List (InternalPort Ident)
+| .base inst _typ => inst.input.valsList
+| .product e₁ e₂ => e₁.findAllInputs ++ e₂.findAllInputs
+| .connect o i e => e.findAllInputs.eraseAll i
+
+def findAllOutputs : ExprLow Ident → List (InternalPort Ident)
+| .base inst _typ => inst.input.valsList
+| .product e₁ e₂ => e₁.findAllInputs ++ e₂.findAllInputs
+| .connect o i e => e.findAllInputs.eraseAll i
+
+def ensureIOUnmodified (p : PortMapping Ident) (e : ExprLow Ident) : Bool :=
+  e.findAllInputs.all (λ x => (p.input.find? x).isNone)
+  ∧ e.findAllOutputs.all (λ x => (p.output.find? x).isNone)
+
+/--
+Find input and find output imply that build_module will contain that key
+-/
+def findInput (i : InternalPort Ident) : ExprLow Ident → Bool
+| .base inst _typ => inst.input.any (λ _ a => a = i)
+| .product e₁ e₂ => findInput i e₁ ∨ findInput i e₂
+| .connect _o i' e => i' ≠ i ∧ findInput i e
+
+def findOutput (o : InternalPort Ident) : ExprLow Ident → Bool
+| .base inst _typ => inst.output.any (λ _ a => a = o)
+| .product e₁ e₂ => findOutput o e₁ ∨ findOutput o e₂
+| .connect o' _i e => o' ≠ o ∧ findOutput o e
+
+def fix_point (f : ExprLow Ident → ExprLow Ident) (e : ExprLow Ident): Nat → ExprLow Ident
+| 0 => e
+| n+1 => let e' := f e; if e' = e then e else fix_point f e' n
+
+def fix_point_opt (f : ExprLow Ident → Option (ExprLow Ident)) (e : ExprLow Ident): Nat → ExprLow Ident
+| 0 => e
+| n+1 =>
+  match f e with
+  | .some e' => fix_point_opt f e' n
+  | .none => e
+
+def inst_disjoint (inst inst' : PortMapping Ident) : Bool :=
+  inst'.input.disjoint_vals inst.input ∧ inst'.output.disjoint_vals inst.output
+
+def comm_connection'_ (conn : Connection Ident) : ExprLow Ident → Option (ExprLow Ident)
+| .connect o i e =>
+  if o = conn.output ∧ i = conn.input then
+    match e with
+    | .connect o' i' e' =>
+      if o ≠ o' ∧ i ≠ i' then
+        .some (.connect o' i' (.connect o i e'))
+      else .none
+    | .product e₁ e₂ =>
+      let a := e₁.findInput i
+      let b := e₁.findOutput o
+      if a ∧ b then
+        -- .product (comm_connection' conn <| .connect o i e₁) e₂
+        -- We actually don't want to commute (assuming we are left associative)
+        .none
+      else if ¬ a ∧ ¬ b ∧ e₂.findInput i ∧ e₂.findOutput o then
+        .some (.product e₁ (.connect o i e₂))
+      else .none
+    | _ => .none
+  else .connect o i <$> comm_connection'_ conn e
+| .product e₁ e₂ =>
+  match (comm_connection'_ conn e₁), (comm_connection'_ conn e₂) with
+  | .some e₁, .some e₂ | .some e₁, .none | .none, .some e₂ => .some <| .product e₁ e₂
+  | .none, .none => .none
+| e => .none
+
+def comm_connection' (conn : Connection Ident) e := fix_point_opt (comm_connection'_ conn) e 10000
+
+def comm_connection_ (conn : Connection Ident) : ExprLow Ident → ExprLow Ident
+| orig@(.connect o i e) =>
+  if o = conn.output ∧ i = conn.input then
+    match e with
+    | .connect o' i' e' =>
+      if o ≠ o' ∧ i ≠ i' then
+        .connect o' i' (.connect o i e')
+      else orig
+    | _ => orig
+  else .connect o i <| comm_connection_ conn e
+| .product e₁ e₂ =>
+  .product (comm_connection_ conn e₁) (comm_connection_ conn e₂)
+| e => e
+
+def comm_connection (conn : Connection Ident) e := fix_point (comm_connection_ conn) e 10000
+
+/- Assuming a left-associative expression. -/
+def comm_base_ {Ident} [DecidableEq Ident] (binst : PortMapping Ident) (btyp : Ident) : ExprLow Ident → Option (ExprLow Ident)
+| .product e₁ e₂ =>
+  if e₁ = .base binst btyp then
+    match e₂ with
+    | .product (.base binst' btyp') e₂' =>
+      if inst_disjoint binst' binst then
+        .some <| .product (.base binst' btyp') (.product e₁ e₂')
+      else .none
+    | .connect o i e =>
+      if o ∉ binst.output.valsList ∧ i ∉ binst.input.valsList then
+        .some <| .connect o i (.product e₁ e)
+      else .none
+    | .base binst' btyp' =>
+      if inst_disjoint binst' binst then .some <| .product e₂ e₁ else .none
+    | _ => .none
+  else .product e₁ <$> comm_base_ binst btyp e₂
+| .connect o i e => .connect o i <$> comm_base_ binst btyp e
+| e => .none
+
+def comm_base (binst : PortMapping Ident) (btyp : Ident) e := fix_point_opt (comm_base_ binst btyp) e 10000
+
+def comm_connections' {Ident} [DecidableEq Ident] (conn : List (Connection Ident)) (e : ExprLow Ident): ExprLow Ident :=
+  conn.foldr comm_connection' e
+
+def comm_connections {Ident} [DecidableEq Ident] (conn : List (Connection Ident)) (e : ExprLow Ident): ExprLow Ident :=
+  conn.foldr comm_connection e
+
+def comm_bases {Ident} [DecidableEq Ident] (bases : List (PortMapping Ident × Ident)) (e : ExprLow Ident): ExprLow Ident :=
+  bases.foldr (Function.uncurry ExprLow.comm_base) e
 
 end ExprLow
 end DataflowRewriter

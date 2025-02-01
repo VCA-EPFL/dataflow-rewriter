@@ -138,9 +138,9 @@ def lhs' : ExprHigh String := [graph|
     m_right -> mux [from = "m_out", to = "in2"];
   ]
 
-#eval IO.print lhs'
+-- #eval IO.print lhs'
 -- #eval IO.print lhs'.invert
-#eval IO.print lhs'
+-- #eval IO.print lhs'
 
 def lhs := lhs'.extract (matcher lhs' |>.toOption |>.get rfl) |>.get rfl
 
@@ -170,7 +170,7 @@ def rhs : ExprHigh String := [graph|
     m_right -> merge [from = "m_out", to = "in2"];
   ]
 
-#eval IO.print rhs
+-- #eval IO.print rhs
 
 def rhsLower := rhs.lower.get rfl
 

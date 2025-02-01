@@ -24,9 +24,9 @@ unsafe def matcher (g : ExprHigh String) : RewriteResult (List String × List St
   return (merges, [])
 
 -- It can then be tested using the below command
-#eval (matcher [graph| merge1 [type = "merge"]; merge2 [type = "merge"];
-               merge1 -> merge2 [from = "out1", to = "in1"]; ] /- <--- replace this with the input graph to test with (as an ExprHigh). -/
-       ).run' default
+-- #eval (matcher [graph| merge1 [type = "merge"]; merge2 [type = "merge"];
+--                merge1 -> merge2 [from = "out1", to = "in1"]; ] /- <--- replace this with the input graph to test with (as an ExprHigh). -/
+--        ).run' default
 
 def lhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
       : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
@@ -55,7 +55,7 @@ def lhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
     queue -> mux [from="out1", to="in2"];
   ]
 
-#eval IO.print ((lhs Unit "T" (λ _ => default)).fst)
+-- #eval IO.print ((lhs Unit "T" (λ _ => default)).fst)
 
 -- #eval lhs Unit Unit Unit (λ _ _ _ => False) (λ _ _ _ => False) |>.1 |> IO.print
 
@@ -103,7 +103,7 @@ def rhsLower T := (rhs Unit T (λ _ => default) |>.1).lower.get rfl
 theorem rhs_type_independent b f b₂ f₂ T [Inhabited b] [Inhabited b₂]
   : (rhs b T f).fst = (rhs b₂ T f₂).fst := by rfl
 
-#eval IO.print ((rhs Unit "T" (λ _ => default)).fst)
+-- #eval IO.print ((rhs Unit "T" (λ _ => default)).fst)
 
 def rewrite : Rewrite String :=
   { abstractions := [],
