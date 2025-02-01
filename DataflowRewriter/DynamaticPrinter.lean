@@ -12,32 +12,50 @@ open Batteries (AssocList)
 namespace DataflowRewriter
 
 /--
-This should ideally be linked and generated from the environment definition in
+- This should ideally be linked and generated from the environment definition in
 the Component.lean file.
 
-- It is also not clear what the type for tagged components should be.
-- TODO Check that the IO names correspond to the implementation.
+- More precisely, it should define all possible nodes that can be added by any of our rewrites.
+
+- It puts default values for some node attributes, which will then be rewritten by inferring
+ the correct values by studying the connections in Dot.
 -/
+
 def interfaceTypes (m : AssocList String String) :=
   [
-     ("Merge", (some "Merge", "in1:32 in2:32", "out1:32", []))
-     -- TODO: figure out how to distinguish phi_c from phi because they should have different delays
-     -- Aya: Follow Yann's way of differentiating the internal types of Branch vs. BranchC
-   , ("mux T", (some "mux T", "in1?:1 in2:32 in3:32", "out1:32", [("delay", "0.366")]))
 
-    -- Aya: Given our current loop rewrites, I do not think we will need a Cmerge
-   --, ("CntrlMerge", (some "CntrlMerge", "in1:32 in2:32", "out1:32 out2?:1", [("delay", "0.366")]))
+  ("mux (Bool × (T × T))", (some "mux (Bool × (T × T))", "in1?:1 in2:65 in3:65", "out1:65", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("branch (Bool × (T × T))", (some "branch (Bool × (T × T))", "in1:65 in2?:1", "out1+:65 out2-:65", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("split Bool (T × T)", (some "split Bool (T × T)", "in1:65", "out1:1 out2:64", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("join Bool (T × T)", (some "join Bool (T × T)", "in1:1 in2:64", "out1:65", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
 
-    -- assuming that any fork can only be 2-input
-   , ("fork Bool 2", (some "fork Bool 2", "in1:32", "out1:32 out2:32", []))
 
-   , ("Entry", (some "Entry", "in1:0", "out1:0", [("control", "true")]))
+  ,("mux (T × T)", (some "mux (T x T)", "in1?:1 in2:64 in3:64", "out1:64", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("mux (T × (T × T))", (some "mux (T × (T × T))", "in1?:1 in2:96 in3:96", "out1:96", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("mux ((T × T) × (T × T))", (some "mux ((T × T) × (T × T))", "in1?:1 in2:128 in3:128", "out1:128", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("mux ((T × T) × ((T × T) × (T × T)))", (some "mux ((T × T) × ((T × T) × (T × T)))", "in1?:1 in2:192 in3:192", "out1:192", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
 
-   , ("init Bool false", (some "init Bool false", "in1:32 in2:32", "out1:32", []))
+  ,("branch (T × T)", (some "branch (T x T)", "in1:64 in2?:1", "out1+:64 out2-:64", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("branch (T × (T × T))", (some "branch (T × (T × T))", "in1:96 in2?:1", "out1+:96 out2-:96", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("branch ((T × T) × (T × T))", (some "branch ((T × T) × (T × T))", "in1:128 in2?:1", "out1+:128 out2-:128", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("branch ((T × T) x ((T × T) × (T × T)))", (some "branch (T × T) x ((T × T) × (T × T))", "in1:192 in2?:1", "out1+:192 out2-:192", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("branch (((T × T) × (T × T)) × (T × T))", (some "branch (((T × T) × (T × T)) × (T × T))", "in1:192 in2?:1", "out1+:192 out2-:192", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
 
-   , ("branch T", (some "branch T", "in1:32 in2?:1", "out1+:32 out2-:32", []))
+  ,("split T T", (some "split T T", "in1:64", "out1:32 out2:32", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("split T (T × T)", (some "split T (T × T)", "in1:96", "out1:32 out2:64", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("split (T × T) (T × T)", (some "split (T × T) (T × T)", "in1:128", "out1:64 out2:64", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("split (T × T) ((T × T) × (T × T))", (some "split (T × T) ((T × T) × (T × T))", "in1:192", "out1:64 out2:128", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("split ((T × T) × (T × T)) (T × T)", (some "split ((T × T) × (T × T)) (T × T)", "in1:192", "out1:128 out2:64", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
 
-   , ("Sink", (some "Sink", "in1:32", "", []))
+  ,("join T T", (some "join T T", "in1:32 in2:32", "out1:64", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("join T (T × T)", (some "join T (T × T)", "in1:32 in2:64", "out1:96", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("join (T × T) (T × T)", (some "join (T × T) (T × T)", "in1:64 in2:64", "out1:128", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("join (T × T) ((T × T) × (T × T))", (some "join (T × T) ((T × T) × (T × T))", "in1:64 in2:128", "out1:192", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("join ((T × T) × (T × T)) (T × T)", (some "join ((T × T) × (T × T)) (T × T)", "in1:128 in2:64", "out1:192", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+
+  ,("Entry", (some "Entry", "in1:0", "out1:0", [("control", "true"), ("bbID", "1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("queue T", (some "Queue", "in1:0", "out1:0", [("control", "true"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("Source", (some "Source", "", "out1:0", [("bbID", "1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
 
   ].toAssocList
 
@@ -119,13 +137,15 @@ def capitalizeFirstChar (s : String) : String :=
                      c
     newChar.toString ++ s.drop 1
 
--- Aya: Add a functions to add a constant and trigger it from start then feed it to the Merge
-def InitToMerge (s : String) : String :=
-  if s = "Init" then
-    "Merge"
+-- Join is taken in Dynamatic so rename to Concat
+def RenameJoinToConcat (s : String) : String :=
+  if String.isPrefixOf "join" s then
+    "Concat"
   else
     s  -- Otherwise, return the original string
 
+def fixComponentNames (s : String) : String :=
+  String.intercalate "_" (s.splitOn "__")
 
 --fmt.1: Type
 --fmt.2.1 and fmt.2.2.1: Input and output attributes
@@ -137,26 +157,27 @@ def dynamaticString (a: ExprHigh String) (m : AssocList String (AssocList String
   let modules ←
     a.modules.foldlM
       (λ s k v => do
+        -- search for the type of the passed node in interfaceTypes
         let fmt := (interfaceTypes ∅).find? v.snd |>.getD (some v.snd, "", "", [("unsupported", "true")])
         match m.find? k with
         | some input_fmt =>
-          -- TODO: If the node is of type Init, add a new constant node to later connect to the 2nd input of the Merge that'll implement the Init
-          -- if fmt.1.getD v.snd = "Init" then
-          --   s!"cst_777 [type = \"Constant\", value = \"0x00000000\", out = \"out1:32\", in = \"in1:32\", bbID = 1 ];\n"
-          --   else ""
-          let constForInit := ""
-          -- If we find that the node comes from the input, but just add the input arguments to it that we saved.
-          return s ++ constForInit ++ s!"\"{k}\" [type = \"{InitToMerge (capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd)))}\"{formatOptions input_fmt.toList}];\n"
+          -- If the node is found to be coming from the input,
+          -- retrieve its attributes from what we saved and bypass it
+          -- without looking for it in interfaceTypes
+        --return fixComponentNames (RenameJoinToConcat s) ++ s!"\"{k}\" [type = \"{capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd))}\"{formatOptions input_fmt.toList}];\n"
+        return s ++ s!"\"{k}\" [type = \"{fmt.1.getD v.snd}\"{formatOptions input_fmt.toList}];\n"
         | none =>
           -- If this is a new node, then we sue `fmt` to correctly add the right
-          -- arguments.  We should never be generating constructs like MC, so
+          -- arguments from what is given in interfaceTypes.  We should never be generating constructs like MC, so
           -- this shouldn't be a problem.
-          return s ++ s!"\"{k}\" [type = \"{InitToMerge (capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd)))}\", in = \"{removeLetter 'p' fmt.2.1}\", out = \" {fmt.2.2.1} \"{formatOptions fmt.2.2.2}];\n"
-        ) ""
+        --return fixComponentNames (RenameJoinToConcat s) ++ s!"\"{k}\" [type = \"{capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd))}\", in = \"{removeLetter 'p' fmt.2.1}\", out = \" {fmt.2.2.1} \"{formatOptions fmt.2.2.2}];\n"
+        return s ++ s!"\"{k}\" [type = \"{fmt.1.getD v.snd}\", in = \"{removeLetter 'p' fmt.2.1}\", out = \" {fmt.2.2.1} \"{formatOptions fmt.2.2.2}];\n"
+
+      ) ""
   let connections :=
     a.connections.foldl
       (λ s => λ | ⟨ oport, iport ⟩ =>
-                  s ++ s!"\n  \"{oport.inst}\" -> \"{iport.inst}\" "
+                    s ++ s!"\n  \"{oport.inst}\" -> \"{iport.inst}\" "
                     ++ s!"[from = \"{oport.name}\","
                     ++ s!" to = \"{removeLetter 'p' iport.name}\" "
                     ++ "];") ""
