@@ -58,7 +58,8 @@ def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :
         let (.some queue) := followOutput g branch.inst "out1" | return none
         unless String.isPrefixOf "queue" queue.typ do return none
 
-      return some ([mux.inst, condition_fork.inst, branch.inst, tag_split.inst, mod.inst, inst, queue.inst], [extractType mux_nn.typ])
+        return some ([mux.inst, condition_fork.inst, branch.inst, tag_split.inst, mod.inst, inst, queue.inst], [extractType mux.typ])
+
     ) none | MonadExceptOf.throw RewriteError.done
   return list
 -- It can then be tested using the below command
