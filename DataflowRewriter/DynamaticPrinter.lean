@@ -27,7 +27,9 @@ def interfaceTypes (m : AssocList String String) :=
   ("mux (Bool × (T × T))", (some "mux (Bool × (T × T))", "in1?:1 in2:65 in3:65", "out1:65", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("branch (Bool × (T × T))", (some "branch (Bool × (T × T))", "in1:65 in2?:1", "out1+:65 out2-:65", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("split Bool (T × T)", (some "split Bool (T × T)", "in1:65", "out1:1 out2:64", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("split (Bool × (T × T)) Bool", (some "split (Bool × (T × T)) Bool", "in1:66", "out1:65 out2:1", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("join Bool (T × T)", (some "join Bool (T × T)", "in1:1 in2:64", "out1:65", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("join (Bool × (T × T)) Bool", (some "join (Bool × (T × T)) Bool", "in1:65 in2:1", "out1:66", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
 
 
   ,("mux (T × T)", (some "mux (T x T)", "in1?:1 in2:64 in3:64", "out1:64", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
@@ -56,6 +58,9 @@ def interfaceTypes (m : AssocList String String) :=
   ,("Entry", (some "Entry", "in1:0", "out1:0", [("control", "true"), ("bbID", "1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("queue T", (some "Queue", "in1:0", "out1:0", [("control", "true"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("Source", (some "Source", "", "out1:0", [("bbID", "1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+
+  ,("init Bool false", (some "init Bool false", "in1:32", "out1:32", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("fork Bool 2", (some "fork Bool 2", "in1:32", "out1:32 out2:32", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
 
   ].toAssocList
 
@@ -177,7 +182,7 @@ def dynamaticString (a: ExprHigh String) (m : AssocList String (AssocList String
   let connections :=
     a.connections.foldl
       (λ s => λ | ⟨ oport, iport ⟩ =>
-                    s ++ s!"\n  \"{oport.inst}\" -> \"{iport.inst}\" "
+                    fixComponentNames s ++ s!"\n  \"{oport.inst}\" -> \"{iport.inst}\" "
                     ++ s!"[from = \"{oport.name}\","
                     ++ s!" to = \"{removeLetter 'p' iport.name}\" "
                     ++ "];") ""
