@@ -145,7 +145,7 @@ theorem rhs_type_independent b f b₂ f₂ T [Inhabited b] [Inhabited b₂]
 -- #eval IO.print ((rhs Unit "T" (λ _ => default)).fst)
 
 def rewrite : Rewrite String :=
-  { abstractions := [boxLoopBody, "pure f"],
+  { abstractions := [⟨boxLoopBody, "pure f"⟩],
     pattern := unsafe matcher,
     rewrite := λ | [T] => pure ⟨lhsLower T, rhsLower T⟩ | _ => failure
     name := .some "loop-rewrite"
