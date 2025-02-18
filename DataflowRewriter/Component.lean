@@ -113,14 +113,9 @@ def cons_n {T} (n : Nat) (l : List (List T)) (t : T) : Option (List (List T)) :=
   }
 
 @[drunfold] def join T T' (name := "join") : NatModule (Named name (List T × List T')) :=
-  { inputs := [ (0, ⟨ T, λ (oldListL, oldListR) newElement (newListL, newListR) =>
-                       newListL = oldListL.concat newElement ∧ newListR = oldListR⟩)
-              , (1, ⟨ T', λ (oldListL, oldListR) newElement (newListL, newListR) =>
-                       newListR = oldListR.concat newElement ∧ newListL = oldListL⟩)].toAssocList,
-    outputs := [(0, ⟨ T × T', λ (oldListL, oldListR) (oldElementL, oldElementR) (newListL, newListR) =>
-                       oldListL = oldElementL :: newListL ∧
-                       oldListR = oldElementR :: newListR ⟩)].toAssocList
-  }
+  { inputs := [ (0, ⟨ T, λ ol el nl => nl.1 = ol.1.concat el ∧ nl.2 = ol.2⟩)
+              , (1, ⟨ T', λ ol el nl => nl.2 = ol.2.concat el ∧ nl.1 = ol.1⟩)].toAssocList,
+    outputs := [(0, ⟨ T × T', λ ol el nl => ol.1 = el.1 :: nl.1 ∧ ol.2 = el.2 :: nl.2 ⟩)].toAssocList }
 
 @[drunfold] def split T T' (name := "split") : NatModule (Named name (List T × List T')) :=
   { inputs := [ (0, ⟨ T × T', λ (oldListL, oldListR) (newElementL, newElementR) (newListL, newListR) =>
