@@ -12,6 +12,7 @@ import DataflowRewriter.Rewrites.LoopRewrite
 import DataflowRewriter.Rewrites.CombineBranch
 import DataflowRewriter.Rewrites.CombineMux
 import DataflowRewriter.Rewrites.JoinSplitLoopCond
+import DataflowRewriter.Rewrites.ReduceSplitJoin
 
 open Batteries (AssocList)
 
@@ -63,7 +64,7 @@ OPTIONS
                       dot that is easier for debugging purposes.
 "
 def topLevel (e : ExprHigh String) : RewriteResult (ExprHigh String) :=
-  rewrite_loop e [CombineMux.rewrite, CombineBranch.rewrite, JoinSplitLoopCond.rewrite] (depth := 10000)
+  rewrite_loop e [CombineMux.rewrite, CombineBranch.rewrite, JoinSplitLoopCond.rewrite, ReduceSplitJoin.rewrite] (depth := 10000)
 
 def renameAssoc (assoc : AssocList String (AssocList String String)) (r : RewriteInfo) : AssocList String (AssocList String String) :=
   assoc.mapKey (λ x => match r.renamed_input_nodes.find? x with

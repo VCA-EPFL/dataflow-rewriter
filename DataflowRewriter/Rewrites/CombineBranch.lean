@@ -86,7 +86,7 @@ def rhs (T T' : Type) (Tₛ Tₛ' : String) : ExprHigh String × IdentMap String
     b2_i [type = "io"];
 
     join [typeImp = $(⟨_, join T T'⟩), type = $("join " ++ Tₛ ++ " " ++ Tₛ')];
-    branch [typeImp = $(⟨_, branch (T × T')⟩), type = $("branch (" ++ Tₛ ++ " × " ++ Tₛ' ++ ")")];
+    branch [typeImp = $(⟨_, branch (T × T')⟩), type = $("branch (" ++ Tₛ ++ "×" ++ Tₛ' ++ ")")];
     splitT [typeImp = $(⟨_, split T T'⟩), type = $("split " ++ Tₛ ++ " " ++ Tₛ')];
     splitF [typeImp = $(⟨_, split T T'⟩), type = $("split " ++ Tₛ ++ " " ++ Tₛ')];
 

@@ -106,7 +106,7 @@ def rhs (T T' : Type) (Tₛ Tₛ' : String) : ExprHigh String × IdentMap String
 
     joinT [typeImp = $(⟨_, join T T'⟩), type = $("join " ++ Tₛ ++ " " ++ Tₛ')];
     joinF [typeImp = $(⟨_, join T T'⟩), type = $("join " ++ Tₛ ++ " " ++ Tₛ')];
-    mux [typeImp = $(⟨_, mux (T × T')⟩), type = $("mux (" ++ Tₛ ++ " × " ++ Tₛ' ++ ")")];
+    mux [typeImp = $(⟨_, mux (T×T')⟩), type = $("mux (" ++ Tₛ ++ "×" ++ Tₛ' ++ ")")];
     split [typeImp = $(⟨_, split T T'⟩), type = $("split " ++ Tₛ ++ " " ++ Tₛ')];
 
     b1_t_i -> joinT [to="in1"];

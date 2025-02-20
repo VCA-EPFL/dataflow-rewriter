@@ -26,9 +26,12 @@ def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :
 
       unless String.isPrefixOf "join" join_nn.typ && String.isPrefixOf "join" join_nn'.typ do return none
       unless join_nn.inst = join_nn'.inst do return none
+      unless join_nn.inputPort = "in1" && join_nn'.inputPort = "in2" do return none
       unless extractType join_nn.typ = extractType typ do return none
+      let .some typ1 := join_nn.typ.splitOn " " |>.get? 1 | throw (.error "Could not extract type 1 from 'join'")
+      let .some typ2 := join_nn.typ.splitOn " " |>.get? 2 | throw (.error "Could not extract type 2 from 'join'")
 
-      return some ([join_nn.inst, inst], [extractFirstWordAfterJoin join_nn.typ, extractFirstWordAfterJoin join_nn.typ])
+      return some ([join_nn.inst, inst], [typ1, typ2])
     ) none | throw .done
   return list
 
