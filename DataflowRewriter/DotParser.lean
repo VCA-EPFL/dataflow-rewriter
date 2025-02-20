@@ -285,6 +285,7 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
         current_extra_args ← addOpt current_extra_args "delay"
         current_extra_args ← addOpt current_extra_args "latency"
         current_extra_args ← addOpt current_extra_args "II"
+        current_extra_args ← addOpt current_extra_args "constants"
         current_extra_args ← add current_extra_args "op"
         typVal := s!"operator {keyArgNumbers l "in"}"
 

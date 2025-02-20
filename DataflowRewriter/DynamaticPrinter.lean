@@ -25,12 +25,20 @@ def interfaceTypes (m : AssocList String String) :=
   [
 
   ("mux (Bool × (T × T))", (some "mux (Bool × (T × T))", "in1?:1 in2:65 in3:65", "out1:65", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("mux ((T × Bool) × (T × T))", (some "mux ((T × Bool) × (T × T))", "in1?:1 in2:97 in3:97", "out1:97", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("branch (Bool × (T × T))", (some "branch (Bool × (T × T))", "in1:65 in2?:1", "out1+:65 out2-:65", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("branch ((T × Bool) × (T × T))", (some "branch ((T × Bool) × (T × T))", "in1:97 in2?:1", "out1+:97 out2-:97", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("split Bool (T × T)", (some "split Bool (T × T)", "in1:65", "out1:1 out2:64", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("split (Bool × (T × T)) Bool", (some "split (Bool × (T × T)) Bool", "in1:66", "out1:65 out2:1", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("join Bool (T × T)", (some "join Bool (T × T)", "in1:1 in2:64", "out1:65", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("join (Bool × (T × T)) Bool", (some "join (Bool × (T × T)) Bool", "in1:65 in2:1", "out1:66", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("split T Bool", (some "split T Bool", "in1:33", "out1:32 out2:1", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("split (T × Bool) (T × T)", (some "split (T × Bool) (T × T)", "in1:97", "out1:33 out2:64", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("split ((T × Bool) × (T × T)) Bool", (some "split ((T × Bool) × (T × T)) Bool", "in1:98", "out1:97 out2:1", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
 
+  ,("join T Bool", (some "join T Bool", "in1:32 in2:1", "out1:33", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("join (T × Bool) (T × T)", (some "join (T × Bool) (T × T)", "in1:33 in2:64", "out1:97", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("join ((T × Bool) × (T × T)) Bool", (some "join ((T × Bool) × (T × T)) Bool", "in1:97 in2:1", "out1:98", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
 
   ,("mux (T × T)", (some "mux (T x T)", "in1?:1 in2:64 in3:64", "out1:64", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("mux (T × (T × T))", (some "mux (T × (T × T))", "in1?:1 in2:96 in3:96", "out1:96", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
@@ -169,14 +177,14 @@ def dynamaticString (a: ExprHigh String) (m : AssocList String (AssocList String
           -- If the node is found to be coming from the input,
           -- retrieve its attributes from what we saved and bypass it
           -- without looking for it in interfaceTypes
-        --return fixComponentNames (RenameJoinToConcat s) ++ s!"\"{k}\" [type = \"{capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd))}\"{formatOptions input_fmt.toList}];\n"
-        return s ++ s!"\"{k}\" [type = \"{fmt.1.getD v.snd}\"{formatOptions input_fmt.toList}];\n"
+        return fixComponentNames (RenameJoinToConcat s) ++ s!"\"{k}\" [type = \"{capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd))}\"{formatOptions input_fmt.toList}];\n"
+        --return s ++ s!"\"{k}\" [type = \"{fmt.1.getD v.snd}\"{formatOptions input_fmt.toList}];\n"
         | none =>
           -- If this is a new node, then we sue `fmt` to correctly add the right
           -- arguments from what is given in interfaceTypes.  We should never be generating constructs like MC, so
           -- this shouldn't be a problem.
-        --return fixComponentNames (RenameJoinToConcat s) ++ s!"\"{k}\" [type = \"{capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd))}\", in = \"{removeLetter 'p' fmt.2.1}\", out = \" {fmt.2.2.1} \"{formatOptions fmt.2.2.2}];\n"
-        return s ++ s!"\"{k}\" [type = \"{fmt.1.getD v.snd}\", in = \"{removeLetter 'p' fmt.2.1}\", out = \" {fmt.2.2.1} \"{formatOptions fmt.2.2.2}];\n"
+        return fixComponentNames (RenameJoinToConcat s) ++ s!"\"{k}\" [type = \"{capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd))}\", in = \"{removeLetter 'p' fmt.2.1}\", out = \" {fmt.2.2.1} \"{formatOptions fmt.2.2.2}];\n"
+        --return s ++ s!"\"{k}\" [type = \"{fmt.1.getD v.snd}\", in = \"{removeLetter 'p' fmt.2.1}\", out = \" {fmt.2.2.1} \"{formatOptions fmt.2.2.2}];\n"
 
       ) ""
   let connections :=
