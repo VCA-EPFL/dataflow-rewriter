@@ -11,18 +11,57 @@ namespace DataflowRewriter.LoopRewrite
 
 open StringModule
 
-local instance : MonadExcept IO.Error RewriteResult where
-  throw e := throw <| .error <| toString e
-  tryCatch m h := throw (.error "Cannot catch IO.Error")
+def boxLoopBody (g : ExprHigh String) : RewriteResult (List String × List String) := do
+ let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
+      if s.isSome then return s
+        unless typ = "init Bool false" do return none
 
-unsafe def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := do
-  let merges ← ofExcept <| unsafeIO do
-    -- Here you can run an arbitrary command with arguments, where stdout will be passed to `result`.  This can be used
-    -- to implement the matcher completely externally.
-    let result ← IO.Process.run { cmd := "echo", args := #["merge1, merge2, merge3"] }
-    return result.trim.splitOn ", "
-  return (merges, [])
+        let (.some mux) := followOutput g inst "out1" | return none
+        unless String.isPrefixOf "mux" mux.typ && mux.inputPort = "in1" do return none
 
+        let (.some condition_fork) := followInput g inst "in1" | return none
+        unless String.isPrefixOf "fork" condition_fork.typ do return none
+
+        let (.some tag_split) := followInput g condition_fork.inst "in1" | return none
+        unless String.isPrefixOf "split" tag_split.typ do return none
+
+        -- as an extra check, the tag_split should be feeding a Branch
+        let (.some branch) := followOutput g tag_split.inst "out1" | return none
+        unless String.isPrefixOf "branch" branch.typ do return none
+
+        let (.some scc) := findSCCNodes g mux.inst tag_split.inst | return none
+      return some (scc,["pure f"])
+    ) none | MonadExceptOf.throw RewriteError.done
+  return list
+
+
+def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := do
+  let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
+       if s.isSome then return s
+        unless typ = "init Bool false" do return none
+
+        let (.some mux) := followOutput g inst "out1" | return none
+        unless String.isPrefixOf "mux" mux.typ do return none
+
+        let (.some mod) := followOutput g mux.inst "out1" | return none
+        unless String.isPrefixOf "pure f" mod.typ do return none
+
+        let (.some tag_split) := followOutput g mod.inst "out1" | return none
+        unless String.isPrefixOf "split" tag_split.typ do return none
+
+        let (.some condition_fork) := followOutput g tag_split.inst "out2" | return none
+        unless String.isPrefixOf "fork" condition_fork.typ do return none
+
+        let (.some branch) := followOutput g tag_split.inst "out1" | return none
+        unless String.isPrefixOf "branch" branch.typ do return none
+
+        let (.some queue) := followOutput g branch.inst "out1" | return none
+        unless String.isPrefixOf "queue" queue.typ do return none
+
+        return some ([mux.inst, condition_fork.inst, branch.inst, tag_split.inst, mod.inst, inst, queue.inst], [extractType mux.typ])
+
+    ) none | MonadExceptOf.throw RewriteError.done
+  return list
 -- It can then be tested using the below command
 -- #eval (matcher [graph| merge1 [type = "merge"]; merge2 [type = "merge"];
 --                merge1 -> merge2 [from = "out1", to = "in1"]; ] /- <--- replace this with the input graph to test with (as an ExprHigh). -/
@@ -106,7 +145,7 @@ theorem rhs_type_independent b f b₂ f₂ T [Inhabited b] [Inhabited b₂]
 -- #eval IO.print ((rhs Unit "T" (λ _ => default)).fst)
 
 def rewrite : Rewrite String :=
-  { abstractions := [],
+  { abstractions := [⟨boxLoopBody, "pure f"⟩],
     pattern := unsafe matcher,
     rewrite := λ | [T] => pure ⟨lhsLower T, rhsLower T⟩ | _ => failure
     name := .some "loop-rewrite"
