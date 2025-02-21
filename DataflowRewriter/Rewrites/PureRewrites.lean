@@ -282,7 +282,7 @@ def rewrite : Rewrite String :=
     rewrite :=
       λ | [Ts] => .some ⟨ lhsLower Ts, rhsLower Ts ⟩
         | _ => .none
-    name := .some "pure-operator3"
+    name := .some "pure-fork"
   }
 
 end Fork

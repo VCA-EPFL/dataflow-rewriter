@@ -33,6 +33,7 @@ OPTIONS
   --log-stdout        Set JSON log output to STDOUT
   --no-dynamatic-dot  Don't output dynamatic DOT, instead output the raw
                       dot that is easier for debugging purposes.
+  --parse-only        Only parse the input without performing rewrites.
 ```
 
 It will read a DOT graph from the input FILE, and then rewrite it using the internal rewrites.  It will then print it as
