@@ -24,6 +24,14 @@ structure NamedExprHigh (Ident : Type _) where
   inPorts     : IdentMap Ident (InternalPort Ident)
   outPorts    : IdentMap Ident (InternalPort Ident)
 
+structure NextNode (Ident) where
+  inst : Ident
+  inputPort : Ident
+  portMap : PortMapping Ident
+  typ : Ident
+  connection : Connection Ident
+deriving Repr
+
 namespace ExprHigh
 
 universe i

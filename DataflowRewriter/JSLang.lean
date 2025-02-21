@@ -15,6 +15,7 @@ inductive JSLang where
 | join : String → JSLang → JSLang → JSLang
 | split1 : String → JSLang → JSLang
 | split2 : String → JSLang → JSLang
+| pure : String -> JSLang -> JSLang
 | I : JSLang
 deriving DecidableEq, Repr
 
@@ -25,24 +26,36 @@ def toSExpr : JSLang → String
   s!"(split1 \"{s}\" {toSExpr l})"
 | .split2 s l =>
   s!"(split2 \"{s}\" {toSExpr l})"
+| .pure s l =>
+  s!"(pure \"{s}\" {toSExpr l})"
 | .I => "I"
 
-def JSLang.construct (term : Nat) (succ : Std.HashMap String (Array (String × String × String))) (startN endN port : String) : Option JSLang :=
-  if startN = endN then pure .I else
+structure JSLang.Info where
+  inst : String
+  typ : String
+  inPort : String
+
+instance : Coe (NextNode String) (JSLang.Info) where
+  coe a := ⟨a.inst, a.typ, a.inputPort⟩
+
+def JSLang.construct (term : Nat) (succ : Std.HashMap String (Array JSLang.Info)) (endN : String) (startN : JSLang.Info) : Option JSLang :=
+  if startN.inst = endN then .some .I else
   match term with
   | 0 => .none
   | term'+1 =>
-    match succ[startN]?.map (·.toList) with
+    match succ[startN.inst]?.map (·.toList) with
     | .some [a, b] => do -- join node
-      let jsA ← construct term' succ a.1 endN a.2.2
-      let jsB ← construct term' succ b.1 endN b.2.2
-      return .join startN jsA jsB
+      let jsA ← construct term' succ endN a
+      let jsB ← construct term' succ endN b
+      return .join startN.inst jsA jsB
     | .some [a] => do -- split node
-      let js ← construct term' succ a.1 endN a.2.2
-      if port == "out0" then
-        return split1 startN js
+      let js ← construct term' succ endN a
+      if "pure".isPrefixOf startN.typ then
+        return pure startN.inst js
+      if "split".isPrefixOf startN.typ && startN.inPort = "out1" then
+        return split1 startN.inst js
       else
-        return split2 startN js
+        return split2 startN.inst js
     | _ => .none -- error
 
 inductive JSLangRewrite where

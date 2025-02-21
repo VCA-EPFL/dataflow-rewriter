@@ -293,14 +293,6 @@ def rewrite_loop (g : ExprHigh String) (rewrites : List (Rewrite String)) (pref 
     : RewriteResult (ExprHigh String) :=
   rewrite_loop' depth pref g rewrites depth
 
-structure NextNode (Ident) where
-  inst : Ident
-  inputPort : Ident
-  portMap : PortMapping Ident
-  typ : Ident
-  connection : Connection Ident
-deriving Repr
-
 /--
 Follow an output to the next node.  A similar function could be written to
 follow the input to the previous node.
@@ -343,12 +335,12 @@ def followInput (g : ExprHigh String) (inst input : String) : Option (NextNode S
 def findType (g : ExprHigh String) (typ : String) : List String :=
   g.modules.foldl (λ l a b => if b.snd = typ then a :: l else l) []
 
-def calcSucc (g : ExprHigh String) : Option (Std.HashMap String (Array String)) :=
+def calcSucc (g : ExprHigh String) : Option (Std.HashMap String (Array (NextNode String))) :=
   g.modules.foldlM (λ succ k v => do
       let a ← v.fst.output.foldlM (λ succ' (k' v' : InternalPort String) => do
           if v'.inst.isTop then return succ'
           let out ← followOutputFull g k k'
-          return succ'.push out.inst
+          return succ'.push out
         ) ∅
       return succ.insert k a
     ) ∅
@@ -361,6 +353,7 @@ graph.
 -/
 def fullCalcSucc (g : ExprHigh String) (rootNode : String := "_root_") (leafNode : String := "_leaf_") : Option (Std.HashMap String (Array String)) := do
   let succ ← calcSucc g
+  let succ := succ.map λ _ b => b.map (·.inst)
   let succ := succ.insert rootNode g.inputNodes.toArray
   let succ := succ.insert leafNode ∅
   return g.outputNodes.foldl (λ succ n => succ.insert n (succ[n]?.getD #[] |>.push leafNode) ) succ
