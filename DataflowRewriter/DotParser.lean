@@ -201,30 +201,30 @@ def dotGraph : Parser DotGraph := do
 end Parser
 
 def keyStartsWith (l : List Parser.DotAttr) key val :=
-  (l.find? (·.key = key) |>.map (·.value) |>.getD "" |>.startsWith val)
+  (l.find? (·.key = key) |>.map (·.value) |>.getD "" |>.trim |>.startsWith val)
 
 def splitAndSearch (l : List Parser.DotAttr) (key searchStr : String) : Bool :=
   match l.find? (λ x => x.key = key) with
   | some x =>
     -- Split the value of the key found and search for a prefix match
-    (x.value.splitOn " ").find? (λ part => part.startsWith searchStr) |>.isSome
+    (x.value.trim.splitOn).find? (λ part => part.startsWith searchStr) |>.isSome
   | none => false
 
 
 def keyArgNumbers (l : List Parser.DotAttr) key :=
-  (l.find? (·.key = key) |>.map (·.value) |>.getD "" |>.splitOn |>.length)
+  (l.find? (·.key = key) |>.map (·.value) |>.getD "" |>.trim |>.splitOn |>.length)
 
 def keyArg (l : List Parser.DotAttr) key :=
-  (l.find? (·.key = key) |>.map (·.value) |>.getD "")
+  (l.find? (·.key = key) |>.map (·.value) |>.getD "" |>.trim)
 
 def addArgs (s : String) (l : List Parser.DotAttr) (current_extra_args : AssocList String String) (k : String) : Except String (AssocList String String) := do
   let some el := l.find? (·.key = k)
     | throw s!"{s}: could not find \"{k}\" field in Operation"
-  return current_extra_args.cons el.key el.value
+  return current_extra_args.cons el.key el.value.trim
 
 def addOptArgs (s : String) (l : List Parser.DotAttr) (current_extra_args : AssocList String String) (k : String) : Except String (AssocList String String) := do
   match l.find? (·.key = k) with
-  | some el => return current_extra_args.cons el.key el.value
+  | some el => return current_extra_args.cons el.key el.value.trim
   | _ => return current_extra_args
 
 /--
@@ -247,7 +247,7 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
       current_extra_args ← addOpt current_extra_args "in"
       current_extra_args ← addOpt current_extra_args "out"
 
-      let mut typVal := typ.value
+      let mut typVal := typ.value.trim
 
       if typVal != "MC" && typVal != "MC" && typVal != "Sink" && typVal != "Exit" then
         current_extra_args ← add current_extra_args "tagged"
@@ -298,7 +298,7 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
         current_extra_args ← addOpt current_extra_args "II"
         current_extra_args ← addOpt current_extra_args "constants"
         current_extra_args ← add current_extra_args "op"
-        typVal := s!"operator{keyArgNumbers l "in"} {keyArg l "op"}"
+        typVal := s!"operator{keyArgNumbers l "in"} T {keyArg l "op"}"
 
 
        -- portId= 0, offset= 0  -- if mc_store_op and mc_load_op
@@ -310,7 +310,7 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
         current_extra_args ← add current_extra_args "stcount"
 
       let cluster := l.find? (·.key = "cluster") |>.getD ⟨"cluster", "false"⟩
-      let .ok clusterB := Parser.parseBool.run cluster.value
+      let .ok clusterB := Parser.parseBool.run cluster.value.trim
         | throw s!"{s}: cluster could not be parsed"
       let upd ← updateNodeMaps a s typVal clusterB
       return (upd, assoc.cons s current_extra_args)
@@ -319,7 +319,7 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
   let (maps', conns) ← d.edges.foldlM (λ a (s1, s2, l) => do
       let inp := l.find? (·.key = "to")
       let out := l.find? (·.key = "from")
-      match updateConnMaps a.fst a.snd s1 s2 (out.map (·.value)) (inp.map (·.value)) with
+      match updateConnMaps a.fst a.snd s1 s2 (out.map (·.value.trim)) (inp.map (·.value.trim)) with
       | .ok v => return v
       | .error s => throw s.toString
     ) (maps, [])
