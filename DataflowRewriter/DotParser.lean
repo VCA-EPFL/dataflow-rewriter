@@ -88,6 +88,12 @@ def strDigits : Parser String := do
   let l ← Lean.Json.Parser.num
   return toString l
 
+def hexParser' : Parser Nat :=
+  Lean.Xml.Parser.digitsToNat 16 <$> many1 (hexChar)
+
+def hexParser : Parser Nat :=
+  skipString "0x" *> hexParser'
+
 def strDigitsWs : Parser String := strDigits <* ws
 
 @[inline]
@@ -208,6 +214,9 @@ def splitAndSearch (l : List Parser.DotAttr) (key searchStr : String) : Bool :=
 def keyArgNumbers (l : List Parser.DotAttr) key :=
   (l.find? (·.key = key) |>.map (·.value) |>.getD "" |>.splitOn |>.length)
 
+def keyArg (l : List Parser.DotAttr) key :=
+  (l.find? (·.key = key) |>.map (·.value) |>.getD "")
+
 def addArgs (s : String) (l : List Parser.DotAttr) (current_extra_args : AssocList String String) (k : String) : Except String (AssocList String String) := do
   let some el := l.find? (·.key = k)
     | throw s!"{s}: could not find \"{k}\" field in Operation"
@@ -275,6 +284,8 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
 
 
       if typVal = "Constant" then
+        let constVal ← keyArg l "value" |> Parser.hexParser.run
+        typVal := s!"constant {constVal}"
         current_extra_args ← add current_extra_args "value"
 
       if typVal = "Operator" then
@@ -287,7 +298,7 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
         current_extra_args ← addOpt current_extra_args "II"
         current_extra_args ← addOpt current_extra_args "constants"
         current_extra_args ← add current_extra_args "op"
-        typVal := s!"operator {keyArgNumbers l "in"}"
+        typVal := s!"operator{keyArgNumbers l "in"} {keyArg l "op"}"
 
 
        -- portId= 0, offset= 0  -- if mc_store_op and mc_load_op

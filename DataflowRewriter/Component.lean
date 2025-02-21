@@ -287,14 +287,24 @@ Essentially tagger + join without internal rule
 
 @[drunfold] def binary_op {α β R} (f : α → β → R) (name := "binary_op"): NatModule (Named name (List α × List β)) :=
   { inputs := [
-        (0, ⟨ α, λ (oldListL, oldListR) newElement (newListL, newListR) => newListL = oldListL.concat newElement ⟩),
-        (1, ⟨ β, λ (oldListL, oldListR) newElement (newListL, newListR) => newListR = oldListR.concat newElement ⟩)
+        (0, ⟨ α, λ ol el nl => nl.1 = ol.1.concat el ∧ nl.2 = ol.2 ⟩),
+        (1, ⟨ β, λ ol el nl => nl.2 = ol.2.concat el ∧ nl.1 = ol.1 ⟩)
       ].toAssocList,
     outputs := [
-        (0, ⟨ R, λ (oldListL, oldListR) oldElement (newListL, newListR) =>
-          ∃ a b, a :: newListL = oldListL
-            ∧ b :: newListR = oldListR
-            ∧ oldElement = f a b ⟩)
+        (0, ⟨ R, λ ol el nl =>
+          ∃ a b, ol.1 = a :: nl.1 ∧ ol.2 = b :: nl.2 ∧ el = f a b ⟩)
+      ].toAssocList
+  }
+
+@[drunfold] def ternary_op {α β γ R} (f : α → β → γ → R) (name := "ternary_op"): NatModule (Named name (List α × List β × List γ)) :=
+  { inputs := [
+        (0, ⟨ α, λ ol el nl => nl.1 = ol.1.concat el ∧ nl.2 = ol.2 ⟩),
+        (1, ⟨ β, λ ol el nl => nl.2.1 = ol.2.1.concat el ∧ nl.1 = ol.1 ∧ nl.2.2 = ol.2.2 ⟩),
+        (2, ⟨ γ, λ ol el nl => nl.2.2 = ol.2.2.concat el ∧ nl.1 = ol.1 ∧ nl.2.1 = ol.2.1 ⟩),
+      ].toAssocList,
+    outputs := [
+        (0, ⟨ R, λ ol el nl =>
+          ∃ a b g, ol.1 = a :: nl.1 ∧ ol.2.1 = b :: nl.2.1 ∧ ol.2.2 = g :: nl.2.2 ∧ el = f a b g ⟩)
       ].toAssocList
   }
 
@@ -359,6 +369,42 @@ Essentially tagger + join without internal rule
       (0, ⟨T, λ before el after => el :: after = before⟩)
     ].toAssocList
   }
+
+section
+variable {T} [Inhabited T]
+opaque polymorphic_add : T → T → T
+opaque polymorphic_sub : T → T → T
+opaque polymorphic_mult : T → T → T
+opaque polymorphic_div : T → T → T
+opaque polymorphic_shift_left : T → T → T
+opaque polymorphic_getelemptr : T → T → T → T
+
+variable (T) in
+opaque op0_function : String → T
+
+opaque op1_function : String → T → T
+opaque op2_function : String → T → T → T
+opaque op3_function : String → T → T → T → T
+
+-- #reduce (types := true) Lean.MetaM Unit
+
+opaque constant_a : T
+opaque constant_b : T
+opaque constant_c : T
+opaque constant_d : T
+opaque constant_e : T
+opaque constant_f : T
+opaque constant_g : T
+end
+
+def operator1 T [Inhabited T] (s : String) :=
+  unary_op (name := s!"operator1 {s}") (@op1_function T _ s)
+
+def operator2 T [Inhabited T] (s : String) :=
+  binary_op (name := s!"operator2 {s}") (@op2_function T _ s)
+
+def operator3 T [Inhabited T] (s : String) :=
+  ternary_op (name := s!"operator3 {s}") (@op3_function T _ s)
 
 namespace FixedSize
 
@@ -451,21 +497,11 @@ namespace DataflowRewriter.StringModule
 
 @[drunfold] def pure {S T} f := @NatModule.pure S T f |>.stringify
 
-opaque polymorphic_add {T} [Inhabited T] : T → T → T
-opaque polymorphic_sub {T} [Inhabited T] : T → T → T
-opaque polymorphic_mult {T} [Inhabited T] : T → T → T
-opaque polymorphic_div {T} [Inhabited T] : T → T → T
-opaque polymorphic_shift_left {T} [Inhabited T] : T → T → T
+@[drunfold] def operator1 T [Inhabited T] s := NatModule.operator1 T s |>.stringify
 
--- #reduce (types := true) Lean.MetaM Unit
+@[drunfold] def operator2 T [Inhabited T] s := NatModule.operator2 T s |>.stringify
 
-opaque constant_a {T} [Inhabited T] : T
-opaque constant_b {T} [Inhabited T] : T
-opaque constant_c {T} [Inhabited T] : T
-opaque constant_d {T} [Inhabited T] : T
-opaque constant_e {T} [Inhabited T] : T
-opaque constant_f {T} [Inhabited T] : T
-opaque constant_g {T} [Inhabited T] : T
+@[drunfold] def operator3 T [Inhabited T] s := NatModule.operator3 T s |>.stringify
 
 @[drunfold] def tagger_untagger_val TagT [DecidableEq TagT] T T' :=
   NatModule.tagger_untagger_val TagT T T' |>.stringify
@@ -513,19 +549,19 @@ def ε (Tag : Type) [DecidableEq Tag] (T : Type) [Inhabited T] : IdentMap String
   , ("Aligner", ⟨_, StringModule.aligner Tag T⟩)
   , ("TaggerCntrlAligner", ⟨_, StringModule.tagger_untagger_val Tag T T⟩)
 
-  , ("ConstantA", ⟨_, StringModule.constant (@constant_a T)⟩)
-  , ("ConstantB", ⟨_, StringModule.constant (@constant_b T)⟩)
-  , ("ConstantC", ⟨_, StringModule.constant (@constant_c T)⟩)
-  , ("ConstantD", ⟨_, StringModule.constant (@constant_d T)⟩)
-  , ("ConstantE", ⟨_, StringModule.constant (@constant_e T)⟩)
-  , ("ConstantF", ⟨_, StringModule.constant (@constant_f T)⟩)
-  , ("ConstantG", ⟨_, StringModule.constant (@constant_g T)⟩)
+  -- , ("ConstantA", ⟨_, StringModule.constant (@constant_a T)⟩)
+  -- , ("ConstantB", ⟨_, StringModule.constant (@constant_b T)⟩)
+  -- , ("ConstantC", ⟨_, StringModule.constant (@constant_c T)⟩)
+  -- , ("ConstantD", ⟨_, StringModule.constant (@constant_d T)⟩)
+  -- , ("ConstantE", ⟨_, StringModule.constant (@constant_e T)⟩)
+  -- , ("ConstantF", ⟨_, StringModule.constant (@constant_f T)⟩)
+  -- , ("ConstantG", ⟨_, StringModule.constant (@constant_g T)⟩)
 
-  , ("Add", ⟨_, StringModule.binary_op (@polymorphic_add T _)⟩)
-  , ("Mul", ⟨_, StringModule.binary_op (@polymorphic_mult T _)⟩)
-  , ("Div", ⟨_, StringModule.binary_op (@polymorphic_div T _)⟩)
-  , ("Shl", ⟨_, StringModule.binary_op (@polymorphic_shift_left T _)⟩)
-  , ("Sub", ⟨_, StringModule.binary_op (@polymorphic_sub T _)⟩)
+  -- , ("Add", ⟨_, StringModule.binary_op (@polymorphic_add T _)⟩)
+  -- , ("Mul", ⟨_, StringModule.binary_op (@polymorphic_mult T _)⟩)
+  -- , ("Div", ⟨_, StringModule.binary_op (@polymorphic_div T _)⟩)
+  -- , ("Shl", ⟨_, StringModule.binary_op (@polymorphic_shift_left T _)⟩)
+  -- , ("Sub", ⟨_, StringModule.binary_op (@polymorphic_sub T _)⟩)
   ].toAssocList
 
 @[drunfold] def muxC T := NatModule.muxC T
