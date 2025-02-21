@@ -233,4 +233,58 @@ def rewrite : Rewrite String :=
 
 end Operator3
 
+namespace Fork
+
+def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := sorry
+
+variable (T : Type)
+variable [Inhabited T]
+variable (Tₛ : String)
+
+def lhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
+    i [type = "io"];
+    o1 [type = "io"];
+    o2 [type = "io"];
+
+    fork [typeImp = $(⟨_, fork T 2⟩), type = $(s!"fork {Tₛ} 2")];
+
+    i -> fork [to="in1"];
+    fork -> o1 [from="out1"];
+    fork -> o2 [from="out2"];
+  ]
+
+def lhs_extract := (lhs Unit Tₛ).fst.extract ["fork"] |>.get rfl
+
+theorem double_check_empty_snd : (lhs_extract Tₛ).snd = ExprHigh.mk ∅ ∅ := by rfl
+
+def lhsLower := lhs_extract Tₛ |>.fst.lower.get rfl
+
+def rhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
+    i [type = "io"];
+    o1 [type = "io"];
+    o2 [type = "io"];
+
+    op [typeImp = $(⟨_, StringModule.pure λ (x : T) => (x, x)⟩),
+        type = $(s!"pure λx=>(x,x)")];
+    split [typeImp = $(⟨_, split T T⟩), type = $(s!"split {Tₛ} {Tₛ}")];
+
+    i -> op [to="in1"];
+    op -> split [from="out1",to="in1"];
+    split -> o1 [from="out1"];
+    split -> o2 [from="out2"];
+  ]
+
+def rhsLower := (rhs Unit Tₛ).fst.lower.get rfl
+
+def rewrite : Rewrite String :=
+  { abstractions := [],
+    pattern := matcher,
+    rewrite :=
+      λ | [Ts] => .some ⟨ lhsLower Ts, rhsLower Ts ⟩
+        | _ => .none
+    name := .some "pure-operator3"
+  }
+
+end Fork
+
 end DataflowRewriter.PureRewrites
