@@ -79,9 +79,10 @@ def lhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
     mod [typeImp = $(⟨_, pure f⟩), type = "pure f"];
     loop_init [typeImp = $(⟨_, init Bool false⟩), type = "init Bool false"];
     queue [typeImp = $(⟨_, queue T⟩), type = $("queue " ++ Tₛ)];
+    queue_out [typeImp = $(⟨_, queue T⟩), type = $("queue " ++ Tₛ)];
 
     i_in -> mux [to="in3"];
-    branch -> o_out [from="out2"];
+    queue_out -> o_out [from="out1"];
 
     loop_init -> mux [from="out1", to="in1"];
     condition_fork -> loop_init [from="out2", to="in1"];
@@ -92,6 +93,7 @@ def lhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
     mux -> mod [from="out1", to="in1"];
     branch -> queue [from="out1", to="in1"];
     queue -> mux [from="out1", to="in2"];
+    branch -> queue_out [from="out2", to="in1"];
   ]
 
 -- #eval IO.print ((lhs Unit "T" (λ _ => default)).fst)
@@ -99,7 +101,7 @@ def lhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
 -- #eval lhs Unit Unit Unit (λ _ _ _ => False) (λ _ _ _ => False) |>.1 |> IO.print
 
 def lhs_extract T := lhs Unit T (λ _ => default) |>.1
-  |>.extract ["mux", "condition_fork", "branch", "tag_split", "mod", "loop_init", "queue"]
+  |>.extract ["mux", "condition_fork", "branch", "tag_split", "mod", "loop_init", "queue",  "queue_out"]
   |>.get rfl
 
 theorem double_check_empty_snd T: (lhs_extract T).snd = ExprHigh.mk ∅ ∅ := by rfl
@@ -150,5 +152,76 @@ def rewrite : Rewrite String :=
     rewrite := λ | [T] => pure ⟨lhsLower T, rhsLower T⟩ | _ => failure
     name := .some "loop-rewrite"
   }
+
+  /--
+Essentially tagger + join without internal rule
+-/
+@[drunfold] def NatModule.tagger_untagger_val_ghost (TagT : Type 0) [_i: DecidableEq TagT] (T : Type 0) (name := "tagger_untagger_val_ghost") : NatModule (NatModule.Named name (List (TagT × T) × Batteries.AssocList TagT (T × (Nat × T)) × List (T × (Nat × T)))) :=
+  { inputs := [
+        -- Complete computation
+        -- Models the input of the Cal + Untagger (coming from a previously tagged region)
+        (0, ⟨ (TagT × T) × (Nat × T), λ (oldOrder, oldMap, oldVal) ((tag,el), r) (newOrder, newMap, newVal) =>
+          -- Tag must be used, but no value ready, otherwise block:
+          (tag ∈ oldOrder.map Prod.fst ∧ oldMap.find? tag = none) ∧
+          newMap = oldMap.cons tag (el, r) ∧ newOrder = oldOrder ∧ newVal = oldVal ⟩),
+        -- Enq a value to be tagged
+        -- Models the input of the Tagger (coming from outside)
+        (1, ⟨ T, λ (oldOrder, oldMap, oldVal) v (newOrder, newMap, newVal) =>
+          newMap = oldMap ∧ newOrder = oldOrder ∧ newVal = oldVal.concat (v, 0, v) ⟩)
+      ].toAssocList,
+    outputs := [
+        -- Allocate fresh tag and output with value
+        -- Models the output of the Tagger
+      (0, ⟨ (TagT × T) × (Nat × T), λ (oldOrder, oldMap, oldVal) ((tag, v), z) (newOrder, newMap, newVal) =>
+        -- Tag must be unused otherwise block (alternatively we
+        -- could an implication to say undefined behavior):
+        (tag ∉ oldOrder.map Prod.fst ∧ oldMap.find? tag = none) ∧
+        newMap = oldMap ∧ newOrder = oldOrder.concat (tag, v) ∧ (v, z) :: newVal = oldVal⟩),
+        -- Dequeue + free tag
+        -- Models the output of the Cal + Untagger
+      (1, ⟨ T, λ (oldorder, oldmap, oldVal) el (neworder, newmap, newVal) =>
+        -- tag must be used otherwise, but no value brought, undefined behavior:
+        ∃ tag r, oldorder = tag :: neworder ∧ oldmap.find? tag.fst = some (el, r) ∧
+        newmap = oldmap.eraseAll tag.fst ∧ newVal = oldVal ⟩),
+        ].toAssocList
+  }
+
+@[drunfold] def StringModule.tagger_untagger_val_ghost TagT [DecidableEq TagT] T :=
+  NatModule.tagger_untagger_val_ghost TagT T |>.stringify
+
+def liftF2 {α β γ δ} (f : α -> β × δ) : α × (Nat × γ) -> (β × (Nat × γ)) × δ
+| (a, g) =>
+  let b := f a
+  ((b.1, (g.1 + 1, g.2)), b.2)
+
+def ghost_rhs {Data : Type} (DataS : String) (f : Data → Data × Bool)
+    : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
+    i_in [type = "io"];
+    o_out [type = "io"];
+
+    tagger [typeImp = $(⟨_, StringModule.tagger_untagger_val_ghost TagT Data ⟩), type = $("tagger_untagger_val_ghost TagT " ++ DataS)];
+    merge [typeImp = $(⟨_, merge ((TagT × Data) × (Nat × Data)) 2⟩), type = $("merge ((TagT × " ++ DataS ++ ") × (Nat × " ++ DataS ++ ") 2")];
+    branch [typeImp = $(⟨_, branch ((TagT × Data) × (Nat × Data))⟩), type = $("branch ((TagT × " ++ DataS ++ ") × (Nat × " ++ DataS ++ ")")];
+    tag_split [typeImp = $(⟨_, split ((TagT × Data) × (Nat × Data)) Bool⟩), type = $("split ((TagT × " ++ DataS ++ ") × (Nat × " ++ DataS ++ ") Bool")];
+    mod [typeImp = $(⟨_, pure (liftF2 (liftF f))⟩), type = "pure (liftF2 (liftF f))"];
+
+    i_in -> tagger [to="in2"];
+    tagger -> o_out [from="out2"];
+
+    tagger -> merge [from="out1",to="in2"];
+    merge -> mod [from="out1", to="in1"];
+    mod -> tag_split [from="out1", to="in1"];
+    tag_split -> branch [from="out1", to="in1"];
+    tag_split -> branch [from="out2", to="in2"];
+    branch -> merge [from="out1", to="in1"];
+    branch -> tagger [from="out2", to="in1"];
+  ]
+
+def environmentRhsGhost {Data : Type} (DataS : String) (f : Data → Data × Bool): IdentMap String (TModule1 String) := ghost_rhs DataS f |>.snd
+
+def rhsGhostLower (DataS : String):= (@ghost_rhs Unit DataS (λ _ => default) |>.1).lower.get rfl
+
+theorem rhs_ghost_type_independent b f b₂ f₂ T [Inhabited b] [Inhabited b₂]
+  : (@ghost_rhs b T f).fst = (@ghost_rhs b₂ T f₂).fst := by rfl
 
 end DataflowRewriter.LoopRewrite
