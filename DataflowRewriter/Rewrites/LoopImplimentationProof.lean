@@ -1,4 +1,3 @@
-
 import DataflowRewriter.ExprLowLemmas
 import DataflowRewriter.Rewrites.LoopRewriteCorrect
 import Mathlib
@@ -51,7 +50,7 @@ inductive state_relation : rhsGhostType Data -> Prop where
     elem.2.1 > 0 ∧ elem.2.1 < n ∧ elem.1.2 = (apply f elem.2.1 elem.2.2).1) ->
   (∀ elem, elem ∈ x_split_branchF ++ x_moduleF ->  iterate f elem.2.2 elem.2.1 elem.1.2) ->
   ((((x_merge ++ (x_module.map Prod.fst) ++ x_splitD ++ x_branchD).map Prod.fst).map Prod.fst).Nodup) ->
-  (∀ elem, elem ∈ ((x_merge ++ (x_module.map Prod.fst) ++ x_splitD ++ x_branchD).map (fun ((x, _), _, y) => (x, y)))-> elem ∈ x_tagT) ->
+  (∀ elem, elem ∈ ((x_merge ++ (x_module.map Prod.fst) ++ x_splitD ++ x_branchD ++ x_tagM.toList.map (λ x => ((x.1, x.2.1), x.2.2.1, x.2.2.2))).map (fun ((x, _), _, y) => (x, y)))-> elem ∈ x_tagT) ->
   ((x_tagT.map Prod.fst).Nodup) ->
   (x_branchD ++ x_splitD).length = (x_branchB ++ x_splitB).length ->
   ( ∀ tag d n i, x_tagM.find? tag = some (d, n, i) -> (tag, i ) ∈ x_tagT ∧ iterate f i n d) ->
@@ -375,7 +374,7 @@ theorem refine:
         . constructor <;> (try rfl)
           . simp at h2; assumption
           . constructor <;> (try rfl) <;> (try assumption)
-            . intro elem HH
+            . clear h4; intro elem HH
               specialize H11 elem HH
               rw[List.mem_cons ] at H11
               cases H11 <;> rename_i H11
@@ -385,7 +384,6 @@ theorem refine:
                 simp at h6
                 repeat cases ‹_ ∧ _›
                 subst_vars
-                simp_all
               . assumption
       . admit
     . unfold PortMap.getIO
