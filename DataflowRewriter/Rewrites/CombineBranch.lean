@@ -47,8 +47,8 @@ def lhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String
     b1_i [type = "io"];
     b2_i [type = "io"];
 
-    branch1 [typeImp = $(⟨_, branch T⟩), type = $("branch " ++ Tₛ)];
-    branch2 [typeImp = $(⟨_, branch T'⟩), type = $("branch " ++ T'ₛ)];
+    branch1 [typeImp = $(⟨_, branch T⟩), type = $(s!"branch {Tₛ}")];
+    branch2 [typeImp = $(⟨_, branch T'⟩), type = $(s!"branch {T'ₛ}")];
     condFork [typeImp = $(⟨_, fork Bool 2⟩), type = "fork Bool 2"];
 
     branch1 -> b1_t_o [from = "out1"];
@@ -85,10 +85,10 @@ def rhs (T T' : Type) (Tₛ Tₛ' : String) : ExprHigh String × IdentMap String
     b1_i [type = "io"];
     b2_i [type = "io"];
 
-    join [typeImp = $(⟨_, join T T'⟩), type = $("join " ++ Tₛ ++ " " ++ Tₛ')];
-    branch [typeImp = $(⟨_, branch (T × T')⟩), type = $("branch (" ++ Tₛ ++ "×" ++ Tₛ' ++ ")")];
-    splitT [typeImp = $(⟨_, split T T'⟩), type = $("split " ++ Tₛ ++ " " ++ Tₛ')];
-    splitF [typeImp = $(⟨_, split T T'⟩), type = $("split " ++ Tₛ ++ " " ++ Tₛ')];
+    join [typeImp = $(⟨_, join T T'⟩), type = $(s!"join {Tₛ} {Tₛ'}")];
+    branch [typeImp = $(⟨_, branch (T×T')⟩), type = $(s!"branch ({Tₛ}×{Tₛ'})")];
+    splitT [typeImp = $(⟨_, split T T'⟩), type = $(s!"split {Tₛ} {Tₛ'}")];
+    splitF [typeImp = $(⟨_, split T T'⟩), type = $(s!"split {Tₛ} {Tₛ'}")];
 
     b1_i -> join [to = "in1"];
     b2_i -> join [to = "in2"];

@@ -35,13 +35,12 @@ def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :
     ) none | throw .done
   return list
 
-
 def lhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i [type = "io"];
     o [type = "io"];
 
-    split [typeImp = $(⟨_, split T T'⟩), type = $("split " ++ Tₛ ++ " " ++ T'ₛ)];
-    join [typeImp = $(⟨_, join T T'⟩), type = $("join " ++ Tₛ ++ " " ++ T'ₛ)];
+    split [typeImp = $(⟨_, split T T'⟩), type = $(s!"split {Tₛ} {T'ₛ}")];
+    join [typeImp = $(⟨_, join T T'⟩), type = $(s!"join {Tₛ} {T'ₛ}")];
 
     i -> split [to="in1"];
     split -> join [from="out1", to="in1"];
@@ -51,7 +50,7 @@ def lhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String
 
 def lhs_extract T₁ T₂ := (lhs Unit Unit T₁ T₂).fst.extract ["join", "split"] |>.get rfl
 
-#eval IO.print ((lhs Unit Unit "T" "T'").fst)
+-- #eval IO.print ((lhs Unit Unit "T" "T'").fst)
 
 theorem lhs_type_independent a b c d T₁ T₂ : (lhs a b T₁ T₂).fst = (lhs c d T₁ T₂).fst := by rfl
 
@@ -63,7 +62,7 @@ def rhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String
     i [type = "io"];
     o [type = "io"];
 
-    queue [typeImp = $(⟨_, queue T⟩), type = $("queue" ++ " " ++ Tₛ)];
+    queue [typeImp = $(⟨_, queue T⟩), type = $(s!"queue {Tₛ}")];
 
     i -> queue [to="in1"];
     queue -> o [from="out1"];
@@ -71,7 +70,7 @@ def rhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String
 
 def rhsLower T₁ T₂ := (rhs Unit Unit T₁ T₂).fst.lower.get rfl
 
-#eval IO.print ((rhs Unit Unit "T" "T'").fst)
+-- #eval IO.print ((rhs Unit Unit "T" "T'").fst)
 
 theorem rhs_type_independent a b c d T₁ T₂ : (rhs a b T₁ T₂).fst = (rhs c d T₁ T₂).fst := by rfl
 

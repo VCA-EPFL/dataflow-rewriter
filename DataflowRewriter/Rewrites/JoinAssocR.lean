@@ -19,14 +19,14 @@ def lhs (T₁ T₂ T₃ : Type) (S₁ S₂ S₃ : String) : ExprHigh String × I
     i_2 [type = "io"];
     o_out [type = "io"];
 
-    join1 [typeImp = $(⟨_, join T₂ T₃⟩), type = $("join " ++ S₂ ++  " " ++ S₃)];
-    join2 [typeImp = $(⟨_, join T₁ (T₂ × T₃)⟩), type = $("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")")];
+    join1 [typeImp = $(⟨_, join T₂ T₃⟩), type = $(s!"join {S₂} {S₃}")];
+    join2 [typeImp = $(⟨_, join T₁ (T₂ × T₃)⟩), type = $(s!"join {S₁} ({S₂}×{S₃})")];
 
-    i_0 -> join1 [to = "in1"];
-    i_1 -> join1 [to = "in2"];
-    i_2 -> join2 [to = "in2"];
+    i_0 -> join2 [to = "in1"];
+    i_1 -> join1 [to = "in1"];
+    i_2 -> join1 [to = "in2"];
 
-    join1 -> join2 [from = "out1", to = "in1"];
+    join1 -> join2 [from = "out1", to = "in2"];
 
     join2 -> o_out [from = "out1"];
   ]
@@ -43,16 +43,16 @@ def rhs (T₁ T₂ T₃ : Type) (S₁ S₂ S₃ : String) : ExprHigh String × I
     i_2 [type = "io"];
     o_out [type = "io"];
 
-    join2 [typeImp = $(⟨_, join T₂ T₃⟩), type = $("join " ++ S₂ ++ " " ++ S₃)];
-    join1 [typeImp = $(⟨_, join T₁ (T₂ × T₃)⟩), type = $("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")")];
-    pure [typeImp = $(⟨_, StringModule.pure (λ ((a, b, c) : T₁ × T₂ × T₃) => ((a, b), c))⟩),
-          type = $("pure  (λ ((a, b, c) : " ++ S₁ ++ " × " ++ S₂ ++ " × " ++ S₃ ++ ") => ((a, b), c)")];
+    join2 [typeImp = $(⟨_, join T₁ T₂⟩), type = $(s!"join {S₁} {S₂}")];
+    join1 [typeImp = $(⟨_, join (T₁ × T₂) T₃⟩), type = $(s!"join ({S₁}×{S₂}) {S₃}")];
+    pure [typeImp = $(⟨_, @StringModule.pure ((T₁ × T₂) × T₃) (T₁ × T₂ × T₃) (λ ((a, b), c) => (a, b, c))⟩),
+          type = $(s!"pure λ((a,b),c)=>(a,b,c)")];
 
     i_1 -> join2 [to = "in1"];
     i_2 -> join2 [to = "in2"];
     i_0 -> join1 [to = "in1"];
 
-    join2 -> join1 [from = "out1", to = "in2"];
+    join2 -> join1 [from = "out1", to = "in1"];
     join1 -> pure [from = "out1", to = "in1"];
 
     pure -> o_out [from = "out1"];
