@@ -501,4 +501,10 @@ def extractType (s : String) : String :=
   let parts := s.splitOn " "
   parts.tail.foldl (λ a b => a ++ " " ++ b) "" |>.drop 1
 
+def match_node (extract_type : String → RewriteResult (List String)) (g : ExprHigh String) (nn : String)
+    : RewriteResult (List String × List String) := do
+  let (_map, typ) ← ofOption (.error s!"{decl_name%}: module '{nn}' not found") (g.modules.find? nn)
+  let types ← extract_type typ
+  return ([nn], types)
+
 end DataflowRewriter

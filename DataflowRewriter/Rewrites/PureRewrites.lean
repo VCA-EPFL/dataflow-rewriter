@@ -20,7 +20,15 @@ open StringModule
 
 namespace Constant
 
-def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := sorry
+def extract_type (typ : String) : RewriteResult (List String) := do
+  let [typName, num] := typ.splitOn | throw .done
+  unless typName = "constant" do throw .done
+  return [num]
+
+def match_node := DataflowRewriter.match_node extract_type
+
+def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
+  throw (.error s!"{decl_name%}: matcher not implemented")
 
 variable (n : Nat)
 
@@ -67,6 +75,13 @@ def rewrite : Rewrite String :=
 end Constant
 
 namespace Operator1
+
+def extract_type (typ : String) : RewriteResult (List String) := do
+  let [typName, typ, op] := typ.splitOn | throw .done
+  unless typName = "operator1" do throw .done
+  return [typ, op]
+
+def match_node := DataflowRewriter.match_node extract_type
 
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := sorry
 
@@ -116,6 +131,13 @@ def rewrite : Rewrite String :=
 end Operator1
 
 namespace Operator2
+
+def extract_type (typ : String) : RewriteResult (List String) := do
+  let [typName, typ, op] := typ.splitOn | throw (.error s!"{decl_name%}: incorrect type '{typ}'")
+  unless typName = "operator2" do throw (.error s!"{decl_name%}: type '{typName}' does not match 'operator2'")
+  return [typ, op]
+
+def match_node := DataflowRewriter.match_node extract_type
 
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := sorry
 
@@ -171,6 +193,13 @@ def rewrite : Rewrite String :=
 end Operator2
 
 namespace Operator3
+
+def extract_type (typ : String) : RewriteResult (List String) := do
+  let [typName, typ, op] := typ.splitOn | throw (.error s!"{decl_name%}: incorrect type '{typ}'")
+  unless typName = "operator3" do throw (.error s!"{decl_name%}: type '{typName}' does not match 'operator3'")
+  return [typ, op]
+
+def match_node := DataflowRewriter.match_node extract_type
 
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := sorry
 
@@ -234,6 +263,14 @@ def rewrite : Rewrite String :=
 end Operator3
 
 namespace Fork
+
+def extract_type (typ : String) : RewriteResult (List String) := do
+  let [typName, typ, num] := typ.splitOn | throw (.error s!"{decl_name%}: incorrect type '{typ}'")
+  unless typName = "fork" do throw (.error s!"{decl_name%}: type '{typName}' does not match 'fork'")
+  unless num = "2" do throw (.error s!"{decl_name%}: fork has more than 2 outputs")
+  return [typ, num]
+
+def match_node := DataflowRewriter.match_node extract_type
 
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := sorry
 
