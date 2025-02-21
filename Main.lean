@@ -24,10 +24,11 @@ structure CmdArgs where
   logFile : Option System.FilePath
   logStdout : Bool
   noDynamaticDot : Bool
+  parseOnly : Bool
   help : Bool
 deriving Inhabited
 
-def CmdArgs.empty : CmdArgs := ⟨none, none, none, false, false, false⟩
+def CmdArgs.empty : CmdArgs := default
 
 def parseArgs (args : List String) : Except String CmdArgs := go CmdArgs.empty args
   where
@@ -41,6 +42,8 @@ def parseArgs (args : List String) : Except String CmdArgs := go CmdArgs.empty a
       go {c with logStdout := true} rst
     | .cons "--no-dynamatic-dot" rst =>
       go {c with noDynamaticDot := true} rst
+    | .cons "--parse-only" rst =>
+      go {c with parseOnly := true} rst
     | .cons fp rst => do
       if "-".isPrefixOf fp then throw s!"argument '{fp}' not recognised"
       if c.inputFile.isSome then throw s!"more than one input file passed"
@@ -62,9 +65,13 @@ OPTIONS
   --log-stdout        Set JSON log output to STDOUT
   --no-dynamatic-dot  Don't output dynamatic DOT, instead output the raw
                       dot that is easier for debugging purposes.
+  --parse-only        Only parse the input without performing rewrites.
 "
+
+def combineRewrites := [CombineMux.rewrite, CombineBranch.rewrite, JoinSplitLoopCond.rewrite, ReduceSplitJoin.rewrite]
+
 def topLevel (e : ExprHigh String) : RewriteResult (ExprHigh String) :=
-  rewrite_loop e [CombineMux.rewrite, CombineBranch.rewrite, JoinSplitLoopCond.rewrite, ReduceSplitJoin.rewrite] (depth := 10000)
+  rewrite_loop e combineRewrites (depth := 10000)
 
 def renameAssoc (assoc : AssocList String (AssocList String String)) (r : RewriteInfo) : AssocList String (AssocList String String) :=
   assoc.mapKey (λ x => match r.renamed_input_nodes.find? x with
@@ -91,9 +98,10 @@ def main (args : List String) : IO Unit := do
   let mut rewrittenExprHigh := exprHigh
   let mut st : List RewriteInfo := default
 
-  match topLevel rewrittenExprHigh |>.run default with
-  | .ok rewrittenExprHigh' st' => rewrittenExprHigh := rewrittenExprHigh'; st := st'
-  | .error p st' => IO.eprintln p; st := st'
+  if !parsed.parseOnly then
+    match topLevel rewrittenExprHigh |>.run default with
+    | .ok rewrittenExprHigh' st' => rewrittenExprHigh := rewrittenExprHigh'; st := st'
+    | .error p st' => IO.eprintln p; st := st'
 
   let some l :=
     if parsed.noDynamaticDot then pure (toString rewrittenExprHigh)
