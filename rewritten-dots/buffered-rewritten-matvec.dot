@@ -39,7 +39,7 @@ label = "block2"
   _Buffer_10 [type=Buffer, in="in1:32", out="out1:32", bbID = 2, tagged=false, taggers_num=0, tagger_id=-1, slots=50, transparent=true, label="_Buffer_10 [50t]",  shape=box, style=filled, fillcolor=darkolivegreen3, height=0.4];
   _Buffer_64 [type=Buffer, in="in1:97", out="out1:97", bbID = 2, tagged=true, taggers_num=0, tagger_id=-1, slots=1, transparent=true, label="_Buffer_64 [1t]",  shape=box, style=filled, fillcolor=darkolivegreen3, height=0.4];
 
-  _Buffer_700 [type=Buffer, in="in1:32", out="out1:32", bbID = 2, tagged=false, taggers_num=0, tagger_id=-1, slots=30, transparent=true, label="_Buffer_700 [50t]",  shape=box, style=filled, fillcolor=darkolivegreen3, height=0.4];
+  _Buffer_700 [type=Buffer, in="in1:32", out="out1:32", bbID = 2, tagged=false, taggers_num=0, tagger_id=-1, slots=30, transparent=true, label="_Buffer_700 [30t]",  shape=box, style=filled, fillcolor=darkolivegreen3, height=0.4];
 
 }
 subgraph cluster_3 {
@@ -88,7 +88,7 @@ label = "block3"
   _Buffer_12 [type=Buffer, in="in1:32", out="out1:32", bbID = 3, tagged=true, taggers_num=1, tagger_id=-1, slots=9, transparent=true, label="_Buffer_12 [9t]",  shape=box, style=filled, fillcolor=darkolivegreen3, height=0.4];
   _Buffer_13 [type=Buffer, in="in1:64", out="out1:64", bbID = 3, tagged=true, taggers_num=1, tagger_id=-1, slots=19, transparent=true, label="_Buffer_13 [19t]",  shape=box, style=filled, fillcolor=darkolivegreen3, height=0.4];
 
-   _Buffer_661 [type=Buffer, in="in1:32", out="out1:32", bbID = 3, tagged=true, taggers_num=1, tagger_id=-1, slots=30, transparent=true, label="_Buffer_661 [40t]",  shape=box, style=filled, fillcolor=darkolivegreen3, height=0.4];
+   _Buffer_661 [type=Buffer, in="in1:32", out="out1:32", bbID = 3, tagged=true, taggers_num=1, tagger_id=-1, slots=30, transparent=true, label="_Buffer_661 [30t]",  shape=box, style=filled, fillcolor=darkolivegreen3, height=0.4];
 
 
 }

@@ -74,7 +74,6 @@ Digraph G {
 "Concat_81" [type = "Concat", in = "in1:33 in2:64", out = " out1:97 ", bbID = 3, tagged = true, taggers_num = 1, tagger_id = -1];
 "Split_83" [type = "Split", in = "in1:97", out = " out1:33 out2:64 ", bbID = 3, tagged = false, taggers_num = 0, tagger_id = -1];
 
-
 "aligner_branch_0" [type = "Aligner_Branch", bbID= 4,  in = "in1:97 in2?:32", out = " out1:97 out2:97 out3:97 out4:97 out5:97 out6:97 out7:97 out8:97 out9:97 out10:97 out11:97 out12:97 out13:97 out14:97 out15:97 out16:97 out17:97 out18:97 out19:97 out20:97 out21:97 out22:97 out23:97 out24:97 out25:97 out26:97 out27:97 out28:97 out29:97 out30:97 out31:97 out32:97 out33:97 out34:97 out35:97 out36:97 out37:97 out38:97 out39:97 out40:97 out41:97 out42:97 out43:97 out44:97 out45:97 out46:97 out47:97 out48:97 out49:97 out50:97", tagged=false, taggers_num=0, tagger_id=0];
 "aligner_mux_0" [type = "Aligner_Mux", bbID= 4, in = " in1?:32 in2:97 in3:97 in4:97 in5:97 in6:97 in7:97 in8:97 in9:97 in10:97 in11:97 in12:97 in13:97 in14:97 in15:97 in16:97 in17:97 in18:97 in19:97 in20:97 in21:97 in22:97 in23:97 in24:97 in25:97 in26:97 in27:97 in28:97 in29:97 in30:97 in31:97 in32:97 in33:97 in34:97 in35:97 in36:97 in37:97 in38:97 in39:97 in40:97 in41:97 in42:97 in43:97 in44:97 in45:97 in46:97 in47:97 in48:97 in49:97 in50:97 in51:97", out = " out1:97", tagged=false, taggers_num=0, tagger_id=0];
 "un_tagger_0" [type = "Un_Tagger", bbID= 4, in = " in1:97", out = " out1:97 out2:97", tagged=false, taggers_num=0, tagger_id=0];
@@ -84,7 +83,6 @@ Digraph G {
 "fork_155" [type = "Fork", bbID= 4, in = "in1:97", out = "out1:97 out2:97 ", tagged=true, taggers_num=1, tagger_id=-1];
 
 "Sink_190" [type = "Sink", in = "in1:32", bbID = 0];
-
 
   "Branch_3" -> "fork_133" [from = "out2", to = "in1" ];
   "fork_133" -> "aligner_branch_0" [color = "red", from = "out1", to = "in1"];
