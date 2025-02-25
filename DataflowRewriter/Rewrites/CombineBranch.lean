@@ -19,6 +19,7 @@ open StringModule
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
+
       unless typ = "fork Bool 2" do return none
       let (.some branch_nn) := followOutput g inst "out1" | return none
       let (.some branch_nn_out_1) := followOutput g branch_nn.inst "out1" | return none
