@@ -249,7 +249,7 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
 
       let mut typVal := typ.value.trim
 
-      if typVal != "MC" && typVal != "MC" && typVal != "Sink" && typVal != "Exit" then
+      if typVal != "MC" && typVal != "Sink" && typVal != "Exit" then
         current_extra_args ← add current_extra_args "tagged"
         current_extra_args ← add current_extra_args "taggers_num"
         current_extra_args ← add current_extra_args "tagger_id"
@@ -273,8 +273,8 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
       if typVal = "Mux" then
         current_extra_args ← addOpt current_extra_args "delay"
         if splitAndSearch l "in" "in2:0" then
-          typVal := s!"Mux Unit {keyArgNumbers l "in"}"
-        else typVal := s!"Mux T {keyArgNumbers l "in"}"
+          typVal := s!"mux Unit {keyArgNumbers l "in"}"
+        else typVal := s!"mux T {keyArgNumbers l "in"}"
 
       if typVal = "Merge" then
         current_extra_args ← addOpt current_extra_args "delay"
@@ -288,6 +288,14 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
         typVal := s!"constant {constVal}"
         current_extra_args ← add current_extra_args "value"
 
+      if typVal = "Sink" then
+        if splitAndSearch l "in" "in1:0" then
+          typVal := s!"sink Unit"
+        else if splitAndSearch l "in" "in1:1" then
+          typVal := s!"sink Bool"
+        else
+          typVal := s!"sink T"
+
       if typVal = "Operator" then
         if splitAndSearch l "op" "mc_store_op" || splitAndSearch l "op" "mc_load_op" then
           current_extra_args ← addOpt current_extra_args "portId"
@@ -298,12 +306,18 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
         current_extra_args ← addOpt current_extra_args "II"
         current_extra_args ← addOpt current_extra_args "constants"
         current_extra_args ← add current_extra_args "op"
-        typVal := s!"operator{keyArgNumbers l "in"} T {keyArg l "op"}"
 
+        if splitAndSearch l "op" "mc_load_op" then
+          typVal := s!"load T T"
+        else if splitAndSearch l "op" "cast" then
+          typVal := s!"pure T Bool"
+        else
+          typVal := s!"operator{keyArgNumbers l "in"} T {keyArg l "op"}"
 
        -- portId= 0, offset= 0  -- if mc_store_op and mc_load_op
 
       if typVal = "MC" then
+        typVal := s!"operator{keyArgNumbers l "in"} T MC"
         current_extra_args ← add current_extra_args "memory"
         current_extra_args ← add current_extra_args "bbcount"
         current_extra_args ← add current_extra_args "ldcount"

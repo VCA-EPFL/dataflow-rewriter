@@ -8,11 +8,8 @@ import DataflowRewriter.ExprHigh
 import DataflowRewriter.DotParser
 import DataflowRewriter.Rewriter
 import DataflowRewriter.DynamaticPrinter
-import DataflowRewriter.Rewrites.LoopRewrite
-import DataflowRewriter.Rewrites.CombineBranch
-import DataflowRewriter.Rewrites.CombineMux
-import DataflowRewriter.Rewrites.JoinSplitLoopCond
-import DataflowRewriter.Rewrites.ReduceSplitJoin
+import DataflowRewriter.Rewrites
+import DataflowRewriter.JSLang
 
 open Batteries (AssocList)
 
@@ -25,6 +22,7 @@ structure CmdArgs where
   logStdout : Bool
   noDynamaticDot : Bool
   parseOnly : Bool
+  graphitiOracle : Option String
   help : Bool
 deriving Inhabited
 
@@ -44,6 +42,8 @@ def parseArgs (args : List String) : Except String CmdArgs := go CmdArgs.empty a
       go {c with noDynamaticDot := true} rst
     | .cons "--parse-only" rst =>
       go {c with parseOnly := true} rst
+    | .cons "--oracle" (.cons fp rst) =>
+      go {c with graphitiOracle := fp} rst
     | .cons fp rst => do
       if "-".isPrefixOf fp then throw s!"argument '{fp}' not recognised"
       if c.inputFile.isSome then throw s!"more than one input file passed"
@@ -66,12 +66,24 @@ OPTIONS
   --no-dynamatic-dot  Don't output dynamatic DOT, instead output the raw
                       dot that is easier for debugging purposes.
   --parse-only        Only parse the input without performing rewrites.
+  --oracle            Path to the oracle executable.  Default is graphiti_oracle.
 "
 
-def combineRewrites := [CombineMux.rewrite, CombineBranch.rewrite, JoinSplitLoopCond.rewrite, ReduceSplitJoin.rewrite]
+def combineRewrites := [CombineMux.rewrite, CombineBranch.rewrite, JoinSplitLoopCond.rewrite, LoadRewrite.rewrite]
+def reduceRewrites := [ReduceSplitJoin.rewrite, JoinQueueLeftRewrite.rewrite, JoinQueueRightRewrite.rewrite, MuxQueueRightRewrite.rewrite]
+def reduceSink := [SplitSinkRight.rewrite, SplitSinkLeft.rewrite, PureSink.rewrite]
+def movePureJoin := [PureJoinLeft.rewrite, PureJoinRight.rewrite, PureSplitRight.rewrite, PureSplitLeft.rewrite]
 
-def topLevel (e : ExprHigh String) : RewriteResult (ExprHigh String) :=
-  rewrite_loop e combineRewrites (depth := 10000)
+def topLevel (e : ExprHigh String) : RewriteResult (ExprHigh String) := do
+  let rw ← rewrite_loop e combineRewrites
+  let rw ← rewrite_fix rw reduceRewrites
+  let rw ← rewrite_fix rw (PureRewrites.specialisedPureRewrites LoopRewrite.nonPureMatcher)
+  -- let rw ← rewrite_fix rw [ForkPure.rewrite]
+  let rw ← rewrite_fix rw <| [ForkPure.rewrite, ForkJoin.rewrite] ++ movePureJoin ++ reduceSink  -- (JoinPureUnit.rewrite :: movePureJoin) ++ reduceSink
+  let rw ← rewrite_fix rw (PureRewrites.specialisedPureRewrites LoopRewrite.nonPureForkMatcher)
+  let rw ← rewrite_fix rw ([PureSeqComp.rewrite] ++ movePureJoin ++ reduceSink)
+  -- let rw ← JoinComm.targetedRewrite "rw_f19_l1__R_1" |>.run "ranodm_" rw
+  return rw
 
 def renameAssoc (assoc : AssocList String (AssocList String String)) (r : RewriteInfo) : AssocList String (AssocList String String) :=
   assoc.mapKey (λ x => match r.renamed_input_nodes.find? x with
@@ -92,6 +104,7 @@ def main (args : List String) : IO Unit := do
   if parsed.help then
     IO.print helpText
     return
+  let goracle := parsed.graphitiOracle.getD "graphiti_oracle"
   let fileContents ← IO.FS.readFile parsed.inputFile.get!
   let (exprHigh, assoc) ← IO.ofExcept fileContents.toExprHigh
 
@@ -102,6 +115,12 @@ def main (args : List String) : IO Unit := do
     match topLevel rewrittenExprHigh |>.run default with
     | .ok rewrittenExprHigh' st' => rewrittenExprHigh := rewrittenExprHigh'; st := st'
     | .error p st' => IO.eprintln p; st := st'
+
+    -- let .ok (bl, _) _ := LoopRewrite.boxLoopBody rewrittenExprHigh |>.run default | throw (.userError "could not find subgraph")
+
+    -- match  (depth := 10000) |>.run st with
+    -- | .ok rewrittenExprHigh' st' => rewrittenExprHigh := rewrittenExprHigh'; st := st'
+    -- | .error p st' => IO.eprintln p; st := st'
 
   let some l :=
     if parsed.noDynamaticDot then pure (toString rewrittenExprHigh)
@@ -118,3 +137,10 @@ def main (args : List String) : IO Unit := do
     IO.FS.writeFile ofile l
   | none =>
     IO.println l
+
+  -- let .ok (subgraph, _) _ := (LoopRewrite.boxLoopBody rewrittenExprHigh).run st | throw (.userError "could not find loop body")
+  -- let .some (subgraph', _) := rewrittenExprHigh.extract subgraph | throw (.userError "could not generate subgraph")
+  -- let subgraph' : ExprHigh String := ⟨subgraph'.1, subgraph'.2.filter (λ | c@⟨⟨.internal n, o⟩, ⟨.internal n', o'⟩⟩ => n ∈ subgraph'.1.keysList ∧ n' ∈ subgraph'.1.keysList
+  --                                                                        | _ => false)⟩
+  let p ← rewriteWithEgg (eggCmd := goracle) rewrittenExprHigh
+  IO.println (repr p)

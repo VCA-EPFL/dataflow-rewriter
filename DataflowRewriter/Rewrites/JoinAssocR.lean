@@ -7,11 +7,30 @@ Authors: Yann Herklotz
 import DataflowRewriter.Rewriter
 import DataflowRewriter.ExprHighElaborator
 
+open Batteries (AssocList)
+
 namespace DataflowRewriter.JoinAssocR
 
 open StringModule
 
-def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := sorry
+def identMatcher (s : String) (g : ExprHigh String) : RewriteResult (List String × List String) := do
+  let n ← ofOption (.error s!"{decl_name%}: could not find '{s}'") <| g.modules.find? s
+  unless "join".isPrefixOf n.2 do throw (.error s!"type of '{s}' is '{n.2}' instead of 'join'")
+  let next ← ofOption (.error s!"{decl_name%}: could not find next node") <| followInput g s "in1"
+  unless "join".isPrefixOf next.typ do throw (.error s!"type of '{next.inst}' is '{next.typ}' instead of 'join'")
+
+  let (.some t1) := next.typ.splitOn |>.get? 1 | throw (.error s!"{decl_name%}: type incorrect1")
+  let (.some t2) := next.typ.splitOn |>.get? 2 | throw (.error s!"{decl_name%}: type incorrect2")
+  let (.some t3) := n.2.splitOn |>.get? 2 | throw (.error s!"{decl_name%}: type incorrect3")
+
+  return ([s, next.inst], [t1, t2, t3])
+
+def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
+  throw (.error s!"{decl_name%}: matcher not implemented")
+
+def identRenaming (s : String) (g : ExprHigh String) : RewriteResult (AssocList String (Option String)) := do
+  let next ← ofOption (.error s!"{decl_name%}: could not find next node") <| followOutput g s "out1"
+  return [(next.inst, (.some "join1")), (s, (.some "join2"))].toAssocList
 
 def lhs (T₁ T₂ T₃ : Type) (S₁ S₂ S₃ : String) : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i_0 [type = "io"];
@@ -19,14 +38,14 @@ def lhs (T₁ T₂ T₃ : Type) (S₁ S₂ S₃ : String) : ExprHigh String × I
     i_2 [type = "io"];
     o_out [type = "io"];
 
-    join1 [typeImp = $(⟨_, join T₂ T₃⟩), type = $(s!"join {S₂} {S₃}")];
-    join2 [typeImp = $(⟨_, join T₁ (T₂ × T₃)⟩), type = $(s!"join {S₁} ({S₂}×{S₃})")];
+    join1 [typeImp = $(⟨_, join T₁ T₂⟩), type = $(s!"join {S₁} {S₂}")];
+    join2 [typeImp = $(⟨_, join (T₁ × T₂) T₃⟩), type = $(s!"join ({S₁}×{S₂}) {S₃}")];
 
-    i_0 -> join2 [to = "in1"];
-    i_1 -> join1 [to = "in1"];
-    i_2 -> join1 [to = "in2"];
+    i_0 -> join1 [to = "in1"];
+    i_1 -> join1 [to = "in2"];
+    i_2 -> join2 [to = "in2"];
 
-    join1 -> join2 [from = "out1", to = "in2"];
+    join1 -> join2 [from = "out1", to = "in1"];
 
     join2 -> o_out [from = "out1"];
   ]
@@ -43,16 +62,16 @@ def rhs (T₁ T₂ T₃ : Type) (S₁ S₂ S₃ : String) : ExprHigh String × I
     i_2 [type = "io"];
     o_out [type = "io"];
 
-    join2 [typeImp = $(⟨_, join T₁ T₂⟩), type = $(s!"join {S₁} {S₂}")];
-    join1 [typeImp = $(⟨_, join (T₁ × T₂) T₃⟩), type = $(s!"join ({S₁}×{S₂}) {S₃}")];
-    pure [typeImp = $(⟨_, @StringModule.pure ((T₁ × T₂) × T₃) (T₁ × T₂ × T₃) (λ ((a, b), c) => (a, b, c))⟩),
-          type = $(s!"pure λ((a,b),c)=>(a,b,c)")];
+    join2 [typeImp = $(⟨_, join T₂ T₃⟩), type = $(s!"join {S₂} {S₃}")];
+    join1 [typeImp = $(⟨_, join T₁ (T₂ × T₃)⟩), type = $(s!"join {S₁} ({S₂}×{S₃})")];
+    pure [typeImp = $(⟨_, StringModule.pure (λ ((a, b, c) : T₁ × T₂ × T₃) => ((a, b), c))⟩),
+          type = $(s!"pure ({S₁}×({S₂}×{S₃})) (({S₁}×{S₂})×{S₃})")];
 
     i_1 -> join2 [to = "in1"];
     i_2 -> join2 [to = "in2"];
     i_0 -> join1 [to = "in1"];
 
-    join2 -> join1 [from = "out1", to = "in1"];
+    join2 -> join1 [from = "out1", to = "in2"];
     join1 -> pure [from = "out1", to = "in1"];
 
     pure -> o_out [from = "out1"];
@@ -63,7 +82,13 @@ def rhsLower S₁ S₂ S₃ := (rhs Unit Unit Unit S₁ S₂ S₃).fst.lower.get
 def rewrite : Rewrite String :=
   { abstractions := [],
     pattern := matcher,
-    rewrite := λ | [S₁, S₂, S₃] => pure ⟨lhsLower S₁ S₂ S₃, rhsLower S₁ S₂ S₃⟩ | _ => failure
-    }
+    rewrite := λ | [S₁, S₂, S₃] => pure ⟨lhsLower S₁ S₂ S₃, rhsLower S₁ S₂ S₃⟩ | _ => failure,
+    name := "join-assoc-right"
+  }
+
+def targetedRewrite (s : String) : Rewrite String :=
+  { rewrite with pattern := identMatcher s,
+                 nameMap := identRenaming s
+  }
 
 end DataflowRewriter.JoinAssocR

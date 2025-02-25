@@ -76,6 +76,7 @@ structure DefiniteRewrite where
 structure Rewrite where
   pattern : Pattern Ident
   rewrite : List Ident → Option (DefiniteRewrite Ident)
+  nameMap : ExprHigh String → RewriteResult (AssocList String (Option String)) := λ _ => pure .nil
   abstractions : List (Abstraction Ident) := []
   name : Option String := .none
 
@@ -120,6 +121,18 @@ def portmappingToNameRename' (sub : List String) (p : PortMapping String) : Rewr
            return a.cons lport (.some rport)
        | a, _, _ => pure a
        ) ∅
+  >>= fun inps => p.output.foldlM
+    (λ | (a : AssocList String (Option String)), ⟨.internal lport, _⟩, ⟨.internal rport, _⟩ =>
+         match a.find? lport with
+         | .some x => do
+           if lport ∈ sub && x = .none then return a
+           if x = .some rport then return a
+           throw (.error s!"instance names don't match: {x} != {rport} for {lport}")
+         | .none => do
+           if lport ∈ sub then return a.cons lport .none
+           return a.cons lport (.some rport)
+       | a, _, _ => pure a
+       ) inps
 
 def addRewriteInfo (rinfo : RewriteInfo) : RewriteResult Unit := do
   let l ← EStateM.get
@@ -127,6 +140,14 @@ def addRewriteInfo (rinfo : RewriteInfo) : RewriteResult Unit := do
 
 def EStateM.guard {ε σ} (e : ε) (b : Bool) : EStateM ε σ Unit :=
   if b then pure () else EStateM.throw e
+
+def mergeRenamingMaps (rmap1 rmap2 : AssocList String (Option String)) : RewriteResult (AssocList String (Option String)) :=
+  ofOption (.error s!"{decl_name%}: conversion failed") <| rmap2.foldlM (λ st k v => do
+    let .some v := v | return st
+    let v' ← rmap1.find? v
+    let st' := st.eraseAll k
+    return st'.cons k v'
+  ) rmap1
 
 /--
 Perform a rewrite in the graph by lowering it into an inductive expression using the right ordering, replacing it, and
@@ -159,6 +180,7 @@ however, currently the low-level expression language does not remember any names
 
   -- beq is an α-equivalence check that returns a mapping to rename one expression into the other.  This mapping is
   -- split into the external mapping and internal mapping.
+  -- addRewriteInfo <| RewriteInfo.mk RewriteType.rewrite g default sub default default (.some s!"{repr sub}") rewrite.name
   let (ext_mapping, int_mapping) ← liftError <| e_sub.weak_beq def_rewrite.input_expr
 
   let comb_mapping := ext_mapping.append int_mapping
@@ -195,15 +217,21 @@ however, currently the low-level expression language does not remember any names
   let (rewritten, b) := g_lower.force_replace (canon e_sub_input) e_sub_output
 
   -- throw (.error s!"mods :: {repr sub'}rhs :: {repr g_lower}\n\ndep :: {repr (canon e_sub_input)}")
-  EStateM.guard (.error s!"subexpression not found in the graph") b
+  EStateM.guard (.error s!"subexpression not found in the graph: {repr g_lower}\n\n{repr (canon e_sub_input)}") b
 
   let norm := rewritten.normalisedNamesMap fresh_prefix
   EStateM.guard (.error s!"trying to remap IO ports which is forbidden") <| rewritten.ensureIOUnmodified norm
   let out ← rewritten.renamePorts norm |>.higherSS |> ofOption (.error "could not lift expression to graph")
+
+  -- Using comb_mapping to find the portMap does not work because with rewrites where there is a single module, the name
+  -- won't even appear in the rewrite.
   let portMap ← portmappingToNameRename' sub norm
-  let inputPortMap := portMap.filter (λ lhs _ => ¬ nameMap'.inverse.contains lhs)
-  let outputPortMap := portMap.filter (λ lhs _ => nameMap'.inverse.contains lhs)
-  addRewriteInfo <| RewriteInfo.mk RewriteType.rewrite g out sub inputPortMap (outputPortMap.toList.map Prod.snd |>.reduceOption) .none rewrite.name
+  -- let inputPortMap := portMap.filter (λ lhs _ => ¬ nameMap'.inverse.contains lhs)
+  -- let outputPortMap := portMap.filter (λ lhs _ => nameMap'.inverse.contains lhs)
+  -- (outputPortMap.toList.map Prod.snd |>.reduceOption)
+  let rwMap ← rewrite.nameMap g
+  let portMap ← mergeRenamingMaps portMap rwMap
+  addRewriteInfo <| RewriteInfo.mk RewriteType.rewrite g out sub portMap .nil (.some (toString <| repr comb_mapping)) rewrite.name
   return out
 
 /--
@@ -273,25 +301,34 @@ still fresh in the graph.
     let g' ← c.run (fresh_prefix ++ s!"_C_{n}_") g
     return (g', n+1)) (g, 0) |>.map Prod.fst
 
+def rewrite_loop' (orig_n : Nat) (pref : String) (g : ExprHigh String)
+    : (rewrites : List (Rewrite String)) → Nat → RewriteResult (Option (ExprHigh String))
+| _, 0 | [], _ => return .none
+| r :: rs, fuel' + 1 =>
+  try
+    let g' ← r.run (pref ++ "_f" ++ toString (orig_n - fuel') ++ "_l" ++ toString (List.length <| r :: rs) ++ "_") g
+    return (← rewrite_loop' orig_n pref g' (r :: rs) fuel').getD g'
+  catch
+  | .done => rewrite_loop' orig_n pref g rs orig_n
+  | .error s => throw <| .error s
+
 /--
 Loops over the [rewrite] function, applying one rewrite exhaustively until moving on to the next.  Maybe we should add a
 timeout for each single rewrite as well, so that infinite loops in a single rewrite means the next one can still be
 started.
 -/
-def rewrite_loop' (orig_n : Nat) (pref : String) (g : ExprHigh String)
-    : (rewrites : List (Rewrite String)) → Nat → RewriteResult (ExprHigh String)
-| _, 0 | [], _ => return g
-| r :: rs, fuel' + 1 =>
-  try
-    let g' ← r.run (pref ++ "_f" ++ toString (orig_n - fuel') ++ "_l" ++ toString (List.length <| r :: rs) ++ "_") g
-    rewrite_loop' orig_n pref g' (r :: rs) fuel'
-  catch
-  | .done => rewrite_loop' orig_n pref g rs orig_n
-  | .error s => throw <| .error s
-
 def rewrite_loop (g : ExprHigh String) (rewrites : List (Rewrite String)) (pref : String := "rw") (depth : Nat := 10000)
-    : RewriteResult (ExprHigh String) :=
-  rewrite_loop' depth pref g rewrites depth
+    : RewriteResult (ExprHigh String) := do
+  return (← rewrite_loop' depth pref g rewrites depth).getD g
+
+def rewrite_fix (g : ExprHigh String) (rewrites : List (Rewrite String)) (pref : String := "rw") (max_depth : Nat := 10000) (depth : Nat := 10000)
+    : RewriteResult (ExprHigh String) := do
+  match depth with
+  | 0 => throw <| .error s!"{decl_name%}: ran out of fuel"
+  | depth+1 =>
+    match ← rewrite_loop' max_depth pref g rewrites max_depth with
+    | .some g' => rewrite_fix g' rewrites pref max_depth depth
+    | .none => return g
 
 /--
 Follow an output to the next node.  A similar function could be written to
@@ -501,7 +538,7 @@ def extractType (s : String) : String :=
   let parts := s.splitOn " "
   parts.tail.foldl (λ a b => a ++ " " ++ b) "" |>.drop 1
 
-def match_node (extract_type : String → RewriteResult (List String)) (g : ExprHigh String) (nn : String)
+def match_node (extract_type : String → RewriteResult (List String)) (nn : String) (g : ExprHigh String)
     : RewriteResult (List String × List String) := do
   let (_map, typ) ← ofOption (.error s!"{decl_name%}: module '{nn}' not found") (g.modules.find? nn)
   let types ← extract_type typ

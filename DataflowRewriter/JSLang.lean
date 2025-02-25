@@ -5,6 +5,7 @@ Authors: Yann Herklotz
 -/
 
 import DataflowRewriter.ExprHigh
+import DataflowRewriter.Rewrites
 
 open Std.Internal (Parsec)
 open Std.Internal.Parsec String
@@ -38,6 +39,9 @@ structure JSLang.Info where
 instance : Coe (NextNode String) (JSLang.Info) where
   coe a := ⟨a.inst, a.typ, a.inputPort⟩
 
+instance : Coe (Std.HashMap String (Array (NextNode String))) (Std.HashMap String (Array JSLang.Info)) where
+  coe a := a.map (fun _ v => v.map Coe.coe)
+
 def JSLang.construct (term : Nat) (succ : Std.HashMap String (Array JSLang.Info)) (endN : String) (startN : JSLang.Info) : Option JSLang :=
   if startN.inst = endN then .some .I else
   match term with
@@ -59,34 +63,76 @@ def JSLang.construct (term : Nat) (succ : Std.HashMap String (Array JSLang.Info)
     | _ => .none -- error
 
 inductive JSLangRewrite where
-| assocL (s1 s2 : String)
-| assocR (s1 s2 : String)
+| assocL (s : String) (dir : Bool)
+| assocR (s : String) (dir : Bool)
 | comm (s : String)
 | elim (s : String)
+deriving Repr
 
 def parseRewrites (s : String) : Except String (List JSLangRewrite) := do
   match ← Lean.Json.parse s with
   | .arr a =>
     a.foldrM (λ jObj l => do
-        let rw ← jObj.getObjVal? "rw"
+        let rw ← jObj.getObjVal? "rw" >>= (·.getStr?)
         let args ← jObj.getObjVal? "args"
+        let arg0 ← args.getArrVal? 0 >>= (·.getStr?)
+        let dir ← jObj.getObjVal? "dir" >>= (·.getBool?)
         match rw with
         | "L" =>
-          let arg0 ← args.getArrVal? 0 >>= Lean.Json.getStr?
-          let arg1 ← args.getArrVal? 1 >>= Lean.Json.getStr?
-          return JSLangRewrite.assocL arg0 arg1 :: l
+          return JSLangRewrite.assocL arg0 dir :: l
         | "R" =>
-          let arg0 ← args.getArrVal? 0 >>= Lean.Json.getStr?
-          let arg1 ← args.getArrVal? 1 >>= Lean.Json.getStr?
-          return JSLangRewrite.assocR arg0 arg1 :: l
+          return JSLangRewrite.assocR arg0 dir :: l
         | "E" =>
-          let arg0 ← args.getArrVal? 0 >>= Lean.Json.getStr?
           return JSLangRewrite.elim arg0 :: l
         | "C" =>
-          let arg0 ← args.getArrVal? 0 >>= Lean.Json.getStr?
           return JSLangRewrite.comm arg0 :: l
-        | _ => throw "Rewrite not recognised"
+        | _ => throw s!"rewrite '{rw}' not recognised"
       ) []
-  | _ => throw "Top-level JSON object is not an array"
+  | j => throw s!"top-level JSON object is not an array: {j}"
+
+def mapToRewrite : JSLangRewrite → Rewrite String
+| .assocL s true
+| .assocR s false =>
+  {JoinAssocL.rewrite with pattern := JoinAssocL.identMatcher s}
+| .assocR s true
+| .assocL s false =>
+  {JoinAssocR.rewrite with pattern := JoinAssocR.identMatcher s}
+| .comm s =>
+  {JoinComm.rewrite with pattern := JoinComm.identMatcher s}
+| .elim s =>
+  {JoinSplitElim.rewrite with pattern := JoinSplitElim.identMatcher s}
+
+open IO.Process in
+/--
+Run process to completion and capture output.
+The process does not inherit the standard input of the caller.
+-/
+def runCommandWithStdin (cmd : String) (args : Array String) (stdin : String) : IO Output := do
+  let child ← spawn {
+    cmd := cmd,
+    args := args,
+    stdin := Stdio.piped,
+    stdout := Stdio.piped,
+    stderr := Stdio.piped
+  }
+
+  let (stdinHandle, newChild) ← child.takeStdin
+  stdinHandle.putStrLn stdin
+
+  let stdout ← IO.asTask child.stdout.readToEnd Task.Priority.dedicated
+  let stderr ← child.stderr.readToEnd
+  let exitCode ← newChild.wait
+  let stdout ← IO.ofExcept stdout.get
+  pure { exitCode := exitCode, stdout := stdout, stderr := stderr }
+
+def rewriteWithEgg (eggCmd := "graphiti_oracle") (rewrittenExprHigh : ExprHigh String) : IO (List JSLangRewrite) := do
+  let .some succ := calcSucc rewrittenExprHigh.invert | throw (.userError s!"{decl_name%}: could not calculate succ")
+  let .ok ([first, last], _) _ := LoopRewrite.boxLoopBodyOther rewrittenExprHigh |>.run default
+    | throw (.userError s!"{decl_name%}: could not find first and last")
+  let .some constructed := JSLang.construct 10000 succ first (⟨last, default, default⟩)
+    | throw (.userError s!"{decl_name%}: could not construct")
+
+  let out ← runCommandWithStdin eggCmd #[] (toSExpr constructed)
+  IO.ofExcept <| parseRewrites out.stdout
 
 end DataflowRewriter

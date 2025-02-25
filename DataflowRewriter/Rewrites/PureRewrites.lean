@@ -52,7 +52,7 @@ def rhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i [type = "io"];
     o [type = "io"];
 
-    const [typeImp = $(⟨_, pure (S := Unit) λ _ => n⟩), type = $(s!"pure λ_=>{n}")];
+    const [typeImp = $(⟨_, pure (S := Unit) λ _ => n⟩), type = $(s!"pure Unit T")];
 
     i -> const [to="in1"];
     const -> o [from="out1"];
@@ -83,7 +83,8 @@ def extract_type (typ : String) : RewriteResult (List String) := do
 
 def match_node := DataflowRewriter.match_node extract_type
 
-def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := sorry
+def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
+  throw (.error s!"{decl_name%}: not implemented")
 
 variable (T : Type)
 variable [Inhabited T]
@@ -111,7 +112,7 @@ def rhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     o [type = "io"];
 
     op [typeImp = $(⟨_, StringModule.pure λ x => @NatModule.op1_function T _ Op x⟩),
-        type = $(s!"pure λ x => @op1_function {Tₛ} _ {Op} x")];
+        type = $(s!"pure {Tₛ} {Tₛ}")];
 
     i -> op [to="in1"];
     op -> o [from="out1"];
@@ -133,13 +134,14 @@ end Operator1
 namespace Operator2
 
 def extract_type (typ : String) : RewriteResult (List String) := do
-  let [typName, typ, op] := typ.splitOn | throw (.error s!"{decl_name%}: incorrect type '{typ}'")
-  unless typName = "operator2" do throw (.error s!"{decl_name%}: type '{typName}' does not match 'operator2'")
+  let [typName, typ, op] := typ.splitOn | throw .done
+  unless typName = "operator2" do throw .done
   return [typ, op]
 
 def match_node := DataflowRewriter.match_node extract_type
 
-def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := sorry
+def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
+  throw (.error s!"{decl_name%}: not implemented")
 
 variable (T : Type)
 variable [Inhabited T]
@@ -171,7 +173,7 @@ def rhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
 
     join [typeImp = $(⟨_, join T T⟩), type = $(s!"join {Tₛ} {Tₛ}")];
     op [typeImp = $(⟨_, StringModule.pure λ x => @NatModule.op2_function T _ Op x.1 x.2⟩),
-        type = $(s!"pure λ x => @op2_function T _ Op x.1 x.2")];
+        type = $(s!"pure ({Tₛ}×{Tₛ}) {Tₛ}")];
 
     i1 -> join [to="in1"];
     i2 -> join [to="in2"];
@@ -195,13 +197,14 @@ end Operator2
 namespace Operator3
 
 def extract_type (typ : String) : RewriteResult (List String) := do
-  let [typName, typ, op] := typ.splitOn | throw (.error s!"{decl_name%}: incorrect type '{typ}'")
-  unless typName = "operator3" do throw (.error s!"{decl_name%}: type '{typName}' does not match 'operator3'")
+  let [typName, typ, op] := typ.splitOn | throw .done
+  unless typName = "operator3" do throw .done
   return [typ, op]
 
 def match_node := DataflowRewriter.match_node extract_type
 
-def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := sorry
+def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
+  throw (.error s!"{decl_name%}: not implemented")
 
 variable (T : Type)
 variable [Inhabited T]
@@ -237,7 +240,7 @@ def rhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     join1 [typeImp = $(⟨_, join T T⟩), type = $(s!"join {Tₛ} {Tₛ}")];
     join2 [typeImp = $(⟨_, join T (T × T)⟩), type = $(s!"join {Tₛ} ({Tₛ}×{Tₛ})")];
     op [typeImp = $(⟨_, StringModule.pure λ (x : T × T × T) => @NatModule.op3_function T _ Op x.1 x.2.1 x.2.2⟩),
-        type = $(s!"pure λ x => @op3_function T _ Op x.1 x.2.1 x.2.2")];
+        type = $(s!"pure ({Tₛ}×({Tₛ}×{Tₛ})) {Tₛ}")];
 
     i1 -> join2 [to="in1"];
     i2 -> join1 [to="in1"];
@@ -265,14 +268,15 @@ end Operator3
 namespace Fork
 
 def extract_type (typ : String) : RewriteResult (List String) := do
-  let [typName, typ, num] := typ.splitOn | throw (.error s!"{decl_name%}: incorrect type '{typ}'")
-  unless typName = "fork" do throw (.error s!"{decl_name%}: type '{typName}' does not match 'fork'")
-  unless num = "2" do throw (.error s!"{decl_name%}: fork has more than 2 outputs")
-  return [typ, num]
+  let [typName, typ, num] := typ.splitOn | throw .done
+  unless typName = "fork" do throw .done
+  unless num = "2" do throw .done
+  return [typ]
 
 def match_node := DataflowRewriter.match_node extract_type
 
-def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := sorry
+def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
+  throw (.error s!"{decl_name%}: not implemented")
 
 variable (T : Type)
 variable [Inhabited T]
@@ -302,7 +306,7 @@ def rhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     o2 [type = "io"];
 
     op [typeImp = $(⟨_, StringModule.pure λ (x : T) => (x, x)⟩),
-        type = $(s!"pure λx=>(x,x)")];
+        type = $(s!"pure {Tₛ} ({Tₛ}×{Tₛ})")];
     split [typeImp = $(⟨_, split T T⟩), type = $(s!"split {Tₛ} {Tₛ}")];
 
     i -> op [to="in1"];
@@ -323,5 +327,44 @@ def rewrite : Rewrite String :=
   }
 
 end Fork
+
+def specialisedPureRewrites (p : Pattern String) :=
+  [ { Constant.rewrite with
+        pattern := fun g => do
+          let (s :: _, t) ← p g | throw RewriteError.done
+          Constant.match_node s g
+    }
+  , { Operator1.rewrite with
+        pattern := fun g => do
+          let (s :: _, t) ← p g | throw RewriteError.done
+          Operator1.match_node s g
+    }
+  , { Operator2.rewrite with
+        pattern := fun g => do
+          let (s :: _, t) ← p g | throw RewriteError.done
+          Operator2.match_node s g
+    }
+  , { Operator3.rewrite with
+        pattern := fun g => do
+          let (s :: _, t) ← p g | throw RewriteError.done
+          Operator3.match_node s g
+    }
+  , { Fork.rewrite with
+        pattern := fun g => do
+          let (s :: _, t) ← p g | throw RewriteError.done
+          Fork.match_node s g
+    }
+  ]
+
+def singleNodePureRewrites (s : String) :=
+  [ {Constant.rewrite with pattern := Constant.match_node s}
+  , {Operator1.rewrite with pattern := Operator1.match_node s}
+  , {Operator2.rewrite with pattern := Operator2.match_node s}
+  , {Operator3.rewrite with pattern := Operator3.match_node s}
+  , {Fork.rewrite with pattern := Fork.match_node s}
+  ]
+
+def chainPureRewrites (l : List String) :=
+  l.flatMap singleNodePureRewrites
 
 end DataflowRewriter.PureRewrites

@@ -14,51 +14,101 @@ open StringModule
 def boxLoopBody (g : ExprHigh String) : RewriteResult (List String × List String) := do
  let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
-        unless typ = "init Bool false" do return none
+      unless typ = "init Bool false" do return none
 
-        let (.some mux) := followOutput g inst "out1" | return none
-        unless String.isPrefixOf "mux" mux.typ && mux.inputPort = "in1" do return none
+      let (.some mux) := followOutput g inst "out1" | return none
+      unless String.isPrefixOf "mux" mux.typ && mux.inputPort = "in1" do return none
 
-        let (.some condition_fork) := followInput g inst "in1" | return none
-        unless String.isPrefixOf "fork" condition_fork.typ do return none
+      let (.some condition_fork) := followInput g inst "in1" | return none
+      unless String.isPrefixOf "fork" condition_fork.typ do return none
 
-        let (.some tag_split) := followInput g condition_fork.inst "in1" | return none
-        unless String.isPrefixOf "split" tag_split.typ do return none
+      let (.some tag_split) := followInput g condition_fork.inst "in1" | return none
+      unless String.isPrefixOf "split" tag_split.typ do return none
 
-        -- as an extra check, the tag_split should be feeding a Branch
-        let (.some branch) := followOutput g tag_split.inst "out1" | return none
-        unless String.isPrefixOf "branch" branch.typ do return none
+      -- as an extra check, the tag_split should be feeding a Branch
+      let (.some branch) := followOutput g tag_split.inst "out1" | return none
+      unless String.isPrefixOf "branch" branch.typ do return none
 
-        let (.some scc) := findSCCNodes g mux.inst tag_split.inst | return none
-      return some (scc,["pure f"])
+      let (.some scc) := findSCCNodes g mux.inst tag_split.inst | return none
+      return some (scc.erase mux.inst |>.erase tag_split.inst, [])
     ) none | MonadExceptOf.throw RewriteError.done
   return list
 
+def boxLoopBodyOther (g : ExprHigh String) : RewriteResult (List String × List String) := do
+ let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
+      if s.isSome then return s
+      unless typ = "init Bool false" do return none
+
+      let (.some mux) := followOutput g inst "out1" | return none
+      unless String.isPrefixOf "mux" mux.typ && mux.inputPort = "in1" do return none
+
+      let (.some condition_fork) := followInput g inst "in1" | return none
+      unless String.isPrefixOf "fork" condition_fork.typ do return none
+
+      let (.some tag_split) := followInput g condition_fork.inst "in1" | return none
+      unless String.isPrefixOf "split" tag_split.typ do return none
+
+      -- as an extra check, the tag_split should be feeding a Branch
+      let (.some branch) := followOutput g tag_split.inst "out1" | return none
+      unless String.isPrefixOf "branch" branch.typ do return none
+
+      let (.some first) := followOutput g mux.inst "out1" | return none
+      let (.some first) := followOutput g first.inst "out1" | return none
+
+      let (.some last) := followInput g tag_split.inst "in1" | return none
+      let (.some last) := followInput g last.inst "in1" | return none
+
+      return some ([first.inst, last.inst], [])
+    ) none | MonadExceptOf.throw RewriteError.done
+  return list
+
+def isNonPure (g : ExprHigh String) (node : String) : Bool :=
+  match g.modules.find? node with
+  | .none => false
+  | .some inst =>
+    !"split".isPrefixOf inst.2
+    && !"join".isPrefixOf inst.2
+    && !"pure".isPrefixOf inst.2
+    && !"fork".isPrefixOf inst.2
+
+def isNonPureFork (g : ExprHigh String) (node : String) : Bool :=
+  match g.modules.find? node with
+  | .none => false
+  | .some inst =>
+    !"split".isPrefixOf inst.2
+    && !"join".isPrefixOf inst.2
+    && !"pure".isPrefixOf inst.2
+
+def nonPureMatcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
+  boxLoopBody g |>.map λ body => (body.1.filter (isNonPure g), body.2)
+
+def nonPureForkMatcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
+  boxLoopBody g |>.map λ body => (body.1.filter (isNonPureFork g), body.2)
 
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
        if s.isSome then return s
-        unless typ = "init Bool false" do return none
+       unless typ = "init Bool false" do return none
 
-        let (.some mux) := followOutput g inst "out1" | return none
-        unless String.isPrefixOf "mux" mux.typ do return none
+       let (.some mux) := followOutput g inst "out1" | return none
+       unless String.isPrefixOf "mux" mux.typ do return none
 
-        let (.some mod) := followOutput g mux.inst "out1" | return none
-        unless String.isPrefixOf "pure f" mod.typ do return none
+       let (.some mod) := followOutput g mux.inst "out1" | return none
+       unless String.isPrefixOf "pure f" mod.typ do return none
 
-        let (.some tag_split) := followOutput g mod.inst "out1" | return none
-        unless String.isPrefixOf "split" tag_split.typ do return none
+       let (.some tag_split) := followOutput g mod.inst "out1" | return none
+       unless String.isPrefixOf "split" tag_split.typ do return none
 
-        let (.some condition_fork) := followOutput g tag_split.inst "out2" | return none
-        unless String.isPrefixOf "fork" condition_fork.typ do return none
+       let (.some condition_fork) := followOutput g tag_split.inst "out2" | return none
+       unless String.isPrefixOf "fork" condition_fork.typ do return none
 
-        let (.some branch) := followOutput g tag_split.inst "out1" | return none
-        unless String.isPrefixOf "branch" branch.typ do return none
+       let (.some branch) := followOutput g tag_split.inst "out1" | return none
+       unless String.isPrefixOf "branch" branch.typ do return none
 
-        let (.some queue) := followOutput g branch.inst "out1" | return none
-        unless String.isPrefixOf "queue" queue.typ do return none
+       let (.some queue) := followOutput g branch.inst "out1" | return none
+       unless String.isPrefixOf "queue" queue.typ do return none
 
-        return some ([mux.inst, condition_fork.inst, branch.inst, tag_split.inst, mod.inst, inst, queue.inst], [extractType mux.typ])
+       return some ([mux.inst, condition_fork.inst, branch.inst, tag_split.inst, mod.inst, inst, queue.inst], [extractType mux.typ])
 
     ) none | MonadExceptOf.throw RewriteError.done
   return list

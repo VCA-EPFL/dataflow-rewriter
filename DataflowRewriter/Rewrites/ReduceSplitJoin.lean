@@ -16,7 +16,6 @@ def extractFirstWordAfterJoin (s : String) : String :=
   | []      => ""
   | x :: _  => x
 
-
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
@@ -62,7 +61,7 @@ def rhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String
     i [type = "io"];
     o [type = "io"];
 
-    queue [typeImp = $(⟨_, queue T⟩), type = $(s!"queue {Tₛ}")];
+    queue [typeImp = $(⟨_, queue T⟩), type = $(s!"queue ({Tₛ}×{T'ₛ})")];
 
     i -> queue [to="in1"];
     queue -> o [from="out1"];

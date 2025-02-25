@@ -361,6 +361,17 @@ Essentially tagger + join without internal rule
 
 @[drunfold] def dsync1U {T} (name := "dsync1U") : NatModule (Named name (Option Unit × List T)) := dsync1 (λ _ => ()) (name := name)
 
+@[drunfold] def load S T (name := "load") : NatModule (Named name (List S × List T)) :=
+  { inputs := [
+      (0, ⟨S, λ before el after => after.1 = before.1.concat el ∧ after.2 = before.2⟩),
+      (1, ⟨T, λ before el after => after.2 = before.2.concat el ∧ after.1 = before.1⟩),
+    ].toAssocList,
+    outputs := [
+      (0, ⟨S, λ before el after => el :: after.1 = before.1 ∧ after.2 = before.2⟩),
+      (1, ⟨T, λ before el after => el :: after.2 = before.2 ∧ after.1 = before.1⟩),
+    ].toAssocList
+  }
+
 @[drunfold] def pure {S T} (f : S → T) (name := "pure") : NatModule (Named name (List T)) :=
   { inputs := [
       (0, ⟨S, λ before el after => after = before.concat (f el)⟩)
@@ -385,6 +396,8 @@ opaque op0_function : String → T
 opaque op1_function : String → T → T
 opaque op2_function : String → T → T → T
 opaque op3_function : String → T → T → T → T
+opaque op2_2_function : String → T → T → (T × T)
+opaque cast_function {S} : S → T
 
 -- #reduce (types := true) Lean.MetaM Unit
 
@@ -405,6 +418,9 @@ def operator2 T [Inhabited T] (s : String) :=
 
 def operator3 T [Inhabited T] (s : String) :=
   ternary_op (name := s!"operator3 {s}") (@op3_function T _ s)
+
+def cast S T [Inhabited T] :=
+  unary_op (name := s!"cast") (@cast_function T _ S)
 
 namespace FixedSize
 
@@ -502,6 +518,10 @@ namespace DataflowRewriter.StringModule
 @[drunfold] def operator2 T [Inhabited T] s := NatModule.operator2 T s |>.stringify
 
 @[drunfold] def operator3 T [Inhabited T] s := NatModule.operator3 T s |>.stringify
+
+@[drunfold] def cast S T [Inhabited T] := NatModule.cast S T |>.stringify
+
+@[drunfold] def load S T := NatModule.load S T |>.stringify
 
 @[drunfold] def tagger_untagger_val TagT [DecidableEq TagT] T T' :=
   NatModule.tagger_untagger_val TagT T T' |>.stringify

@@ -46,7 +46,7 @@ def rhs (T₁ T₂ T₃ : Type) (S₁ S₂ S₃ : String) : ExprHigh String × I
     join1 [typeImp = $(⟨_, join T₂ T₃⟩), type = $("join " ++ S₂ ++ " " ++ S₃)];
     join2 [typeImp = $(⟨_, join T₁ (T₂ × T₃)⟩), type = $("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")")];
     pure [typeImp = $(⟨_, StringModule.pure (λ ((a, b, c) : T₁ × T₂ × T₃) => ((a, b), c))⟩),
-          type = $("pure  (λ ((a, b, c) : " ++ S₁ ++ " × " ++ S₂ ++ " × " ++ S₃ ++ ") => ((a, b), c)")];
+          type = $(s!"pure ({S₁}×({S₂}×{S₃})) (({S₁}×{S₂})×{S₃})")];
 
     i_1 -> join1 [to = "in1"];
     i_2 -> join1 [to = "in2"];
