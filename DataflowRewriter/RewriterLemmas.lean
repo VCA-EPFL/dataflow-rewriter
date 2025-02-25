@@ -116,7 +116,7 @@ theorem Rewrite_run'_correct {g g' : ExprHigh String} {s _st _st'} {rw : Correct
   rename List String × List String => pattern
   rename DefiniteRewrite String => defrw
   rename ExprHigh String => outGraph
-  clear ‹AssocList String (Option String)›
+  -- clear ‹AssocList String (Option String)›
   rename ExprLow.higherSS _ = _ => Hhighering
   have := rw.defined _ (by rw [Hrewrite]; apply Option.isSome_some)
   rw [Option.isSome_iff_exists] at this; obtain ⟨l, r⟩ := this
