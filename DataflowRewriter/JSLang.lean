@@ -10,6 +10,8 @@ import DataflowRewriter.Rewrites
 open Std.Internal (Parsec)
 open Std.Internal.Parsec String
 
+open Batteries (AssocList)
+
 namespace DataflowRewriter
 
 inductive JSLang where
@@ -134,5 +136,8 @@ def rewriteWithEgg (eggCmd := "graphiti_oracle") (rewrittenExprHigh : ExprHigh S
 
   let out ← runCommandWithStdin eggCmd #[] (toSExpr constructed)
   IO.ofExcept <| parseRewrites out.stdout
+
+def JSLang.upd (m : AssocList String (Option String)) (rw : List JSLangRewrite): RewriteResult (List JSLangRewrite) :=
+  sorry
 
 end DataflowRewriter

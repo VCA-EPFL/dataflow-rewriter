@@ -301,15 +301,18 @@ still fresh in the graph.
     let g' ← c.run (fresh_prefix ++ s!"_C_{n}_") g
     return (g', n+1)) (g, 0) |>.map Prod.fst
 
-def rewrite_loop' (orig_n : Nat) (pref : String) (g : ExprHigh String)
-    : (rewrites : List (Rewrite String)) → Nat → RewriteResult (Option (ExprHigh String))
+def rewrite_loop' {α} (f : AssocList String (Option String) → α → RewriteResult α) (a : α)
+    (orig_n : Nat) (pref : String) (g : ExprHigh String)
+    : (rewrites : List (Rewrite String)) → Nat → RewriteResult (Option (ExprHigh String × α))
 | _, 0 | [], _ => return .none
 | r :: rs, fuel' + 1 =>
   try
     let g' ← r.run (pref ++ "_f" ++ toString (orig_n - fuel') ++ "_l" ++ toString (List.length <| r :: rs) ++ "_") g
-    return (← rewrite_loop' orig_n pref g' (r :: rs) fuel').getD g'
+    let st ← get >>= λ a => ofOption (.error s!"{decl_name%}: could not get last element") a.getLast?
+    let a' ← f st.renamed_input_nodes a
+    return (← rewrite_loop' f a' orig_n pref g' (r :: rs) fuel').getD (g', a')
   catch
-  | .done => rewrite_loop' orig_n pref g rs orig_n
+  | .done => rewrite_loop' f a orig_n pref g rs orig_n
   | .error s => throw <| .error s
 
 /--
@@ -319,16 +322,27 @@ started.
 -/
 def rewrite_loop (g : ExprHigh String) (rewrites : List (Rewrite String)) (pref : String := "rw") (depth : Nat := 10000)
     : RewriteResult (ExprHigh String) := do
-  return (← rewrite_loop' depth pref g rewrites depth).getD g
+  return (← rewrite_loop' (λ _ _ => pure Unit.unit) Unit.unit depth pref g rewrites depth).map (·.fst) |>.getD g
 
 def rewrite_fix (g : ExprHigh String) (rewrites : List (Rewrite String)) (pref : String := "rw") (max_depth : Nat := 10000) (depth : Nat := 10000)
     : RewriteResult (ExprHigh String) := do
   match depth with
   | 0 => throw <| .error s!"{decl_name%}: ran out of fuel"
   | depth+1 =>
-    match ← rewrite_loop' max_depth pref g rewrites max_depth with
-    | .some g' => rewrite_fix g' rewrites pref max_depth depth
+    match ← rewrite_loop' (λ _ _ => pure Unit.unit) Unit.unit max_depth pref g rewrites max_depth with
+    | .some (g', _) => rewrite_fix g' rewrites pref max_depth depth
     | .none => return g
+
+def rewrite_fix_rename {α} (g : ExprHigh String) (rewrites : List (Rewrite String))
+      (pref : String := "rw") (max_depth : Nat := 10000) (depth : Nat := 10000)
+      (upd : AssocList String (Option String) → α → RewriteResult α) (a : α)
+    : RewriteResult (ExprHigh String × α) := do
+  match depth with
+  | 0 => throw <| .error s!"{decl_name%}: ran out of fuel"
+  | depth+1 =>
+    match ← rewrite_loop' upd a max_depth pref g rewrites max_depth with
+    | .some (g', a') => rewrite_fix_rename g' rewrites pref max_depth depth upd a'
+    | .none => return (g, a)
 
 /--
 Follow an output to the next node.  A similar function could be written to
