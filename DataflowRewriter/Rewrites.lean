@@ -5,6 +5,7 @@ Authors: Yann Herklotz
 -/
 
 import DataflowRewriter.Rewrites.LoopRewrite
+import DataflowRewriter.Rewrites.LoopRewrite2
 import DataflowRewriter.Rewrites.CombineBranch
 import DataflowRewriter.Rewrites.CombineMux
 import DataflowRewriter.Rewrites.JoinSplitLoopCond

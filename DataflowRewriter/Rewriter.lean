@@ -113,9 +113,10 @@ def portmappingToNameRename' (sub : List String) (p : PortMapping String) : Rewr
     (λ | (a : AssocList String (Option String)), ⟨.internal lport, _⟩, ⟨.internal rport, _⟩ =>
          match a.find? lport with
          | .some x => do
-           if lport ∈ sub && x = .none then return a
-           if x = .some rport then return a
-           throw (.error s!"instance names don't match: {x} != {rport} for {lport}")
+           -- if lport ∈ sub && x = .none then return a
+           -- if x = .some rport then return a
+           -- throw (.error s!"instance names don't match: {x} != {rport} for {lport}")
+           return a
          | .none => do
            if lport ∈ sub then return a.cons lport .none
            return a.cons lport (.some rport)
@@ -125,9 +126,10 @@ def portmappingToNameRename' (sub : List String) (p : PortMapping String) : Rewr
     (λ | (a : AssocList String (Option String)), ⟨.internal lport, _⟩, ⟨.internal rport, _⟩ =>
          match a.find? lport with
          | .some x => do
-           if lport ∈ sub && x = .none then return a
-           if x = .some rport then return a
-           throw (.error s!"instance names don't match: {x} != {rport} for {lport}")
+           -- if lport ∈ sub && x = .none then return a
+           -- if x = .some rport then return a
+           -- throw (.error s!"instance names don't match: {x} != {rport} for {lport}")
+           return a
          | .none => do
            if lport ∈ sub then return a.cons lport .none
            return a.cons lport (.some rport)
@@ -137,6 +139,10 @@ def portmappingToNameRename' (sub : List String) (p : PortMapping String) : Rewr
 def addRewriteInfo (rinfo : RewriteInfo) : RewriteResult Unit := do
   let l ← EStateM.get
   EStateM.set <| l.concat rinfo
+
+def rmRewriteInfo : RewriteResult Unit := do
+  let l ← EStateM.get
+  EStateM.set <| l.dropLast
 
 def EStateM.guard {ε σ} (e : ε) (b : Bool) : EStateM ε σ Unit :=
   if b then pure () else EStateM.throw e
@@ -217,6 +223,7 @@ however, currently the low-level expression language does not remember any names
   let (rewritten, b) := g_lower.force_replace (canon e_sub_input) e_sub_output
 
   -- throw (.error s!"mods :: {repr sub'}rhs :: {repr g_lower}\n\ndep :: {repr (canon e_sub_input)}")
+  addRewriteInfo <| RewriteInfo.mk RewriteType.rewrite g default sub default .nil (.some (toString <| repr comb_mapping)) rewrite.name
   EStateM.guard (.error s!"subexpression not found in the graph: {repr g_lower}\n\n{repr (canon e_sub_input)}") b
 
   let norm := rewritten.normalisedNamesMap fresh_prefix
@@ -231,6 +238,7 @@ however, currently the low-level expression language does not remember any names
   -- (outputPortMap.toList.map Prod.snd |>.reduceOption)
   let rwMap ← rewrite.nameMap g
   let portMap ← mergeRenamingMaps portMap rwMap
+  rmRewriteInfo
   addRewriteInfo <| RewriteInfo.mk RewriteType.rewrite g out sub portMap .nil (.some (toString <| repr comb_mapping)) rewrite.name
   return out
 
@@ -301,6 +309,10 @@ still fresh in the graph.
     let g' ← c.run (fresh_prefix ++ s!"_C_{n}_") g
     return (g', n+1)) (g, 0) |>.map Prod.fst
 
+def update_state {α} (f : AssocList String (Option String) → α → RewriteResult α) (a : α) : RewriteResult α := do
+  let st ← get >>= λ a => ofOption (.error s!"{decl_name%}: could not get last element") a.getLast?
+  f st.renamed_input_nodes a
+
 def rewrite_loop' {α} (f : AssocList String (Option String) → α → RewriteResult α) (a : α)
     (orig_n : Nat) (pref : String) (g : ExprHigh String)
     : (rewrites : List (Rewrite String)) → Nat → RewriteResult (Option (ExprHigh String × α))
@@ -308,8 +320,7 @@ def rewrite_loop' {α} (f : AssocList String (Option String) → α → RewriteR
 | r :: rs, fuel' + 1 =>
   try
     let g' ← r.run (pref ++ "_f" ++ toString (orig_n - fuel') ++ "_l" ++ toString (List.length <| r :: rs) ++ "_") g
-    let st ← get >>= λ a => ofOption (.error s!"{decl_name%}: could not get last element") a.getLast?
-    let a' ← f st.renamed_input_nodes a
+    let a' ← update_state f a
     return (← rewrite_loop' f a' orig_n pref g' (r :: rs) fuel').getD (g', a')
   catch
   | .done => rewrite_loop' f a orig_n pref g rs orig_n
@@ -334,14 +345,14 @@ def rewrite_fix (g : ExprHigh String) (rewrites : List (Rewrite String)) (pref :
     | .none => return g
 
 def rewrite_fix_rename {α} (g : ExprHigh String) (rewrites : List (Rewrite String))
-      (pref : String := "rw") (max_depth : Nat := 10000) (depth : Nat := 10000)
       (upd : AssocList String (Option String) → α → RewriteResult α) (a : α)
+      (pref : String := "rw") (max_depth : Nat := 10000) (depth : Nat := 10000)
     : RewriteResult (ExprHigh String × α) := do
   match depth with
   | 0 => throw <| .error s!"{decl_name%}: ran out of fuel"
   | depth+1 =>
     match ← rewrite_loop' upd a max_depth pref g rewrites max_depth with
-    | .some (g', a') => rewrite_fix_rename g' rewrites pref max_depth depth upd a'
+    | .some (g', a') => rewrite_fix_rename g' rewrites upd a' pref max_depth depth
     | .none => return (g, a)
 
 /--
@@ -357,7 +368,7 @@ def followOutput' (g : ExprHigh String) (inst : String) (output : InternalPort S
     <| g.connections.find? (λ c => c.output = localOutputName)
   let (inst, iport) ← ofOption (.error "input port not in modules")
     <| ExprHigh.findInputPort' localInputName g.modules
-  ofOption (.error "instance not in modules") <| (g.modules.findEntry? inst).map (λ x => ⟨inst, iport, x.2.1, x.2.2, c⟩)
+  ofOption (.error "instance not in modules") <| (g.modules.findEntry? inst).map (λ x => ⟨inst, iport, output.name, x.2.1, x.2.2, c⟩)
 
 def followOutput (g : ExprHigh String) (inst output : String) : Option (NextNode String) :=
   (followOutput' g inst ⟨.top, output⟩).run' default
@@ -378,7 +389,7 @@ def followInput' (g : ExprHigh String) (inst input : String) : RewriteResult (Ne
     <| g.connections.find? (λ c => c.input = localInputName)
   let (inst, iport) ← ofOption (.error "input port not in modules")
     <| ExprHigh.findOutputPort' localOutputName g.modules
-  ofOption (.error "instance not in modules") <| (g.modules.findEntry? inst).map (λ x => ⟨inst, iport, x.2.1, x.2.2, c⟩)
+  ofOption (.error "instance not in modules") <| (g.modules.findEntry? inst).map (λ x => ⟨inst, iport, input, x.2.1, x.2.2, c⟩)
 
 def followInput (g : ExprHigh String) (inst input : String) : Option (NextNode String) :=
   (followInput' g inst input).run' default

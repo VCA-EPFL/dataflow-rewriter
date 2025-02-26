@@ -56,8 +56,8 @@ def rhs (T₁ T₂ : Type) (S₁ S₂ : String) : ExprHigh String × IdentMap St
     pure [typeImp = $(⟨_, @StringModule.pure (T₂ × T₁) (T₁ × T₂) (λ (a, b) => (b, a))⟩),
           type = $(s!"pure ({S₂}×{S₁}) ({S₁}×{S₂})")];
 
-    i_0 -> joinN [to = "in1"];
-    i_1 -> joinN [to = "in2"];
+    i_0 -> joinN [to = "in2"];
+    i_1 -> joinN [to = "in1"];
 
     joinN -> pure [from="out1", to="in1"];
 

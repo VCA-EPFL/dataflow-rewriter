@@ -85,6 +85,40 @@ def topLevel (e : ExprHigh String) : RewriteResult (ExprHigh String) := do
   -- let rw ← JoinComm.targetedRewrite "rw_f19_l1__R_1" |>.run "ranodm_" rw
   return rw
 
+def pureGenerator' (g : ExprHigh String) : List JSLangRewrite → Nat → RewriteResult (ExprHigh String)
+| _, 0 => throw <| .error "No fuel"
+| [], _ => pure g
+| [jsRw], _ => do
+  let rw ← jsRw.mapToRewrite.run "jsrw_1_" g
+  let rw ← rewrite_fix rw ([PureSeqComp.rewrite] ++ movePureJoin ++ reduceSink)
+  return rw
+| jsRw :: rst, fuel+1 => do
+  addRewriteInfo {(default : RewriteInfo) with debug := .some s!"{repr jsRw}"}
+  let rw ← jsRw.mapToRewrite.run s!"jsrw_{rst.length + 1}_" g
+  let rst ← update_state JSLang.upd rst
+
+  let (rw, rst) ← rewrite_fix_rename rw ([PureSeqComp.rewrite] ++ movePureJoin ++ reduceSink) JSLang.upd rst
+  pureGenerator' rw rst fuel
+
+def pureGenerator g js := pureGenerator' g js (js.length + 1)
+
+def eggPureGenerator (fuel : Nat) (parsed : CmdArgs) (g : ExprHigh String) (st : List RewriteInfo) : IO (ExprHigh String × List RewriteInfo) := do
+  match fuel with
+  | 0 => throw <| .userError s!"{decl_name%}: no fuel"
+  | fuel+1 =>
+    let jsRw ← rewriteWithEgg (eggCmd := parsed.graphitiOracle.getD "graphiti_oracle") g
+    if jsRw.length = 0 then return (g, st)
+    IO.eprintln (repr jsRw)
+    match pureGenerator g jsRw |>.run st with
+    | .ok g' st' => eggPureGenerator fuel parsed g' st'
+    | .error e st' =>
+      match parsed.logFile with
+      | .some lfile => IO.FS.writeFile lfile <| toString <| Lean.toJson st'
+      | .none =>
+        if parsed.logStdout then IO.println <| Lean.toJson st'
+      IO.eprintln e
+      IO.Process.exit 1
+
 def renameAssoc (assoc : AssocList String (AssocList String String)) (r : RewriteInfo) : AssocList String (AssocList String String) :=
   assoc.mapKey (λ x => match r.renamed_input_nodes.find? x with
                        | .some (.some x') => x'
@@ -116,6 +150,13 @@ def main (args : List String) : IO Unit := do
     | .ok rewrittenExprHigh' st' => rewrittenExprHigh := rewrittenExprHigh'; st := st'
     | .error p st' => IO.eprintln p; st := st'
 
+    let (g', st') ← eggPureGenerator 100 parsed rewrittenExprHigh st
+    rewrittenExprHigh := g'; st := st'
+
+    match LoopRewrite2.rewrite.run "loop_rw_" rewrittenExprHigh |>.run default with
+    | .ok g' st' => rewrittenExprHigh := g'; st := st'
+    | .error p st' => IO.eprintln p; st := st'
+
     -- let .ok (bl, _) _ := LoopRewrite.boxLoopBody rewrittenExprHigh |>.run default | throw (.userError "could not find subgraph")
 
     -- match  (depth := 10000) |>.run st with
@@ -142,5 +183,3 @@ def main (args : List String) : IO Unit := do
   -- let .some (subgraph', _) := rewrittenExprHigh.extract subgraph | throw (.userError "could not generate subgraph")
   -- let subgraph' : ExprHigh String := ⟨subgraph'.1, subgraph'.2.filter (λ | c@⟨⟨.internal n, o⟩, ⟨.internal n', o'⟩⟩ => n ∈ subgraph'.1.keysList ∧ n' ∈ subgraph'.1.keysList
   --                                                                        | _ => false)⟩
-  let p ← rewriteWithEgg (eggCmd := goracle) rewrittenExprHigh
-  IO.println (repr p)

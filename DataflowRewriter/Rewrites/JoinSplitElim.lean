@@ -40,9 +40,8 @@ def identMatcher (s : String) (g : ExprHigh String) : RewriteResult (List String
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
   throw (.error s!"{decl_name%}: matcher not implemented")
 
-def identRenaming (s : String) (g : ExprHigh String) : RewriteResult (AssocList String (Option String)) := do
-  let next ← ofOption (.error s!"{decl_name%}: could not find next node") <| followInput g s "in1"
-  return [(next.inst, (.some "split")), (s, (.some "join"))].toAssocList
+def identRenaming (s : String) (g : ExprHigh String) : RewriteResult (AssocList String (Option String)) :=
+  pure .nil
 
 def lhs (T₁ T₂ : Type) (S₁ S₂ : String) : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i_0 [type = "io"];

@@ -53,10 +53,12 @@ def boxLoopBodyOther (g : ExprHigh String) : RewriteResult (List String × List 
       unless String.isPrefixOf "branch" branch.typ do return none
 
       let (.some first) := followOutput g mux.inst "out1" | return none
-      let (.some first) := followOutput g first.inst "out1" | return none
+      -- let (.some first) := followOutput g first.inst "out1" | return none
 
-      let (.some last) := followInput g tag_split.inst "in1" | return none
-      let (.some last) := followInput g last.inst "in1" | return none
+      let (.some last') := followInput g tag_split.inst "in1" | return none
+      let (.some last) := followInput g last'.inst "in1" | return none
+
+      if last'.inst = first.inst then return none
 
       return some ([first.inst, last.inst], [])
     ) none | MonadExceptOf.throw RewriteError.done

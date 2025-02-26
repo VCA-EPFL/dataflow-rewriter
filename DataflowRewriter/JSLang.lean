@@ -37,9 +37,10 @@ structure JSLang.Info where
   inst : String
   typ : String
   inPort : String
+  outPort : String
 
 instance : Coe (NextNode String) (JSLang.Info) where
-  coe a := ⟨a.inst, a.typ, a.inputPort⟩
+  coe a := ⟨a.inst, a.typ, a.inputPort, a.outputPort⟩
 
 instance : Coe (Std.HashMap String (Array (NextNode String))) (Std.HashMap String (Array JSLang.Info)) where
   coe a := a.map (fun _ v => v.map Coe.coe)
@@ -53,7 +54,10 @@ def JSLang.construct (term : Nat) (succ : Std.HashMap String (Array JSLang.Info)
     | .some [a, b] => do -- join node
       let jsA ← construct term' succ endN a
       let jsB ← construct term' succ endN b
-      return .join startN.inst jsA jsB
+      if a.outPort = "in1" then
+        return .join startN.inst jsA jsB
+      else
+        return .join startN.inst jsB jsA
     | .some [a] => do -- split node
       let js ← construct term' succ endN a
       if "pure".isPrefixOf startN.typ then
@@ -92,17 +96,13 @@ def parseRewrites (s : String) : Except String (List JSLangRewrite) := do
       ) []
   | j => throw s!"top-level JSON object is not an array: {j}"
 
-def mapToRewrite : JSLangRewrite → Rewrite String
-| .assocL s true
-| .assocR s false =>
-  {JoinAssocL.rewrite with pattern := JoinAssocL.identMatcher s}
-| .assocR s true
-| .assocL s false =>
-  {JoinAssocR.rewrite with pattern := JoinAssocR.identMatcher s}
-| .comm s =>
-  {JoinComm.rewrite with pattern := JoinComm.identMatcher s}
-| .elim s =>
-  {JoinSplitElim.rewrite with pattern := JoinSplitElim.identMatcher s}
+def JSLangRewrite.mapToRewrite : JSLangRewrite → Rewrite String
+| .assocL s true => JoinAssocL.targetedRewrite s
+| .assocR s false => JoinAssocL.targetedRewrite s
+| .assocR s true => JoinAssocR.targetedRewrite s
+| .assocL s false => JoinAssocR.targetedRewrite s
+| .comm s => JoinComm.targetedRewrite s
+| .elim s => JoinSplitElim.targetedRewrite s
 
 open IO.Process in
 /--
@@ -130,14 +130,33 @@ def runCommandWithStdin (cmd : String) (args : Array String) (stdin : String) : 
 def rewriteWithEgg (eggCmd := "graphiti_oracle") (rewrittenExprHigh : ExprHigh String) : IO (List JSLangRewrite) := do
   let .some succ := calcSucc rewrittenExprHigh.invert | throw (.userError s!"{decl_name%}: could not calculate succ")
   let .ok ([first, last], _) _ := LoopRewrite.boxLoopBodyOther rewrittenExprHigh |>.run default
-    | throw (.userError s!"{decl_name%}: could not find first and last")
-  let .some constructed := JSLang.construct 10000 succ first (⟨last, default, default⟩)
+    | return []
+  let .some constructed := JSLang.construct 10000 succ first (⟨last, default, default, default⟩)
     | throw (.userError s!"{decl_name%}: could not construct")
 
+  IO.eprintln (toSExpr constructed)
   let out ← runCommandWithStdin eggCmd #[] (toSExpr constructed)
   IO.ofExcept <| parseRewrites out.stdout
 
-def JSLang.upd (m : AssocList String (Option String)) (rw : List JSLangRewrite): RewriteResult (List JSLangRewrite) :=
-  sorry
+def JSLang.upd1 (m : AssocList String (Option String)) : JSLangRewrite → RewriteResult JSLangRewrite
+| .assocL s dir => do
+  let (.some s') ← ofOption (.error s!"{decl_name%}: assocL: could not find element '{s}'") <| m.find? s
+    | throw <| .error s!"{decl_name%}: assocL: '{s}' deleted in map"
+  return .assocL s' dir
+| .assocR s dir => do
+  let (.some s') ← ofOption (.error s!"{decl_name%}: assocR: could not find element '{s}'") <| m.find? s
+    | throw <| .error s!"{decl_name%}: assocR: '{s}' deleted in map"
+  return .assocR s' dir
+| .comm s => do
+  let (.some s') ← ofOption (.error s!"{decl_name%}: comm: could not find element '{s}'") <| m.find? s
+    | throw <| .error s!"{decl_name%}: comm: '{s}' deleted in map"
+  return .comm s'
+| .elim s => do
+  let (.some s') ← ofOption (.error s!"{decl_name%}: elim: could not find element '{s}'") <| m.find? s
+    | throw <| .error s!"{decl_name%}: elim: '{s}' deleted in map"
+  return .elim s'
+
+def JSLang.upd (m : AssocList String (Option String)) (j : List JSLangRewrite) : RewriteResult (List JSLangRewrite) :=
+  j.mapM (JSLang.upd1 m)
 
 end DataflowRewriter

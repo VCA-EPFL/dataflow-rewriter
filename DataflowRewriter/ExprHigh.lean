@@ -27,6 +27,7 @@ structure NamedExprHigh (Ident : Type _) where
 structure NextNode (Ident) where
   inst : Ident
   inputPort : Ident
+  outputPort : Ident
   portMap : PortMapping Ident
   typ : Ident
   connection : Connection Ident
