@@ -239,7 +239,7 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
 
       let mut current_extra_args : AssocList String String := ∅
 
-      current_extra_args ← add current_extra_args "bbID"
+      current_extra_args ← addOpt current_extra_args "bbID"
 
       let some typ := l.find? (·.key = "type")
         | throw s!"{s}: could not find instance type"
@@ -250,9 +250,9 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
       let mut typVal := typ.value.trim
 
       if typVal != "MC" && typVal != "Sink" && typVal != "Exit" then
-        current_extra_args ← add current_extra_args "tagged"
-        current_extra_args ← add current_extra_args "taggers_num"
-        current_extra_args ← add current_extra_args "tagger_id"
+        current_extra_args ← addOpt current_extra_args "tagged"
+        current_extra_args ← addOpt current_extra_args "taggers_num"
+        current_extra_args ← addOpt current_extra_args "tagger_id"
 
 
       -- Different bitwidths matter so we distinguish them with types: Unit vs. Bool vs. T
@@ -286,7 +286,7 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
       if typVal = "Constant" then
         let constVal ← keyArg l "value" |> Parser.hexParser.run
         typVal := s!"constant {constVal}"
-        current_extra_args ← add current_extra_args "value"
+        current_extra_args ← addOpt current_extra_args "value"
 
       if typVal = "Sink" then
         if splitAndSearch l "in" "in1:0" then
@@ -318,10 +318,10 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
 
       if typVal = "MC" then
         typVal := s!"operator{keyArgNumbers l "in"} T MC"
-        current_extra_args ← add current_extra_args "memory"
-        current_extra_args ← add current_extra_args "bbcount"
-        current_extra_args ← add current_extra_args "ldcount"
-        current_extra_args ← add current_extra_args "stcount"
+        current_extra_args ← addOpt current_extra_args "memory"
+        current_extra_args ← addOpt current_extra_args "bbcount"
+        current_extra_args ← addOpt current_extra_args "ldcount"
+        current_extra_args ← addOpt current_extra_args "stcount"
 
       let cluster := l.find? (·.key = "cluster") |>.getD ⟨"cluster", "false"⟩
       let .ok clusterB := Parser.parseBool.run cluster.value.trim
