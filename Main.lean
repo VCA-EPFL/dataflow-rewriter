@@ -153,7 +153,7 @@ def main (args : List String) : IO Unit := do
     let (g', st') ← eggPureGenerator 100 parsed rewrittenExprHigh st
     rewrittenExprHigh := g'; st := st'
 
-    match LoopRewrite2.rewrite.run "loop_rw_" rewrittenExprHigh |>.run default with
+    match LoopRewrite2.rewrite.run "loop_rw_" rewrittenExprHigh |>.run st with
     | .ok g' st' => rewrittenExprHigh := g'; st := st'
     | .error p st' => IO.eprintln p; st := st'
 

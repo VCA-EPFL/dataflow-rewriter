@@ -184,6 +184,8 @@ however, currently the low-level expression language does not remember any names
 
   -- throw (.error s!"mods :: {repr sub'}\n\nlhs :: {repr g_lower}\n\nrhs :: {repr g_lower'}\n\n{repr def_rewrite.input_expr}")
 
+  addRewriteInfo <| RewriteInfo.mk RewriteType.rewrite g default sub default .nil .none rewrite.name
+
   -- beq is an α-equivalence check that returns a mapping to rename one expression into the other.  This mapping is
   -- split into the external mapping and internal mapping.
   -- addRewriteInfo <| RewriteInfo.mk RewriteType.rewrite g default sub default default (.some s!"{repr sub}") rewrite.name
@@ -223,7 +225,6 @@ however, currently the low-level expression language does not remember any names
   let (rewritten, b) := g_lower.force_replace (canon e_sub_input) e_sub_output
 
   -- throw (.error s!"mods :: {repr sub'}rhs :: {repr g_lower}\n\ndep :: {repr (canon e_sub_input)}")
-  addRewriteInfo <| RewriteInfo.mk RewriteType.rewrite g default sub default .nil (.some (toString <| repr comb_mapping)) rewrite.name
   EStateM.guard (.error s!"subexpression not found in the graph: {repr g_lower}\n\n{repr (canon e_sub_input)}") b
 
   let norm := rewritten.normalisedNamesMap fresh_prefix

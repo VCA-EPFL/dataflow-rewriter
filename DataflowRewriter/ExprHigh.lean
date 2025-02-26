@@ -31,7 +31,7 @@ structure NextNode (Ident) where
   portMap : PortMapping Ident
   typ : Ident
   connection : Connection Ident
-deriving Repr
+deriving Repr, Inhabited
 
 namespace ExprHigh
 

@@ -18,6 +18,15 @@ local instance : MonadExcept IO.Error RewriteResult where
 -- Return any 2 Muxes fed by the same fork if the fork has the init as a predecessor (directly or through a tree of forks)
 -- TODO: Currently, it assumes that the init is either the direct predecessor or is a predecessor of the predecessor. We should make it more general to accommodate any number of forks until the init
 
+def findUpperForkInput (g : ExprHigh String) (nn : NextNode String) : Nat → RewriteResult (NextNode String)
+| 0 => MonadExceptOf.throw <| RewriteError.error s!"{decl_name%}: max depth reached"
+| n+1 => do
+  let (.some nextFork) := followInput g nn.inst "in1" | MonadExceptOf.throw <| RewriteError.error s!"{decl_name%}: could not follow input"
+  if "fork".isPrefixOf nextFork.typ then
+    findUpperForkInput g nextFork n
+  else
+    return nextFork
+
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := do
   -- let .some l ← ofExcept <| unsafe unsafeIO do
   --   -- Create a temporary file which contains the dot graph to match on.
@@ -40,12 +49,13 @@ def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :
   -- let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
-        unless typ = "fork Bool 2" do return none
-      let (.some fork_input) := followInput g inst "in1" | return none
-      let (.some fork_input_input) := followInput g fork_input.inst "in1" | return none
-      let (.some fork_input_input_input) := followInput g fork_input_input.inst "in1" | return none
+      unless typ = "fork Bool 2" do return none
+      -- let (.some fork_input) := followInput g inst "in1" | return none
+      -- let (.some fork_input_input) := followInput g fork_input.inst "in1" | return none
+      -- let (.some fork_input_input_input) := followInput g fork_input_input.inst "in1" | return none
 
-      unless fork_input.typ  = "init Bool false" || fork_input_input.typ = "init Bool false" || fork_input_input_input.typ = "init Bool false"  do return none
+      let upperForkInput ← findUpperForkInput g {(default : NextNode String) with inst := inst} 1000
+      unless upperForkInput.typ = "init Bool false" do return none
 
       let (.some mux_nn) := followOutput g inst "out1" | return none
       let (.some mux_nn') := followOutput g inst "out2" | return none
