@@ -11,7 +11,7 @@ namespace DataflowRewriter.LoopRewrite
 
 open StringModule
 
-def boxLoopBody (g : ExprHigh String) : RewriteResult (List String × List String) := do
+def boxLoopBody (g : ExprHigh String) : RewriteResult (List String × List (Connection String)) := do
  let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
       if s.isSome then return s
       unless typ = "init Bool false" do return none
@@ -19,18 +19,23 @@ def boxLoopBody (g : ExprHigh String) : RewriteResult (List String × List Strin
       let (.some mux) := followOutput g inst "out1" | return none
       unless String.isPrefixOf "mux" mux.typ && mux.inputPort = "in1" do return none
 
+      let (.some muxNext) := followOutput g mux.inst "out1" | return none
+
       let (.some condition_fork) := followInput g inst "in1" | return none
       unless String.isPrefixOf "fork" condition_fork.typ do return none
 
       let (.some tag_split) := followInput g condition_fork.inst "in1" | return none
       unless String.isPrefixOf "split" tag_split.typ do return none
 
+      let (.some tagPrev) := followInput g tag_split.inst "in1" | return none
+
       -- as an extra check, the tag_split should be feeding a Branch
       let (.some branch) := followOutput g tag_split.inst "out1" | return none
       unless String.isPrefixOf "branch" branch.typ do return none
 
       let (.some scc) := findSCCNodes g mux.inst tag_split.inst | return none
-      return some (scc.erase mux.inst |>.erase tag_split.inst, [])
+      return some (scc.erase mux.inst |>.erase tag_split.inst, [ ⟨⟨.internal mux.inst, muxNext.outputPort⟩, ⟨.internal muxNext.inst, muxNext.inputPort⟩⟩
+                                                               , ⟨⟨.internal tagPrev.inst, tagPrev.inputPort⟩, ⟨.internal tag_split.inst, tagPrev.outputPort⟩⟩])
     ) none | MonadExceptOf.throw RewriteError.done
   return list
 
@@ -64,28 +69,37 @@ def boxLoopBodyOther (g : ExprHigh String) : RewriteResult (List String × List 
     ) none | MonadExceptOf.throw RewriteError.done
   return list
 
+def boxLoopBodyOther' (g : ExprHigh String) : RewriteResult (List String × List String) := do
+  let (.cons inp _ .nil) := g.modules.filter (λ _ (p, _) => p.input.any (λ a b => b.inst.isTop)) | throw .done
+  let (.cons out _ .nil) := g.modules.filter (λ _ (p, _) => p.output.any (λ a b => b.inst.isTop)) | throw .done
+  return ([inp, out], [])
+
+def isNonPure' typ :=
+  !"split".isPrefixOf typ
+  && !"join".isPrefixOf typ
+  && !"pure".isPrefixOf typ
+  && !"fork".isPrefixOf typ
+
 def isNonPure (g : ExprHigh String) (node : String) : Bool :=
   match g.modules.find? node with
   | .none => false
-  | .some inst =>
-    !"split".isPrefixOf inst.2
-    && !"join".isPrefixOf inst.2
-    && !"pure".isPrefixOf inst.2
-    && !"fork".isPrefixOf inst.2
+  | .some inst => isNonPure' inst.2
+
+def isNonPureFork' typ :=
+  !"split".isPrefixOf typ
+  && !"join".isPrefixOf typ
+  && !"pure".isPrefixOf typ
 
 def isNonPureFork (g : ExprHigh String) (node : String) : Bool :=
   match g.modules.find? node with
   | .none => false
-  | .some inst =>
-    !"split".isPrefixOf inst.2
-    && !"join".isPrefixOf inst.2
-    && !"pure".isPrefixOf inst.2
+  | .some inst => isNonPureFork' inst.2
 
 def nonPureMatcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
-  boxLoopBody g |>.map λ body => (body.1.filter (isNonPure g), body.2)
+  boxLoopBody g |>.map λ body => (body.1.filter (isNonPure g), [])
 
 def nonPureForkMatcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
-  boxLoopBody g |>.map λ body => (body.1.filter (isNonPureFork g), body.2)
+  boxLoopBody g |>.map λ body => (body.1.filter (isNonPureFork g), [])
 
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := do
   let (.some list) ← g.modules.foldlM (λ s inst (pmap, typ) => do
@@ -199,7 +213,7 @@ theorem rhs_type_independent b f b₂ f₂ T [Inhabited b] [Inhabited b₂]
 -- #eval IO.print ((rhs Unit "T" (λ _ => default)).fst)
 
 def rewrite : Rewrite String :=
-  { abstractions := [⟨boxLoopBody, "pure f"⟩],
+  { abstractions := [],
     pattern := unsafe matcher,
     rewrite := λ | [T] => pure ⟨lhsLower T, rhsLower T⟩ | _ => failure
     name := .some "loop-rewrite"

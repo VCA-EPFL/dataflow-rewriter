@@ -284,6 +284,10 @@ def rename [FreshIdent Ident]
   let g_lower ← g.lower
   g_lower.rename typ p |>.higher
 
+def renamePorts (g : ExprHigh String) (p : PortMapping String) := do
+  let g_lower ← g.lower
+  g_lower.renamePorts p |>.higherSS
+
 end ExprHigh
 
 def updatePortMappingInput {α} [Inhabited α] (s : Std.HashMap String (PortMapping String × α))

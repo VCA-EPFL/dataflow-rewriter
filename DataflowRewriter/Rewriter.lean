@@ -251,28 +251,45 @@ These two functions do not have to have any additional proofs, because the proof
 framework should be enough.
 -/
 @[drunfold] def Abstraction.run (fresh_prefix : String) (g : ExprHigh String)
-  (abstraction : Abstraction String)
+  (abstraction : Abstraction String) (norm : Bool := false)
   : RewriteResult (ExprHigh String × Concretisation String) := do
   let (sub, _) ← abstraction.pattern g
   let (g₁, g₂) ← ofOption (.error "could not extract graph") <| g.extract sub
-  let e_sub ← ofOption (.error "could not lower subgraph: graph is empty") <| g₁ |>.lower
-  let g_lower := g₂ |>.lower' e_sub
+  let e_sub ← ofOption (.error "could not lower subgraph: graph is empty") <| g₁.lower
+  let g_lower ← ofOption (.error "could not lower graph") g.lower
+
+  -- g_lower is the fully lowered graph with the sub expression that is to be replaced rearranged so that it can be
+  -- pattern matched.
+  let canon := ExprLow.comm_connections' g₁.connections
+  let g_lower ← ofOption (.error "failed lowering of the graph: graph is empty") g.lower
+  let sub' ← ofOption (.error "could not extract base information") <| sub.mapM (λ a => g.modules.find? a)
+  let g_lower := canon <| ExprLow.comm_bases sub' g_lower
 
   -- Here we have to make sure that the context contains a renamed version of e_sub to show equivalence to the
   -- abstracted version, because the abstracted version has `.top` IO ports.  These are needed because of the matcher
   -- that comes in the second phase.
   let portMapping := e_sub.build_interface.toIdentityPortMapping' -- abstraction.typ
-  let abstracted := g_lower.abstract e_sub portMapping abstraction.typ
+  let (abstracted', b) := g_lower.force_abstract (canon e_sub) portMapping abstraction.typ
+  EStateM.guard (.error s!"subexpression not found in the graph: {repr g_lower}\n\n{repr (canon e_sub)}") b
+
   let e_sub' := e_sub.renamePorts portMapping.inverse
+
+  let mut abstracted := abstracted'
+  let mut portMap : AssocList String (Option String) := .nil
 
   -- let portMapping := e_sub.build_interface.toIdentityPortMapping -- abstraction.typ
   -- let abstracted := g_lower.abstract e_sub portMapping abstraction.typ
   -- let e_sub' := e_sub
-  let norm := abstracted.normalisedNamesMap fresh_prefix
-  let highered ← abstracted.renamePorts norm |>.higherSS |> ofOption (.error "Could not normalise names")
-  let portMap ← portmappingToNameRename' sub norm
+  -- let norm := abstracted.normalisedNamesMap fresh_prefix
+  -- let highered ← abstracted.renamePorts norm |>.higherSS |> ofOption (.error "Could not normalise names")
+  if norm then
+    let norm := abstracted.normalisedNamesMap fresh_prefix
+    abstracted := abstracted.renamePorts norm
+    portMap ← portmappingToNameRename' sub norm
+  let highered ← abstracted |>.higherSS |> ofOption (.error "Could not normalise names")
+  -- let portMap ← portmappingToNameRename' sub norm
   addRewriteInfo <| RewriteInfo.mk RewriteType.abstraction g highered sub
-                      portMap [abstraction.typ] .none (.some s!"{abstraction.typ}")
+                      .nil [abstraction.typ] .none (.some s!"{abstraction.typ}")
   return (highered, ⟨e_sub', abstraction.typ⟩)
   -- return (abstracted.higherS fresh_prefix, ⟨e_sub, abstraction.typ⟩)
 
@@ -282,7 +299,7 @@ checked explicitly).  In addition to that, it currently assumes that the interna
 still fresh in the graph.
 -/
 @[drunfold] def Concretisation.run (fresh_prefix : String) (g : ExprHigh String)
-  (concretisation : Concretisation String) : RewriteResult (ExprHigh String) := do
+  (concretisation : Concretisation String) (norm : Bool := false) : RewriteResult (ExprHigh String) := do
   let g_lower ← ofOption (.error "could not lower graph") <| g.lower
   -- may need to uniquify the concretisation internal connections
   let base ← ofOption (.error "Could not find base of concretisation")
@@ -290,24 +307,30 @@ still fresh in the graph.
   -- return g_lower.concretise (concretisation.expr.renameMapped base) base concretisation.typ
   --        |>.higherS fresh_prefix
   let e_sub := concretisation.expr.renamePorts base
-  let concr := g_lower.concretise e_sub base concretisation.typ
-  let norm := concr.normalisedNamesMap fresh_prefix
-  let concr_g ← concr.renamePorts norm |>.higherSS |> ofOption (.error "Could not normalise names")
-  let portMap ← portmappingToNameRename' [concretisation.typ] norm
-  let outputPortMap := portMap.filter (λ lhs _ => lhs = concretisation.typ)
+  let (concr', b) := g_lower.force_concretise e_sub base concretisation.typ
+  EStateM.guard (.error s!"subexpression not found in the graph: {repr g_lower}\n\n{repr base}") b
+
+  let mut concr := concr'
+  let mut portMap : AssocList String (Option String) := .nil
+  if norm then
+    let norm := concr.normalisedNamesMap fresh_prefix
+    concr := concr.renamePorts norm
+    portMap ← portmappingToNameRename' [concretisation.typ] norm
+  let concr_g ← concr.higherSS |> ofOption (.error "Could not normalise names")
+  -- let outputPortMap := portMap.filter (λ lhs _ => lhs = concretisation.typ)
   addRewriteInfo <| RewriteInfo.mk RewriteType.concretisation g concr_g [concretisation.typ] portMap
-                      (outputPortMap.toList.map Prod.snd |>.reduceOption) .none (.some s!"{concretisation.typ}")
+                      .nil .none (.some s!"{concretisation.typ}")
   return concr_g
 
 @[drunfold] def Rewrite.run (fresh_prefix : String) (g : ExprHigh String) (rewrite : Rewrite String)
   : RewriteResult (ExprHigh String) := do
   let (g, c, _) ← rewrite.abstractions.foldlM (λ (g', c', n) a => do
-      let (g'', c'') ← a.run (fresh_prefix ++ s!"_A_{n}_") g'
+      let (g'', c'') ← a.run (norm := true) (fresh_prefix ++ s!"_A_{n}_") g'
       return (g'', c''::c', n+1)
     ) (g, [], 0)
   let g ← rewrite.run' (fresh_prefix ++ s!"_R_") g
   c.foldlM (λ (g, n) (c : Concretisation String) => do
-    let g' ← c.run (fresh_prefix ++ s!"_C_{n}_") g
+    let g' ← c.run (norm := true) (fresh_prefix ++ s!"_C_{n}_") g
     return (g', n+1)) (g, 0) |>.map Prod.fst
 
 def update_state {α} (f : AssocList String (Option String) → α → RewriteResult α) (a : α) : RewriteResult α := do

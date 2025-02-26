@@ -207,8 +207,16 @@ def abstract (e e_sub : ExprLow Ident) (i_inst : PortMapping Ident) (i_typ : Ide
   .base i_inst i_typ |> e.replace e_sub
 
 @[drunfold]
+def force_abstract (e e_sub : ExprLow Ident) (i_inst : PortMapping Ident) (i_typ : Ident) : ExprLow Ident × Bool :=
+  .base i_inst i_typ |> e.force_replace e_sub
+
+@[drunfold]
 def concretise (e e_sub : ExprLow Ident) (i_inst : PortMapping Ident) (i_typ : Ident) : ExprLow Ident :=
   .base i_inst i_typ |> (e.replace · e_sub)
+
+@[drunfold]
+def force_concretise (e e_sub : ExprLow Ident) (i_inst : PortMapping Ident) (i_typ : Ident) : ExprLow Ident × Bool :=
+  .base i_inst i_typ |> (e.force_replace · e_sub)
 
 @[drunfold]
 def normalisedNamesMap' (pref : String) (count : Nat) : ExprLow String → (PortMapping String × Nat)

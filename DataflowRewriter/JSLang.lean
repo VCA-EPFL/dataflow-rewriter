@@ -127,9 +127,9 @@ def runCommandWithStdin (cmd : String) (args : Array String) (stdin : String) : 
   let stdout ← IO.ofExcept stdout.get
   pure { exitCode := exitCode, stdout := stdout, stderr := stderr }
 
-def rewriteWithEgg (eggCmd := "graphiti_oracle") (rewrittenExprHigh : ExprHigh String) : IO (List JSLangRewrite) := do
+def rewriteWithEgg (eggCmd := "graphiti_oracle") (p : Pattern String) (rewrittenExprHigh : ExprHigh String) : IO (List JSLangRewrite) := do
   let .some succ := calcSucc rewrittenExprHigh.invert | throw (.userError s!"{decl_name%}: could not calculate succ")
-  let .ok ([first, last], _) _ := LoopRewrite.boxLoopBodyOther rewrittenExprHigh |>.run default
+  let .ok ([first, last], _) _ := p rewrittenExprHigh |>.run default
     | return []
   let .some constructed := JSLang.construct 10000 succ first (⟨last, default, default, default⟩)
     | throw (.userError s!"{decl_name%}: could not construct")

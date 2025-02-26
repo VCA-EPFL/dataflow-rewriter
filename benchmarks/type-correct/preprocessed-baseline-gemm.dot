@@ -119,7 +119,7 @@ Digraph G {
         "branch_13" [type = "branch T", bbID= 4,  in = "in1:32 in2?:1", out = "out1+:32 out2-:32", tagged=false, taggers_num=0, tagger_id=-1];
         "branch_14" [type = "branch T", bbID= 4,  in = "in1:32 in2?:1", out = "out1+:32 out2-:32", tagged=false, taggers_num=0, tagger_id=-1];
         "branchC_17" [type = "branch Unit", bbID= 4,  in = "in1:0 in2?:1", out = "out1+:0 out2-:0", tagged=false, taggers_num=0, tagger_id=-1];
-        "fork_2_0" [type = "fork Bool 2", bbID= 4, in = "in1:32", out = "out1:32 out2:32", tagged = false, taggers_num = 0, tagger_id = -1];
+        "fork_2_0" [type = "fork T 2", bbID= 4, in = "in1:32", out = "out1:32 out2:32", tagged = false, taggers_num = 0, tagger_id = -1];
         "fork_2" [type = "fork T 2", bbID= 4, in = "in1:32", out = "out1:32 out2:32", tagged = false, taggers_num = 0, tagger_id = -1];
         "fork_3" [type = "fork T 2", bbID= 4, in = "in1:32", out = "out1:32 out2:32 ", tagged=false, taggers_num=0, tagger_id=-1];
         "fork_4_0" [type = "fork Bool 2", bbID= 4, in = "in1:32", out = "out1:32 out2:32", tagged = false, taggers_num = 0, tagger_id = -1];
