@@ -69,6 +69,7 @@ def interfaceTypes (m : AssocList String String) :=
   ,("branch (((T × T) × (T × T)) × (T × Bool))", (some "branch (((T × T) × (T × T)) × (T × Bool))", "in1:161 in2?:1", "out1+:161 out2-:161", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("branch (T × (Bool × (T × T)))", (some "branch (T × (Bool × (T × T)))", "in1:97 in2?:1", "out1+:97 out2-:97", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("branch (T × (T × Bool))", (some "branch (T × (T × Bool))", "in1:65 in2?:1", "out1+:65 out2-:65", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("branch ((T × Bool) × ((T × T) × (T × T)))", (some "branch ((T × Bool) × ((T × T) × (T × T)))", "in1:161 in2?:1", "out1+:161 out2-:161", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
 
 
   ,("split T T", (some "split T T", "in1:64", "out1:32 out2:32", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
@@ -78,6 +79,8 @@ def interfaceTypes (m : AssocList String String) :=
   ,("split ((T × T) × (T × T)) (T × T)", (some "split ((T × T) × (T × T)) (T × T)", "in1:192", "out1:128 out2:64", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("split ((T × T) × (T × T)) (T × Bool)", (some "split ((T × T) × (T × T)) (T × Bool)", "in1:161", "out1:128 out2:33", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("split T (Bool × (T × T))", (some "split T (Bool × (T × T))", "in1:97", "out1:32 out2:65", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("split (T × Bool) ((T × T) × (T × T))", (some "split (T × Bool) ((T × T) × (T × T))", "in1:161", "out1:33 out2:128", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("split ((T × Bool) × ((T × T) × (T × T))) Bool", (some "split ((T × Bool) × ((T × T) × (T × T))) Bool", "in1:162", "out1:161 out2:1", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
 
   ,("join T T", (some "join T T", "in1:32 in2:32", "out1:64", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("join T (T × T)", (some "join T (T × T)", "in1:32 in2:64", "out1:96", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
@@ -88,6 +91,8 @@ def interfaceTypes (m : AssocList String String) :=
   ,("join ((T × T) × (T × T)) (T × Bool)", (some "join ((T × T) × (T × T)) (T × Bool)", "in1:128 in2:33", "out1:161", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("join (T × (Bool × (T × T))) Bool", (some "join (T × (Bool × (T × T))) Bool", "in1:97 in2:1", "out1:98", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("join T (Bool × (T × T))", (some "join T (Bool × (T × T))", "in1:32 in2:65", "out1:97", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("join (T × Bool) ((T × T) × (T × T))", (some "join (T × Bool) ((T × T) × (T × T))", "in1:33 in2:128", "out1:161", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+  ,("join ((T × Bool) × ((T × T) × (T × T))) Bool", (some "join ((T × Bool) × ((T × T) × (T × T))) Bool", "in1:161 in2:1", "out1:162", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
 
   ,("Entry start", (some "Entry start", "in1:0", "out1:0", [("control", "true"), ("bbID", "1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("Entry", (some "Entry", "in1:0", "out1:0", [("control", "true"), ("bbID", "1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
