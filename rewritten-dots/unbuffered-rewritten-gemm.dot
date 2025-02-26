@@ -63,7 +63,7 @@ Digraph G {
 "Constant_67" [type = "Constant", value = "0x00000000", tagger_id = -1, taggers_num = 0, tagged = false, out = "out1:32", in = "in1:32", bbID = 2];
 "Merge_68" [type = "Merge", delay = 0.366, tagger_id = -1, taggers_num = 0, tagged = false, out = "out1:32", in = "in1:32 in2:32 ", bbID = 3];
 "MC_69" [type = "MC", stcount = 0, ldcount = 1, bbcount = 0, memory = "A", out = "out1:32*l0d out2:0*e ", in = "in1:32*l0a ", bbID = 0];
-"Operator_70" [type = "Operator", op = "getelementptr_op", constants = "1", II = 1, latency = 0, delay = 2.966, tagger_id = -1, taggers_num = 1, tagged = true, out = "out1:32 ", in = "in1:32 in2:32 in3:32 ", bbID = 4];
+"Operator_70" [type = "Operator", op = "getelementptr_op", constants = 1, II = 1, latency = 0, delay = 2.966, tagger_id = -1, taggers_num = 1, tagged = true, out = "out1:32 ", in = "in1:32 in2:32 in3:32 ", bbID = 4];
 "Fork_71" [type = "Fork", tagger_id = -1, taggers_num = 0, tagged = false, out = "out1:32 out2:32", in = "in1:32", bbID = 6];
 "Operator_72" [type = "Operator", op = "fadd_op", II = 1, latency = 10, delay = 0.966, tagger_id = -1, taggers_num = 1, tagged = true, out = "out1:32 ", in = "in1:32 in2:32 ", bbID = 4];
 "Fork_73" [type = "Fork", tagger_id = -1, taggers_num = 0, tagged = false, out = "out1:32 out2:32", in = "in1:32", bbID = 6];
@@ -156,12 +156,12 @@ Digraph G {
 "Split_162" [type = "Split", in = "in1:64", out = " out1:32 out2:32 ", bbID = 4, tagged = true, taggers_num = 1, tagger_id = -1];
 "Concat_163" [type = "Concat", in = "in1:64 in2:64", out = " out1:128 ", bbID = 4, tagged = true, taggers_num = 1, tagger_id = -1];
 "Split_165" [type = "Split", in = "in1:128", out = " out1:64 out2:64 ", bbID = 4, tagged = true, taggers_num = 1, tagger_id = -1];
-"Concat_166" [type = "Concat", in = "in1:32 in2:1", out = " out1:33 ", bbID = 4, tagged = true, taggers_num = 1, tagger_id = -1];
-"Split_168" [type = "Split", in = "in1:33", out = " out1:32 out2:1 ", bbID = 4, tagged = false, taggers_num = 0, tagger_id = -1];
+"Concat_166" [type = "Concat", in = "in1:1 in2:32", out = " out1:33 ", bbID = 4, tagged = true, taggers_num = 1, tagger_id = -1];
+"Split_168" [type = "Split", in = "in1:33", out = " out1:1 out2:32 ", bbID = 4, tagged = false, taggers_num = 0, tagger_id = -1];
 "Concat_169" [type = "Concat", in = "in1:32 in2:32", out = " out1:64 ", bbID = 4, tagged = true, taggers_num = 1, tagger_id = -1];
 "Split_170" [type = "Split", in = "in1:64", out = " out1:32 out2:32 ", bbID = 4, tagged = false, taggers_num = 0, tagger_id = -1];
-"Concat_171" [type = "Concat", in = "in1:128 in2:33", out = " out1:161 ", bbID = 4, tagged = true, taggers_num = 1, tagger_id = -1];
-"Split_173" [type = "Split", in = "in1:161", out = " out1:128 out2:33 ", bbID = 4, tagged = false, taggers_num = 0, tagger_id = -1];
+"Concat_171" [type = "Concat", in = "in1:33 in2:128", out = " out1:161 ", bbID = 4, tagged = true, taggers_num = 1, tagger_id = -1];
+"Split_173" [type = "Split", in = "in1:161", out = " out1:33 out2:128 ", bbID = 4, tagged = false, taggers_num = 0, tagger_id = -1];
 
 "aligner_branch_0" [type = "Aligner_Branch", bbID= 5,  in = "in1:161 in2?:32", out = " out1:161 out2:161 out3:161 out4:161 out5:161 out6:161 out7:161 out8:161 out9:161 out10:161 out11:161 out12:161 out13:161 out14:161 out15:161 out16:161 out17:161 out18:161 out19:161 out20:161", tagged=false, taggers_num=0, tagger_id=0];
 "aligner_mux_0" [type = "Aligner_Mux", bbID= 5, in = " in1?:32 in2:161 in3:161 in4:161 in5:161 in6:161 in7:161 in8:161 in9:161 in10:161 in11:161 in12:161 in13:161 in14:161 in15:161 in16:161 in17:161 in18:161 in19:161 in20:161 in21:161", out = " out1:161", tagged=false, taggers_num=0, tagger_id=0];
@@ -211,8 +211,8 @@ Digraph G {
   "Concat_171" -> "Concat_5" [from = "out1", to = "in1" ];
   "Split_6" -> "Split_170" [from = "out1", to = "in1" ];
   "Concat_169" -> "Concat_8" [from = "out1", to = "in1" ];
-  "Split_173" -> "Split_168" [from = "out2", to = "in1" ];
-  "Concat_166" -> "Concat_171" [from = "out1", to = "in2" ];
+  "Split_173" -> "Split_168" [from = "out1", to = "in1" ];
+  "Concat_166" -> "Concat_171" [from = "out1", to = "in1" ];
   "Split_11" -> "Split_165" [from = "out2", to = "in1" ];
   "Concat_163" -> "Concat_13" [from = "out1", to = "in2" ];
   "Split_165" -> "Split_162" [from = "out1", to = "in1" ];
@@ -229,8 +229,8 @@ Digraph G {
   "MC_115" -> "Exit_89" [from = "out2", to = "in1" ];
   "MC_69" -> "Exit_89" [from = "out2", to = "in2" ];
   "MC_97" -> "Exit_89" [from = "out2", to = "in3" ];
-  "beta" -> "Mux_95" [from = "out1", to = "in2" ];
-  "alpha" -> "Mux_152" [from = "out1", to = "in2" ];
+  "alpha" -> "Mux_95" [from = "out1", to = "in2" ];
+  "beta" -> "Mux_152" [from = "out1", to = "in2" ];
   "Constant_87" -> "Mux_132" [from = "out1", to = "in2" ];
   "Mux_132" -> "Fork_46" [from = "out1", to = "in1" ];
   "Constant_67" -> "Mux_83" [from = "out1", to = "in2" ];
@@ -253,7 +253,7 @@ Digraph G {
   "Operator_20" -> "Operator_58" [from = "out1", to = "in2" ];
   "Operator_58" -> "Operator_22" [from = "out1", to = "in2" ];
   "Operator_22" -> "Operator_72" [from = "out1", to = "in2" ];
-  "Operator_72" -> "Concat_166" [from = "out1", to = "in1" ];
+  "Operator_72" -> "Concat_166" [from = "out1", to = "in2" ];
   "Constant_63" -> "Operator_118" [from = "out1", to = "in2" ];
   "Operator_118" -> "Fork_126" [from = "out1", to = "in1" ];
   "Constant_109" -> "Operator_101" [from = "out1", to = "in2" ];
@@ -293,7 +293,7 @@ Digraph G {
   "Branch_48" -> "Branch_65" [from = "out1", to = "in1" ];
   "Branch_48" -> "Mux_83" [from = "out2", to = "in3" ];
   "Merge_68" -> "Fork_96" [from = "out1", to = "in1" ];
-  "Split_168" -> "Operator_27" [from = "out1", to = "in1" ];
+  "Split_168" -> "Operator_27" [from = "out2", to = "in1" ];
   "Split_170" -> "Sink_107" [from = "out1", to = "in1" ];
   "Branch_65" -> "Sink_125" [from = "out1", to = "in1" ];
   "Branch_65" -> "Operator_37" [from = "out2", to = "in1" ];
@@ -314,7 +314,7 @@ Digraph G {
   "Branch_133" -> "Mux_85" [from = "out2", to = "in3" ];
   "Branch_121" -> "Sink_35" [from = "out1", to = "in1" ];
   "Branch_121" -> "Mux_134" [from = "out2", to = "in3" ];
-  "Split_168" -> "Sink_148" [from = "out2", to = "in1" ];
+  "Split_168" -> "Sink_148" [from = "out1", to = "in1" ];
   "Constant_74" -> "Merge_68" [from = "out1", to = "in1" ];
   "Fork_46" -> "Mux_82" [from = "out1", to = "in2" ];
   "Fork_46" -> "Operator_59" [from = "out2", to = "in1" ];
@@ -403,7 +403,7 @@ Digraph G {
   "Fork_36" -> "Fork_57" [from = "out1", to = "in1" ];
   "Fork_36" -> "Fork_29" [from = "out2", to = "in1" ];
   "Fork_66" -> "Constant_63" [from = "out1", to = "in1" ];
-  "Fork_66" -> "Concat_166" [from = "out2", to = "in2" ];
+  "Fork_66" -> "Concat_166" [from = "out2", to = "in1" ];
   "Fork_154" -> "Constant_109" [from = "out1", to = "in1" ];
   "Fork_154" -> "Constant_122" [from = "out2", to = "in1" ];
   "Fork_84" -> "Constant_53" [from = "out1", to = "in1" ];
@@ -431,8 +431,8 @@ Digraph G {
   "cntrl_merge" -> "Split_11" [from = "out1", to = "in1" ];
   "Concat_10" -> "Concat_8" [from = "out1", to = "in2" ];
   "Split_6" -> "Split_9" [from = "out2", to = "in1" ];
-  "Concat_8" -> "Concat_171" [from = "out1", to = "in1" ];
-  "Split_173" -> "Split_6" [from = "out1", to = "in1" ];
+  "Concat_8" -> "Concat_171" [from = "out1", to = "in2" ];
+  "Split_173" -> "Split_6" [from = "out2", to = "in1" ];
   "Concat_5" -> "Split_1" [from = "out1", to = "in1" ];
   "Split_1" -> "Branch_4" [from = "out1", to = "in1" ];
   "Split_1" -> "Branch_4" [from = "out2", to = "in2" ];
