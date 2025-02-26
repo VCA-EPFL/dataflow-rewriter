@@ -74,15 +74,20 @@ def reduceRewrites := [ReduceSplitJoin.rewrite, JoinQueueLeftRewrite.rewrite, Jo
 def reduceSink := [SplitSinkRight.rewrite, SplitSinkLeft.rewrite, PureSink.rewrite]
 def movePureJoin := [PureJoinLeft.rewrite, PureJoinRight.rewrite, PureSplitRight.rewrite, PureSplitLeft.rewrite]
 
-def topLevel (e : ExprHigh String) : RewriteResult (ExprHigh String) := do
+def normaliseLoop (e : ExprHigh String) : RewriteResult (ExprHigh String) := do
   let rw ← rewrite_loop e combineRewrites
   let rw ← rewrite_fix rw reduceRewrites
-  let rw ← rewrite_fix rw (PureRewrites.specialisedPureRewrites LoopRewrite.nonPureMatcher)
-  -- let rw ← rewrite_fix rw [ForkPure.rewrite]
-  let rw ← rewrite_fix rw <| [ForkPure.rewrite, ForkJoin.rewrite] ++ movePureJoin ++ reduceSink  -- (JoinPureUnit.rewrite :: movePureJoin) ++ reduceSink
-  let rw ← rewrite_fix rw (PureRewrites.specialisedPureRewrites LoopRewrite.nonPureForkMatcher)
-  let rw ← rewrite_fix rw ([PureSeqComp.rewrite] ++ movePureJoin ++ reduceSink)
-  -- let rw ← JoinComm.targetedRewrite "rw_f19_l1__R_1" |>.run "ranodm_" rw
+  return rw
+
+def pureGeneration (rw : ExprHigh String) : RewriteResult (ExprHigh String) := do
+  -- Convert most of the dataflow graph to pure.
+  let rw ← rewrite_fix rw <| PureRewrites.specialisedPureRewrites LoopRewrite.nonPureMatcher
+  -- Move forks as high as possible, and also move pure over joins and under sinks.  Also remove sinks.
+  let rw ← rewrite_fix rw <| [ForkPure.rewrite, ForkJoin.rewrite] ++ movePureJoin ++ reduceSink
+  -- Turn forks into pure.
+  let rw ← rewrite_fix rw <| PureRewrites.specialisedPureRewrites LoopRewrite.nonPureForkMatcher
+  -- Move pures to the top and bottom again, we are left with split and join nodes.
+  let rw ← rewrite_fix rw <| [PureSeqComp.rewrite] ++ movePureJoin ++ reduceSink
   return rw
 
 def pureGenerator' (g : ExprHigh String) : List JSLangRewrite → Nat → RewriteResult (ExprHigh String)
@@ -126,6 +131,32 @@ def renameAssoc (assoc : AssocList String (AssocList String String)) (r : Rewrit
 
 def renameAssocAll assoc (rlist : List RewriteInfo) := rlist.foldl renameAssoc assoc
 
+def writeLogFile (parsed : CmdArgs) (st : List RewriteInfo) := do
+  match parsed.logFile with
+  | .some lfile => IO.FS.writeFile lfile <| toString <| Lean.toJson st
+  | .none =>
+    if parsed.logStdout then IO.println <| Lean.toJson st
+
+def runRewriter {α} (parsed : CmdArgs) (r : RewriteResult α) (st : List RewriteInfo) : IO (α × List RewriteInfo) :=
+  match r.run st with
+  | .ok a st' => pure (a, st')
+  | .error p st' => do
+    IO.eprintln p
+    writeLogFile parsed st'
+    IO.Process.exit 1
+
+def rewriteGraph (parsed : CmdArgs) (rewrittenExprHigh : ExprHigh String) (st : List RewriteInfo)
+    : IO (ExprHigh String × List RewriteInfo) := do
+  let (rewrittenExprHigh, st) ← runRewriter parsed (normaliseLoop rewrittenExprHigh) st
+  writeLogFile parsed st
+  let (rewrittenExprHigh, st) ← runRewriter parsed (pureGeneration rewrittenExprHigh) st
+  writeLogFile parsed st
+  let (rewrittenExprHigh, st) ← eggPureGenerator 100 parsed rewrittenExprHigh st
+  writeLogFile parsed st
+  let (rewrittenExprHigh, st) ← runRewriter parsed (LoopRewrite2.rewrite.run "loop_rw_" rewrittenExprHigh) st
+  writeLogFile parsed st
+  return (rewrittenExprHigh, st)
+
 def main (args : List String) : IO Unit := do
   let parsed ←
     try IO.ofExcept <| parseArgs args
@@ -135,10 +166,11 @@ def main (args : List String) : IO Unit := do
       IO.print helpText
       IO.Process.exit 1
     | e => throw e
+
   if parsed.help then
     IO.print helpText
-    return
-  let goracle := parsed.graphitiOracle.getD "graphiti_oracle"
+    IO.Process.exit 0
+
   let fileContents ← IO.FS.readFile parsed.inputFile.get!
   let (exprHigh, assoc) ← IO.ofExcept fileContents.toExprHigh
 
@@ -146,40 +178,14 @@ def main (args : List String) : IO Unit := do
   let mut st : List RewriteInfo := default
 
   if !parsed.parseOnly then
-    match topLevel rewrittenExprHigh |>.run default with
-    | .ok rewrittenExprHigh' st' => rewrittenExprHigh := rewrittenExprHigh'; st := st'
-    | .error p st' => IO.eprintln p; st := st'
-
-    let (g', st') ← eggPureGenerator 100 parsed rewrittenExprHigh st
+    let (g', st') ← rewriteGraph parsed rewrittenExprHigh st
     rewrittenExprHigh := g'; st := st'
-
-    match LoopRewrite2.rewrite.run "loop_rw_" rewrittenExprHigh |>.run st with
-    | .ok g' st' => rewrittenExprHigh := g'; st := st'
-    | .error p st' => IO.eprintln p; st := st'
-
-    -- let .ok (bl, _) _ := LoopRewrite.boxLoopBody rewrittenExprHigh |>.run default | throw (.userError "could not find subgraph")
-
-    -- match  (depth := 10000) |>.run st with
-    -- | .ok rewrittenExprHigh' st' => rewrittenExprHigh := rewrittenExprHigh'; st := st'
-    -- | .error p st' => IO.eprintln p; st := st'
 
   let some l :=
     if parsed.noDynamaticDot then pure (toString rewrittenExprHigh)
     else dynamaticString rewrittenExprHigh (renameAssocAll assoc st)
     | IO.eprintln s!"Failed to print ExprHigh: {rewrittenExprHigh}"
 
-  match parsed.logFile with
-  | .some lfile => IO.FS.writeFile lfile <| toString <| Lean.toJson st
-  | .none =>
-    if parsed.logStdout then IO.println <| Lean.toJson st
-
   match parsed.outputFile with
-  | some ofile =>
-    IO.FS.writeFile ofile l
-  | none =>
-    IO.println l
-
-  -- let .ok (subgraph, _) _ := (LoopRewrite.boxLoopBody rewrittenExprHigh).run st | throw (.userError "could not find loop body")
-  -- let .some (subgraph', _) := rewrittenExprHigh.extract subgraph | throw (.userError "could not generate subgraph")
-  -- let subgraph' : ExprHigh String := ⟨subgraph'.1, subgraph'.2.filter (λ | c@⟨⟨.internal n, o⟩, ⟨.internal n', o'⟩⟩ => n ∈ subgraph'.1.keysList ∧ n' ∈ subgraph'.1.keysList
-  --                                                                        | _ => false)⟩
+  | some ofile => IO.FS.writeFile ofile l
+  | none => IO.println l
