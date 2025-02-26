@@ -335,8 +335,8 @@ Digraph G {
     "fork_4_1" -> "branch_7" [color = "red", from = "out2", to = "in2"];
     "fork_4_2" -> "branch_13" [color = "red", from = "out1", to = "in2"];
     "fork_4_2" -> "branch_14" [color = "red", from = "out2", to = "in2"];
-    "fork_4_3" -> "fork_4_4" [color = "gold3", from = "out1", to = "in1"];
-    "fork_4_3" -> "fork_4_0" [color = "gold3", from = "out2", to = "in1"];
+    "fork_4_3" -> "fork_4_4" [color = "gold3", from = "out2", to = "in1"];
+    "fork_4_3" -> "fork_4_0" [color = "gold3", from = "out1", to = "in1"];
     "fork_4_4" -> "fork_4_1" [color = "gold3", from = "out1", to = "in1"];
     "fork_4_4" -> "fork_4_2" [color = "gold3", from = "out2", to = "in1"];
     "fork_4" -> "fork_4_3" [color = "gold3", from = "out1", to = "in1"];
