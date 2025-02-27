@@ -16,12 +16,14 @@ namespace DataflowRewriter
 inductive TypeExpr where
 | nat
 | bool
+| tag
 | unit
 | pair (left right : TypeExpr)
 deriving Repr, DecidableEq, Inhabited
 
 def TypeExpr.denote : TypeExpr → Type
 | nat => Nat
+| tag => Unit
 | bool => Bool
 | unit => Unit
 | pair t1 t2 => t1.denote × t2.denote
@@ -70,6 +72,7 @@ namespace TypeExpr.Parser
 
 partial def parseTypeExpr' : Parser TypeExpr :=
     ws *> ( skipStringWs "Nat" *> pure .nat
+            <|> skipStringWs "TagT" *> pure .unit
             <|> skipStringWs "T" *> pure .nat
             <|> skipStringWs "Bool" *> pure .bool
             <|> skipStringWs "Unit" *> pure .unit
@@ -91,6 +94,7 @@ def parseType (s : String): Option Type :=
 
 def toString' : TypeExpr → String
   | TypeExpr.nat => "T"
+  | TypeExpr.tag => "TagT" -- Unclear how we want to display TagT at the end?
   | TypeExpr.bool => "Bool"
   | TypeExpr.unit => "Unit"
   | TypeExpr.pair left right =>
@@ -100,6 +104,7 @@ def toString' : TypeExpr → String
 
 def getSize: TypeExpr → Int
   | TypeExpr.nat => 32
+  | TypeExpr.tag => 0
   | TypeExpr.bool => 1
   | TypeExpr.unit => 0
   | TypeExpr.pair left right =>
@@ -129,6 +134,7 @@ def parseNode (s : String): Option (String × List TypeExpr) :=
 def flatten_type (t : TypeExpr) : List TypeExpr :=
   match t with
   | TypeExpr.nat => [t]
+  | TypeExpr.tag => [t]
   | TypeExpr.bool => [t]
   | TypeExpr.unit => [t]
   | TypeExpr.pair left right =>
@@ -139,8 +145,10 @@ section Tests
   #eval flatten_type <$> parseTypeExpr " ( Bool ×   ( T × T))"
   #eval toString (TypeExpr.pair TypeExpr.bool (TypeExpr.pair TypeExpr.nat TypeExpr.nat))
   #eval toString (parseTypeExpr "(((T × T) × (T × T)) × (T × Bool))")
-  #eval parseNode ("split (T × (Bool × (T × T))) Bool")
-  #eval parseNode ("branch (T × T)")
+  #eval (parseNode ("split (T × (Bool × (T × T))) Bool")).get!.2[0]!
+  #eval (parseNode ("branch (T × T)")).get!.2[0]!
+  #eval (parseNode ("join T (TagT × Bool)")).get!.2[1]!
+  #eval (parseNode ("mux (T × (T × Bool))")).get!.2[0]!
 end Tests
 
 end TypeExpr.Parser

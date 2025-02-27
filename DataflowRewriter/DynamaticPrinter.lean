@@ -38,19 +38,32 @@ def translateTypes  (key : String) : Option String × String × String × List (
      let l := (if name == "mux" then [("delay", "0.366")] else []) ++ [ ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]
      match name with
      | "join" =>
-      let s1 := TypeExpr.Parser.getSize typeParams[0]!
-      let s2 := TypeExpr.Parser.getSize typeParams[1]!
-      (some key, s!"in1:{s1} in2:{s2}", s!"out1:{s1+s2}", l)
+      if typeParams.length < 2 then
+      -- Defensive programming, embed the problematic string in the unsupported key
+        (some key, "", "", [("unsupported", s!"true #{key}")])
+      else
+        let s1 := TypeExpr.Parser.getSize typeParams[0]!
+        let s2 := TypeExpr.Parser.getSize typeParams[1]!
+        (some key, s!"in1:{s1} in2:{s2}", s!"out1:{s1+s2}", l)
      | "mux" =>
-      let s1 := TypeExpr.Parser.getSize typeParams[0]!
-      (some key, s!"in1?:1 in2:{s1} in3:{s1}", s!"out1:{s1}", l)
+      if typeParams.length < 1 then
+        (some key, "", "", [("unsupported", s!"true {key}")])
+      else
+        let s1 := TypeExpr.Parser.getSize typeParams[0]!
+        (some key, s!"in1?:1 in2:{s1} in3:{s1}", s!"out1:{s1}", l)
      | "split" =>
-      let s1 := TypeExpr.Parser.getSize typeParams[0]!
-      let s2 := TypeExpr.Parser.getSize typeParams[1]!
-      (some key, s!"in1:{s1+s2}", s!"out1:{s1} out2:{s2}", l)
+      if typeParams.length < 2 then
+        (some key, "", "", [("unsupported", s!"true {key}")])
+      else
+        let s1 := TypeExpr.Parser.getSize typeParams[0]!
+        let s2 := TypeExpr.Parser.getSize typeParams[1]!
+        (some key, s!"in1:{s1+s2}", s!"out1:{s1} out2:{s2}", l)
      | "branch" =>
-      let s1 := TypeExpr.Parser.getSize typeParams[0]!
-      (some key, s!"in1:{s1} in2?:{1}", s!"out1+:{s1} out2-:{s1}", l)
+      if typeParams.length < 1 then
+        (some key, "", "", [("unsupported", s!"true {key}")])
+      else
+        let s1 := TypeExpr.Parser.getSize typeParams[0]!
+        (some key, s!"in1:{s1} in2?:{1}", s!"out1+:{s1} out2-:{s1}", l)
      | _ =>
       -- Parsed correctly like queue T
       extra_manual.find? key |>.getD (some key, "", "", [("unsupported", "true")])
