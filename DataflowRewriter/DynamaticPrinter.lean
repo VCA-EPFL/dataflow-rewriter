@@ -211,7 +211,7 @@ def dynamaticString (a: ExprHigh String) (m : AssocList String (AssocList String
           -- If this is a new node, then we sue `fmt` to correctly add the right
           -- arguments from what is given in interfaceTypes.  We should never be generating constructs like MC, so
           -- this shouldn't be a problem.
-        return fixComponentNames (RenameJoinToConcat s) ++ s!"\"{k}\" [type = \"{capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd))}\", in = \"{removeLetter 'p' fmt.2.1}\", out = \" {fmt.2.2.1} \"{formatOptions fmt.2.2.2}];\n"
+        return fixComponentNames (RenameJoinToConcat s) ++ s!"\"{k}\" [type = \"{capitalizeFirstChar (extractStandardType (fmt.1.getD v.snd))}\", in = \"{removeLetter 'p' fmt.2.1}\", out = \"{fmt.2.2.1}\"{formatOptions fmt.2.2.2}];\n"
         --return s ++ s!"\"{k}\" [type = \"{fmt.1.getD v.snd}\", in = \"{removeLetter 'p' fmt.2.1}\", out = \" {fmt.2.2.1} \"{formatOptions fmt.2.2.2}];\n"
 
       ) ""
