@@ -158,7 +158,7 @@ def rewriteGraph (parsed : CmdArgs) (g : ExprHigh String) (st : List RewriteInfo
   return (rewrittenExprHigh, st)
 
 def rewriteGraphAbs (parsed : CmdArgs) (g : ExprHigh String) (st : List RewriteInfo)
-    : IO (ExprHigh String × List RewriteInfo) := do
+    : IO (ExprHigh String × List RewriteInfo × List RewriteInfo) := do
   let (g, st) ← runRewriter parsed st (normaliseLoop g)
 
   let a : Abstraction String := ⟨λ g => LoopRewrite.boxLoopBody g >>= λ (a, _b) => pure (a, []), "M"⟩
@@ -180,7 +180,7 @@ def rewriteGraphAbs (parsed : CmdArgs) (g : ExprHigh String) (st : List RewriteI
   let newConcr' : Concretisation String := ⟨concr.1, typ⟩
   let (g, st) ← runRewriter parsed st <| newConcr'.run "concr2_" g
 
-  return (g, st_final)
+  return (g, st_final, st)
 
 def main (args : List String) : IO Unit := do
   let parsed ←
@@ -202,13 +202,14 @@ def main (args : List String) : IO Unit := do
   let mut rewrittenExprHigh := exprHigh
   let mut st : List RewriteInfo := default
 
+  let st'' := st
   if !parsed.parseOnly then
-    let (g', st') ← rewriteGraphAbs parsed rewrittenExprHigh st
-    rewrittenExprHigh := g'; st := st'
+    let (g', st', st'') ← rewriteGraphAbs parsed rewrittenExprHigh st
+    rewrittenExprHigh := g'; st := st'; st := st''
 
   let some l :=
     if parsed.noDynamaticDot then pure (toString rewrittenExprHigh)
-    else dynamaticString rewrittenExprHigh (renameAssocAll assoc st)
+    else dynamaticString rewrittenExprHigh ((renameAssocAll assoc st).append (renameAssocAll assoc st''))
     | IO.eprintln s!"Failed to print ExprHigh: {rewrittenExprHigh}"
 
   match parsed.outputFile with
