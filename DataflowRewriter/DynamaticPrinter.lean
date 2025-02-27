@@ -43,7 +43,7 @@ def translateTypes  (key : String) : Option String × String × String × List (
       (some key, s!"in1:{s1} in2:{s2}", s!"out1:{s1+s2}", l)
      | "mux" =>
       let s1 := TypeExpr.Parser.getSize typeParams[0]!
-      (some key, s!"in1?:1 in2:{s1}", s!"out1:{s1}", l)
+      (some key, s!"in1?:1 in2:{s1} in3:{s1}", s!"out1:{s1}", l)
      | "split" =>
       let s1 := TypeExpr.Parser.getSize typeParams[0]!
       let s2 := TypeExpr.Parser.getSize typeParams[1]!
