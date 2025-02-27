@@ -205,7 +205,6 @@ def main (args : List String) : IO Unit := do
   if !parsed.parseOnly then
     let (g', st') ← rewriteGraphAbs parsed rewrittenExprHigh st
     rewrittenExprHigh := g'; st := st'
-  IO.println (repr <| renameAssocAll assoc st)
 
   let some l :=
     if parsed.noDynamaticDot then pure (toString rewrittenExprHigh)
