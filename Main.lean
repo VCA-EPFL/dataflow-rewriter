@@ -202,10 +202,10 @@ def main (args : List String) : IO Unit := do
   let mut rewrittenExprHigh := exprHigh
   let mut st : List RewriteInfo := default
 
-  let st'' := st
+  let mut st'' := st
   if !parsed.parseOnly then
-    let (g', st', st'') ← rewriteGraphAbs parsed rewrittenExprHigh st
-    rewrittenExprHigh := g'; st := st'; st := st''
+    let (g', st', st''') ← rewriteGraphAbs parsed rewrittenExprHigh st
+    rewrittenExprHigh := g'; st := st'; st'' := st'''
 
   let some l :=
     if parsed.noDynamaticDot then pure (toString rewrittenExprHigh)
