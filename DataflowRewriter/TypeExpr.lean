@@ -18,7 +18,7 @@ inductive TypeExpr where
 | bool
 | unit
 | pair (left right : TypeExpr)
-deriving Repr, DecidableEq
+deriving Repr, DecidableEq, Inhabited
 
 def TypeExpr.denote : TypeExpr → Type
 | nat => Nat
@@ -68,28 +68,80 @@ namespace TypeExpr.Parser
 
 @[inline] def skipStringWs (s : String) := skipString s <* ws
 
-def parseTypeExpr' (n : Nat) : Parser TypeExpr :=
-  match n with
-  | n+1 =>
-    skipStringWs "Nat" *> pure .nat
-    <|> skipStringWs "Bool" *> pure .bool
-    <|> skipStringWs "Unit" *> pure .unit
-    <|> (do skipStringWs "("
-            let t ← parseTypeExpr' n
-            skipStringWs "×"
-            let t' ← parseTypeExpr' n
-            skipStringWs ")"
-            return .pair t t'
-        )
-  | _ => failure
+partial def parseTypeExpr' : Parser TypeExpr :=
+    ws *> ( skipStringWs "Nat" *> pure .nat
+            <|> skipStringWs "T" *> pure .nat
+            <|> skipStringWs "Bool" *> pure .bool
+            <|> skipStringWs "Unit" *> pure .unit
+            <|> (do skipStringWs "("
+                    let t ← parseTypeExpr'
+                    skipStringWs "×"
+                    let t' ← parseTypeExpr'
+                    skipStringWs ")"
+                    return .pair t t'
+                ))
 
 def parseTypeExpr (s : String): Option TypeExpr :=
-  match parseTypeExpr' s.length |>.run s with
+  match parseTypeExpr' |>.run s with
   | .ok r => .some r
   | .error _ => .none
 
 def parseType (s : String): Option Type :=
   parseTypeExpr s |>.map TypeExpr.denote
+
+def toString' : TypeExpr → String
+  | TypeExpr.nat => "T"
+  | TypeExpr.bool => "Bool"
+  | TypeExpr.unit => "Unit"
+  | TypeExpr.pair left right =>
+    let leftStr := toString' left
+    let rightStr :=  toString' right
+    s!"({leftStr} × {rightStr})"
+
+def getSize: TypeExpr → Int
+  | TypeExpr.nat => 32
+  | TypeExpr.bool => 1
+  | TypeExpr.unit => 0
+  | TypeExpr.pair left right =>
+    let l := getSize left
+    let r :=  getSize right
+    l + r
+
+instance : ToString TypeExpr where
+  toString := toString'
+
+def parserId : Parser String := do
+  let chars ← many1 (satisfy (fun c => !c.isWhitespace))
+  return String.mk chars.toList
+
+def parserNode: Parser (String × List TypeExpr) := do
+  ws
+  let name ← parserId
+  let ts ← many1 parseTypeExpr' <* ws
+  return (name, ts.toList)
+
+
+def parseNode (s : String): Option (String × List TypeExpr) :=
+  match parserNode |>.run s with
+  | .ok r => .some r
+  | .error _ => .none
+
+def flatten_type (t : TypeExpr) : List TypeExpr :=
+  match t with
+  | TypeExpr.nat => [t]
+  | TypeExpr.bool => [t]
+  | TypeExpr.unit => [t]
+  | TypeExpr.pair left right =>
+    flatten_type left ++ flatten_type right
+
+section Tests
+  #eval parseTypeExpr " ( Bool ×   ( T × T))"
+  #eval flatten_type <$> parseTypeExpr " ( Bool ×   ( T × T))"
+  #eval toString (TypeExpr.pair TypeExpr.bool (TypeExpr.pair TypeExpr.nat TypeExpr.nat))
+  #eval toString (parseTypeExpr "(((T × T) × (T × T)) × (T × Bool))")
+  #eval parseNode ("split (T × (Bool × (T × T))) Bool")
+  #eval parseNode ("branch (T × T)")
+end Tests
 
 end TypeExpr.Parser
 end DataflowRewriter

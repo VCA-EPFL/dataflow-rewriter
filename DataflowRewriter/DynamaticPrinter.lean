@@ -5,6 +5,7 @@ Authors: Yann Herklotz
 -/
 
 import DataflowRewriter.Rewriter
+import DataflowRewriter.TypeExpr
 
 
 open Batteries (AssocList)
@@ -21,88 +22,41 @@ the Component.lean file.
  the correct values by studying the connections in Dot.
 -/
 
-def interfaceTypes (m : AssocList String String) :=
+def extra_manual :=
   [
-
-  ("mux (Bool × (T × T))", (some "mux (Bool × (T × T))", "in1?:1 in2:65 in3:65", "out1:65", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("mux ((T × Bool) × (T × T))", (some "mux ((T × Bool) × (T × T))", "in1?:1 in2:97 in3:97", "out1:97", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("branch (Bool × (T × T))", (some "branch (Bool × (T × T))", "in1:65 in2?:1", "out1+:65 out2-:65", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("branch ((T × Bool) × (T × T))", (some "branch ((T × Bool) × (T × T))", "in1:97 in2?:1", "out1+:97 out2-:97", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split Bool (T × T)", (some "split Bool (T × T)", "in1:65", "out1:1 out2:64", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split (Bool × (T × T)) Bool", (some "split (Bool × (T × T)) Bool", "in1:66", "out1:65 out2:1", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("join Bool (T × T)", (some "join Bool (T × T)", "in1:1 in2:64", "out1:65", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("join (Bool × (T × T)) Bool", (some "join (Bool × (T × T)) Bool", "in1:65 in2:1", "out1:66", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split T Bool", (some "split T Bool", "in1:33", "out1:32 out2:1", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split Bool T", (some "split Bool T", "in1:33", "out1:1 out2:32", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split (T × Bool) (T × T)", (some "split (T × Bool) (T × T)", "in1:97", "out1:33 out2:64", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split ((T × Bool) × (T × T)) Bool", (some "split ((T × Bool) × (T × T)) Bool", "in1:98", "out1:97 out2:1", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split (Bool × T) ((T × T) × (T × T))", (some "split (Bool × T) ((T × T) × (T × T))", "in1:161", "out1:33 out2:128", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split (((T × T) × (T × T)) × (T × Bool)) Bool", (some "split (((T × T) × (T × T)) × (T × Bool)) Bool", "in1:162", "out1:161 out2:1", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split (T × (Bool × (T × T))) Bool", (some "split (T × (Bool × (T × T))) Bool", "in1:98", "out1:97 out2:1", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split (T × (T × Bool)) Bool", (some "split (T × (T × Bool)) Bool", "in1:66", "out1:65 out2:1", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split T (T × Bool)", (some "split T (T × Bool)", "in1:65", "out1:32 out2:33", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-
-
-  ,("join T Bool", (some "join T Bool", "in1:32 in2:1", "out1:33", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("join Bool T", (some "join Bool T", "in1:1 in2:32", "out1:33", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("join (T × Bool) (T × T)", (some "join (T × Bool) (T × T)", "in1:33 in2:64", "out1:97", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("join ((T × Bool) × (T × T)) Bool", (some "join ((T × Bool) × (T × T)) Bool", "in1:97 in2:1", "out1:98", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("join (Bool × T) ((T × T) × (T × T))", (some "join (Bool × T) ((T × T) × (T × T))", "in1:33 in2:128", "out1:161", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("join (T × (T × Bool)) Bool", (some "join (T × (T × Bool)) Bool", "in1:65 in2:1", "out1:66", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("join T (T × Bool)", (some "join T (T × Bool)", "in1:32 in2:33", "out1:65", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-
-
-  ,("mux (T × T)", (some "mux (T x T)", "in1?:1 in2:64 in3:64", "out1:64", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("mux (T × (T × T))", (some "mux (T × (T × T))", "in1?:1 in2:96 in3:96", "out1:96", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("mux ((T × T) × (T × T))", (some "mux ((T × T) × (T × T))", "in1?:1 in2:128 in3:128", "out1:128", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("mux ((T × T) × ((T × T) × (T × T)))", (some "mux ((T × T) × ((T × T) × (T × T)))", "in1?:1 in2:192 in3:192", "out1:192", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("mux ((Bool × T) × ((T × T) × (T × T)))", (some "mux ((Bool × T) × ((T × T) × (T × T)))", "in1?:1 in2:161 in3:161", "out1:161", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("mux (T × (Bool × (T × T)))", (some "mux (T × (Bool × (T × T)))", "in1?:1 in2:97 in3:97", "out1:97", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("mux (T × (T × Bool))", (some "mux (T × (T × Bool))", "in1?:1 in2:65 in3:65", "out1:65", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-
-
-  ,("branch (T × T)", (some "branch (T x T)", "in1:64 in2?:1", "out1+:64 out2-:64", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("branch (T × (T × T))", (some "branch (T × (T × T))", "in1:96 in2?:1", "out1+:96 out2-:96", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("branch ((T × T) × (T × T))", (some "branch ((T × T) × (T × T))", "in1:128 in2?:1", "out1+:128 out2-:128", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("branch ((T × T) x ((T × T) × (T × T)))", (some "branch (T × T) x ((T × T) × (T × T))", "in1:192 in2?:1", "out1+:192 out2-:192", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("branch (((T × T) × (T × T)) × (T × T))", (some "branch (((T × T) × (T × T)) × (T × T))", "in1:192 in2?:1", "out1+:192 out2-:192", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("branch (((T × T) × (T × T)) × (T × Bool))", (some "branch (((T × T) × (T × T)) × (T × Bool))", "in1:161 in2?:1", "out1+:161 out2-:161", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("branch (T × (Bool × (T × T)))", (some "branch (T × (Bool × (T × T)))", "in1:97 in2?:1", "out1+:97 out2-:97", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("branch (T × (T × Bool))", (some "branch (T × (T × Bool))", "in1:65 in2?:1", "out1+:65 out2-:65", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("branch ((T × Bool) × ((T × T) × (T × T)))", (some "branch ((T × Bool) × ((T × T) × (T × T)))", "in1:161 in2?:1", "out1+:161 out2-:161", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-
-
-  ,("split T T", (some "split T T", "in1:64", "out1:32 out2:32", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split T (T × T)", (some "split T (T × T)", "in1:96", "out1:32 out2:64", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split (T × T) (T × T)", (some "split (T × T) (T × T)", "in1:128", "out1:64 out2:64", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split (T × T) ((T × T) × (T × T))", (some "split (T × T) ((T × T) × (T × T))", "in1:192", "out1:64 out2:128", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split ((T × T) × (T × T)) (T × T)", (some "split ((T × T) × (T × T)) (T × T)", "in1:192", "out1:128 out2:64", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split ((T × T) × (T × T)) (T × Bool)", (some "split ((T × T) × (T × T)) (T × Bool)", "in1:161", "out1:128 out2:33", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split T (Bool × (T × T))", (some "split T (Bool × (T × T))", "in1:97", "out1:32 out2:65", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split (T × Bool) ((T × T) × (T × T))", (some "split (T × Bool) ((T × T) × (T × T))", "in1:161", "out1:33 out2:128", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("split ((T × Bool) × ((T × T) × (T × T))) Bool", (some "split ((T × Bool) × ((T × T) × (T × T))) Bool", "in1:162", "out1:161 out2:1", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-
-  ,("join T T", (some "join T T", "in1:32 in2:32", "out1:64", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("join T (T × T)", (some "join T (T × T)", "in1:32 in2:64", "out1:96", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("join (T × T) (T × T)", (some "join (T × T) (T × T)", "in1:64 in2:64", "out1:128", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("join (T × T) ((T × T) × (T × T))", (some "join (T × T) ((T × T) × (T × T))", "in1:64 in2:128", "out1:192", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("join ((T × T) × (T × T)) (T × T)", (some "join ((T × T) × (T × T)) (T × T)", "in1:128 in2:64", "out1:192", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("join (((T × T) × (T × T)) × (T × Bool)) Bool", (some "join (((T × T) × (T × T)) × (T × Bool)) Bool", "in1:161 in2:1", "out1:162", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("join ((T × T) × (T × T)) (T × Bool)", (some "join ((T × T) × (T × T)) (T × Bool)", "in1:128 in2:33", "out1:161", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("join (T × (Bool × (T × T))) Bool", (some "join (T × (Bool × (T × T))) Bool", "in1:97 in2:1", "out1:98", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("join T (Bool × (T × T))", (some "join T (Bool × (T × T))", "in1:32 in2:65", "out1:97", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("join (T × Bool) ((T × T) × (T × T))", (some "join (T × Bool) ((T × T) × (T × T))", "in1:33 in2:128", "out1:161", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-  ,("join ((T × Bool) × ((T × T) × (T × T))) Bool", (some "join ((T × Bool) × ((T × T) × (T × T))) Bool", "in1:161 in2:1", "out1:162", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-
-  ,("Entry start", (some "Entry start", "in1:0", "out1:0", [("control", "true"), ("bbID", "1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
+   ("Entry start", (some "Entry start", "in1:0", "out1:0", [("control", "true"), ("bbID", "1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("Entry", (some "Entry", "in1:0", "out1:0", [("control", "true"), ("bbID", "1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("queue T", (some "Queue", "in1:0", "out1:0", [("control", "true"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("Source", (some "Source", "", "out1:0", [("bbID", "1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-
   ,("init Bool false", (some "init Bool false", "in1:32", "out1:32", [("delay", "0.366"), ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
   ,("fork Bool 2", (some "fork Bool 2", "in1:32", "out1:32 out2:32", [("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]))
-
   ].toAssocList
+
+def translateTypes  (key : String) : Option String × String × String × List (String × String) :=
+   match TypeExpr.Parser.parseNode key with
+   | some (name, typeParams) =>
+     let l := (if name == "mux" then [("delay", "0.366")] else []) ++ [ ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]
+     match name with
+     | "join" =>
+      let s1 := TypeExpr.Parser.getSize typeParams[0]!
+      let s2 := TypeExpr.Parser.getSize typeParams[1]!
+      (some key, s!"in1:{s1} in2:{s2}", s!"out1:{s1+s2}", l)
+     | "mux" =>
+      let s1 := TypeExpr.Parser.getSize typeParams[0]!
+      (some key, s!"in1?:1 in2:{s1}", s!"out1:{s1}", l)
+     | "split" =>
+      let s1 := TypeExpr.Parser.getSize typeParams[0]!
+      let s2 := TypeExpr.Parser.getSize typeParams[1]!
+      (some key, s!"in1:{s1+s2}", s!"out1:{s1} out2:{s2}", l)
+     | "branch" =>
+      let s1 := TypeExpr.Parser.getSize typeParams[0]!
+      (some key, s!"in1:{s1} in2?:{1}", s!"out1+:{s1} out2-:{s1}", l)
+     | _ =>
+      -- Parsed correctly like queue T
+      extra_manual.find? key |>.getD (some key, "", "", [("unsupported", "true")])
+   | _ =>
+      -- Weird extra stuff in the constant map above
+      extra_manual.find? key |>.getD (some key, "", "", [("unsupported", "true")])
 
 
 def removeLetter (ch : Char) (s : String) : String :=
@@ -203,7 +157,7 @@ def dynamaticString (a: ExprHigh String) (m : AssocList String (AssocList String
     a.modules.foldlM
       (λ s k v => do
         -- search for the type of the passed node in interfaceTypes
-        let fmt := (interfaceTypes ∅).find? v.snd |>.getD (some v.snd, "", "", [("unsupported", "true")])
+        let fmt := translateTypes v.snd
         match m.find? k with
         | some input_fmt =>
           -- If the node is found to be coming from the input,
