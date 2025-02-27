@@ -438,8 +438,8 @@ Digraph G {
     "fork_23_0" -> "phi_11" [color = "red", from = "out1", to = "in1"];
     "fork_23_1" -> "phi_n9" [color = "red", from = "out2", to = "in1"];
     "fork_23_1" -> "phi_n6" [color = "red", from = "out1", to = "in1"];
-    "fork_23_2" -> "phi_10" [color = "red", from = "out2", to = "in1"];
-    "fork_23_2" -> "phiC_13" [color = "gold3", from = "out1", to = "in1"];
+    "fork_23_2" -> "phi_10" [color = "red", from = "out1", to = "in1"];
+    "fork_23_2" -> "phiC_13" [color = "gold3", from = "out2", to = "in1"];
     "fork_23_3" -> "fork_23_0" [color = "gold3", from = "out1", to = "in1"];
     "fork_23_3" -> "fork_23_1" [color = "gold3", from = "out2", to = "in1"];
     "fork_23" -> "fork_23_2" [color = "gold3", from = "out1", to = "in1"];
