@@ -35,7 +35,7 @@ def extra_manual :=
 def translateTypes  (key : String) : Option String × String × String × List (String × String) :=
    match TypeExpr.Parser.parseNode key with
    | some (name, typeParams) =>
-     let l := (if name == "mux" then [("delay", "0.366")] else []) ++ [ ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]
+     let l := (if name == "mux" || name == "merge" then [("delay", "0.366")] else []) ++ [ ("bbID", "-1"), ("tagged", "false"), ("taggers_num", "0"), ("tagger_id", "-1")]
      match name with
      | "join" =>
       if typeParams.length < 2 then
@@ -47,29 +47,58 @@ def translateTypes  (key : String) : Option String × String × String × List (
         (some key, s!"in1:{s1} in2:{s2}", s!"out1:{s1+s2}", l)
      | "mux" =>
       if typeParams.length < 1 then
-        (some key, "", "", [("unsupported", s!"true {key}")])
+        (some key, "", "", [("unsupported", s!"true #{key}")])
       else
         let s1 := TypeExpr.Parser.getSize typeParams[0]!
         (some key, s!"in1?:1 in2:{s1} in3:{s1}", s!"out1:{s1}", l)
      | "split" =>
       if typeParams.length < 2 then
-        (some key, "", "", [("unsupported", s!"true {key}")])
+        (some key, "", "", [("unsupported", s!"true #{key}")])
       else
         let s1 := TypeExpr.Parser.getSize typeParams[0]!
         let s2 := TypeExpr.Parser.getSize typeParams[1]!
         (some key, s!"in1:{s1+s2}", s!"out1:{s1} out2:{s2}", l)
      | "branch" =>
       if typeParams.length < 1 then
-        (some key, "", "", [("unsupported", s!"true {key}")])
+        (some key, "", "", [("unsupported", s!"true #{key}")])
       else
         let s1 := TypeExpr.Parser.getSize typeParams[0]!
         (some key, s!"in1:{s1} in2?:{1}", s!"out1+:{s1} out2-:{s1}", l)
+
+     -- TODO: Following four cases need to be checked carefully
+     | "sink" =>
+      if typeParams.length < 1 then
+        (some key, "", "", [("unsupported", s!"true #{key}")])
+      else
+        let s1 := TypeExpr.Parser.getSize typeParams[0]!
+        (some key, s!"in1:{s1}", s!"", l)
+     | "fork" =>
+      if typeParams.length < 1 then
+        (some key, "", "", [("unsupported", s!"true #{key}")])
+      else
+        let s1 := TypeExpr.Parser.getSize typeParams[0]!
+        (some key, s!"in1:{s1}", s!"out1:{s1} out2:{s1}", l)
+     | "merge" =>
+      if typeParams.length < 1 then
+        (some key, "", "", [("unsupported", s!"true #{key}")])
+      else
+        let s1 := TypeExpr.Parser.getSize typeParams[0]!
+        (some key, s!"in1:{s1} in2:{s1}", s!"out1:{s1}", l)
+     | "tagger_untagger_val" =>
+      if typeParams.length < 3 then
+        (some key, "", "", [("unsupported", s!"true #{key}")])
+      else
+        let sTag := TypeExpr.Parser.getSize typeParams[0]!
+        let s1 := TypeExpr.Parser.getSize typeParams[1]!
+        let s2 := TypeExpr.Parser.getSize typeParams[2]!
+        (some key, s!"in1:{s1} in2:{s1}", s!"out1:{s2} out2:{s2}", l)
+
      | _ =>
       -- Parsed correctly like queue T
-      extra_manual.find? key |>.getD (some key, "", "", [("unsupported", "true")])
+      extra_manual.find? key |>.getD (some key, "", "", [("unsupported", s!"true #{key}")])
    | _ =>
       -- Weird extra stuff in the constant map above
-      extra_manual.find? key |>.getD (some key, "", "", [("unsupported", "true")])
+      extra_manual.find? key |>.getD (some key, "", "", [("unsupported", s!"true #{key}")])
 
 
 def removeLetter (ch : Char) (s : String) : String :=
