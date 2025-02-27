@@ -288,8 +288,8 @@ framework should be enough.
     portMap ← portmappingToNameRename' sub norm
   let highered ← abstracted |>.higherSS |> ofOption (.error "Could not normalise names")
   -- let portMap ← portmappingToNameRename' sub norm
-  addRewriteInfo <| RewriteInfo.mk RewriteType.abstraction g highered sub
-                      .nil [abstraction.typ] .none (.some s!"{abstraction.typ}")
+  -- addRewriteInfo <| RewriteInfo.mk RewriteType.abstraction g highered sub
+  --                     .nil [abstraction.typ] .none (.some s!"{abstraction.typ}")
   return (highered, ⟨e_sub', abstraction.typ⟩)
   -- return (abstracted.higherS fresh_prefix, ⟨e_sub, abstraction.typ⟩)
 
@@ -318,8 +318,8 @@ still fresh in the graph.
     portMap ← portmappingToNameRename' [concretisation.typ] norm
   let concr_g ← concr.higherSS |> ofOption (.error "Could not normalise names")
   -- let outputPortMap := portMap.filter (λ lhs _ => lhs = concretisation.typ)
-  addRewriteInfo <| RewriteInfo.mk RewriteType.concretisation g concr_g [concretisation.typ] portMap
-                      .nil .none (.some s!"{concretisation.typ}")
+  -- addRewriteInfo <| RewriteInfo.mk RewriteType.concretisation g concr_g [concretisation.typ] portMap
+  --                     .nil .none (.some s!"{concretisation.typ}")
   return concr_g
 
 @[drunfold] def Rewrite.run (fresh_prefix : String) (g : ExprHigh String) (rewrite : Rewrite String)

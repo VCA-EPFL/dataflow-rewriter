@@ -102,7 +102,7 @@ def pureGenerator' (g : ExprHigh String) : List JSLangRewrite → Nat → Rewrit
   let rw ← rewrite_fix rw ([PureSeqComp.rewrite] ++ movePureJoin ++ reduceSink)
   return rw
 | jsRw :: rst, fuel+1 => do
-  addRewriteInfo {(default : RewriteInfo) with debug := .some s!"{repr jsRw}"}
+  -- addRewriteInfo {(default : RewriteInfo) with debug := .some s!"{repr jsRw}"}
   let rw ← jsRw.mapToRewrite.run s!"jsrw_{rst.length + 1}_" g
   let rst ← update_state JSLang.upd rst
 
