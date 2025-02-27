@@ -194,7 +194,7 @@ def fixComponentNames (s : String) : String :=
 def dynamaticString (a: ExprHigh String) (m : AssocList String (AssocList String String)): Option String := do
   -- let instances :=
   --   a.modules.foldl (λ s inst mod => s ++ s!"\n {inst} [mod = \"{mod}\"];") ""
-  let a ← a.normaliseNames
+  -- let a ← a.normaliseNames
   let modules ←
     a.modules.foldlM
       (λ s k v => do

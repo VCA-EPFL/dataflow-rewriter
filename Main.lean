@@ -75,8 +75,8 @@ def reduceSink := [SplitSinkRight.rewrite, SplitSinkLeft.rewrite, PureSink.rewri
 def movePureJoin := [PureJoinLeft.rewrite, PureJoinRight.rewrite, PureSplitRight.rewrite, PureSplitLeft.rewrite]
 
 def normaliseLoop (e : ExprHigh String) : RewriteResult (ExprHigh String) := do
-  let rw ← rewrite_loop e combineRewrites
-  let rw ← rewrite_fix rw reduceRewrites
+  let rw ← rewrite_loop (pref := "rw_loop1") e combineRewrites
+  let rw ← rewrite_fix (pref := "rw_loop2") rw reduceRewrites
   return rw
 
 def allPattern (f : String → Bool) : Pattern String :=
@@ -85,20 +85,20 @@ def allPattern (f : String → Bool) : Pattern String :=
 def pureGeneration (rw : ExprHigh String) (p1 p2 : Pattern String) : RewriteResult (ExprHigh String) := do
   -- Convert most of the dataflow graph to pure.
   -- let rw ← rewrite_fix rw <| PureRewrites.specialisedPureRewrites LoopRewrite.nonPureMatcher
-  let rw ← rewrite_fix rw <| PureRewrites.specialisedPureRewrites <| p1
+  let rw ← rewrite_fix (pref := "rw_pure1") rw <| PureRewrites.specialisedPureRewrites <| p1
   -- Move forks as high as possible, and also move pure over joins and under sinks.  Also remove sinks.
-  let rw ← rewrite_fix rw <| [ForkPure.rewrite, ForkJoin.rewrite] ++ movePureJoin ++ reduceSink
+  let rw ← rewrite_fix (pref := "rw_pure2") rw <| [ForkPure.rewrite, ForkJoin.rewrite] ++ movePureJoin ++ reduceSink
   -- Turn forks into pure.
-  let rw ← rewrite_fix rw <| PureRewrites.specialisedPureRewrites p2
+  let rw ← rewrite_fix (pref := "rw_pure3") rw <| PureRewrites.specialisedPureRewrites p2
   -- Move pures to the top and bottom again, we are left with split and join nodes.
-  let rw ← rewrite_fix rw <| [PureSeqComp.rewrite] ++ movePureJoin ++ reduceSink
+  let rw ← rewrite_fix (pref := "rw_pure4") rw <| [PureSeqComp.rewrite] ++ movePureJoin ++ reduceSink
   return rw
 
-def pureGenerator' (g : ExprHigh String) : List JSLangRewrite → Nat → RewriteResult (ExprHigh String)
+def pureGenerator' (n : Nat) (g : ExprHigh String) : List JSLangRewrite → Nat → RewriteResult (ExprHigh String)
 | _, 0 => throw <| .error "No fuel"
 | [], _ => pure g
 | [jsRw], _ => do
-  let rw ← jsRw.mapToRewrite.run "jsrw_1_" g
+  let rw ← jsRw.mapToRewrite.run s!"jsrw_{n}_1_" g
   let rw ← rewrite_fix rw ([PureSeqComp.rewrite] ++ movePureJoin ++ reduceSink)
   return rw
 | jsRw :: rst, fuel+1 => do
@@ -107,9 +107,9 @@ def pureGenerator' (g : ExprHigh String) : List JSLangRewrite → Nat → Rewrit
   let rst ← update_state JSLang.upd rst
 
   let (rw, rst) ← rewrite_fix_rename rw ([PureSeqComp.rewrite] ++ movePureJoin ++ reduceSink) JSLang.upd rst
-  pureGenerator' rw rst fuel
+  pureGenerator' n rw rst fuel
 
-def pureGenerator g js := pureGenerator' g js (js.length + 1)
+def pureGenerator n g js := pureGenerator' n g js (js.length + 1)
 
 def eggPureGenerator (fuel : Nat) (parsed : CmdArgs) (p : Pattern String) (g : ExprHigh String) (st : List RewriteInfo) : IO (ExprHigh String × List RewriteInfo) := do
   match fuel with
@@ -118,7 +118,7 @@ def eggPureGenerator (fuel : Nat) (parsed : CmdArgs) (p : Pattern String) (g : E
     let jsRw ← rewriteWithEgg (eggCmd := parsed.graphitiOracle.getD "graphiti_oracle") p g
     if jsRw.length = 0 then return (g, st)
     IO.eprintln (repr jsRw)
-    match pureGenerator g jsRw |>.run st with
+    match pureGenerator fuel g jsRw |>.run st with
     | .ok g' st' => eggPureGenerator fuel parsed p g' st'
     | .error e st' =>
       match parsed.logFile with
@@ -128,12 +128,14 @@ def eggPureGenerator (fuel : Nat) (parsed : CmdArgs) (p : Pattern String) (g : E
       IO.eprintln e
       IO.Process.exit 1
 
-def renameAssoc (assoc : AssocList String (AssocList String String)) (r : RewriteInfo) : AssocList String (AssocList String String) :=
-  assoc.mapKey (λ x => match r.renamed_input_nodes.find? x with
-                       | .some (.some x') => x'
-                       | _ => x)
+def renameAssoc (g : ExprHigh String) (assoc : AssocList String (AssocList String String)) (r : RewriteInfo) : AssocList String (AssocList String String) :=
+  assoc.mapKey (λ x =>
+    if x ∈ g.modules.toList.map Prod.fst then x else
+    match r.renamed_input_nodes.find? x with
+    | .some (.some x') => x'
+    | _ => x)
 
-def renameAssocAll assoc (rlist : List RewriteInfo) := rlist.foldl renameAssoc assoc
+def renameAssocAll assoc (rlist : List RewriteInfo) (g : ExprHigh String) := rlist.foldl (renameAssoc g) assoc
 
 def writeLogFile (parsed : CmdArgs) (st : List RewriteInfo) := do
   match parsed.logFile with
@@ -202,14 +204,13 @@ def main (args : List String) : IO Unit := do
   let mut rewrittenExprHigh := exprHigh
   let mut st : List RewriteInfo := default
 
-  let mut st'' := st
   if !parsed.parseOnly then
-    let (g', st', st''') ← rewriteGraphAbs parsed rewrittenExprHigh st
-    rewrittenExprHigh := g'; st := st'; st'' := st'''
-
+    let (g', _, st') ← rewriteGraphAbs parsed rewrittenExprHigh st
+    rewrittenExprHigh := g'; st := st'
+  IO.println (repr (rewrittenExprHigh.modules.toList.map Prod.fst))
   let some l :=
     if parsed.noDynamaticDot then pure (toString rewrittenExprHigh)
-    else dynamaticString rewrittenExprHigh ((renameAssocAll assoc st).append (renameAssocAll assoc st''))
+    else dynamaticString rewrittenExprHigh ((renameAssocAll assoc st rewrittenExprHigh))
     | IO.eprintln s!"Failed to print ExprHigh: {rewrittenExprHigh}"
 
   match parsed.outputFile with
