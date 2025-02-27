@@ -86,7 +86,7 @@ def rhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     split_bool [typeImp = $(⟨_, split T Bool⟩), type = $(s!"split {Tₛ} Bool")];
     join_tag [typeImp = $(⟨_, join TagT T⟩), type = $(s!"join TagT {Tₛ}")];
     join_bool [typeImp = $(⟨_, join (TagT × T) Bool⟩), type = $(s!"join (TagT×{Tₛ}) Bool")];
-    mod [typeImp = $(⟨_, pure f⟩), type = "pure {Tₛ} ({Tₛ}×Bool)"];
+    mod [typeImp = $(⟨_, pure f⟩), type = $(s!"pure {Tₛ} ({Tₛ}×Bool)")];
 
     i_in -> tagger [to="in2"];
     tagger -> o_out [from="out2"];
