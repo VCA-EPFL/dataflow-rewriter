@@ -164,6 +164,7 @@ def rewriteGraphAbs (parsed : CmdArgs) (g : ExprHigh String) (st : List RewriteI
   let a : Abstraction String := ⟨λ g => LoopRewrite.boxLoopBody g >>= λ (a, _b) => pure (a, []), "M"⟩
   let ((bigg, concr), st) ← runRewriter parsed st <| a.run "abstr_" g
   let .some g := concr.expr.higherSS | throw <| .userError s!"{decl_name%}: failed to higher expr"
+  let st_final := st
 
   let (g, st) ← runRewriter parsed st (pureGeneration g (allPattern LoopRewrite.isNonPure') (allPattern LoopRewrite.isNonPureFork'))
 
@@ -179,7 +180,7 @@ def rewriteGraphAbs (parsed : CmdArgs) (g : ExprHigh String) (st : List RewriteI
   let newConcr' : Concretisation String := ⟨concr.1, typ⟩
   let (g, st) ← runRewriter parsed st <| newConcr'.run "concr2_" g
 
-  return (g, st)
+  return (g, st_final)
 
 def main (args : List String) : IO Unit := do
   let parsed ←
@@ -204,6 +205,7 @@ def main (args : List String) : IO Unit := do
   if !parsed.parseOnly then
     let (g', st') ← rewriteGraphAbs parsed rewrittenExprHigh st
     rewrittenExprHigh := g'; st := st'
+  IO.println (repr <| renameAssocAll assoc st)
 
   let some l :=
     if parsed.noDynamaticDot then pure (toString rewrittenExprHigh)
