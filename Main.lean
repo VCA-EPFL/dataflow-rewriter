@@ -169,12 +169,15 @@ def rewriteGraphAbs (parsed : CmdArgs) (g : ExprHigh String) (st : List RewriteI
 
   let (g, st) ← eggPureGenerator 100 parsed LoopRewrite.boxLoopBodyOther' g st <* writeLogFile parsed st
 
-  let .some subexpr := g.lower | throw <| .userError s!"{decl_name%}: failed to lower graph"
+  let .some subexpr@(.base pmap typ) := g.lower | throw <| .userError s!"{decl_name%}: failed to lower graph"
   let newConcr : Concretisation String := ⟨subexpr, concr.2⟩
 
   let (g, st) ← runRewriter parsed st <| newConcr.run "concr_" bigg
 
   let (g, st) ← runRewriter parsed st (LoopRewrite2.rewrite.run "loop_rw_" g)
+
+  let newConcr' : Concretisation String := ⟨concr.1, typ⟩
+  let (g, st) ← runRewriter parsed st <| newConcr'.run "concr2_" g
 
   return (g, st)
 
