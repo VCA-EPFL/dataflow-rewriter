@@ -244,17 +244,17 @@ def findBase (typ : Ident) : ExprLow Ident → Option (PortMapping Ident)
   | some port => port
   | none => e₂.findBase typ
 
-def mapInputPorts (f : InternalPort Ident → InternalPort Ident) : ExprLow Ident → ExprLow Ident
+@[drunfold] def mapInputPorts (f : InternalPort Ident → InternalPort Ident) : ExprLow Ident → ExprLow Ident
 | .base map typ' => .base ⟨map.input.mapVal (λ _ => f), map.output⟩ typ'
 | .connect o i e => e.mapInputPorts f  |> .connect o (f i)
 | .product e₁ e₂ => .product (e₁.mapInputPorts f) (e₂.mapInputPorts f)
 
-def mapOutputPorts (f : InternalPort Ident → InternalPort Ident) : ExprLow Ident → ExprLow Ident
+@[drunfold] def mapOutputPorts (f : InternalPort Ident → InternalPort Ident) : ExprLow Ident → ExprLow Ident
 | .base map typ' => .base ⟨map.input, map.output.mapVal (λ _ => f)⟩ typ'
 | .connect o i e => e.mapOutputPorts f  |> .connect (f o) i
 | .product e₁ e₂ => .product (e₁.mapOutputPorts f) (e₂.mapOutputPorts f)
 
-def mapPorts2 (f g : InternalPort Ident → InternalPort Ident) (e : ExprLow Ident) : ExprLow Ident :=
+@[drunfold] def mapPorts2 (f g : InternalPort Ident → InternalPort Ident) (e : ExprLow Ident) : ExprLow Ident :=
   e.mapInputPorts f |>.mapOutputPorts g
 
 def invertible {α} [DecidableEq α] (p : Batteries.AssocList α α) : Bool :=
