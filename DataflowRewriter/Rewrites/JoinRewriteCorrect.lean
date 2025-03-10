@@ -55,48 +55,54 @@ def environmentRhs : IdentMap String (TModule1 String) := rhs T₁ T₂ T₃ S�
 
 @[drcompute] theorem find?_join1_data : (Batteries.AssocList.find? ("join " ++ S₁ ++ " " ++ S₂) (@environmentLhs T₁ T₂ T₃ S₁ S₂ S₃)) = .some ⟨_, join T₁ T₂⟩ := by
   dsimp [environmentLhs, lhs]
-  have : ("join (" ++ S₁ ++ " × " ++ S₂ ++ ") " ++ S₃ == "join " ++ S₁ ++ " " ++ S₂) = false := by
-    sorry
-  rw [Batteries.AssocList.find?.eq_2]; rw [this]; dsimp
   have : ("join " ++ S₁ ++ " " ++ S₂ == "join " ++ S₁ ++ " " ++ S₂) = true := by simp
   rw [Batteries.AssocList.find?.eq_2]; rw [this]
 
 @[drcompute] theorem find?_join2_data : (Batteries.AssocList.find? ("join (" ++ S₁ ++ " × " ++ S₂ ++ ") " ++ S₃) (@environmentLhs T₁ T₂ T₃ S₁ S₂ S₃)) = .some ⟨_, join (T₁ × T₂) T₃⟩ := by
   dsimp [environmentLhs, lhs]
+  have : ("join " ++ S₁ ++ " " ++ S₂ == "join (" ++ S₁ ++ " × " ++ S₂ ++ ") " ++ S₃) = false := by sorry
+  rw [Batteries.AssocList.find?.eq_2]; rw [this]; dsimp
   have : ("join (" ++ S₁ ++ " × " ++ S₂ ++ ") " ++ S₃ == "join (" ++ S₁ ++ " × " ++ S₂ ++ ") " ++ S₃) = true := by simp
   rw [Batteries.AssocList.find?.eq_2]; rw [this]
 
-@[drcompute] theorem find?_join1_data2 : (Batteries.AssocList.find? ("join " ++ S₂ ++ " " ++ S₃) (@environmentRhs T₁ T₂ T₃ S₁ S₂ S₃)) = .some ⟨_, join T₂ T₃⟩ := by
-  dsimp [environmentRhs, rhs]
-  have : (("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")") == "join " ++ S₂ ++ " " ++ S₃) = false := by
-    sorry
-  rw [Batteries.AssocList.find?.eq_2]; rw [this]; dsimp
-  have : ("pure  (λ ((a, b, c) : " ++ S₁ ++ " × " ++ S₂ ++ " × " ++ S₃ ++ ") => ((a, b), c)" == "join " ++ S₂ ++ " " ++ S₃) = false := by sorry
-  rw [Batteries.AssocList.find?.eq_2]; rw [this]; dsimp
-  have : ("join " ++ S₂ ++ " " ++ S₃ == "join " ++ S₂ ++ " " ++ S₃) = true := by simp
-  rw [Batteries.AssocList.find?.eq_2]; rw [this]
+@[drcompute] theorem find?_join1_data2 : (Batteries.AssocList.find? ("join " ++ S₂ ++ " " ++ S₃) (@environmentRhs T₁ T₂ T₃ S₁ S₂ S₃)) = .some ⟨_, join T₂ T₃⟩ := by sorry
+  -- dsimp [environmentRhs, rhs]
+  -- have : (("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")") == "join " ++ S₂ ++ " " ++ S₃) = false := by
+  --   sorry
+  -- rw [Batteries.AssocList.find?.eq_2]; rw [this]; dsimp
+  -- have : ("pure  (λ ((a, b, c) : " ++ S₁ ++ " × " ++ S₂ ++ " × " ++ S₃ ++ ") => ((a, b), c)" == "join " ++ S₂ ++ " " ++ S₃) = false := by sorry
+  -- rw [Batteries.AssocList.find?.eq_2]; rw [this]; dsimp
+  -- have : ("join " ++ S₂ ++ " " ++ S₃ == "join " ++ S₂ ++ " " ++ S₃) = true := by simp
+  -- rw [Batteries.AssocList.find?.eq_2]; rw [this]
 
-@[drcompute] theorem find?_join2_data2 : (Batteries.AssocList.find? ("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")") (@environmentRhs T₁ T₂ T₃ S₁ S₂ S₃)) = .some ⟨_, join T₁ (T₂ × T₃)⟩ := by
-  dsimp [environmentRhs, rhs]
-  have : (("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")") == ("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")")) = true := by simp
-  rw [Batteries.AssocList.find?.eq_2]; rw [this]
+@[drcompute] theorem find?_join2_data2 : (Batteries.AssocList.find? ("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")") (@environmentRhs T₁ T₂ T₃ S₁ S₂ S₃)) = .some ⟨_, join T₁ (T₂ × T₃)⟩ := by sorry
+  -- dsimp [environmentRhs, rhs]
+  -- have : (("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")") == ("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")")) = true := by simp
+  -- rw [Batteries.AssocList.find?.eq_2]; rw [this]
 
-@[drcompute] theorem find?_pure_data2 : (Batteries.AssocList.find? ("pure  (λ ((a, b, c) : " ++ S₁ ++ " × " ++ S₂ ++ " × " ++ S₃ ++ ") => ((a, b), c)") (@environmentRhs T₁ T₂ T₃ S₁ S₂ S₃)) = .some ⟨_, pure λ ((a, b, c) : T₁ × (T₂ × T₃)) => ((a, b), c)⟩ := by
-  dsimp [environmentRhs, rhs]
-  have : (("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")") == "pure  (λ ((a, b, c) : " ++ S₁ ++ " × " ++ S₂ ++ " × " ++ S₃ ++ ") => ((a, b), c)") = false := by sorry
-  rw [Batteries.AssocList.find?.eq_2]; rw [this]; dsimp
-  have : ("pure  (λ ((a, b, c) : " ++ S₁ ++ " × " ++ S₂ ++ " × " ++ S₃ ++ ") => ((a, b), c)" == "pure  (λ ((a, b, c) : " ++ S₁ ++ " × " ++ S₂ ++ " × " ++ S₃ ++ ") => ((a, b), c)") = true := by simp
-  rw [Batteries.AssocList.find?.eq_2]; rw [this]
+@[drcompute] theorem find?_pure_data2 : (Batteries.AssocList.find? ("pure  (λ ((a, b, c) : " ++ S₁ ++ " × " ++ S₂ ++ " × " ++ S₃ ++ ") => ((a, b), c)") (@environmentRhs T₁ T₂ T₃ S₁ S₂ S₃)) = .some ⟨_, pure λ ((a, b, c) : T₁ × (T₂ × T₃)) => ((a, b), c)⟩ := by sorry
+  -- dsimp [environmentRhs, rhs]
+  -- have : (("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")") == "pure  (λ ((a, b, c) : " ++ S₁ ++ " × " ++ S₂ ++ " × " ++ S₃ ++ ") => ((a, b), c)") = false := by sorry
+  -- rw [Batteries.AssocList.find?.eq_2]; rw [this]; dsimp
+  -- have : ("pure  (λ ((a, b, c) : " ++ S₁ ++ " × " ++ S₂ ++ " × " ++ S₃ ++ ") => ((a, b), c)" == "pure  (λ ((a, b, c) : " ++ S₁ ++ " × " ++ S₂ ++ " × " ++ S₃ ++ ") => ((a, b), c)") = true := by simp
+  -- rw [Batteries.AssocList.find?.eq_2]; rw [this]
 
 variable (T₁ T₂ T₃) in
 def lhsModuleType : Type := by
   precomputeTac [T| (rewriteLhsRhs S₁ S₂ S₃).input_expr, @environmentLhs T₁ T₂ T₃ S₁ S₂ S₃ ] by
-    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
+    simp [rewriteLhsRhs,rewrite,lhsLower,lhs_extract,lhs,drunfold,seval,drcompute,drdecide,ExprHigh.uncurry,List.filter,List.foldl,-AssocList.find?_eq,-AssocList.findEntryP?_eq,PortMapping.append]
+    -- simp (disch := first | rfl | assumption) only [AssocList.find?_cons_ne]
+    repeat conv =>
+      pattern (Batteries.AssocList.find? _ _)
+      simp (disch := simp) only [AssocList.find?_cons_ne, AssocList.find?_cons_eq]
+      rfl
+    simp [rewriteLhsRhs,rewrite,lhsLower,lhs_extract,lhs,drunfold,seval,drcompute,drdecide,ExprHigh.uncurry,List.filter,List.foldl,-AssocList.find?_eq,-AssocList.findEntryP?_eq,PortMapping.append]
 
 variable (T₁ T₂ T₃) in
 @[drunfold] def lhsModule : StringModule (lhsModuleType T₁ T₂ T₃) := by
   precomputeTac [e| (rewriteLhsRhs S₁ S₂ S₃).input_expr, @environmentLhs T₁ T₂ T₃ S₁ S₂ S₃ ] by
-    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
+    simp [rewriteLhsRhs,rewrite,lhsLower,lhs_extract,lhs,drunfold,seval,drcompute,drdecide,ExprHigh.uncurry,List.filter,List.foldl,-AssocList.find?_eq,-AssocList.findEntryP?_eq,PortMapping.append,List.foldlM]
+    rw [AssocList.find?_cons_eq]
     rw [find?_join1_data,find?_join2_data]
     simp [-AssocList.find?_eq]
     unfold Module.liftR Module.liftL

@@ -31,11 +31,11 @@ def lhs (T₁ T₂ T₃ : Type) (S₁ S₂ S₃ : String) : ExprHigh String × I
     join2 -> o_out [from = "out1"];
   ]
 
-def lhs_extract S₁ S₂ S₃ := (lhs Unit Unit Unit S₁ S₂ S₃).fst.extract ["join1", "join2"] |>.get rfl
+def lhs_extract S₁ S₂ S₃ := (lhs Unit Unit Unit S₁ S₂ S₃).fst.reorder ["join2", "join1"] |>.get rfl
 
-theorem double_check_empty_snd S₁ S₂ S₃ : (lhs_extract S₁ S₂ S₃).snd = ExprHigh.mk ∅ ∅ := by rfl
+-- theorem double_check_empty_snd S₁ S₂ S₃ : (lhs_extract S₁ S₂ S₃).snd = ExprHigh.mk ∅ ∅ := by rfl
 
-def lhsLower S₁ S₂ S₃ := (lhs_extract S₁ S₂ S₃).fst.lower.get rfl
+def lhsLower S₁ S₂ S₃ := (lhs_extract S₁ S₂ S₃).lower.get rfl
 
 def rhs (T₁ T₂ T₃ : Type) (S₁ S₂ S₃ : String) : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i_0 [type = "io"];

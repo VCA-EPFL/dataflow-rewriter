@@ -295,4 +295,14 @@ theorem bijectivePortRenaming_bijective {α} [DecidableEq α] {p : AssocList α 
 
 theorem bijectivePortRenaming_id {α} [DecidableEq α] : @bijectivePortRenaming α _ ∅ = id := by rfl
 
+theorem find?_cons_eq {α β} [DecidableEq α] {m : AssocList α β} {x : α} {v : β} :
+  (m.cons x v).find? x = .some v := by simp
+
+theorem find?_cons_ne {α β} [DecidableEq α] {m : AssocList α β} {y x : α} {v : β} :
+  x ≠ y → (m.cons y v).find? x = m.find? x := by
+  intros
+  rw [AssocList.find?.eq_2]
+  have : (y == x) = false := by symm_saturate; simp [*]
+  simp [*]
+
 end Batteries.AssocList

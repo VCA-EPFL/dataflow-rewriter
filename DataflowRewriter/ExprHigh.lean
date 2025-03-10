@@ -252,7 +252,7 @@ variable {Ident : Type _}
 variable [DecidableEq Ident]
 variable [Inhabited Ident]
 
-@[drunfold] def reorder (g : ExprHigh Ident) (sub : List Ident) : ExprHigh Ident :=
+@[drunfold] def reorder' (g : ExprHigh Ident) (sub : List Ident) : ExprHigh Ident :=
   let m1 := g.modules.filter (λ k v => k ∈ sub)
   let m2 := g.modules.filter (λ k v => k ∉ sub)
   {g with modules := m1 ++ m2}
@@ -269,6 +269,14 @@ variable [Inhabited Ident]
     (λ x => (mergedPortMapping.output.findEntryP? (λ _ k => k = x.output)).isSome
             && (mergedPortMapping.input.findEntryP? (λ _ k => k = x.input)).isSome)
   return (⟨ modules.toList.reverse.toAssocList, connections.fst ⟩, ⟨ g.modules.filter (λ k _ => k ∉ sub), connections.snd ⟩)
+
+@[drunfold] def reorder (g : ExprHigh Ident) (sub : List Ident)
+  : Option (ExprHigh Ident) := do
+  let modules : IdentMap Ident (PortMapping Ident × Ident) ← sub.foldlM (λ a b => do
+      let l ← g.modules.find? b
+      return a.cons b l
+    ) ∅
+  return ⟨modules, g.connections⟩
 
 -- @[drunfold] def replace [FreshIdent Ident]
 --   (g : ExprHigh Ident) (sub : List Ident) (g' : ExprHigh Ident)
