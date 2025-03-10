@@ -30,3 +30,5 @@ import DataflowRewriter.Rewrites.JoinAssocR
 import DataflowRewriter.Rewrites.JoinComm
 import DataflowRewriter.Rewrites.ForkPure
 import DataflowRewriter.Rewrites.ForkJoin
+import DataflowRewriter.Rewrites.JoinRewrite
+import DataflowRewriter.Rewrites.JoinRewriteCorrect
