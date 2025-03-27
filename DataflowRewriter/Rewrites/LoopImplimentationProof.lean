@@ -56,6 +56,8 @@ inductive state_relation : rhsGhostType Data -> Prop where
   ( ∀ tag d n i, x_tagM.find? tag = some (d, n, i) -> (tag, i ) ∈ x_tagT ∧ iterate f i n d) ->
   ( ∀ d, d ∈ x_tagD -> d.2 = (0, d.1)) ->
   ( ∀ tag i, (tag, i) ∈ x_tagT -> ∃ d n, iterate f i n d) ->
+  ( ∀ e, e ∈ x_tagD -> ∃ d n, iterate f e.1 n d) ->
+  -- ( ∀ tag i, (i) ∈ x_tagD -> ∃ d n, iterate f i n d) ->
   state_relation s
 
 
@@ -76,9 +78,8 @@ inductive lhs_is_empty  : lhsType Data -> Prop where
           (s_initB = true -> s_initL = []) ∧ (s_initB = false ->  s_initL = [false]) ->
           lhs_is_empty s
 
-
 theorem flushing_lhs {n v} {s i s_queue_out s_initL s_initB} :
-  ⟨s_queue_out, [], ⟨s_initL, s_initB⟩, [], ⟨[], []⟩ ,⟨[], []⟩, ⟨[], []⟩, [], [i], [] ⟩ = s ->
+  ⟨s_queue_out, [], ⟨s_initL, s_initB⟩, [], ⟨[], []⟩ ,⟨[], []⟩, ⟨[], []⟩, [i], [], [] ⟩ = s ->
   (s_initB = true -> s_initL = []) ∧ (s_initB = false ->  s_initL = [false]) ->
   iterate f i n v ->
   ∃ s'', existSR (lhsEvaled f).internals s s''
@@ -189,7 +190,7 @@ theorem state_relation_preserve:
     rule ∈ ( rhsGhostEvaled f).internals ->
     rule s s' ->
     state_relation f s ->
-    state_relation f s' := by stop
+    state_relation f s' := by
   intro s s' rule h1 h2 h3
   let ⟨ x_module, ⟨x_branchD, x_branchB⟩, x_merge, ⟨x_tagT, x_tagM, x_tagD ⟩, ⟨x_splitD, x_splitB⟩⟩ := s
   let ⟨ x_module', ⟨x_branchD', x_branchB'⟩, x_merge', ⟨x_tagT', x_tagM', x_tagD' ⟩, ⟨x_splitD', x_splitB'⟩⟩ := s'
@@ -201,7 +202,7 @@ theorem state_relation_preserve:
     simp_all; repeat cases ‹_ ∧ _›
     subst_vars
     cases h3
-    rename_i h h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 H13 H14 H15 Hnew
+    rename_i h h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 H13 H14 H15 Hnew Hnewnew
     simp at h
     repeat cases ‹_ ∧ _›
     subst_vars
@@ -221,8 +222,7 @@ theorem state_relation_preserve:
       specializeAll i'
       simp_all
       cases h1
-      . subst_vars
-        aesop
+      . subst_vars; aesop
       . aesop
     . clear h10 h9 h4 h3 H13 H14
       rename_i h _
@@ -299,7 +299,14 @@ theorem state_relation_preserve:
       cases h1 <;> rename_i h1
       . specialize Hnew tag i h1; assumption
       . simp at h1; subst_vars
-        admit
+        obtain ⟨⟨newC11, newC12⟩, newC21, newC22⟩ := newC
+        cases h1
+        clear H14
+        dsimp at Hnewnew
+        specialize Hnewnew (i, newC21, newC22)
+        specialize Hnewnew (by simp)
+        dsimp at Hnewnew; assumption
+    · intros; apply Hnewnew; simp [*]
   . dsimp at h2
     obtain ⟨cons, newC, h⟩ := h2
     obtain ⟨ x_module', ⟨x_branchD', x_branchB'⟩, x_merge', ⟨x_tagT', x_tagM', x_tagD' ⟩, ⟨x_splitD', x_splitB'⟩⟩ := cons
@@ -307,7 +314,7 @@ theorem state_relation_preserve:
     simp_all; repeat cases ‹_ ∧ _›
     subst_vars
     cases h3
-    rename_i h h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 H13 H14 H15 Hnew
+    rename_i h h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 H13 H14 H15 Hnew Hnew'
     simp at h
     repeat cases ‹_ ∧ _›
     subst_vars
@@ -529,7 +536,7 @@ theorem state_relation_preserve:
     simp_all; repeat cases ‹_ ∧ _›
     subst_vars
     cases h3
-    rename_i h h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 H13 H14 H15 Hnew
+    rename_i h h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 H13 H14 H15 Hnew Hnew2
     simp at h
     repeat cases ‹_ ∧ _›
     subst_vars
@@ -596,7 +603,7 @@ theorem state_relation_preserve:
     simp_all; repeat cases ‹_ ∧ _›
     subst_vars
     cases h3
-    rename_i h h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 H13 H14 H15 Hnew
+    rename_i h h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 H13 H14 H15 Hnew Hnew2
     simp at h
     repeat cases ‹_ ∧ _›
     subst_vars
@@ -647,7 +654,7 @@ theorem state_relation_preserve:
       simp_all; repeat cases ‹_ ∧ _›
       subst_vars
       cases h3
-      rename_i h h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 H13 H14 H15 Hnew
+      rename_i h h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 H13 H14 H15 Hnew Hnew2
       simp at h
       repeat cases ‹_ ∧ _›
       subst_vars
@@ -679,7 +686,7 @@ theorem state_relation_preserve:
       simp_all; repeat cases ‹_ ∧ _›
       subst_vars
       cases h3
-      rename_i h h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 H13 H14 H15 Hnew
+      rename_i h h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 H13 H14 H15 Hnew Hnew2
       simp at h
       repeat cases ‹_ ∧ _›
       subst_vars
@@ -712,7 +719,7 @@ theorem state_relation_preserve:
     simp_all; repeat cases ‹_ ∧ _›
     subst_vars
     cases h3
-    rename_i h h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 H13 H14 H15 Hnew
+    rename_i h h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 H13 H14 H15 Hnew Hnew2
     simp at h
     repeat cases ‹_ ∧ _›
     subst_vars
@@ -785,7 +792,7 @@ theorem state_relation_preserve:
     simp_all; repeat cases ‹_ ∧ _›
     subst_vars
     cases h3
-    rename_i h h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 H13 H14 H15 Hnew
+    rename_i h h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h13 H13 H14 H15 Hnew Hnew2
     simp at h
     repeat cases ‹_ ∧ _›
     subst_vars
@@ -849,7 +856,18 @@ theorem state_relation_preserve:
         repeat cases ‹_ ∧ _›
         subst_vars
         rename_i H _ _ ; cases H; rename_i i'' H
-        constructor <;> admit
+        constructor
+        · have inright : ∀ {A} (l1 l2 : List A) (a : A), a ∈ l2 → a ∈ l1 ++ l2 := by sorry
+          specialize h12 (newC.1.1, newC.2.2) (by (repeat rw[List.map_append]); dsimp; ac_nf; apply inright; apply inright; apply inright; simp)
+          obtain ⟨⟨ newCT, newCD⟩, newCN, newCDI⟩ := newC
+          rename_i h; cases h
+          assumption
+        · specialize h10 newC
+            (by (repeat rw[List.map_append]); skip; simp [List.zip, List.filter, List.map])
+          obtain ⟨⟨ newCT, newCD⟩, newCN, newCDI⟩ := newC
+          dsimp at *
+          rename_i h; cases h
+          assumption
 
 
 /-
@@ -887,7 +905,7 @@ theorem refine:
       rename Bool => s_initB
       rename List Bool => s_initL
       rename _ ∧ _ => init_P
-      obtain HH := HH (s := (s_queue_out_d, [], (s_initL, s_initB), [], ([], []), ([], []), ([], []), [], [v], [])) rfl (by assumption) (by assumption)
+      obtain HH := HH (s := (s_queue_out_d, [], (s_initL, s_initB), [], ([], []), ([], []), ([], []), [v], [], [])) rfl (by assumption) (by assumption)
       obtain ⟨ s'', HH, HEQ ⟩ := HH
       cases HEQ
       apply Exists.intro ⟨_, _, ⟨_, _⟩, _, ⟨_, _⟩ ,⟨_, _⟩, ⟨_, _⟩, _, _, _⟩ ; constructor; constructor
@@ -904,7 +922,6 @@ theorem refine:
             cases H1
             repeat cases ‹_ ∧ _›
             subst_vars
-            dsimp
             rename_i hh1 hh2 hh3 hh4 hh5 hh6
             simp at hh1; simp at hh2; simp at hh3; simp at hh4; simp at hh5; simp at hh6
             constructor <;> (try rfl) <;> dsimp
@@ -914,7 +931,6 @@ theorem refine:
               simp at hh3; simp at hh1
               repeat cases ‹_ ∧ _›
               subst_vars
-              dsimp
               intro elem h1
               simp at hh6; rw[hh6] at h1
               rw[List.mem_append] at h1
@@ -1257,10 +1273,6 @@ theorem refine:
           assumption
         . assumption
         . assumption
-
-
-
-
 
 end Proof
 end DataflowRewriter.LoopRewrite
