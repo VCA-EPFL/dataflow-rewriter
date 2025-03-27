@@ -47,7 +47,28 @@ def lhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String
 
     c_i -> condFork [to="in1"];
     d_i -> branch [to="in1"];
-    condFork -> branch [from="out1", to="in2"];
+    condFork -> branch [from="out2", to="in2"];
+    condFork -> init [from="out2", to="in1"];
+
+    branch -> o_br_t [from = "out1"];
+    branch -> o_br_f [from = "out2"];
+    init -> o_init [from = "out1"];
+  ]
+
+def lhs' (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
+    d_i [type = "io"];
+    c_i [type = "io"];
+    o_br_t [type = "io"];
+    o_br_f [type = "io"];
+    o_init [type = "io"];
+
+    branch [typeImp = $(⟨_, branch T⟩), type = $("branch " ++ Tₛ)];
+    condFork [typeImp = $(⟨_, fork Bool 2⟩), type = "fork Bool 2"];
+    init [typeImp = $(⟨_, init Bool false⟩), type = "init Bool false"];
+
+    c_i -> condFork [to="in1"];
+    d_i -> branch [to="in1"];
+    condFork -> branch [from="out2", to="in2"];
     condFork -> init [from="out2", to="in1"];
 
     branch -> o_br_t [from = "out1"];
