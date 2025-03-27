@@ -272,8 +272,8 @@ to ensure two different properties.  In many cases just having bijectiveness is 
 ensure that one is renaming correctly.
 -/
 axiom mapKey_comm {α} {m : PortMap Ident α} {inst : PortMap Ident (InternalPort Ident)} {f}:
-  m.mapKey ((inst.mapVal λ _ => f).bijectivePortRenaming)
   = (m.mapKey inst.bijectivePortRenaming).mapKey f
+  m.mapKey ((inst.mapVal λ _ => f).bijectivePortRenaming)
 
 theorem eraseAll_comm_inputs {S f g i} {m : Module Ident S}:
   AssocList.eraseAll (f i) (m.mapPorts2 f g).inputs = AssocList.mapKey f (AssocList.eraseAll i m.inputs) := by
@@ -713,6 +713,8 @@ theorem replacement {iexpr e_new e_pat} :
       apply check_eq_symm at h; solve_by_elim [check_eq_refines]
     · simp at h; rw [h]
       apply refines_connect <;> solve_by_elim [wf_modify_expression,wf_replace]
+
+-- #print axioms replacement
 
 axiom findInput_iff_contains {e T m i o} :
   build_module' ε e = some ⟨T, m⟩ →
