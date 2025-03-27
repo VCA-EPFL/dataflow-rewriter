@@ -180,7 +180,7 @@ def cons_n {T} (n : Nat) (l : List (List T)) (t : T) : Option (List (List T)) :=
                        oldListR = (oldElementR, x) :: newListR ⟩)].toAssocList
   }
 @[drunfold] def bag T (name := "bag") : NatModule (Named name (List T)) :=
-  { inputs := [(0,⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)].toAssocList,
+  { inputs := [(0,⟨ T, λ oldList newElement newList => newList = oldList.concat newElement ⟩)].toAssocList,
     outputs := [(0,⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)].toAssocList,
   }
 
