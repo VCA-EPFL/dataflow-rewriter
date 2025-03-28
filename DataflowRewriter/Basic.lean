@@ -202,9 +202,9 @@ def toIdentityPortMapping (i : Interface Ident) : PortMapping Ident :=
 /--
 Need to be careful with the renaming now.
 -/
-def toIdentityPortMapping' (i : Interface Ident) : PortMapping Ident :=
-  ⟨(i.input.map (λ a => (⟨.top, a.name⟩, a))).toAssocList,
-   (i.output.map (λ a => (⟨.top, a.name⟩, a))).toAssocList⟩
+def toIdentityPortMapping' (i : Interface String) : PortMapping String :=
+  ⟨(i.input.map (λ a => (⟨.top, s!"SPECIAL_{a.name}"⟩, a))).toAssocList,
+   (i.output.map (λ a => (⟨.top, s!"SPECIAL_{a.name}"⟩, a))).toAssocList⟩
 
 def toIdentityPortMapping'' (ident : Ident) (i : Interface Ident) : PortMapping Ident :=
   ⟨(i.input.map (λ a => (⟨.internal ident, a.name⟩, a))).toAssocList,

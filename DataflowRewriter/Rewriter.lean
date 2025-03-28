@@ -195,6 +195,9 @@ however, currently the low-level expression language does not remember any names
   EStateM.guard (.error "input mapping not invertible") <| ExprLow.invertible comb_mapping.input
   EStateM.guard (.error "output mapping not invertible") <| ExprLow.invertible comb_mapping.output
 
+  rmRewriteInfo
+  addRewriteInfo <| RewriteInfo.mk RewriteType.rewrite g default sub default .nil (.some (toString comb_mapping)) rewrite.name
+
   -- We rewrite the output expression external ports to match the external ports of the internal expression it is
   -- replacing.  In addition to that, we also rename the internal ports of the input_expr so that they match the
   -- internal ports of the extracted subgraph.  We apply the same renaming map to the output_expr, which will mainly
@@ -212,6 +215,9 @@ however, currently the low-level expression language does not remember any names
   let (inputPortMap, nameMap) := generate_renaming ∅ fresh_prefix (e_sub'_vars_i.filter (λ x => x ∉ ext_mapping.input.keysList))
   let (outputPortMap, nameMap') := generate_renaming nameMap fresh_prefix (e_sub'_vars_o.filter (λ x => x ∉ ext_mapping.output.keysList))
   let int_mapping' : PortMapping String := ⟨ inputPortMap, outputPortMap ⟩
+
+  rmRewriteInfo
+  addRewriteInfo <| RewriteInfo.mk RewriteType.rewrite g default sub default .nil (.some (toString int_mapping')) rewrite.name
 
   -- We then rename all internal signals in the new expression with the fresh
   -- names.
@@ -286,7 +292,7 @@ framework should be enough.
     let norm := abstracted.normalisedNamesMap fresh_prefix
     abstracted := abstracted.renamePorts norm
     portMap ← portmappingToNameRename' sub norm
-  let highered ← abstracted |>.higherSS |> ofOption (.error "Could not normalise names")
+  let highered ← abstracted |>.higherSS |> ofOption (.error "Could not normalise names 1")
   -- let portMap ← portmappingToNameRename' sub norm
   -- addRewriteInfo <| RewriteInfo.mk RewriteType.abstraction g highered sub
   --                     .nil [abstraction.typ] .none (.some s!"{abstraction.typ}")
@@ -306,7 +312,7 @@ still fresh in the graph.
     <| g_lower.findBase concretisation.typ
   -- return g_lower.concretise (concretisation.expr.renameMapped base) base concretisation.typ
   --        |>.higherS fresh_prefix
-  let e_sub := concretisation.expr.renamePorts base
+  let e_sub := concretisation.expr.renamePorts' base
   let (concr', b) := g_lower.force_concretise e_sub base concretisation.typ
   EStateM.guard (.error s!"subexpression not found in the graph: {repr g_lower}\n\n{repr base}") b
 
@@ -316,7 +322,7 @@ still fresh in the graph.
     let norm := concr.normalisedNamesMap fresh_prefix
     concr := concr.renamePorts norm
     portMap ← portmappingToNameRename' [concretisation.typ] norm
-  let concr_g ← concr.higherSS |> ofOption (.error "Could not normalise names")
+  let concr_g ← concr.higherSS |> ofOption (.error "Could not normalise names 2")
   -- let outputPortMap := portMap.filter (λ lhs _ => lhs = concretisation.typ)
   -- addRewriteInfo <| RewriteInfo.mk RewriteType.concretisation g concr_g [concretisation.typ] portMap
   --                     .nil .none (.some s!"{concretisation.typ}")
