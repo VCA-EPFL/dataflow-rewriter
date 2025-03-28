@@ -272,8 +272,8 @@ to ensure two different properties.  In many cases just having bijectiveness is 
 ensure that one is renaming correctly.
 -/
 axiom mapKey_comm {α} {m : PortMap Ident α} {inst : PortMap Ident (InternalPort Ident)} {f}:
+  m.mapKey (((inst.mapVal λ _ => f).mapKey f).bijectivePortRenaming)
   = (m.mapKey inst.bijectivePortRenaming).mapKey f
-  m.mapKey ((inst.mapVal λ _ => f).bijectivePortRenaming)
 
 theorem eraseAll_comm_inputs {S f g i} {m : Module Ident S}:
   AssocList.eraseAll (f i) (m.mapPorts2 f g).inputs = AssocList.mapKey f (AssocList.eraseAll i m.inputs) := by

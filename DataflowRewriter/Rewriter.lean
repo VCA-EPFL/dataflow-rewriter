@@ -144,6 +144,11 @@ def rmRewriteInfo : RewriteResult Unit := do
   let l ← EStateM.get
   EStateM.set <| l.dropLast
 
+def updRewriteInfo (f : RewriteInfo → RewriteInfo) : RewriteResult Unit := do
+  let l ← EStateM.get
+  let last ← ofOption (.error "last element in RewriteResult not available") <| l.getLast?
+  EStateM.set <| l.dropLast.concat (f last)
+
 def EStateM.guard {ε σ} (e : ε) (b : Bool) : EStateM ε σ Unit :=
   if b then pure () else EStateM.throw e
 
@@ -195,8 +200,7 @@ however, currently the low-level expression language does not remember any names
   EStateM.guard (.error "input mapping not invertible") <| ExprLow.invertible comb_mapping.input
   EStateM.guard (.error "output mapping not invertible") <| ExprLow.invertible comb_mapping.output
 
-  rmRewriteInfo
-  addRewriteInfo <| RewriteInfo.mk RewriteType.rewrite g default sub default .nil (.some (toString comb_mapping)) rewrite.name
+  updRewriteInfo λ rw => {rw with debug := (.some (toString comb_mapping))}
 
   -- We rewrite the output expression external ports to match the external ports of the internal expression it is
   -- replacing.  In addition to that, we also rename the internal ports of the input_expr so that they match the
@@ -216,8 +220,7 @@ however, currently the low-level expression language does not remember any names
   let (outputPortMap, nameMap') := generate_renaming nameMap fresh_prefix (e_sub'_vars_o.filter (λ x => x ∉ ext_mapping.output.keysList))
   let int_mapping' : PortMapping String := ⟨ inputPortMap, outputPortMap ⟩
 
-  rmRewriteInfo
-  addRewriteInfo <| RewriteInfo.mk RewriteType.rewrite g default sub default .nil (.some (toString int_mapping')) rewrite.name
+  updRewriteInfo λ rw => {rw with debug := (.some (toString int_mapping'))}
 
   -- We then rename all internal signals in the new expression with the fresh
   -- names.
@@ -245,8 +248,7 @@ however, currently the low-level expression language does not remember any names
   -- (outputPortMap.toList.map Prod.snd |>.reduceOption)
   let rwMap ← rewrite.nameMap g
   let portMap ← mergeRenamingMaps portMap rwMap
-  rmRewriteInfo
-  addRewriteInfo <| RewriteInfo.mk RewriteType.rewrite g out sub portMap .nil (.some (toString <| repr comb_mapping)) rewrite.name
+  updRewriteInfo <| λ _ => RewriteInfo.mk RewriteType.rewrite g out sub portMap .nil (.some (toString <| repr comb_mapping)) rewrite.name
   return out
 
 /--

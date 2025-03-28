@@ -110,18 +110,20 @@ theorem Rewrite_run'_correct {g g' : ExprHigh String} {s _st _st'} {rw : Correct
   rename rw.rewrite.pattern _ _ = _ => Hpattern
   rename PortMapping String × PortMapping String => ioPortMap
   rename ExprLow String => lowered
-  clear ‹portmappingToNameRename' _ _ _ = _›
-  clear ‹addRewriteInfo _ _ = _›
+  repeat clear ‹portmappingToNameRename' _ _ _ = _›
+  repeat clear ‹addRewriteInfo _ _ = _›
+  repeat clear ‹updRewriteInfo _ _ = _›
   rename ExprHigh String × ExprHigh String => extractedGraphs
   rename List String × List String => pattern
   rename DefiniteRewrite String => defrw
   rename ExprHigh String => outGraph
   -- clear ‹AssocList String (Option String)›
   rename ExprLow.higherSS _ = _ => Hhighering
+  cases hrewrite
   have := rw.defined _ (by rw [Hrewrite]; apply Option.isSome_some)
   rw [Option.isSome_iff_exists] at this; obtain ⟨l, r⟩ := this
   apply Module.refines_transitive
-  apply refines_higherSS; assumption
+  apply (refines_higherSS Hhighering)
   apply Module.refines_transitive
   apply ExprLow.refines_renamePorts_2
   apply wf_mapping_all
