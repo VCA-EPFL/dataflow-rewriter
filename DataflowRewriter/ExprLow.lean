@@ -244,25 +244,25 @@ def findBase (typ : Ident) : ExprLow Ident → Option (PortMapping Ident)
   | some port => port
   | none => e₂.findBase typ
 
-def mapInputPorts [Inhabited Ident] [Repr Ident] (f : InternalPort Ident → InternalPort Ident) : ExprLow Ident → ExprLow Ident
+def mapInputPorts (f : InternalPort Ident → InternalPort Ident) : ExprLow Ident → ExprLow Ident
 | .base map typ' => let res := map.input.mapVal (λ _ => f); let res2 := res |>.mapKey f;
     .base ⟨res2, map.output⟩ typ'
 | .connect o i e => e.mapInputPorts f  |> .connect o (f i)
 | .product e₁ e₂ => .product (e₁.mapInputPorts f) (e₂.mapInputPorts f)
 
-def mapOutputPorts [Inhabited Ident] [Repr Ident] (f : InternalPort Ident → InternalPort Ident) : ExprLow Ident → ExprLow Ident
+def mapOutputPorts (f : InternalPort Ident → InternalPort Ident) : ExprLow Ident → ExprLow Ident
 | .base map typ' => let res := map.output.mapVal (λ _ => f); let res2 := res |>.mapKey f;
     .base ⟨map.input, res2⟩ typ'
 | .connect o i e => e.mapOutputPorts f  |> .connect (f o) i
 | .product e₁ e₂ => .product (e₁.mapOutputPorts f) (e₂.mapOutputPorts f)
 
-def mapPorts2 [Inhabited Ident] [Repr Ident] (f g : InternalPort Ident → InternalPort Ident) (e : ExprLow Ident) : ExprLow Ident :=
+def mapPorts2 (f g : InternalPort Ident → InternalPort Ident) (e : ExprLow Ident) : ExprLow Ident :=
   e.mapInputPorts f |>.mapOutputPorts g
 
 def invertible {α} [DecidableEq α] (p : Batteries.AssocList α α) : Bool :=
   p.keysList.inter p.inverse.keysList = ∅ ∧ p.keysList.Nodup ∧ p.inverse.keysList.Nodup
 
-def renamePorts [Inhabited Ident] [Repr Ident] (m : ExprLow Ident) (p : PortMapping Ident) : ExprLow Ident :=
+def renamePorts (m : ExprLow Ident) (p : PortMapping Ident) : ExprLow Ident :=
   m.mapPorts2 p.input.bijectivePortRenaming p.output.bijectivePortRenaming
 
 def mapInputPorts' (f : InternalPort Ident → InternalPort Ident) : ExprLow Ident → ExprLow Ident
