@@ -28,6 +28,15 @@ deriving Inhabited
 
 def CmdArgs.empty : CmdArgs := default
 
+/--
+Split short options up into multiple options: i.e. '-ol' will become '-o -l'.
+-/
+def preprocess (s : String): List String :=
+  if "--".isPrefixOf s then [s] else
+  if "-".isPrefixOf s ∧ s.length <= 2 then [s] else
+  if ¬ "-".isPrefixOf s then [s] else
+  (s.toList.drop 1).map (λ x => "-" ++ toString x)
+
 def parseArgs (args : List String) : Except String CmdArgs := go CmdArgs.empty args
   where
     go (c : CmdArgs) : List String → Except String CmdArgs
@@ -186,7 +195,7 @@ def rewriteGraphAbs (parsed : CmdArgs) (g : ExprHigh String) (st : List RewriteI
 
 def main (args : List String) : IO Unit := do
   let parsed ←
-    try IO.ofExcept <| parseArgs args
+    try IO.ofExcept <| parseArgs <| args.flatMap preprocess
     catch
     | .userError s => do
       IO.eprintln ("error: " ++ s)
