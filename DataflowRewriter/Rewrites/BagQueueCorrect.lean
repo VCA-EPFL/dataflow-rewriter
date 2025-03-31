@@ -32,12 +32,14 @@ theorem rw_rule_execution {S : Type _} {a b : Σ (T : Type _), S → T → S →
   a.snd s v s' ↔ b.snd s ((Module.cast_first h).mp v) s' := by subst_vars; rfl
 
 -- TODO: Move elsewhere
-@[simp] lemma cons_find? : ∀ {α} [HDEq : DecidableEq (InternalPort α)] β x v (pm: PortMap α β),
+@[simp]
+lemma cons_find? : ∀ {α} [HDEq : DecidableEq (InternalPort α)] β x v (pm: PortMap α β),
   (Batteries.AssocList.find? x (Batteries.AssocList.cons x v pm)) = v := by
    simpa
 
 -- TODO: Move elsewhere
-@[simp] lemma getIO_cons {Ident} [DecidableEq Ident] {S}
+@[simp]
+lemma getIO_cons {Ident} [DecidableEq Ident] {S}
   (pm : PortMap Ident ((T : Type) × (S → T → S → Prop))) x v:
   (PortMap.getIO (Batteries.AssocList.cons x v pm) x) = v := by
     unfold PortMap.getIO; simpa
