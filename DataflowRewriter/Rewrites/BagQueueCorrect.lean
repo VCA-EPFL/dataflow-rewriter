@@ -37,15 +37,15 @@ theorem rw_rule_execution {S : Type _} {a b : Σ (T : Type _), S → T → S →
    simpa
 
 -- TODO: Move elsewhere
-@[simp] lemma getIO_cons {Ident} [DecidableEq Ident] {S} (pm : PortMap Ident ((T : Type) × (S → T → S → Prop))) x v:
-    (PortMap.getIO (Batteries.AssocList.cons x v pm) x) = v := by
+@[simp] lemma getIO_cons {Ident} [DecidableEq Ident] {S}
+  (pm : PortMap Ident ((T : Type) × (S → T → S → Prop))) x v:
+  (PortMap.getIO (Batteries.AssocList.cons x v pm) x) = v := by
     unfold PortMap.getIO; simpa
 
 -- TODO: Move elsewhere
-lemma getIO_not_contained_false
-  {Ident} [DecidableEq Ident] {S: Type}
+lemma getIO_not_contained_false {Ident} [DecidableEq Ident] {S}
   (pm : PortMap Ident ((T : Type) × (S → T → S → Prop))) x1 x2 x3 x4:
-    ¬(pm.contains x1) → (pm.getIO x1).snd x2 x3 x4 → False := by
+  ¬(pm.contains x1) → (pm.getIO x1).snd x2 x3 x4 → False := by
     intros H1 H2
     apply Batteries.AssocList.contains_none at H1
     apply PortMap.getIO_none at H1;
@@ -66,7 +66,6 @@ lemma getIO_cons_false
     rw [← Hpm']; simp; split_ands
     · exact H1
     · simp at H2; exact H2
-  stop
   exact (getIO_not_contained_false pm' x2 x3 x4 x5 Hcontains H3)
 
 lemma getIO_cons_nil_false
@@ -77,12 +76,8 @@ lemma getIO_cons_nil_false
       (Batteries.AssocList.cons x1 v
         (Batteries.AssocList.nil : PortMap Ident ((T : Type) × (S → T → S → Prop))))
       x2).snd x3 x4 x5 → False := by
-  revert x2 x3 x4 x5
-  generalize Hpm :
-    (Batteries.AssocList.nil : PortMap Ident ((T : Type) × (S → T → S → Prop)))
-    = pm
-  intros x2 x3 x4 x5 Hneq Hsnd
-  apply (getIO_cons_false pm x1 v x2 x3 x4 x5 Hneq (by rw [← Hpm]; simpa) Hsnd)
+  intros Hneq Hsnd
+  apply (getIO_cons_false _ x1 v x2 x3 x4 x5 Hneq (by simpa) Hsnd)
 
 -- TODO: Move elsewhere
 syntax (name := haveByLet) "have_hole " haveDecl : tactic
@@ -108,7 +103,7 @@ instance : MatchInterface (queue T₁) (bag T₁) where
 
 def φ (I S : List T₁) : Prop := I = S
 
-theorem queue_refine_bag: queue T₁ ⊑_{φ} bag T₁ := by
+lemma queue_refine_ϕ_bag: queue T₁ ⊑_{φ} bag T₁ := by
   intro i s H; constructor
   · intros ident mid_i v Hrule; exists mid_i, mid_i; and_intros
     · unfold queue at *; dsimp at *
@@ -149,5 +144,38 @@ theorem queue_refine_bag: queue T₁ ⊑_{φ} bag T₁ := by
         · exact Hrule
     · rfl
   · intros _ mid_i _ _; exists mid_i
+
+lemma ϕ_indistinguishable:
+  ∀ x y, φ x y → Module.indistinguishable (queue T₁) (bag T₁) x y := by
+    intros x y Hϕ
+    constructor <;> intros ident new_i v H <;> exists new_i
+    · unfold queue at *; dsimp at v; dsimp at H
+      by_cases Hident: ({ inst := InstIdent.top, name := 0 }: InternalPort Nat) = ident
+      · rw [rw_rule_execution] at H; dsimp at H
+        have_hole Hhole: ((bag T₁).inputs.getIO { inst := InstIdent.top, name := 0 }) = _ := by
+          unfold bag; unfold OfNat.ofNat instOfNatInternalPortNat instOfNatNat;
+          simp [drunfold]; rfl
+        subst ident
+        rw [rw_rule_execution Hhole]; dsimp; dsimp at H; rw [Hϕ] at H; exact H
+      · unfold queue at *
+        exfalso
+        apply (getIO_cons_nil_false _ _ ident)
+        · exact Hident
+        · exact H
+    · unfold queue at *; dsimp at v; dsimp at H
+      by_cases Hident: ({ inst := InstIdent.top, name := 0 }: InternalPort Nat) = ident
+      · rw [rw_rule_execution] at H; dsimp at H
+        subst ident
+        rw [rw_rule_execution (h := by apply getIO_cons)]; dsimp; dsimp at H; rw [Hϕ] at H;
+        rw [← H]
+        exists (Fin.mk 0 (by simpa))
+      · unfold queue at *
+        exfalso
+        apply (getIO_cons_nil_false _ _ ident)
+        · exact Hident
+        · exact H
+
+theorem queue_refine_bag: queue T₁ ⊑ bag T₁ := by
+  apply (Module.refines_φ_refines ϕ_indistinguishable queue_refine_ϕ_bag)
 
 end DataflowRewriter.BagQueue
