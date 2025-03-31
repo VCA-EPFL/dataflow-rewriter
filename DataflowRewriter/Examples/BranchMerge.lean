@@ -37,13 +37,13 @@ section BranchMerge
 
   @[simp] def bagged  : ExprHigh String:=
     [graph|
-        enq  [mod="io"];
-        enqT [mod="io"];
-        deq  [mod="io"];
+        enq  [type="io"];
+        enqT [type="io"];
+        deq  [type="io"];
 
-        m [mod="m"];
-        bags [mod="bag"];
-        joiner [mod="join"];
+        m [type="m"];
+        bags [type="bag"];
+        joiner [type="join"];
         -- Producing the tagged values
         m -> joiner [out="out", inp="in2"];
         -- Push into the bag
