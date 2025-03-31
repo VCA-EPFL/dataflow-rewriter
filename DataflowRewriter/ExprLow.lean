@@ -11,7 +11,7 @@ namespace DataflowRewriter
 
 /--
 ExprLow is an inductive definition of a circuit, inspired by a definition by
-Tony Law [?].  The main difference is th edadition of input and output
+Tony Law [?].  The main difference is the addition of input and output
 constructors that essentially just rename a port to a top-level IO port.
 
 An alternative definition of IO ports was considered, in that they could just be
