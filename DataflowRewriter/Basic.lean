@@ -14,6 +14,8 @@ open Batteries (AssocList)
 
 namespace DataflowRewriter
 
+attribute [drnat] OfNat.ofNat instOfNatNat
+
 /--
 An instance may refer to an internal instance by name, or it may refer to the
 current (top-level) module.
@@ -207,7 +209,17 @@ def PortMapping.toInterface {Ident} (p : PortMapping Ident) : Interface Ident :=
 def PortMapping.toInterface' {Ident} (p : PortMapping Ident) : Interface Ident :=
   ⟨p.input.toList.map Prod.snd, p.output.toList.map Prod.snd⟩
 
-axiom reverse_cases {α} l : l = [] ∨ ∃ (l' : List α) (a : α), l = l'.concat a
+theorem reverse_cases {α} l : l = [] ∨ ∃ (l' : List α) (a : α), l = l'.concat a := by
+  induction l
+  · simp
+  · rename_i head tail htail
+    cases htail
+    · subst_vars
+      right; exists [], head
+    · rename_i h
+      obtain ⟨l', a, ht⟩ := h
+      subst_vars
+      right; exists (head :: l'), a
 
 noncomputable def List.concat_induction {α : Sort _}
   {motive : List α → Prop}

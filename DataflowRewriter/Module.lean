@@ -1239,6 +1239,8 @@ instance {n} : OfNat (InstIdent Nat) n where
 instance {n} : OfNat (InternalPort Nat) n where
   ofNat := ⟨ .top, n ⟩
 
+attribute [drnat] instOfNatInstIdentNat instOfNatInternalPortNat
+
 abbrev NatModule := Module Nat
 
 abbrev StringModule := Module String

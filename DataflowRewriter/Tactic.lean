@@ -9,6 +9,11 @@ import Qq
 
 import DataflowRewriter.Reduce
 
+import Batteries
+import Mathlib.Tactic
+
+open Batteries (AssocList)
+
 open Lean Meta Elab Tactic
 
 /--
@@ -99,7 +104,80 @@ elab "precomputeTac " t:term " by " tac:tacticSeq : tactic => Tactic.withMainCon
   let r := (← l.getDecl).type.getArg!' 1
   (← getMainGoal).assign r
 
+/--
+Creates a have which allows metavar holes in it.
+-/
 syntax (name := haveByLet) "have_hole " haveDecl : tactic
 macro_rules
   | `(tactic| have_hole $id:ident $bs* : $type := $proof) =>
     `(tactic| (let h $bs* : $type := $proof; have $id:ident := h; clear h))
+
+theorem ite_destruct {motive : Prop} (a : Bool) :
+  (a = true → motive) →
+  (a = false → motive) →
+  motive := by cases a <;> solve_by_elim
+
+/--
+Given an (optional) hypothesis name `h`, an AssocList `ct`, an identifier which is used to index into the AssocList `i`
+and a proof that if `i` is not contained in `ct` one has a contradiction, we can introduce the hypothesis that `i` is
+contained in `ct` into the context.
+
+This is explicitly written in a verbose `elab` style to show this off, there is probably a shorter `macro`
+implementation.
+-/
+elab "case_transition " h:ident " : " ct:term ", " i:term ", " ht:term : tactic => Tactic.withMainContext do
+  let containsExpr ← elabTerm (← `(Batteries.AssocList.contains $i $ct)) (.some (.const ``Bool []))
+  let htExpr ← elabTerm ht (← elabTerm (← `(Batteries.AssocList.contains $i $ct = false → False)) .none)
+  liftMetaTactic fun mvar => do
+    let mvarType ← inferType (mkMVar mvar)
+    let e ← mkAppOptM ``ite_destruct #[mvarType, containsExpr]
+    let [m1, m2] ← mvar.apply e
+      | throwError "unexpected: too many mvars in application"
+    let (hcontains', m1) ← m1.intro h.getId
+    -- Prove m2
+    let (hcontains, m2) ← m2.intro1
+    let [m2] ← m2.apply (mkConst ``False.elim [← mkFreshLevelMVar])
+      | throwError "too many mvars in False.elim application"
+    m2.assign (mkApp htExpr (.fvar hcontains))
+    return [m1]
+
+macro "case_transition " ct:term ", " i:term ", " ht:term : tactic =>
+  `(tactic| case_transition hcase_trans : $ct:term, $i:term, $ht:term)
+
+-- example : ∀ (a : Batteries.AssocList Nat Nat) (n : Nat) (p : a.contains n = false → False), True := by
+--   intro a n p
+--   case_transition H : a, n, ‹_›
+--   simp at H
+--   sorry
+
+-- TODO: Currently needs the lhs of the refinement to be passed as parameter `t`, however, it could be deduced from the
+-- goal.
+
+-- TODO: Currently it bypasses hygiene using `mkIdent`, reivaluate if it should stay like that.  As it is a top-level
+-- tactic, this may be fine.
+
+-- TODO: Currently only modules with one input and one output are handled.  It should not be difficult to extend, I just
+-- need an example to test on.  Essentially, this will come down to repeatidly casing on `a ∨ b ∨ c ∨ ... ∨ d` and
+-- naming each case appropriately (ideally after the `ident`).
+
+-- TODO: Currently, nothing is done for the internal rules.  Here a fin-cases would be appropriate.
+
+-- TODO: Currently `v` is not simplified, this may also be nice to try.
+macro "prove_refines_φ " t:term : tactic =>
+  `(tactic|
+    (intro $(mkIdent `i) $(mkIdent `s) $(mkIdent `H); constructor)
+      <;> [intro $(mkIdent `ident) $(mkIdent `mid_i) $(mkIdent `v) $(mkIdent `Hrule);
+           intro $(mkIdent `ident) $(mkIdent `mid_i) $(mkIdent `v) $(mkIdent `Hrule); skip]
+      <;> [case_transition Hcontains : $(mkIdent `Module.inputs) $t, $(mkIdent `ident),
+             (fun x => $(mkIdent `PortMap.getIO_not_contained_false') x $(mkIdent `Hrule));
+           case_transition Hcontains : $(mkIdent `Module.outputs) $t, $(mkIdent `ident),
+             (fun x => $(mkIdent `PortMap.getIO_not_contained_false') x $(mkIdent `Hrule));
+           skip]
+      <;> [simp at Hcontains; simp at Hcontains; skip]
+      <;> [subst $(mkIdent `ident); subst $(mkIdent `ident); skip]
+      <;> [rw [$(mkIdent `PortMap.rw_rule_execution):ident] at $(mkIdent `Hrule):ident;
+           rw [$(mkIdent `PortMap.rw_rule_execution):ident] at $(mkIdent `Hrule):ident; skip]
+      <;> [simp -failIfUnchanged at $(mkIdent `Hrule):ident; simp -failIfUnchanged at $(mkIdent `Hrule):ident; skip]
+   )
+
+-- TODO: It would be nice to have a similar tactic for indistinguishability proofs (maybe it's the exact same).

@@ -74,6 +74,11 @@ theorem getIO_not_contained_false {Ident} [DecidableEq Ident] {S}
     rw [rw_rule_execution (h := H1)] at H2;
     dsimp at H2
 
+theorem getIO_not_contained_false' {Ident} [DecidableEq Ident] {S}
+  {pm : PortMap Ident ((T : Type) × (S → T → S → Prop))} {x1 x2 x3 x4}:
+  pm.contains x1 = false → (pm.getIO x1).snd x2 x3 x4 → False := by
+  intros; solve_by_elim [getIO_not_contained_false (Ident := Ident), ne_true_of_eq_false]
+
 theorem getIO_cons_false
   {Ident} [DecidableEq Ident] {S}
   {pm : PortMap Ident ((T : Type) × (S → T → S → Prop))} {x1 v x2 x3 x4 x5}:
