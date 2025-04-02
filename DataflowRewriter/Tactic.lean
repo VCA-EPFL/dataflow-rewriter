@@ -123,7 +123,7 @@ and a proof that if `i` is not contained in `ct` one has a contradiction, we can
 contained in `ct` into the context.
 
 This is explicitly written in a verbose `elab` style to show this off, there is probably a shorter `macro`
-implementation.
+implementation.  You could probably also implement this as a theorem itself.
 -/
 elab "case_transition " h:ident " : " ct:term ", " i:term ", " ht:term : tactic => Tactic.withMainContext do
   let containsExpr ← elabTerm (← `(Batteries.AssocList.contains $i $ct)) (.some (.const ``Bool []))
