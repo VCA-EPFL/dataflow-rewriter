@@ -98,3 +98,8 @@ elab "precomputeTac " t:term " by " tac:tacticSeq : tactic => Tactic.withMainCon
     | logError "No mvar returned"
   let r := (← l.getDecl).type.getArg!' 1
   (← getMainGoal).assign r
+
+syntax (name := haveByLet) "have_hole " haveDecl : tactic
+macro_rules
+  | `(tactic| have_hole $id:ident $bs* : $type := $proof) =>
+    `(tactic| (let h $bs* : $type := $proof; have $id:ident := h; clear h))

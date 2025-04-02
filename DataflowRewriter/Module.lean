@@ -14,6 +14,7 @@ import DataflowRewriter.List
 import DataflowRewriter.AssocList
 import DataflowRewriter.HVector
 import DataflowRewriter.Tactic
+import DataflowRewriter.BasicLemmas
 import Mathlib.Tactic.Tauto
 import Mathlib.Tactic.Convert
 
@@ -506,23 +507,6 @@ structure comp_refines (R : I → S → Prop) (init_i : I) (init_s : S) : Prop w
         existSR smod.internals init_s mid_s
         ∧ R mid_i mid_s
 
-@[reducible] def cast_first {β : Type _ → Type _} {a b : (Σ α, β α)} (h : a = b) : a.fst = b.fst := by
-  subst_vars; rfl
-
-theorem rw_rule_execution {S : Type _} {a b : Σ (T : Type _), S → T → S → Prop} {s s'} {v : a.fst} (h : a = b) :
-  a.snd s v s' ↔ b.snd s ((cast_first h).mp v) s' := by subst_vars; rfl
-
-theorem rule_contains {S} {a : PortMap Ident (Σ T, S → T → S → Prop)} {ident init_i v new_i}:
-  (a.getIO ident).2 init_i v new_i →
-  a.contains ident := by
-  unfold PortMap.getIO
-  intro H
-  cases h : (AssocList.find? ident a)
-  · have : ((AssocList.find? ident a).getD ⟨PUnit.{u_3 + 1}, fun x x x => False⟩) = ⟨PUnit.{u_3 + 1}, fun x x x => False⟩ := by
-      rw [h]; rfl
-    rw [rw_rule_execution this] at H; simp at H
-  · rw [← AssocList.contains_find?_iff]; tauto
-
 theorem indistinguishable_reflexive i_init :
   indistinguishable imod imod i_init i_init := by
   constructor <;> (intros; solve_by_elim)
@@ -532,10 +516,10 @@ theorem indistinguishable_reflexive_ext {imod'} i_init (h : imod.EqExt imod') (m
   let ⟨hl, hr, hint⟩ := h; clear h
   constructor
   · intro ident new_i v rule
-    rw [rw_rule_execution (PortMap.EqExt_getIO hl ident)] at *
+    rw [PortMap.rw_rule_execution (PortMap.EqExt_getIO hl ident)] at *
     solve_by_elim
   · intro ident new_i v rule
-    rw [rw_rule_execution (PortMap.EqExt_getIO hr ident)] at *
+    rw [PortMap.rw_rule_execution (PortMap.EqExt_getIO hr ident)] at *
     solve_by_elim
 
 axiom indistinguishable_transitive {J} (jmod : Module Ident J)
@@ -587,10 +571,10 @@ theorem refines_φ_reflexive_ext imod' (h : imod.EqExt imod') (mm := MatchInterf
   let ⟨hl, hr, hint⟩ := h; clear h
   constructor
   · intro ident mid_i v hrule
-    rw [rw_rule_execution (PortMap.EqExt_getIO hl ident)] at *
+    rw [PortMap.rw_rule_execution (PortMap.EqExt_getIO hl ident)] at *
     refine ⟨ mid_i, mid_i, hrule, existSR.done _, rfl ⟩
   · intro ident mid_i v hrule
-    rw [rw_rule_execution (PortMap.EqExt_getIO hr ident)] at *
+    rw [PortMap.rw_rule_execution (PortMap.EqExt_getIO hr ident)] at *
     refine ⟨ mid_i, hrule, rfl ⟩
   · intro ident mid_i hcont hrule
     have : ident ∈ imod'.internals := by
@@ -772,10 +756,10 @@ axiom indistinguishability_connect {i s inp out} [MatchInterface imod smod] :
   imod.indistinguishable smod i s →
   (imod.connect' out inp).indistinguishable (smod.connect' out inp) i s
 
--- theorem rw_rule_execution' {S : Type _} {a b c : Σ (T : Type _), S → T → S → Prop} {s s'} {v : b.fst} (h : b.fst = a.fst) (h' : a = b) :
+-- theorem PortMap.rw_rule_execution' {S : Type _} {a b c : Σ (T : Type _), S → T → S → Prop} {s s'} {v : b.fst} (h : b.fst = a.fst) (h' : a = b) :
 --   a.snd s (h.mp v) s' ↔ b.snd s (h'.mp (h' ▸ v)) s' := by subst_vars; rfl
 
--- theorem rw_rule_execution2 {S : Type _} {a b : Σ (T : Type _), S → T → S → Prop} {s s'} {v : a.fst} (h : a.fst = b.fst) :
+-- theorem PortMap.rw_rule_execution2 {S : Type _} {a b : Σ (T : Type _), S → T → S → Prop} {s s'} {v : a.fst} (h : a.fst = b.fst) :
 --   a.snd s v s' ↔ a.snd s (h.mp v) s' := by
 --     rcases a with ⟨a₁, a₂⟩
 --     rcases b with ⟨b₁, b₂⟩
@@ -804,7 +788,7 @@ theorem refines_φ_product {J K} {imod₂ : Module Ident J} {smod₂ : Module Id
   specialize href₂ init_i₂ init_s₂ hφ.right
   constructor
   · intro ident ⟨mid_i, mid_i₂⟩ hgetio hrule
-    have hcontains := rule_contains hrule
+    have hcontains := PortMap.rule_contains hrule
     rcases Option.isSome_iff_exists.mp (AssocList.contains_some hcontains) with ⟨rule, hruleIn⟩
     rcases AssocList.append_find?2 hruleIn with hruleIn' | hruleIn'
     case inl =>
@@ -815,7 +799,7 @@ theorem refines_φ_product {J K} {imod₂ : Module Ident J} {smod₂ : Module Id
         dsimp [PortMap.getIO]; rw [hruleIn,h,liftL]; rfl
       have cast_rule : (imod.product imod₂).inputs.getIO ident = liftL (imod.inputs.getIO ident) := by
         dsimp [PortMap.getIO]; rw [hruleIn,h]; rfl
-      rw [rw_rule_execution cast_rule] at hrule
+      rw [PortMap.rw_rule_execution cast_rule] at hrule
       dsimp [liftL] at hrule; rcases hrule with ⟨hrule⟩; subst_vars
       rcases href₁ with ⟨href_in, href_out, href_int⟩
       clear href_out href_int
@@ -824,7 +808,7 @@ theorem refines_φ_product {J K} {imod₂ : Module Ident J} {smod₂ : Module Id
       have hrule₂ : (imod.inputs.getIO ident).snd init_i (cast2.mp hgetio) mid_i := by
         have : imod.inputs.getIO ident = rule' := by
           dsimp [PortMap.getIO]; rw [h]; rfl
-        rw [rw_rule_execution this]
+        rw [PortMap.rw_rule_execution this]
         simp; convert hrule; exact this.symm
         simp [cast]
       specialize href_in ident mid_i (cast2.mp hgetio) hrule₂
@@ -841,7 +825,7 @@ theorem refines_φ_product {J K} {imod₂ : Module Ident J} {smod₂ : Module Id
         have s : (smod.product smod₂).inputs.getIO ident = liftL (smod.inputs.getIO ident) := by
           skip; dsimp [Module.product, PortMap.getIO]; rw [AssocList.append_find_left this]
           rw [HSrule]; rfl
-        rw [rw_rule_execution s]
+        rw [PortMap.rw_rule_execution s]
         dsimp [liftL]; refine ⟨?_, rfl⟩; convert hrule₃; simp
       · solve_by_elim [existSR_append_left, existSR_liftL']
       · assumption
@@ -855,7 +839,7 @@ theorem refines_φ_product {J K} {imod₂ : Module Ident J} {smod₂ : Module Id
         dsimp [PortMap.getIO]; rw [hruleIn,h,liftR]; rfl
       have cast_rule : (imod.product imod₂).inputs.getIO ident = liftR (imod₂.inputs.getIO ident) := by
         dsimp [PortMap.getIO]; rw [hruleIn,h]; rfl
-      rw [rw_rule_execution cast_rule] at hrule
+      rw [PortMap.rw_rule_execution cast_rule] at hrule
       dsimp [liftL] at hrule; rcases hrule with ⟨hrule⟩; subst_vars
       rcases href₂ with ⟨href_in, href_out, href_int⟩
       clear href_out href_int
@@ -864,7 +848,7 @@ theorem refines_φ_product {J K} {imod₂ : Module Ident J} {smod₂ : Module Id
       have hrule₂ : (imod₂.inputs.getIO ident).snd init_i₂ (cast2.mp hgetio) mid_i₂ := by
         have : imod₂.inputs.getIO ident = rule' := by
           dsimp [PortMap.getIO]; rw [h]; rfl
-        rw [rw_rule_execution this]
+        rw [PortMap.rw_rule_execution this]
         simp; convert hrule; exact this.symm
         simp [cast]
       specialize href_in ident mid_i₂ (cast2.mp hgetio) hrule₂
@@ -891,13 +875,13 @@ theorem refines_φ_product {J K} {imod₂ : Module Ident J} {smod₂ : Module Id
           rw [AssocList.append_find_right, this]
           · rw [HSrule]; rfl
           · rw [hrule_another]
-        rw [rw_rule_execution s]
+        rw [PortMap.rw_rule_execution s]
         dsimp [liftL]; refine ⟨?_, rfl⟩; convert hrule₃; simp
       · solve_by_elim [existSR_append_right, existSR_liftR']
       · apply hφ.left
       · assumption
   · intro ident ⟨mid_i, mid_i₂⟩ hgetio hrule
-    have hcontains := rule_contains hrule
+    have hcontains := PortMap.rule_contains hrule
     rcases Option.isSome_iff_exists.mp (AssocList.contains_some hcontains) with ⟨rule, hruleIn⟩
     rcases AssocList.append_find?2 hruleIn with hruleIn' | hruleIn'
     case inl =>
@@ -908,7 +892,7 @@ theorem refines_φ_product {J K} {imod₂ : Module Ident J} {smod₂ : Module Id
         dsimp [PortMap.getIO]; rw [hruleIn,h,liftL]; rfl
       have cast_rule : (imod.product imod₂).outputs.getIO ident = liftL (imod.outputs.getIO ident) := by
         dsimp [PortMap.getIO]; rw [hruleIn,h]; rfl
-      rw [rw_rule_execution cast_rule] at hrule
+      rw [PortMap.rw_rule_execution cast_rule] at hrule
       dsimp [liftL] at hrule; rcases hrule with ⟨hrule⟩; subst_vars
       rcases href₁ with ⟨href_in, href_out, href_int⟩
       clear href_in href_int
@@ -917,7 +901,7 @@ theorem refines_φ_product {J K} {imod₂ : Module Ident J} {smod₂ : Module Id
       have hrule₂ : (imod.outputs.getIO ident).snd init_i (cast2.mp hgetio) mid_i := by
         have : imod.outputs.getIO ident = rule' := by
           dsimp [PortMap.getIO]; rw [h]; rfl
-        rw [rw_rule_execution this]
+        rw [PortMap.rw_rule_execution this]
         simp; convert hrule; exact this.symm
         simp [cast]
       specialize href_out ident mid_i (cast2.mp hgetio) hrule₂
@@ -934,7 +918,7 @@ theorem refines_φ_product {J K} {imod₂ : Module Ident J} {smod₂ : Module Id
         have s : (smod.product smod₂).outputs.getIO ident = liftL (smod.outputs.getIO ident) := by
           skip; dsimp [Module.product, PortMap.getIO]; rw [AssocList.append_find_left this]
           rw [HSrule]; rfl
-        rw [rw_rule_execution s]
+        rw [PortMap.rw_rule_execution s]
         dsimp [liftL]; refine ⟨?_, rfl⟩; convert hrule₃; simp
       · assumption
       · apply hφ.right
@@ -947,7 +931,7 @@ theorem refines_φ_product {J K} {imod₂ : Module Ident J} {smod₂ : Module Id
         dsimp [PortMap.getIO]; rw [hruleIn,h,liftR]; rfl
       have cast_rule : (imod.product imod₂).outputs.getIO ident = liftR (imod₂.outputs.getIO ident) := by
         dsimp [PortMap.getIO]; rw [hruleIn,h]; rfl
-      rw [rw_rule_execution cast_rule] at hrule
+      rw [PortMap.rw_rule_execution cast_rule] at hrule
       dsimp [liftL] at hrule; rcases hrule with ⟨hrule⟩; subst_vars
       rcases href₂ with ⟨href_in, href_out, href_int⟩
       clear href_in href_int
@@ -956,7 +940,7 @@ theorem refines_φ_product {J K} {imod₂ : Module Ident J} {smod₂ : Module Id
       have hrule₂ : (imod₂.outputs.getIO ident).snd init_i₂ (cast2.mp hgetio) mid_i₂ := by
         have : imod₂.outputs.getIO ident = rule' := by
           dsimp [PortMap.getIO]; rw [h]; rfl
-        rw [rw_rule_execution this]
+        rw [PortMap.rw_rule_execution this]
         simp; convert hrule; exact this.symm
         simp [cast]
       specialize href_out ident mid_i₂ (cast2.mp hgetio) hrule₂
@@ -983,7 +967,7 @@ theorem refines_φ_product {J K} {imod₂ : Module Ident J} {smod₂ : Module Id
           rw [AssocList.append_find_right, this]
           · rw [HSrule]; rfl
           · rw [hrule_another]
-        rw [rw_rule_execution s]
+        rw [PortMap.rw_rule_execution s]
         dsimp [liftL]; refine ⟨?_, rfl⟩; convert hrule₃; simp
       · apply hφ.left
       · assumption
@@ -1044,12 +1028,12 @@ theorem refines_φ_connect [MatchInterface imod smod] {φ i o} :
     rcases href with ⟨href_in, href_out, href_int⟩
     clear href_out href_int
     intro ident mid_i v hrule
-    have hcont := rule_contains hrule
+    have hcont := PortMap.rule_contains hrule
     rcases Option.isSome_iff_exists.mp (AssocList.contains_some hcont) with ⟨rule, hruleIn⟩
     dsimp [Module.connect'] at hcont hruleIn; have hcont' := AssocList.contains_eraseAll hcont
     have getIO_eq : (imod.connect' o i).inputs.getIO ident = imod.inputs.getIO ident := by
       dsimp [Module.connect', PortMap.getIO]; rw [hruleIn, AssocList.find?_eraseAll hruleIn]
-    specialize href_in ident mid_i ((cast_first getIO_eq).mp v) ((rw_rule_execution getIO_eq).mp hrule)
+    specialize href_in ident mid_i ((PortMap.cast_first getIO_eq).mp v) ((PortMap.rw_rule_execution getIO_eq).mp hrule)
     rcases href_in with ⟨a_mid_s, mid_s, hrule_s, hexists, hphi'⟩
     have : AssocList.contains ident ((smod.connect' o i).inputs) := by
       rwa [← match_interface_inputs_contains (imod := imod.connect' o i)]
@@ -1059,19 +1043,19 @@ theorem refines_φ_connect [MatchInterface imod smod] {φ i o} :
       rcases this with ⟨x, hin⟩
       rw [hin, AssocList.find?_eraseAll hin]
     refine ⟨a_mid_s, mid_s, ?_, ?_, ?_⟩
-    · rw [rw_rule_execution this]; convert hrule_s; simp
+    · rw [PortMap.rw_rule_execution this]; convert hrule_s; simp
     · apply existSR_cons; assumption
     · assumption
   · specialize href _ _ hphi
     rcases href with ⟨href_in, href_out, href_int⟩
     clear href_in href_int
     intro ident mid_i v hrule
-    have hcont := rule_contains hrule
+    have hcont := PortMap.rule_contains hrule
     rcases Option.isSome_iff_exists.mp (AssocList.contains_some hcont) with ⟨rule, hruleIn⟩
     dsimp [Module.connect'] at hcont hruleIn; have hcont' := AssocList.contains_eraseAll hcont
     have getIO_eq : (imod.connect' o i).outputs.getIO ident = imod.outputs.getIO ident := by
       dsimp [Module.connect', PortMap.getIO]; rw [hruleIn, AssocList.find?_eraseAll hruleIn]
-    specialize href_out ident mid_i ((cast_first getIO_eq).mp v) ((rw_rule_execution getIO_eq).mp hrule)
+    specialize href_out ident mid_i ((PortMap.cast_first getIO_eq).mp v) ((PortMap.rw_rule_execution getIO_eq).mp hrule)
     rcases href_out with ⟨mid_s, hrule_s, hphi'⟩
     have : AssocList.contains ident ((smod.connect' o i).outputs) := by
       rwa [← match_interface_outputs_contains (imod := imod.connect' o i)]
@@ -1081,7 +1065,7 @@ theorem refines_φ_connect [MatchInterface imod smod] {φ i o} :
       rcases this with ⟨x, hin⟩
       rw [hin, AssocList.find?_eraseAll hin]
     refine ⟨mid_s, ?_, ?_⟩
-    · rw [rw_rule_execution this]; convert hrule_s; simp
+    · rw [PortMap.rw_rule_execution this]; convert hrule_s; simp
     -- · apply existSR_cons; assumption
     · assumption
   · intro rule mid_i hrulein hrule
@@ -1155,14 +1139,14 @@ theorem refines_φ_mapInputPorts {I S} {imod : Module Ident I} {smod : Module Id
     have : (imod.mapInputPorts f).inputs.getIO (f ident') = imod.inputs.getIO ident' := by
       unfold mapInputPorts PortMap.getIO; dsimp
       rw [AssocList.mapKey_find?]; exact h.injective
-    have hrule' := (rw_rule_execution this).mp hrule
+    have hrule' := (PortMap.rw_rule_execution this).mp hrule
     specialize hinp ident' mid_i _ hrule'
     rcases hinp with ⟨alm_mid_s, mid_s, hrule_s, hexist, hphi'⟩
     refine ⟨ alm_mid_s, mid_s, ?_, ?_, ‹_› ⟩
     . have : (smod.mapInputPorts f).inputs.getIO (f ident') = smod.inputs.getIO ident' := by
         unfold mapInputPorts PortMap.getIO; dsimp
         rw [AssocList.mapKey_find?]; exact h.injective
-      rw [rw_rule_execution this]; convert hrule_s; simp
+      rw [PortMap.rw_rule_execution this]; convert hrule_s; simp
     · assumption
   · apply href.outputs
   · apply href.internals
@@ -1201,14 +1185,14 @@ theorem refines_φ_mapOutputPorts {I S} {imod : Module Ident I} {smod : Module I
     have : (imod.mapOutputPorts f).outputs.getIO (f ident') = imod.outputs.getIO ident' := by
       unfold mapOutputPorts PortMap.getIO; dsimp
       rw [AssocList.mapKey_find?]; exact h.injective
-    have hrule' := (rw_rule_execution this).mp hrule
+    have hrule' := (PortMap.rw_rule_execution this).mp hrule
     specialize hinp ident' mid_i _ hrule'
     rcases hinp with ⟨mid_s, hrule_s, hphi'⟩
     refine ⟨ mid_s, ?_, ‹_› ⟩
     . have : (smod.mapOutputPorts f).outputs.getIO (f ident') = smod.outputs.getIO ident' := by
         unfold mapOutputPorts PortMap.getIO; dsimp
         rw [AssocList.mapKey_find?]; exact h.injective
-      rw [rw_rule_execution this]; convert hrule_s; simp
+      rw [PortMap.rw_rule_execution this]; convert hrule_s; simp
   · apply href.internals
 
 theorem refines'_mapOutputPorts {I S} {imod : Module Ident I} {smod : Module Ident S} {f}
