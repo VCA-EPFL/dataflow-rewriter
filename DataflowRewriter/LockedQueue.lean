@@ -59,7 +59,7 @@ instance SpecStateTransition : StateTransition Method SpecState where
 
 infix:60 " ≺ " => @indistinguishable Method
 
-/-- 
+/--
 We define phi with a few necessary extensions.  For example, we use
 quantification for the `enq` case, so that we can handle any inputs and still
 commute.  In addition to that, we have indistinguishability inside of the φ.
@@ -72,7 +72,7 @@ inductive φ : ImpState → SpecState → Prop where
   | enq : ∀ i (i' : Nat → ImpState) s (s' : Nat → SpecState),
     (∀ n, i' n = { i with queue := i.queue ++ [n] }) →
     (∀ n, s' n = { s with queue := s.queue ++ [n] }) →
-    i ≺ s → 
+    i ≺ s →
     (∀ n, φ (i' n) (s' n)) →
     (∀ n, imp_step i [Method.enq n] (i' n)) →
     (∀ n, spec_step s [Method.enq n] (s' n)) →
@@ -123,11 +123,11 @@ theorem φ_length i s :
   | unlock i i' s s' _ Hphi Himp Hspec Hlist =>
     cases Himp; cases Hspec; simp [*]
   | internal i i' s _ Hphi Himp Hlist =>
-    cases Himp; assumption 
+    cases Himp; assumption
     simp [*] at *; assumption
 
-macro "solve_indistinguishable" t:tactic : tactic => 
-  `(tactic| (unfold indistinguishable; intros _ _ a; have Hindimpstep := a; cases a 
+macro "solve_indistinguishable" t:tactic : tactic =>
+  `(tactic| (unfold indistinguishable; intros _ _ a; have Hindimpstep := a; cases a
              <;> (try ((repeat' first | (apply star.refl; done) | apply star.plus_one | constructor | $t:tactic) <;> done))))
 
 theorem invert_single_spec_step (s1 s2 : SpecState) (e : Method):
@@ -136,11 +136,11 @@ theorem invert_single_spec_step (s1 s2 : SpecState) (e : Method):
   cases Hs with
   | refl => simp at Hthis
   | step s1' s2' s3' e1 e2 Hstep Hstar =>
-    have Hthis' : e1 = [e] ∧ e2 = [] := by 
+    have Hthis' : e1 = [e] ∧ e2 = [] := by
       cases Hstep <;> (simp at *; tauto)
     cases Hthis'; subst e1; subst e2
     generalize Hother : [] = e' at Hstar
-    cases Hstar with 
+    cases Hstar with
    | step s1'' s2'' s3'' e1' e2' Hstep' Hstar' =>
       symm at Hother; rw [List.append_eq_nil] at Hother; cases Hother
       subst e1'; subst e2'; cases Hstep'
@@ -166,7 +166,7 @@ syntax (name := specializeAll) "specializeAll " term : tactic
         if h : vars.size > 0 then
           isDefEq (← inferType vars[0]) termType
         else
-          return false) 
+          return false)
         -- We don't want to instantiate arrow types (only dependent types).
         && decl.type.arrow?.isNone
       then
@@ -232,7 +232,7 @@ def findIndHyp : TacticM (FVarId × FVarId) := do
             let (lst, _, expr') ← forallMetaTelescopeReducing decl'.type
             match ← whnf expr' with
             | .app (.app (.const ``Exists _) _) _ =>
-              
+
               trace[debug] m!"(LIST): {← sequence <| List.map (inferType ·) (lst.toList)}"
               for hyp in lst do
                 trace[debug] m!"(MAGIC2): {(← withAssignableSyntheticOpaque <| kabstract (← inferType hyp) s)}"
@@ -252,7 +252,7 @@ def findIndHyp : TacticM (FVarId × FVarId) := do
     return someret
 
 def findCurrentEvent : TacticM Expr := do
-  let (.app (.app (.const ``Exists _) _) goalType) := (← getMainTarget).consumeMData 
+  let (.app (.app (.const ``Exists _) _) goalType) := (← getMainTarget).consumeMData
     | throwError "Not the right goal type"
   withNewMCtxDepth <| lambdaTelescope goalType fun _ars newGoalType => do
     let (t, ars) ← elabTermWithHoles (← `(@star SpecState Method _ ?a ?b ?c)) none `findCurrentEvent
@@ -295,12 +295,12 @@ hypothesis.
 syntax (name := haveByLet) "have_hole " haveDecl : tactic
 
 macro_rules
-  | `(tactic| have_hole $id:haveId $bs* : $type := $proof) => 
+  | `(tactic| have_hole $id:haveId $bs* : $type := $proof) =>
     `(tactic| (let h $bs* : $type := $proof; have $id:haveId := h; clear h))
 
 theorem enough :
-  ∀ i s, φ i s→ 
-    ∀ e i', imp_step i e i' → 
+  ∀ i s, φ i s→
+    ∀ e i', imp_step i e i' →
       ∃ s', star s e s' ∧ φ i' s' := by
   intro i s h;
   induction h with
@@ -322,7 +322,7 @@ theorem enough :
       · apply φ.unlock
         · solve_indistinguishable (simp [*] at *)
         · apply φ.base
-        · generalize H : ({ lock := true, queue := [] } : ImpState) = l at *; 
+        · generalize H : ({ lock := true, queue := [] } : ImpState) = l at *;
           have : [] = l.queue := by subst l; simp
           rw [this]; constructor; subst l; simp
         · constructor
@@ -333,7 +333,7 @@ theorem enough :
     have HimpDown' := HimpDown
     cases HimpDown with
     | handle_enq n' Hlock =>
-      exists { s with queue := s.queue ++ [n'] }; 
+      exists { s with queue := s.queue ++ [n'] };
       have Hphi' : φ { lock := i.lock, queue := i.queue ++ [n'] } { queue := s.queue ++ [n'] } := by rw [←i_wf,←s_wf]; apply Hphi
       and_intros
       · apply star.plus_one; constructor
@@ -397,10 +397,10 @@ theorem enough :
         · simp at *; cases Ha''; subst n; subst rst'''
           (repeat' first | apply star.plus_one | rw [← Hgen] | constructor)
       · assumption
-      · intros; constructor; specialize HimpRight 0; 
+      · intros; constructor; specialize HimpRight 0;
         generalize Hother : i_ne 0 = i' at *; cases HimpRight; simp [*]
       . intros; constructor
-    | handle_lock => 
+    | handle_lock =>
       create_ind_phi; rotate_left; apply imp_step.handle_lock; rotate_right
       exists s; and_intros; constructor
       apply φ.unlock
@@ -494,7 +494,7 @@ theorem enough :
       apply invert_single_spec_step at HsstepDown; cases HsstepDown
       cases HsstepRight; cases HistepRight; cases HistepDown; assumption
     | unlock_natural Hqueue Hlock =>
-      cases HistepRight; cases HsstepRight; cases HistepDown;  
+      cases HistepRight; cases HsstepRight; cases HistepDown;
       sorry -- assumption
   | internal i i_ne s Hind Hphi HsitepRight iH =>
     intro e i_sw HistepDown
@@ -505,7 +505,7 @@ theorem enough :
     have HistepDown' := HistepDown
     cases HistepDown' with
     | handle_enq n Hlock =>
-      
+
   | _ => sorry
 
 end DataflowRewriter

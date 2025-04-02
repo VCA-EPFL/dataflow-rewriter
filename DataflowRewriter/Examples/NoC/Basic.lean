@@ -25,8 +25,9 @@ namespace DataflowRewriter.NoC
 
 -- Parameters ------------------------------------------------------------------
 
-variable (Data : Type)  -- Type of data transmitted over the NoC
-variable (netsz : ℕ)    -- Network Size (Number of router)
+variable (Data : Type)    -- Type of data transmitted over the NoC
+variable (DataS : String) -- String representation of Data
+variable (netsz : ℕ)      -- Network Size (Number of router)
 
 -- Types -----------------------------------------------------------------------
 
@@ -38,37 +39,39 @@ def RouterID (netsz : ℕ) : Type :=
 
 structure FlitHeader : Type :=
   dest: RouterID netsz
--- TODO: Should this be deriving stuff ?
+-- TODO: Should this be deriving stuff ? I cannot for some reason make it work
 
-def Ident : Type :=
-  String
+def FlitHeaderS : String :=
+  s!"FlitHeader {netsz}"
 
 -- Components ------------------------------------------------------------------
 
 -- TODO: Do we need to have netsz in name ?
+-- TODO: Maybe this could replace the current global branch definition ?
 @[drunfold]
-def nbranch' (name := "nbranch") : NatModule (List Data × List (RouterID netsz)) :=
-  { inputs :=
-    [
+def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List Data × List (RouterID netsz))) :=
+  {
+    inputs := [
       (0, ⟨
         Data,
-        λ (oldValList, oldRouterIDList) val (newValList, newRouterIDList) =>
-          newValList = oldValList.concat val ∧ newRouterIDList = oldRouterIDList
+        λ (oldDatas, oldRouterIDs) data (newDatas, newRouterIDs) =>
+          newDatas = oldDatas.concat data ∧ newRouterIDs = oldRouterIDs
       ⟩),
       (1, ⟨
         RouterID netsz,
-        λ (oldValList, oldRouterIDList) b (newValList, newRouterIDList) =>
-          newValList = oldValList ∧ newRouterIDList = oldRouterIDList.concat b
+        λ (oldDatas, oldRouterIDs) routerID (newDatas, newRouterIDs) =>
+          newDatas = oldDatas ∧ newRouterIDs = oldRouterIDs.concat routerID
       ⟩),
     ].toAssocList
+
     outputs :=
-    -- TODO: We would like to have n be cast to a RouterID down the line
-      List.range netsz |>.map (λ n => Prod.mk ↑n
+      -- TODO: We would like to have n be cast to a RouterID down the line
+      List.range netsz |>.map (λ routerID => Prod.mk ↑routerID
         (⟨
           Data,
-          λ (oldValList, oldRouterIDList) val (newValList, newRouterIDList) =>
-            val :: newValList = oldValList ∧
-            n :: newRouterIDList = oldRouterIDList
+          λ (oldDatas, oldRouterIDs) data (newDatas, newRouterIDs) =>
+            data :: newDatas = oldDatas ∧
+            routerID :: newRouterIDs = oldRouterIDs
         ⟩))
       |>.toAssocList,
   }
@@ -79,35 +82,164 @@ def nbranch :=
 
 -- Environment -----------------------------------------------------------------
 
-def ε : IdentMap Ident (TModule1 Ident) :=
+def ε : IdentMap String (TModule1 String) :=
   [
     -- TODO: Do we really require a merge ? Why would we ?
     -- Merge might be necessary if we want to also give the FlitHeader to the
     -- output flit ? Might make things harder for no reason, target shouldn't
     -- care about header
-    (s!"Merge {netsz}", ⟨_, StringModule.merge Data netsz⟩),
+    (s!"Merge {DataS} {netsz}", ⟨_, StringModule.merge Data netsz⟩),
 
     -- Splits are used to separate Data and FlitHeader
     -- TODO: Should we add Data and FlitHeader to Split Name ?
-    ("Split",           ⟨_, StringModule.split Data (FlitHeader netsz)⟩),
+    (s!"Split {DataS} {FlitHeaderS netsz}", ⟨_, StringModule.split Data (FlitHeader netsz)⟩),
 
     -- Bags are used to receive message (One per router)
-    ("Bag",             ⟨_, StringModule.bag Data⟩),
+    (s!"Bag {DataS}", ⟨_, StringModule.bag Data⟩),
 
     -- Branching is used for routing
-    ("NBranch",         ⟨_, nbranch Data netsz⟩),
+    (s!"NBranch {DataS} {netsz}", ⟨_, nbranch Data netsz⟩),
   ].toAssocList
 
 -- Implementation --------------------------------------------------------------
 
--- TODO: Define a nbag component by using a n-merge into a bag
-def nbag : ExprHigh Ident :=
-  { modules := [].toAssocList, connections := [] }
+-- Bag with `n` inputs
+def nbag (T : Type) (TS : String) (n : ℕ) : ExprHigh String :=
+  {
+    modules := [
+      ⟨"Merge", -- Instance name
+        ⟨
+          {
+            input :=
+              List.range n |>.map (λ i =>
+              (⟨
+                -- FIXME: Is this ok to be the same as name below ?
+                s!"in{i + 1}", -- Type port (Must be inst InstIdent.top)
+                {
+                  inst := InstIdent.top
+                  -- FIXME: This feels a bit weak, we are relying on the
+                  -- implementation of NatModule.stringify
+                  name := s!"in{i + 1}"
+                } -- Internal name
+              ⟩))
+              |>.toAssocList,
+            output := [
+              ⟨
+                "merge_to_bag_out",
+                {
+                  -- FIXME: What should be here ? top or internal ?
+                  inst := InstIdent.internal "",
+                  -- FIXME: This feels a bit weak, we are relying on the
+                  -- implementation of NatModule.stringify
+                  name := "out0",
+                }
+              ⟩
+            ].toAssocList,
+          },
+          s!"Merge {TS} {n}" -- Instance Type
+        ⟩
+      ⟩,
+
+      ⟨
+        "Bag", -- Instance name
+        ⟨
+          {
+            input := [
+              ⟨
+                "merge_to_bag_in",
+                  -- FIXME: What should be here ? top or internal ?
+                { inst := InstIdent.top, name := "in0" }
+              ⟩
+            ].toAssocList,
+            output := [
+              ⟨"out0", { inst := InstIdent.top, name := "out0" }⟩
+            ].toAssocList,
+          },
+          s!"Bag {TS}" -- Instance Type
+        ⟩
+      ⟩,
+
+      -- TODO: n-merge component
+      -- TODO: bag component
+      -- Do we need IO components ? A bit unclear
+    ].toAssocList,
+    connections := [
+      {
+        -- FIXME: I'm not sure I understand why this is an InternalPort ?
+        input := { inst := InstIdent.top, name := "merge_to_bag_in" },
+        -- FIXME: I'm not sure I understand why this is an InternalPort ?
+        output := { inst := InstIdent.top, name := "merge_to_bag_out" },
+      }
+    ],
+  }
+
+def nbag_module :=
+  [Ge| nbag Data DataS netsz, ε Data DataS netsz]
+
+#reduce (types := true) (nbag_module Data DataS netsz)
 
 -- TODO: Define a NoC using, for each input, a split into a nbranch into each
 -- nbag
+def noc : ExprHigh String :=
+  {
+    modules :=
+      List.range netsz |>.map (λ i => [
+        -- TODO: For each router:
+        --  · 1 split
+        --  · 1 nbranch
+        --  · 1 nbag:
+        --    TODO: How can I actually have this ? Its an exprHigh, do I
+        --    have to compile it and then add it to the environment?
+        ⟨
+          s!"Split{i}", -- Instance name
+          ⟨
+            {
+              input := [⟨"in0", s!"in{i}"⟩].toAssocList,
+              output := [
+                ⟨s!"split_{i}_out0", { inst := InstIdent.top, name := "out0" }⟩,
+                ⟨s!"split_{i}_out1", { inst := InstIdent.top, name := "out1" }⟩,
+              ].toAssocList,
+            },
+            s!"Split {DataS} {FlitHeaderS netsz}" -- Instance Type
+          ⟩
+        ⟩,
 
-def noc : ExprHigh Ident :=
-  { modules := [].toAssocList, connections := [] }
+        ⟨
+          s!"NBranch{i}", -- Instance name
+          ⟨
+            {
+              input := [
+                ⟨s!"NBranch{i}_in0", { inst := InstIdent.top, name := "in0" }⟩,
+                ⟨s!"NBranch{i}_in1", { inst := InstIdent.top, name := "in1" }⟩,
+              ].toAssocList,
+              output := List.range netsz |>.map (λ j =>
+                ⟨s!"NBranch{i}_out{j}", { inst := InstIdent.top, name := "out{j}" }⟩
+              ) |>.toAssocList
+            },
+            s!"NBranch {DataS} {netsz}" -- Instance Type
+          ⟩
+        ⟩,
+        -- TODO: nbag. How to actually use it? Its an ExprHigh, not a component
+        -- Do I have to compile it and then add it to the environment?
+        -- -> Yes
+      ])
+      |>.flatten
+      |>.toAssocList,
+    connections :=
+      List.range netsz |>.map (λ i => [
+        -- TODO: For each router:
+        --  · connect global inputs to split
+        --  · connect split to nbranch
+        --  · connect nbranch to other nbag
+        --  · connect nbag to global output
+      ])
+      |>.flatten
+  }
+
+-- TODO: Do we have some lemmas which we would like to prove on this
+-- specification of NoC?
+
+-- Prove full connectivity: For every input and output, we can route between
+-- them
 
 end DataflowRewriter.NoC
