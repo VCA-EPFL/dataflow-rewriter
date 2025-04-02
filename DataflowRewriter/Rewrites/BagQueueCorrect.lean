@@ -47,29 +47,24 @@ def φ (I S : List T₁) : Prop := I = S
 lemma queue_refine_ϕ_bag: queue T₁ ⊑_{φ} bag T₁ := by
   intro i s H; constructor
   · intros ident mid_i v Hrule; exists mid_i, mid_i; and_intros
-    · unfold queue at *; dsimp at *
-      by_cases ({ inst := InstIdent.top, name := 0 }: InternalPort Nat) = ident
-      · subst ident;
+    · by_cases Hcontains : ((queue T₁).inputs.contains ident)
+      · unfold queue at *; dsimp at *; simp at Hcontains
+        subst ident;
         rw [PortMap.rw_rule_execution] at Hrule; dsimp at Hrule
         subst mid_i;
         have_hole Hhole: ((bag T₁).inputs.getIO { inst := InstIdent.top, name := 0 }) = _ := by
           unfold bag; unfold OfNat.ofNat instOfNatInternalPortNat instOfNatNat;
           simp [drunfold]; rfl
         rw [PortMap.rw_rule_execution Hhole]; dsimp; subst i; rfl
-      · dsimp at v;
-        exfalso
-        rename_i Hneq
-        apply (PortMap.getIO_cons_nil_false _ _ ident)
-        · exact Hneq
-        · exact Hrule
+      · exfalso; exact (PortMap.getIO_not_contained_false Hcontains Hrule)
     · constructor
     · rfl
   · intros ident mid_i v Hrule
     exists mid_i
-    split_ands
-    · unfold queue at *; dsimp at v Hrule;
-      by_cases ({ inst := InstIdent.top, name := 0 }: InternalPort Nat) = ident
-      · subst ident
+    and_intros
+    · by_cases Hcontains : ((queue T₁).outputs.contains ident)
+      · unfold queue at *; dsimp at *; simp at Hcontains
+        subst ident
         rw [PortMap.rw_rule_execution] at Hrule; dsimp at *
         unfold bag; dsimp
         simp [*, OfNat.ofNat, instOfNatInternalPortNat, instOfNatNat, PortMap.getIO_cons];
@@ -77,12 +72,7 @@ lemma queue_refine_ϕ_bag: queue T₁ ⊑_{φ} bag T₁ := by
         dsimp
         subst i; subst s
         exists (Fin.mk 0 (by simpa))
-      · -- TODO: Exactly the same code as above, could be a tactic
-        exfalso
-        rename_i Hneq
-        apply (PortMap.getIO_cons_nil_false _ _ ident)
-        · exact Hneq
-        · exact Hrule
+      · exfalso; exact (PortMap.getIO_not_contained_false Hcontains Hrule)
     · rfl
   · intros _ mid_i _ _; exists mid_i
 
