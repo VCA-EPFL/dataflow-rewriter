@@ -10,7 +10,6 @@ import Qq
 import DataflowRewriter.Reduce
 
 import Batteries
-import Mathlib.Tactic
 
 open Batteries (AssocList)
 
