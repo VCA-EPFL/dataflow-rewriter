@@ -52,13 +52,11 @@ def FlitHeaderS : String :=
 def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List Data × List (RouterID netsz))) :=
   {
     inputs := [
-      (0, ⟨
-        Data,
+      (0, ⟨Data,
         λ (oldDatas, oldRouterIDs) data (newDatas, newRouterIDs) =>
           newDatas = oldDatas.concat data ∧ newRouterIDs = oldRouterIDs
       ⟩),
-      (1, ⟨
-        RouterID netsz,
+      (1, ⟨RouterID netsz,
         λ (oldDatas, oldRouterIDs) routerID (newDatas, newRouterIDs) =>
           newDatas = oldDatas ∧ newRouterIDs = oldRouterIDs.concat routerID
       ⟩),
@@ -67,8 +65,7 @@ def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List Data ×
     outputs :=
       -- TODO: We would like to have n be cast to a RouterID down the line
       List.range netsz |>.map (λ routerID => Prod.mk ↑routerID
-        (⟨
-          Data,
+        (⟨Data,
           λ (oldDatas, oldRouterIDs) data (newDatas, newRouterIDs) =>
             data :: newDatas = oldDatas ∧
             routerID :: newRouterIDs = oldRouterIDs
@@ -82,22 +79,18 @@ def nbranch :=
 
 -- Environment -----------------------------------------------------------------
 
-def ε : IdentMap String (TModule1 String) :=
+def ε' : IdentMap String (TModule1 String) :=
   [
-    -- TODO: Do we really require a merge ? Why would we ?
-    -- Merge might be necessary if we want to also give the FlitHeader to the
-    -- output flit ? Might make things harder for no reason, target shouldn't
-    -- care about header
+    -- Merge to implement the n-bag
     (s!"Merge {DataS} {netsz}", ⟨_, StringModule.merge Data netsz⟩),
 
-    -- Splits are used to separate Data and FlitHeader
-    -- TODO: Should we add Data and FlitHeader to Split Name ?
+    -- Splits to separate Data and FlitHeader
     (s!"Split {DataS} {FlitHeaderS netsz}", ⟨_, StringModule.split Data (FlitHeader netsz)⟩),
 
-    -- Bags are used to receive message (One per router)
+    -- Bags to receive message (One per router)
     (s!"Bag {DataS}", ⟨_, StringModule.bag Data⟩),
 
-    -- Branching is used for routing
+    -- Branching for routing
     (s!"NBranch {DataS} {netsz}", ⟨_, nbranch Data netsz⟩),
   ].toAssocList
 
@@ -113,25 +106,19 @@ def nbag (T : Type) (TS : String) (n : ℕ) : ExprHigh String :=
             input :=
               List.range n |>.map (λ i =>
               (⟨
-                -- FIXME: Is this ok to be the same as name below ?
-                s!"in{i + 1}", -- Type port (Must be inst InstIdent.top)
-                {
-                  inst := InstIdent.top
-                  -- FIXME: This feels a bit weak, we are relying on the
-                  -- implementation of NatModule.stringify
-                  name := s!"in{i + 1}"
-                } -- Internal name
+                -- Type port (Must be inst InstIdent.top)
+                NatModule.stringify_input i,
+                -- Internal name, here a top level port
+                NatModule.stringify_input i,
               ⟩))
               |>.toAssocList,
             output := [
               ⟨
-                "merge_to_bag_out",
+                NatModule.stringify_output 0,
+                -- Internal name
                 {
-                  -- FIXME: What should be here ? top or internal ?
-                  inst := InstIdent.internal "",
-                  -- FIXME: This feels a bit weak, we are relying on the
-                  -- implementation of NatModule.stringify
-                  name := "out0",
+                  inst := InstIdent.internal "Merge", -- Same Instance Name as above
+                  name := "merge_to_bag_out", -- Arbitrary name
                 }
               ⟩
             ].toAssocList,
@@ -140,99 +127,170 @@ def nbag (T : Type) (TS : String) (n : ℕ) : ExprHigh String :=
         ⟩
       ⟩,
 
-      ⟨
-        "Bag", -- Instance name
+      ⟨"Bag", -- Instance name
         ⟨
           {
             input := [
               ⟨
-                "merge_to_bag_in",
-                  -- FIXME: What should be here ? top or internal ?
-                { inst := InstIdent.top, name := "in0" }
+                NatModule.stringify_input 0,
+                { inst := InstIdent.internal "Bag", name := "merge_to_bag_in" }
               ⟩
             ].toAssocList,
             output := [
-              ⟨"out0", { inst := InstIdent.top, name := "out0" }⟩
+              ⟨NatModule.stringify_output 0, NatModule.stringify_output 0⟩
             ].toAssocList,
           },
           s!"Bag {TS}" -- Instance Type
         ⟩
       ⟩,
 
-      -- TODO: n-merge component
-      -- TODO: bag component
-      -- Do we need IO components ? A bit unclear
     ].toAssocList,
     connections := [
       {
-        -- FIXME: I'm not sure I understand why this is an InternalPort ?
-        input := { inst := InstIdent.top, name := "merge_to_bag_in" },
-        -- FIXME: I'm not sure I understand why this is an InternalPort ?
-        output := { inst := InstIdent.top, name := "merge_to_bag_out" },
+        output := { inst := InstIdent.internal "Merge", name := "merge_to_bag_out" },
+        input := { inst := InstIdent.internal "Bag", name := "merge_to_bag_in" },
       }
     ],
   }
 
 def nbag_module :=
-  [Ge| nbag Data DataS netsz, ε Data DataS netsz]
+  [Ge| nbag Data DataS netsz, ε' Data DataS netsz]
 
-#reduce (types := true) (nbag_module Data DataS netsz)
+def ε : IdentMap String (TModule1 String) :=
+  -- TODO: Extend with nbag
+  ε' Data DataS netsz
 
--- TODO: Define a NoC using, for each input, a split into a nbranch into each
--- nbag
 def noc : ExprHigh String :=
   {
     modules :=
       List.range netsz |>.map (λ i => [
-        -- TODO: For each router:
-        --  · 1 split
-        --  · 1 nbranch
-        --  · 1 nbag:
-        --    TODO: How can I actually have this ? Its an exprHigh, do I
-        --    have to compile it and then add it to the environment?
-        ⟨
-          s!"Split{i}", -- Instance name
-          ⟨
-            {
-              input := [⟨"in0", s!"in{i}"⟩].toAssocList,
-              output := [
-                ⟨s!"split_{i}_out0", { inst := InstIdent.top, name := "out0" }⟩,
-                ⟨s!"split_{i}_out1", { inst := InstIdent.top, name := "out1" }⟩,
-              ].toAssocList,
-            },
-            s!"Split {DataS} {FlitHeaderS netsz}" -- Instance Type
-          ⟩
-        ⟩,
-
-        ⟨
-          s!"NBranch{i}", -- Instance name
+        ⟨s!"Split{i}",
           ⟨
             {
               input := [
-                ⟨s!"NBranch{i}_in0", { inst := InstIdent.top, name := "in0" }⟩,
-                ⟨s!"NBranch{i}_in1", { inst := InstIdent.top, name := "in1" }⟩,
+                ⟨NatModule.stringify_input 0, NatModule.stringify_input i⟩
               ].toAssocList,
-              output := List.range netsz |>.map (λ j =>
-                ⟨s!"NBranch{i}_out{j}", { inst := InstIdent.top, name := "out{j}" }⟩
-              ) |>.toAssocList
+              output := [
+                ⟨
+                  NatModule.stringify_output 0,
+                  {
+                    inst := InstIdent.internal s!"Split{i}",
+                    name := s!"Data{i}_out"
+                  }
+                ⟩,
+                ⟨
+                  NatModule.stringify_output 1,
+                  {
+                    inst := InstIdent.internal s!"Split{i}",
+                    name := s!"FlitHeader{i}_out"
+                  }
+                ⟩,
+              ].toAssocList,
             },
-            s!"NBranch {DataS} {netsz}" -- Instance Type
+            s!"Split {DataS} {FlitHeaderS netsz}"
           ⟩
         ⟩,
-        -- TODO: nbag. How to actually use it? Its an ExprHigh, not a component
-        -- Do I have to compile it and then add it to the environment?
-        -- -> Yes
+
+        ⟨s!"NBranch{i}",
+          ⟨
+            {
+              input := [
+                ⟨
+                  NatModule.stringify_input 0,
+                  {
+                    inst := InstIdent.internal s!"NBranch{i}",
+                    name := s!"NBranch{i}_in1"
+                  }
+                ⟩,
+                ⟨
+                  NatModule.stringify_input 1,
+                  {
+                    inst := InstIdent.internal s!"NBranch{i}",
+                    name := s!"NBranch{i}_in2"
+                  }
+                ⟩,
+              ].toAssocList,
+              output := List.range netsz |>.map (λ j =>
+                ⟨
+                  NatModule.stringify_output j,
+                  {
+                    inst := InstIdent.internal s!"NBranch{i}",
+                    name := s!"NBranch{i}_out{j + 1}"
+                  }
+                ⟩
+              ) |>.toAssocList
+            },
+            s!"NBranch {DataS} {netsz}"
+          ⟩
+        ⟩,
+
+        ⟨s!"NBag{i}",
+          ⟨
+            {
+              input := List.range netsz |>.map (λ j =>
+                ⟨
+                  NatModule.stringify_input j,
+                  {
+                    inst := InstIdent.internal s!"NBag{i}",
+                    name := s!"NBag{i}_in{j + 1}"
+                  }
+                ⟩
+              ) |>.toAssocList,
+              output := [
+                ⟨
+                  NatModule.stringify_output 0,
+                  NatModule.stringify_output i,
+                ⟩,
+              ].toAssocList,
+            },
+            s!"NBag {DataS} {netsz}"
+          ⟩
+        ⟩,
       ])
       |>.flatten
       |>.toAssocList,
     connections :=
-      List.range netsz |>.map (λ i => [
-        -- TODO: For each router:
-        --  · connect global inputs to split
-        --  · connect split to nbranch
-        --  · connect nbranch to other nbag
-        --  · connect nbag to global output
+      List.range netsz |>.map (λ i => ([
+        {
+          output :=
+            {
+              inst := InstIdent.internal s!"Split{i}",
+              name := s!"Data{i}_out"
+            }
+          input :=
+            {
+              inst := InstIdent.internal s!"NBranch{i}",
+              name := s!"Data{i}_in0"
+            }
+        },
+        {
+          output :=
+            {
+              inst := InstIdent.internal s!"Split{i}",
+              name := s!"FlitHeader{i}_out"
+            }
+          input :=
+            {
+              inst := InstIdent.internal s!"NBranch{i}",
+              name := s!"Data{i}_in1"
+            }
+        },
       ])
+      ++
+      (List.range netsz |>.map (λ j =>
+        {
+          output :=
+            {
+              inst := InstIdent.internal s!"NBranch{i}",
+              name := s!"NBranch{i}_out{j + 1}"
+            }
+          input :=
+            {
+              inst := InstIdent.internal s!"NBag{i}",
+              name := s!"NBag{i}_in{j + 1}"
+            }
+        }
+      )))
       |>.flatten
   }
 
