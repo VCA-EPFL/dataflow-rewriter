@@ -9,6 +9,7 @@ import DataflowRewriter.Simp
 import DataflowRewriter.ExprHigh
 import DataflowRewriter.AssocList.Basic
 import DataflowRewriter.TypeExpr
+import DataflowRewriter.Environment
 
 open Batteries (AssocList)
 
@@ -528,7 +529,7 @@ namespace DataflowRewriter.StringModule
 
 -- Associate the above modules with a String name to be used in the matcher of each rewrite
 -- Essentially, those constitute our primitives
-def ε (Tag : Type) [DecidableEq Tag] (T : Type) [Inhabited T] : IdentMap String (TModule String) :=
+def ε (Tag : Type) [DecidableEq Tag] (T : Type) [Inhabited T] : Env :=
   [ ("Join", ⟨_, StringModule.join T T⟩)
   , ("TaggedJoin", ⟨_, StringModule.join Tag T⟩)
 

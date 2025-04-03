@@ -50,7 +50,7 @@ variable (ε : IdentMap Ident ((T: Type) × Module Ident T))
     : Module Ident (e.build_module ε).1 := (e.build_module ε).2
 
 @[drunfold] abbrev build_module_type (ε : IdentMap Ident (Σ T, Module Ident T))
-    (e : ExprLow Ident)
+    (e : ExprHigh Ident)
     : Type _ := (e.build_module ε).1
 
 notation:25 "[Ge| " e ", " ε " ]" => build_module_expr ε e

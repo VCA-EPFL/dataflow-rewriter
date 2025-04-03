@@ -38,7 +38,7 @@ def RouterID (netsz : ℕ) : Type :=
   Nat
 
 structure FlitHeader : Type :=
-  dest: RouterID netsz
+  dest : RouterID netsz
 -- TODO: Should this be deriving stuff ? I cannot for some reason make it work
 
 def FlitHeaderS : String :=
@@ -79,7 +79,7 @@ def nbranch :=
 
 -- Environment -----------------------------------------------------------------
 
-def ε' : IdentMap String (TModule1 String) :=
+def ε' : Env :=
   [
     -- Merge to implement the n-bag
     (s!"Merge {DataS} {netsz}", ⟨_, StringModule.merge Data netsz⟩),
@@ -156,9 +156,11 @@ def nbag (T : Type) (TS : String) (n : ℕ) : ExprHigh String :=
 def nbag_module :=
   [Ge| nbag Data DataS netsz, ε' Data DataS netsz]
 
-def ε : IdentMap String (TModule1 String) :=
-  -- TODO: Extend with nbag
-  ε' Data DataS netsz
+def ε : Env :=
+  AssocList.cons
+    s!"NBag {DataS} {netsz}"
+    ⟨_, nbag_module Data DataS netsz⟩
+    (ε' Data DataS netsz)
 
 def noc : ExprHigh String :=
   {
@@ -293,6 +295,9 @@ def noc : ExprHigh String :=
       )))
       |>.flatten
   }
+
+def noc_module :=
+  [Ge| noc DataS netsz, ε Data DataS netsz]
 
 -- TODO: Do we have some lemmas which we would like to prove on this
 -- specification of NoC?
