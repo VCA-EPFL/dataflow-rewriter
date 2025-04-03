@@ -1,3 +1,9 @@
+/-
+Copyright (c) 2025 VCA Lab, EPFL. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Yann Herklotz
+-/
+
 -- Implementation of NoC types and reference implementation using Bags
 -- Inputs are defined as a product between an arbitrary type T and a FlitHeader
 -- type, which gives information about the desired target of each message.
@@ -32,9 +38,8 @@ variable (netsz : ℕ)      -- Network Size (Number of router)
 -- Types -----------------------------------------------------------------------
 
 def RouterID (netsz : ℕ) : Type :=
-  -- FIXME: Fin netsz could be better, but it is annoying to use.
-  -- Notably below for the `nbranch` component,
-  -- we cannot easily use a List.range.
+  -- FIXME: This should be Fin netsz, but it is annoying
+  -- Notably below for the `nbranch` component, we cannot use a List.range
   Nat
 
 structure FlitHeader : Type :=
@@ -46,8 +51,6 @@ def FlitHeaderS : String :=
 
 -- Components ------------------------------------------------------------------
 
--- TODO: Do we need to have netsz in name ?
--- TODO: Maybe this could replace the current global branch definition ?
 @[drunfold]
 def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List Data × List (RouterID netsz))) :=
   {
@@ -105,23 +108,24 @@ def nbag (T : Type) (TS : String) (n : ℕ) : ExprHigh String :=
           {
             input :=
               List.range n |>.map (λ i =>
-              (⟨
-                -- Type port (Must be inst InstIdent.top)
-                NatModule.stringify_input i,
-                -- Internal name, here a top level port
-                NatModule.stringify_input i,
-              ⟩))
+                ⟨
+                  -- Type port (Must be inst InstIdent.top)
+                  NatModule.stringify_input i,
+                  -- Internal name, here a top level port
+                  NatModule.stringify_input i,
+                ⟩
+              )
               |>.toAssocList,
-            output := [
-              ⟨
+            output := [⟨
                 NatModule.stringify_output 0,
                 -- Internal name
                 {
-                  inst := InstIdent.internal "Merge", -- Same Instance Name as above
-                  name := "merge_to_bag_out", -- Arbitrary name
+                  -- Same Instance Name as above
+                  inst := InstIdent.internal "Merge",
+                  -- Arbitrary name
+                  name := "merge_to_bag_out",
                 }
-              ⟩
-            ].toAssocList,
+              ⟩].toAssocList,
           },
           s!"Merge {TS} {n}" -- Instance Type
         ⟩
@@ -296,13 +300,26 @@ def noc : ExprHigh String :=
       |>.flatten
   }
 
-def noc_module :=
+def nocM :=
   [Ge| noc DataS netsz, ε Data DataS netsz]
 
--- TODO: Do we have some lemmas which we would like to prove on this
--- specification of NoC?
+def nocT :=
+  [GT| noc DataS netsz, ε Data DataS netsz]
 
--- Prove full connectivity: For every input and output, we can route between
--- them
+-- TODO: We could prove that any RouterID has an associated input rule which is
+-- unique
+-- TODO: We could do the same with output rules
+
+-- TODO: Say that v must be ⟨j, d ⟩, and so should v'
+-- We prove that for every input and output, we can route a message between them
+theorem full_connectivity (i j : RouterID netsz) (d : Data) in_s in_v out_v mid_s out_s:
+  -- From any initial state `in_s`, we can reach a new state `mid_s` by using
+  -- the input rule associated to `i` used with value `v`
+  ((nocM Data DataS netsz).inputs.getIO (NatModule.stringify_input i)).2 in_s in_v mid_s →
+  -- There exists a path from this `mid_s` to an output state `out_s`
+  existSR (nocM Data DataS netsz).internals mid_s out_s →
+  -- This `out_s` can be used to actually extract the initial value `v` in the
+  ((nocM Data DataS netsz).outputs.getIO (NatModule.stringify_input j)).2 mid_s out_v out_s
+  := by sorry
 
 end DataflowRewriter.NoC
