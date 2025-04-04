@@ -31,35 +31,40 @@ namespace DataflowRewriter.NoC
 
 -- Parameters ------------------------------------------------------------------
 
-variable (Data : Type)    -- Type of data transmitted over the NoC
-variable (DataS : String) -- String representation of Data
-variable (netsz : ℕ)      -- Network Size (Number of router)
+-- TODO: Maybe a comment here to explain Yann's hack would be great since this
+-- is also an Example file
+class NocParam where
+  Data : Type     -- Type of data transmitted over the NoC
+  DataS : String  -- String representation of Data
+  netsz : Nat     -- Network Size (Number of router)
+
+variable [T: NocParam]
 
 -- Types -----------------------------------------------------------------------
 
-def RouterID (netsz : ℕ) : Type :=
-  -- FIXME: This should be Fin netsz, but it is annoying
+def RouterID : Type :=
+  -- FIXME: This should be Fin T.netsz, but it is annoying
   -- Notably below for the `nbranch` component, we cannot use a List.range
   Nat
 
 structure FlitHeader : Type :=
-  dest : RouterID netsz
+  dest : RouterID
 -- TODO: Should this be deriving stuff ? I cannot for some reason make it work
 
 def FlitHeaderS : String :=
-  s!"FlitHeader {netsz}"
+  s!"FlitHeader {T.netsz}"
 
 -- Components ------------------------------------------------------------------
 
 @[drunfold]
-def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List Data × List (RouterID netsz))) :=
+def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List T.Data × List RouterID)) :=
   {
     inputs := [
-      (0, ⟨Data,
+      (0, ⟨T.Data,
         λ (oldDatas, oldRouterIDs) data (newDatas, newRouterIDs) =>
           newDatas = oldDatas.concat data ∧ newRouterIDs = oldRouterIDs
       ⟩),
-      (1, ⟨RouterID netsz,
+      (1, ⟨RouterID,
         λ (oldDatas, oldRouterIDs) routerID (newDatas, newRouterIDs) =>
           newDatas = oldDatas ∧ newRouterIDs = oldRouterIDs.concat routerID
       ⟩),
@@ -67,8 +72,8 @@ def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List Data ×
 
     outputs :=
       -- TODO: We would like to have n be cast to a RouterID down the line
-      List.range netsz |>.map (λ routerID => Prod.mk ↑routerID
-        (⟨Data,
+      List.range T.netsz |>.map (λ routerID => Prod.mk ↑routerID
+        (⟨T.Data,
           λ (oldDatas, oldRouterIDs) data (newDatas, newRouterIDs) =>
             data :: newDatas = oldDatas ∧
             routerID :: newRouterIDs = oldRouterIDs
@@ -78,23 +83,23 @@ def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List Data ×
 
 @[drunfold]
 def nbranch :=
-  nbranch' Data netsz |>.stringify
+  nbranch' |>.stringify
 
 -- Environment -----------------------------------------------------------------
 
 def ε' : Env :=
   [
     -- Merge to implement the n-bag
-    (s!"Merge {DataS} {netsz}", ⟨_, StringModule.merge Data netsz⟩),
+    (s!"Merge {T.DataS} {T.netsz}", ⟨_, StringModule.merge T.Data T.netsz⟩),
 
     -- Splits to separate Data and FlitHeader
-    (s!"Split {DataS} {FlitHeaderS netsz}", ⟨_, StringModule.split Data (FlitHeader netsz)⟩),
+    (s!"Split {T.DataS} {FlitHeaderS}", ⟨_, StringModule.split T.Data FlitHeader⟩),
 
     -- Bags to receive message (One per router)
-    (s!"Bag {DataS}", ⟨_, StringModule.bag Data⟩),
+    (s!"Bag {T.DataS}", ⟨_, StringModule.bag T.Data⟩),
 
     -- Branching for routing
-    (s!"NBranch {DataS} {netsz}", ⟨_, nbranch Data netsz⟩),
+    (s!"NBranch {T.DataS} {T.netsz}", ⟨_, nbranch⟩),
   ].toAssocList
 
 -- Implementation --------------------------------------------------------------
@@ -157,19 +162,17 @@ def nbag (T : Type) (TS : String) (n : ℕ) : ExprHigh String :=
     ],
   }
 
-def nbag_module :=
-  [Ge| nbag Data DataS netsz, ε' Data DataS netsz]
+def nbagM :=
+  [Ge| nbag T.Data T.DataS T.netsz, ε']
 
 def ε : Env :=
   AssocList.cons
-    s!"NBag {DataS} {netsz}"
-    ⟨_, nbag_module Data DataS netsz⟩
-    (ε' Data DataS netsz)
+    s!"NBag {T.DataS} {T.netsz}" ⟨_, nbagM⟩ ε'
 
 def noc : ExprHigh String :=
   {
     modules :=
-      List.range netsz |>.map (λ i => [
+      List.range T.netsz |>.map (λ i => [
         ⟨s!"Split{i}",
           ⟨
             {
@@ -193,7 +196,7 @@ def noc : ExprHigh String :=
                 ⟩,
               ].toAssocList,
             },
-            s!"Split {DataS} {FlitHeaderS netsz}"
+            s!"Split {T.DataS} {FlitHeaderS}"
           ⟩
         ⟩,
 
@@ -216,7 +219,7 @@ def noc : ExprHigh String :=
                   }
                 ⟩,
               ].toAssocList,
-              output := List.range netsz |>.map (λ j =>
+              output := List.range T.netsz |>.map (λ j =>
                 ⟨
                   NatModule.stringify_output j,
                   {
@@ -226,14 +229,14 @@ def noc : ExprHigh String :=
                 ⟩
               ) |>.toAssocList
             },
-            s!"NBranch {DataS} {netsz}"
+            s!"NBranch {T.DataS} {T.netsz}"
           ⟩
         ⟩,
 
         ⟨s!"NBag{i}",
           ⟨
             {
-              input := List.range netsz |>.map (λ j =>
+              input := List.range T.netsz |>.map (λ j =>
                 ⟨
                   NatModule.stringify_input j,
                   {
@@ -249,14 +252,14 @@ def noc : ExprHigh String :=
                 ⟩,
               ].toAssocList,
             },
-            s!"NBag {DataS} {netsz}"
+            s!"NBag {T.DataS} {T.netsz}"
           ⟩
         ⟩,
       ])
       |>.flatten
       |>.toAssocList,
     connections :=
-      List.range netsz |>.map (λ i => ([
+      List.range T.netsz |>.map (λ i => ([
         {
           output :=
             {
@@ -283,7 +286,7 @@ def noc : ExprHigh String :=
         },
       ])
       ++
-      (List.range netsz |>.map (λ j =>
+      (List.range T.netsz |>.map (λ j =>
         {
           output :=
             {
@@ -301,25 +304,36 @@ def noc : ExprHigh String :=
   }
 
 def nocM :=
-  [Ge| noc DataS netsz, ε Data DataS netsz]
+  [Ge| noc, ε]
 
 def nocT :=
-  [GT| noc DataS netsz, ε Data DataS netsz]
+  [GT| noc, ε]
 
 -- TODO: We could prove that any RouterID has an associated input rule which is
 -- unique
 -- TODO: We could do the same with output rules
 
--- TODO: Say that v must be ⟨j, d ⟩, and so should v'
+theorem nocM_inpT i:
+  (nocM.inputs.getIO (NatModule.stringify_input i)).1 = (T.Data × FlitHeader) :=
+  by
+    sorry
+
+theorem nocM_outT i:
+  (nocM.outputs.getIO (NatModule.stringify_output i)).1 = (T.Data × FlitHeader) :=
+    by
+      sorry
+
+-- TODO: Say that v must be ⟨j, d⟩, and so should v'
 -- We prove that for every input and output, we can route a message between them
-theorem full_connectivity (i j : RouterID netsz) (d : Data) in_s in_v out_v mid_s out_s:
+theorem full_connectivity (i j : RouterID) (d : T.Data) in_s mid_s:
   -- From any initial state `in_s`, we can reach a new state `mid_s` by using
   -- the input rule associated to `i` used with value `v`
-  ((nocM Data DataS netsz).inputs.getIO (NatModule.stringify_input i)).2 in_s in_v mid_s →
+  (nocM.inputs.getIO (NatModule.stringify_input i)).2 in_s ((nocM_inpT i).mpr (d, ⟨j⟩)) mid_s →
+  ∃ out_s,
   -- There exists a path from this `mid_s` to an output state `out_s`
-  existSR (nocM Data DataS netsz).internals mid_s out_s →
+  existSR nocM.internals mid_s out_s ∧
   -- This `out_s` can be used to actually extract the initial value `v` in the
-  ((nocM Data DataS netsz).outputs.getIO (NatModule.stringify_input j)).2 mid_s out_v out_s
+  (nocM.outputs.getIO (NatModule.stringify_output j)).2 mid_s ((nocM_outT j).mpr (d, ⟨j⟩)) out_s
   := by sorry
 
 end DataflowRewriter.NoC

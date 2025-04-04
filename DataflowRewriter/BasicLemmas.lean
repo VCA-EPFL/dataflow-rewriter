@@ -108,49 +108,6 @@ theorem getIO_cons_nil_false
   intros Hneq Hsnd
   apply (getIO_cons_false Hneq (by simpa) Hsnd)
 
--- FIXME -----------------------------------------------------------------------
--- I'm just playing around trying to figure out tactics, this should be removed
--- or be made correct before this is merged to main
-
--- TODO: This might not be the best place for the Tactic, move elsewhere
--- We want to first make a simple tactic which perform case analysis on a list,
--- such that for a PortMap pm and an ident,
--- ∀ ⟨ k, v ⟩ ∈ pm, we create one sub-goal with hypothesis ident = k,
--- and a final sub-goal ∀ ⟨ k, _ ⟩ ∈ pm, ident ≠ k
-
--- TODO: Maybe we could simply create a lemma matching a pm and saying, if it is
--- of form cons, then either ident = first element or ident ≠ first element.
--- We would'nt actually be using this first element and the conclusion would be
--- true regardless, but it would still be working?
-
-theorem getIO_either {Ident} [DecidableEq Ident] {T}
-  (pm : PortMap Ident T) (ip : InternalPort Ident)
-  (ip': InternalPort Ident) (v : T) (pm': PortMap Ident T)
-  (h : pm = (AssocList.cons ip' v pm') := by rfl):
-    ip = ip' ∨ ip ≠ ip' := by
-  intros; by_cases ip = ip'
-  · left; assumption
-  · right; assumption
-
-theorem or_implies H P Q (PorQ: P ∨ Q): (P → H) ∧ (Q → H) → H := by
-  intros HBoth
-  cases HBoth
-  rename_i PimpH QimpH
-  cases PorQ
-  · rename_i HP; apply PimpH HP
-  · rename_i HQ; apply QimpH HQ
-
-syntax "getIO_cases " term : tactic
-
-open Lean Elab Meta Tactic
-macro_rules
-  | `(tactic| getIO_cases $pm:term) => -- withMainContext do
-    -- let pm ← elabTerm pm none -- TODO: replace none with expected portmap
-    -- type ?
-    -- let termType ← inferType pm
-    -- let lctx ← getLCtx
-    `(tactic| by_cases $pm)
-
 end PortMap
 
 end DataflowRewriter
