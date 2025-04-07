@@ -235,14 +235,14 @@ def noc : ExprHigh String :=
                   NatModule.stringify_output 0,
                   {
                     inst := InstIdent.internal s!"Split{i}",
-                    name := s!"Data{i}_out"
+                    name := s!"Data{i}_out1"
                   }
                 ⟩,
                 ⟨
                   NatModule.stringify_output 1,
                   {
                     inst := InstIdent.internal s!"Split{i}",
-                    name := s!"FlitHeader{i}_out"
+                    name := s!"FlitHeader{i}_out1"
                   }
                 ⟩,
               ].toAssocList,
@@ -315,19 +315,19 @@ def noc : ExprHigh String :=
           output :=
             {
               inst := InstIdent.internal s!"Split{i}",
-              name := s!"Data{i}_out"
+              name := s!"Data{i}_out1"
             }
           input :=
             {
               inst := InstIdent.internal s!"NBranch{i}",
-              name := s!"Data{i}_in0"
+              name := s!"Data{i}_in1"
             }
         },
         {
           output :=
             {
               inst := InstIdent.internal s!"Split{i}",
-              name := s!"FlitHeader{i}_out"
+              name := s!"FlitHeader{i}_out1"
             }
           input :=
             {
@@ -360,7 +360,25 @@ def nocM :=
 def nocT :=
   [GT| noc, ε]
 
-def nocM_precompute :=
+
+def nocM_precompute : nocT := by
+  precomputeTac nocM by
+    unfold nocM noc
+    simp [drunfold,seval,drdecide,-AssocList.find?_eq]
+    unfold ε ε'
+    -- rw [ε'_merge,ε'_bag]
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
+    unfold Module.liftR
+    dsimp
+    conv =>
+      -- pattern (occs := *) Module.connect'' _ _
+      -- all_goals
+      --   rw [(Module.connect''_dep_rw (h := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl)
+      --                                (h' := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl))]; rfl
+    -- simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,-Prod.exists]
+    -- simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
+    unfold Module.connect''
+    dsimp
 
 -- TODO: We could prove that any RouterID has an associated input rule which is
 -- unique
@@ -369,6 +387,9 @@ def nocM_precompute :=
 theorem nocM_inpT i:
   (nocM.inputs.getIO (NatModule.stringify_input i)).1 = (T.Data × FlitHeader) :=
   by
+    unfold nocM ε ε' noc
+    set_option pp.explicit true in trace_state
+    generalize NocParam.netsz = sz
     sorry
 
 theorem nocM_outT i:
