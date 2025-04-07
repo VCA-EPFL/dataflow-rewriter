@@ -105,6 +105,9 @@ def ε' : Env :=
 def ε'_merge :
   ε'.find? s!"Merge {T.DataS} {T.netsz}" = .some ⟨_, StringModule.merge T.Data T.netsz⟩ := by sorry
 
+def ε'_merge_fixed n :
+  ε'.find? s!"Merge {T.DataS} {n}" = .some ⟨_, StringModule.merge T.Data n⟩ := by sorry
+
 def ε'_split :
   ε'.find? s!"Split {T.DataS} {FlitHeaderS}" = .some ⟨_, StringModule.split T.Data FlitHeader⟩ := by sorry
 
@@ -180,7 +183,7 @@ def nbagT :=
 def nbagM :=
   [Ge| nbag T.Data T.DataS T.netsz, ε']
 
-attribute [drcompute] Batteries.AssocList.toList Function.uncurry Module.mapIdent List.toAssocList List.foldl Option.pure_def Option.bind_eq_bind Option.bind_some Module.renamePorts Batteries.AssocList.mapKey InternalPort.map toString Nat.repr Nat.toDigits Nat.toDigitsCore Nat.digitChar List.asString Option.bind Batteries.AssocList.mapVal Batteries.AssocList.eraseAll Batteries.AssocList.eraseP beq_self_eq_true Option.getD cond beq_self_eq_true  beq_iff_eq  InternalPort.mk.injEq  String.reduceEq  and_false  imp_self BEq.beq AssocList.bijectivePortRenaming AssocList.keysList AssocList.eraseAllP List.inter
+attribute [drcompute] Batteries.AssocList.toList Function.uncurry Module.mapIdent List.toAssocList List.foldl Option.pure_def Option.bind_eq_bind Option.bind_some Module.renamePorts Batteries.AssocList.mapKey InternalPort.map toString Nat.repr Nat.toDigits Nat.toDigitsCore Nat.digitChar List.asString Option.bind Batteries.AssocList.mapVal Batteries.AssocList.eraseAll Batteries.AssocList.eraseP beq_self_eq_true Option.getD cond beq_self_eq_true  beq_iff_eq  InternalPort.mk.injEq  String.reduceEq  and_false  imp_self BEq.beq AssocList.bijectivePortRenaming AssocList.keysList AssocList.eraseAllP List.inter AssocList.filterId AssocList.append AssocList.filter
 
 attribute [drdecide] InternalPort.mk.injEq and_false decide_False decide_True and_true Batteries.AssocList.eraseAllP  InternalPort.mk.injEq
   and_false  decide_False  decide_True  reduceCtorEq  cond  List.map List.elem_eq_mem List.mem_cons List.mem_singleton Bool.decide_or InternalPort.mk.injEq
@@ -198,21 +201,19 @@ def nbagT_precompute : Type := by
 -- This should be spit out automatically
 axiom nbagT_eq : nbagT = nbagT_precompute
 
-def nbagM_precompute : nbagT_precompute := by
-  precomputeTac nbagM by
-    unfold nbagM
+def nbagM_precompute : StringModule nbagT_precompute := by
+  precomputeTac [Ge| nbag T.Data T.DataS 3, ε'] by
     simp [drunfold,seval,drdecide,-AssocList.find?_eq]
-    rw [ε'_merge,ε'_bag]
+    rw [ε'_merge_fixed,ε'_bag]
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
-    unfold Module.liftR
-    dsimp
+    rw [AssocList.find?_gss]
     conv =>
       pattern (occs := *) Module.connect'' _ _
       all_goals
         rw [(Module.connect''_dep_rw (h := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl)
                                      (h' := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl))]; rfl
     -- simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,-Prod.exists]
-    -- simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
     unfold Module.connect''
     dsimp
 
