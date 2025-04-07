@@ -102,6 +102,18 @@ def ε' : Env :=
     (s!"NBranch {T.DataS} {T.netsz}", ⟨_, nbranch⟩),
   ].toAssocList
 
+def ε'_merge :
+  ε'.find? s!"Merge {T.DataS} {T.netsz}" = .some ⟨_, StringModule.merge T.Data T.netsz⟩ := by sorry
+
+def ε'_split :
+  ε'.find? s!"Split {T.DataS} {FlitHeaderS}" = .some ⟨_, StringModule.split T.Data FlitHeader⟩ := by sorry
+
+def ε'_bag :
+  ε'.find? s!"Bag {T.DataS}" = .some ⟨_, StringModule.bag T.Data⟩ := by sorry
+
+def ε'_nbranch :
+  ε'.find? s!"NBranch {T.DataS} {T.netsz}" = .some ⟨_, nbranch⟩ := by sorry
+
 -- Implementation --------------------------------------------------------------
 
 -- Bag with `n` inputs
@@ -162,8 +174,47 @@ def nbag (T : Type) (TS : String) (n : ℕ) : ExprHigh String :=
     ],
   }
 
+def nbagT :=
+  [GT| nbag T.Data T.DataS T.netsz, ε']
+
 def nbagM :=
   [Ge| nbag T.Data T.DataS T.netsz, ε']
+
+attribute [drcompute] Batteries.AssocList.toList Function.uncurry Module.mapIdent List.toAssocList List.foldl Option.pure_def Option.bind_eq_bind Option.bind_some Module.renamePorts Batteries.AssocList.mapKey InternalPort.map toString Nat.repr Nat.toDigits Nat.toDigitsCore Nat.digitChar List.asString Option.bind Batteries.AssocList.mapVal Batteries.AssocList.eraseAll Batteries.AssocList.eraseP beq_self_eq_true Option.getD cond beq_self_eq_true  beq_iff_eq  InternalPort.mk.injEq  String.reduceEq  and_false  imp_self BEq.beq AssocList.bijectivePortRenaming AssocList.keysList AssocList.eraseAllP List.inter
+
+attribute [drdecide] InternalPort.mk.injEq and_false decide_False decide_True and_true Batteries.AssocList.eraseAllP  InternalPort.mk.injEq
+  and_false  decide_False  decide_True  reduceCtorEq  cond  List.map List.elem_eq_mem List.mem_cons List.mem_singleton Bool.decide_or InternalPort.mk.injEq
+  String.reduceEq and_false decide_false reduceCtorEq and_self Bool.or_self Bool.false_eq_true not_false_eq_true
+  List.filter_cons_of_neg and_true List.filter_nil List.empty_eq decide_true List.nodup_cons List.not_mem_nil
+  List.nodup_nil Bool.and_self reduceIte List.concat_eq_append dreduceIte List.append_nil
+
+def nbagT_precompute : Type := by
+  precomputeTac nbagT by
+    unfold nbagT
+    simp [drunfold,seval,drdecide,-AssocList.find?_eq]
+    rw [ε'_merge,ε'_bag]
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
+
+-- This should be spit out automatically
+axiom nbagT_eq : nbagT = nbagT_precompute
+
+def nbagM_precompute : nbagT_precompute := by
+  precomputeTac nbagM by
+    unfold nbagM
+    simp [drunfold,seval,drdecide,-AssocList.find?_eq]
+    rw [ε'_merge,ε'_bag]
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
+    unfold Module.liftR
+    dsimp
+    conv =>
+      pattern (occs := *) Module.connect'' _ _
+      all_goals
+        rw [(Module.connect''_dep_rw (h := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl)
+                                     (h' := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl))]; rfl
+    -- simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,-Prod.exists]
+    -- simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
+    unfold Module.connect''
+    dsimp
 
 def ε : Env :=
   AssocList.cons
@@ -308,6 +359,8 @@ def nocM :=
 
 def nocT :=
   [GT| noc, ε]
+
+def nocM_precompute :=
 
 -- TODO: We could prove that any RouterID has an associated input rule which is
 -- unique
