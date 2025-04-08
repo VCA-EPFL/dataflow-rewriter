@@ -76,24 +76,36 @@ def ε'_merge :
   ε'.find? s!"Merge {T.DataS} {T.netsz}" = .some ⟨_, StringModule.merge T.Data T.netsz⟩ := by
   simpa
 
--- def ε'_merge_fixed n :
---   ε'.find? s!"Merge {T.DataS} {n}" = .some ⟨_, StringModule.merge T.Data n⟩ := by sorry
-
 def ε'_split :
   ε'.find? s!"Split {T.DataS} {FlitHeaderS}" = .some ⟨_, StringModule.split T.Data FlitHeader⟩ := by
     simp
+    -- TODO(Yann): Why cannot I use existential here ?
     exists s!"Split {T.DataS} {FlitHeaderS}"
     right
     split_ands
-    · sorry
+    · unfold toString instToStringString instToStringNat; simp
+      sorry -- Should be Trivial
     · rfl
 
 def ε'_bag :
   ε'.find? s!"Bag {T.DataS}" = .some ⟨_, StringModule.bag T.Data⟩ := by
     simp
-    sorry
+    exists s!"Bag {T.DataS}"
+    right
+    split_ands
+    · sorry
+    · right
+      simp
+      sorry
 
 def ε'_nbranch :
   ε'.find? s!"NBranch {T.DataS} {T.netsz}" = .some ⟨_, nbranch⟩ := by
     simp
-    sorry
+    exists s!"NBranch {T.DataS} {T.netsz}"
+    right
+    split_ands
+    · sorry
+    · right; simp; split_ands
+      · sorry
+      · right
+        sorry

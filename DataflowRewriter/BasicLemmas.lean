@@ -68,6 +68,17 @@ theorem getIO_cons {Ident} [DecidableEq Ident] {S}
   (PortMap.getIO (AssocList.cons x v pm) x) = v := by
     unfold PortMap.getIO; simpa
 
+-- TODO: @[simp] ?
+theorem getIO_map {S : Type _} (i : Nat) (sz : Nat) (f : Nat -> InternalPort Nat × (Σ T : Type _, (S → T → S → Prop))) k v :
+  i < sz →
+  f i = ⟨ k, v ⟩ →
+  (PortMap.getIO
+    (List.range sz |>.map (λ n => f n) |>.toAssocList)
+    { inst := InstIdent.top, name := i } -- FIXME: This should be just ↑i...
+    = v) := by
+  intros Hlt Hf
+  sorry
+
 theorem getIO_not_contained_false {Ident} [DecidableEq Ident] {S}
   {pm : PortMap Ident ((T : Type) × (S → T → S → Prop))} {x1 x2 x3 x4}:
   ¬ pm.contains x1 → (pm.getIO x1).snd x2 x3 x4 → False := by

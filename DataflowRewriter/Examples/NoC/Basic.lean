@@ -36,7 +36,7 @@ class NocParam where
   DataS : String  -- String representation of Data
   netsz : Nat     -- Network Size (Number of router)
 
-variable [T: NocParam]
+variable [P: NocParam]
 
 -- TODO: Unsure why this needs to be an abbrev
 abbrev RouterID :=
@@ -50,60 +50,59 @@ structure FlitHeader : Type :=
   dest : RouterID
 
 def FlitHeaderS : String :=
-  s!"FlitHeader {T.netsz}"
+  s!"FlitHeader {P.netsz}"
 
 -- Component -------------------------------------------------------------------
 
+def nocT : Type :=
+  List (P.Data × FlitHeader)
+
+def mk_input_rule (rID : RouterID) : (InternalPort Nat × (Σ T : Type, nocT → T → nocT → Prop)) :=
+  Prod.mk ↑rID ⟨P.Data × FlitHeader, λ oldState v newState => newState = oldState.concat v ⟩
+
+def mk_output_rule (rID : RouterID) : (InternalPort Nat × (Σ T : Type, nocT → T → nocT → Prop)) :=
+  Prod.mk ↑rID
+    ⟨
+      P.Data,
+      λ oldState data newState => (data, { dest := rID }) :: newState = oldState
+    ⟩
+
 @[drunfold]
-def noc (name := "noc") : NatModule (NatModule.Named name (List (T.Data × RouterID))) :=
+def noc (name := "noc") : NatModule (NatModule.Named name nocT) :=
   {
-    inputs := List.range T.netsz |>.map (λ routerID => Prod.mk ↑routerID
-      ⟨
-        T.Data × RouterID,
-        λ oldState v newState => newState = oldState.concat v
-      ⟩
-    ) |>.toAssocList,
-    outputs := List.range T.netsz |>.map (λ routerID => Prod.mk ↑routerID
-      ⟨
-        T.Data,
-        λ oldState data newState => (data, routerID) :: newState = oldState
-      ⟩
-    ) |>.toAssocList,
+    inputs := List.range P.netsz |>.map mk_input_rule |>.toAssocList,
+    outputs := List.range P.netsz |>.map mk_output_rule |>.toAssocList,
   }
 
 -- Basic properties ------------------------------------------------------------
 
--- TODO
--- theorem find_port {S : Type _} (i : Nat) (f : RouterID -> (Σ T : Type _, (S → T → S → Prop))) v :
---   i < T.netsz →
---   f i = v →
---   (PortMap.getIO
---     (List.range T.netsz |>.map f |>.toAssocList)
---     { inst := InstIdent.top, name := i }
---     = v) := by
---     sorry
-
 theorem noc_inpT (i : RouterID) :
-  i < T.netsz → (noc.inputs.getIO ↑i).1 = (T.Data × FlitHeader) :=
+  i < P.netsz → (noc.inputs.getIO ↑i).1 = (P.Data × FlitHeader) :=
   by
     unfold noc
-    induction T.netsz <;> simp at *
-    rename_i n H
+    dsimp
     intros Hle
-    sorry
+    rw [PortMap.getIO_map (sz := P.netsz) (i := i) (f := mk_input_rule)]
+    rotate_left 4
+    · unfold mk_input_rule; rfl
+    · simpa
+    · simpa
 
 theorem noc_outT (i : RouterID) :
-  i < T.netsz →
-  (noc.outputs.getIO i).1 = (T.Data × FlitHeader) :=
+  i < P.netsz →
+  (noc.outputs.getIO i).1 = P.Data :=
   by
     unfold noc
-    induction T.netsz <;> simp at *
-    rename_i n H
+    dsimp
     intros Hle
-    sorry
+    rw [PortMap.getIO_map (sz := P.netsz) (i := i) (f := mk_output_rule)]
+    rotate_left 4
+    · unfold mk_output_rule; rfl
+    · simpa
+    · simpa
 
-theorem full_connectivity (i j : RouterID) (d : T.Data) in_s mid_s
-  (iLt : i < T.netsz) (jLt : j < T.netsz):
+theorem full_connectivity (i j : RouterID) (d : P.Data) in_s mid_s
+  (iLt : i < P.netsz) (jLt : j < P.netsz):
   -- From any initial state `in_s`, we can reach a new state `mid_s` by using
   -- the input rule associated to `i` used with value `v`
   (noc.inputs.getIO i).2 in_s ((noc_inpT i iLt).mpr (d, ⟨j⟩)) mid_s →
@@ -111,7 +110,7 @@ theorem full_connectivity (i j : RouterID) (d : T.Data) in_s mid_s
   -- There exists a path from this `mid_s` to an output state `out_s`
   existSR noc.internals mid_s out_s ∧
   -- This `out_s` can be used to actually extract the initial value `v` in the
-  (noc.outputs.getIO j).2 mid_s ((noc_outT j jLt).mpr (d, ⟨j⟩)) out_s
+  (noc.outputs.getIO j).2 mid_s ((noc_outT j jLt).mpr d) out_s
   := by
     intros Hinp
     unfold noc at *
@@ -119,6 +118,13 @@ theorem full_connectivity (i j : RouterID) (d : T.Data) in_s mid_s
     exists mid_s
     split_ands
     · constructor
-    · sorry
+    · let (kinp, vinp) := mk_input_rule i
+      rw [PortMap.rw_rule_execution (h := PortMap.getIO_map (sz := P.netsz) (i := i) (f := mk_input_rule) kinp vinp iLt _)] at Hinp
+      · simp at *
+        let (kout, vout) := mk_output_rule i
+        rw [PortMap.rw_rule_execution (h := PortMap.getIO_map (sz := P.netsz) (i := j) (f := mk_output_rule) kout vout jLt _)]
+        · sorry
+        · sorry
+      · sorry
 
 end DataflowRewriter.NoC
