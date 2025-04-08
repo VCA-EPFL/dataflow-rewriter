@@ -60,6 +60,9 @@ def nocT : Type :=
 def mk_input_rule (rID : RouterID) : (InternalPort Nat × (Σ T : Type, nocT → T → nocT → Prop)) :=
   Prod.mk ↑rID ⟨P.Data × FlitHeader, λ oldState v newState => newState = oldState.concat v ⟩
 
+-- FIXME: This output rule corresponds to the most restrictive ordered Noc where the internal
+-- state is a queue, we would like the most general specification to be done
+-- with a bag instead, so use an exists here
 def mk_output_rule (rID : RouterID) : (InternalPort Nat × (Σ T : Type, nocT → T → nocT → Prop)) :=
   Prod.mk ↑rID
     ⟨
