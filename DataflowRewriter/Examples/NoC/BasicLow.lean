@@ -25,88 +25,15 @@ open Batteries (AssocList)
 
 namespace DataflowRewriter.NoC
 
-variable [T: NocParam]
-
--- Components ------------------------------------------------------------------
-
-@[drunfold]
-def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List T.Data × List RouterID)) :=
-  {
-    inputs := [
-      (0, ⟨T.Data,
-        λ (oldDatas, oldRouterIDs) data (newDatas, newRouterIDs) =>
-          newDatas = oldDatas.concat data ∧ newRouterIDs = oldRouterIDs
-      ⟩),
-      (1, ⟨RouterID,
-        λ (oldDatas, oldRouterIDs) routerID (newDatas, newRouterIDs) =>
-          newDatas = oldDatas ∧ newRouterIDs = oldRouterIDs.concat routerID
-      ⟩),
-    ].toAssocList
-
-    outputs :=
-      -- TODO: We would like to have n be cast to a RouterID down the line
-      List.range T.netsz |>.map (λ routerID => Prod.mk ↑routerID
-        (⟨T.Data,
-          λ (oldDatas, oldRouterIDs) data (newDatas, newRouterIDs) =>
-            data :: newDatas = oldDatas ∧
-            routerID :: newRouterIDs = oldRouterIDs
-        ⟩))
-      |>.toAssocList,
-  }
-
-@[drunfold]
-def nbranch :=
-  nbranch' |>.stringify
-
--- Environment -----------------------------------------------------------------
-
-def ε' : Env :=
-  [
-    -- Merge to implement the n-bag
-    (s!"Merge {T.DataS} {T.netsz}", ⟨_, StringModule.merge T.Data T.netsz⟩),
-
-    -- Splits to separate Data and FlitHeader
-    (s!"Split {T.DataS} {FlitHeaderS}", ⟨_, StringModule.split T.Data FlitHeader⟩),
-
-    -- Bags to receive message (One per router)
-    (s!"Bag {T.DataS}", ⟨_, StringModule.bag T.Data⟩),
-
-    -- Branching for routing
-    (s!"NBranch {T.DataS} {T.netsz}", ⟨_, nbranch⟩),
-  ].toAssocList
-
-def ε'_merge :
-  ε'.find? s!"Merge {T.DataS} {T.netsz}" = .some ⟨_, StringModule.merge T.Data T.netsz⟩ := by
-  simpa
-
--- def ε'_merge_fixed n :
---   ε'.find? s!"Merge {T.DataS} {n}" = .some ⟨_, StringModule.merge T.Data n⟩ := by sorry
-
-def ε'_split :
-  ε'.find? s!"Split {T.DataS} {FlitHeaderS}" = .some ⟨_, StringModule.split T.Data FlitHeader⟩ := by
-    simp
-    exists s!"Split {T.DataS} {FlitHeaderS}"
-    right
-    split_ands
-    · sorry
-    · rfl
-
-def ε'_bag :
-  ε'.find? s!"Bag {T.DataS}" = .some ⟨_, StringModule.bag T.Data⟩ := by
-    simp
-    sorry
-
-def ε'_nbranch :
-  ε'.find? s!"NBranch {T.DataS} {T.netsz}" = .some ⟨_, nbranch⟩ := by
-    simp
-    sorry
+variable [P: NocParam]
 
 -- Implementation --------------------------------------------------------------
 
 -- Bag with `n` inputs
 -- TODO: We should be able to reason about this design inductively but it may be
 -- very hard since n is a direct parameter of the merge
--- Another possibility would be to not use a nmerge but only use a two merge,
+-- Another possibility would be to not use a nmerge but only use `two merge`
+-- combined in cascade
 def nbag (T : Type) (TS : String) (n : ℕ) : ExprLow String :=
   let merge := ExprLow.base
     {
@@ -142,10 +69,10 @@ def nbag (T : Type) (TS : String) (n : ℕ) : ExprLow String :=
     (ExprLow.product bag merge)
 
 def nbagT :=
-  [T| nbag T.Data T.DataS T.netsz, ε']
+  [T| nbag P.Data P.DataS P.netsz, ε']
 
 def nbagM :=
-  [e| nbag T.Data T.DataS T.netsz, ε']
+  [e| nbag P.Data P.DataS P.netsz, ε']
 
 def nbagT_precompute : Type := by
   precomputeTac nbagT by
@@ -174,5 +101,4 @@ def nbagM_precompute : StringModule nbagT_precompute := by
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
     unfold Module.connect''
     simp
-
 end DataflowRewriter.NoC

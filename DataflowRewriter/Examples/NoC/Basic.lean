@@ -108,6 +108,9 @@ theorem full_connectivity (i j : RouterID) (d : P.Data) in_s mid_s
   (noc.inputs.getIO i).2 in_s ((noc_inpT i iLt).mpr (d, ⟨j⟩)) mid_s →
   ∃ out_s,
   -- There exists a path from this `mid_s` to an output state `out_s`
+  -- TODO: Here, we know for sure that noc.internals is empty, since we just
+  -- defined it that way.
+  -- Does it then still really make sense to express it this way?
   existSR noc.internals mid_s out_s ∧
   -- This `out_s` can be used to actually extract the initial value `v` in the
   (noc.outputs.getIO j).2 mid_s ((noc_outT j jLt).mpr d) out_s
@@ -118,7 +121,10 @@ theorem full_connectivity (i j : RouterID) (d : P.Data) in_s mid_s
     exists mid_s
     split_ands
     · constructor
-    · let (kinp, vinp) := mk_input_rule i
+    · -- TODO(Ask Yann): Why don't I get this definition as hypothesis ?
+      -- How can I get it?
+      let (kinp, vinp) := mk_input_rule i
+      -- TODO(Ask Yann): Is there a cleaner way to do this...
       rw [PortMap.rw_rule_execution (h := PortMap.getIO_map (sz := P.netsz) (i := i) (f := mk_input_rule) kinp vinp iLt _)] at Hinp
       · simp at *
         let (kout, vout) := mk_output_rule i

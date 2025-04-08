@@ -25,7 +25,7 @@ open Batteries (AssocList)
 
 namespace DataflowRewriter.NoC
 
-variable [T: NocParam]
+variable [P: NocParam]
 
 -- Implementation --------------------------------------------------------------
 
@@ -88,10 +88,10 @@ def nbag (T : Type) (TS : String) (n : ℕ) : ExprHigh String :=
   }
 
 def nbagT :=
-  [GT| nbag T.Data T.DataS T.netsz, ε']
+  [GT| nbag P.Data P.DataS P.netsz, ε']
 
 def nbagM :=
-  [Ge| nbag T.Data T.DataS T.netsz, ε']
+  [Ge| nbag P.Data P.DataS P.netsz, ε']
 
 attribute [drcompute] Batteries.AssocList.toList Function.uncurry Module.mapIdent List.toAssocList List.foldl Option.pure_def Option.bind_eq_bind Option.bind_some Module.renamePorts Batteries.AssocList.mapKey InternalPort.map toString Nat.repr Nat.toDigits Nat.toDigitsCore Nat.digitChar List.asString Option.bind Batteries.AssocList.mapVal Batteries.AssocList.eraseAll Batteries.AssocList.eraseP beq_self_eq_true Option.getD cond beq_self_eq_true  beq_iff_eq  InternalPort.mk.injEq  String.reduceEq  and_false  imp_self BEq.beq AssocList.bijectivePortRenaming AssocList.keysList AssocList.eraseAllP List.inter AssocList.filterId AssocList.append AssocList.filter
 
@@ -131,7 +131,7 @@ def ε : Env :=
   AssocList.cons
     s!"NBag {T.DataS} {T.netsz}" ⟨_, nbagM⟩ ε'
 
-def noc : ExprHigh String :=
+def noc' : ExprHigh String :=
   {
     modules :=
       List.range T.netsz |>.map (λ i => [
@@ -146,14 +146,14 @@ def noc : ExprHigh String :=
                   NatModule.stringify_output 0,
                   {
                     inst := InstIdent.internal s!"Split{i}",
-                    name := s!"Data{i}_out"
+                    name := s!"Data{i}_out1"
                   }
                 ⟩,
                 ⟨
                   NatModule.stringify_output 1,
                   {
                     inst := InstIdent.internal s!"Split{i}",
-                    name := s!"FlitHeader{i}_out"
+                    name := s!"FlitHeader{i}_out1"
                   }
                 ⟩,
               ].toAssocList,
@@ -226,19 +226,19 @@ def noc : ExprHigh String :=
           output :=
             {
               inst := InstIdent.internal s!"Split{i}",
-              name := s!"Data{i}_out"
+              name := s!"Data{i}_out1"
             }
           input :=
             {
               inst := InstIdent.internal s!"NBranch{i}",
-              name := s!"Data{i}_in0"
+              name := s!"Data{i}_in1"
             }
         },
         {
           output :=
             {
               inst := InstIdent.internal s!"Split{i}",
-              name := s!"FlitHeader{i}_out"
+              name := s!"FlitHeader{i}_out1"
             }
           input :=
             {
@@ -266,38 +266,15 @@ def noc : ExprHigh String :=
   }
 
 def nocM :=
-  [Ge| noc, ε]
+  [Ge| noc', ε]
 
 def nocT :=
-  [GT| noc, ε]
+  [GT| noc', ε]
 
-def nocM_precompute :=
+-- TODO: nocM_precompute
 
--- TODO: We could prove that any RouterID has an associated input rule which is
--- unique
--- TODO: We could do the same with output rules
-
-theorem nocM_inpT i:
-  (nocM.inputs.getIO (NatModule.stringify_input i)).1 = (T.Data × FlitHeader) :=
-  by
-    sorry
-
-theorem nocM_outT i:
-  (nocM.outputs.getIO (NatModule.stringify_output i)).1 = (T.Data × FlitHeader) :=
-    by
-      sorry
-
--- TODO: Say that v must be ⟨j, d⟩, and so should v'
--- We prove that for every input and output, we can route a message between them
-theorem full_connectivity (i j : RouterID) (d : T.Data) in_s mid_s:
-  -- From any initial state `in_s`, we can reach a new state `mid_s` by using
-  -- the input rule associated to `i` used with value `v`
-  (nocM.inputs.getIO (NatModule.stringify_input i)).2 in_s ((nocM_inpT i).mpr (d, ⟨j⟩)) mid_s →
-  ∃ out_s,
-  -- There exists a path from this `mid_s` to an output state `out_s`
-  existSR nocM.internals mid_s out_s ∧
-  -- This `out_s` can be used to actually extract the initial value `v` in the
-  (nocM.outputs.getIO (NatModule.stringify_output j)).2 mid_s ((nocM_outT j).mpr (d, ⟨j⟩)) out_s
-  := by sorry
+-- TODO: Prove that noc' refines noc?
+-- We actually want to prove that they are equivalant, not that they refines one
+-- another. Or does it really matter here?
 
 end DataflowRewriter.NoC

@@ -72,6 +72,9 @@ def ε' : Env :=
     (s!"NBranch {T.DataS} {T.netsz}", ⟨_, nbranch⟩),
   ].toAssocList
 
+-- All of the following Lemmas are used for precomputing modules
+-- TODO: We should probably make the proof into a tactic
+
 def ε'_merge :
   ε'.find? s!"Merge {T.DataS} {T.netsz}" = .some ⟨_, StringModule.merge T.Data T.netsz⟩ := by
   simpa
@@ -79,7 +82,7 @@ def ε'_merge :
 def ε'_split :
   ε'.find? s!"Split {T.DataS} {FlitHeaderS}" = .some ⟨_, StringModule.split T.Data FlitHeader⟩ := by
     simp
-    -- TODO(Yann): Why cannot I use existential here ?
+    -- TODO(Ask Yann): Why cannot I use existential here ?
     exists s!"Split {T.DataS} {FlitHeaderS}"
     right
     split_ands
@@ -93,7 +96,7 @@ def ε'_bag :
     exists s!"Bag {T.DataS}"
     right
     split_ands
-    · sorry
+    · sorry -- Should be Trivial
     · right
       simp
       sorry
@@ -104,8 +107,8 @@ def ε'_nbranch :
     exists s!"NBranch {T.DataS} {T.netsz}"
     right
     split_ands
-    · sorry
+    · sorry -- Should be Trivial
     · right; simp; split_ands
-      · sorry
+      · sorry -- Should be Trivial
       · right
-        sorry
+        sorry -- Should be Trivial

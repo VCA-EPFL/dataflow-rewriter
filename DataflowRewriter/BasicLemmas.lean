@@ -76,7 +76,13 @@ theorem getIO_map {S : Type _} (i : Nat) (sz : Nat) (f : Nat -> InternalPort Nat
     (List.range sz |>.map (λ n => f n) |>.toAssocList)
     { inst := InstIdent.top, name := i } -- FIXME: This should be just ↑i...
     = v) := by
-  intros Hlt Hf
+  -- TODO
+  -- The annoying part in this proof is the definition of List.range which is
+  -- actually in order, which means we cannot easily do an induction on size.
+  -- Sincewe are only using this function as a convenience and we don't actually
+  -- care about the order in this context, we could simply use another function
+  -- here, but it would take time to once again prove basic lemmas about this
+  -- new function, which might not be what we want
   sorry
 
 theorem getIO_not_contained_false {Ident} [DecidableEq Ident] {S}
