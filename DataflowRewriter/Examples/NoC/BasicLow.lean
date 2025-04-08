@@ -17,19 +17,20 @@ import Qq
 import DataflowRewriter.Simp
 import DataflowRewriter.Module
 import DataflowRewriter.ExprLow
+import DataflowRewriter.ExprLowLemmas
 import DataflowRewriter.Component
 import DataflowRewriter.KernelRefl
 import DataflowRewriter.Reduce
 import DataflowRewriter.List
 import DataflowRewriter.Tactic
 import DataflowRewriter.AssocList
-import DataflowRewriter.Examples.NoC.Basic
 
 open Batteries (AssocList)
 
 namespace DataflowRewriter.NoC
 
 -- Parameters ------------------------------------------------------------------
+-- TODO: Use types from Noc/Basic instead
 
 -- TODO: Maybe a comment here to explain Yann's hack would be great since this
 -- is also an Example file
@@ -41,6 +42,7 @@ class NocParam where
 variable [T: NocParam]
 
 -- Types -----------------------------------------------------------------------
+-- TODO: Use types from Noc/Basic instead
 
 def RouterID : Type :=
   -- FIXME: This should be Fin T.netsz, but it is annoying
@@ -134,7 +136,7 @@ def ε'_nbranch :
 -- TODO: We should be able to reason about this design inductively but it may be
 -- very hard since n is a direct parameter of the merge
 -- Another possibility would be to not use a nmerge but only use a two merge,
-def nbag' (T : Type) (TS : String) (n : ℕ) : ExprLow String :=
+def nbag (T : Type) (TS : String) (n : ℕ) : ExprLow String :=
   let merge := ExprLow.base
     {
       input := List.range n |>.map (λ i => ⟨
@@ -167,5 +169,39 @@ def nbag' (T : Type) (TS : String) (n : ℕ) : ExprLow String :=
     { inst := InstIdent.internal "Merge", name := "merge_to_bag_out"  }
     { inst := InstIdent.internal "Bag",   name := "merge_to_bag_in"   }
     (ExprLow.product bag merge)
+
+def nbagT :=
+  [T| nbag T.Data T.DataS T.netsz, ε']
+
+def nbagM :=
+  [e| nbag T.Data T.DataS T.netsz, ε']
+
+def nbagT_precompute : Type := by
+  precomputeTac nbagT by
+    unfold nbagT
+    simp [drunfold,seval,drdecide,-AssocList.find?_eq]
+    rw [ε'_merge,ε'_bag]
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
+
+-- This should be spit out automatically
+axiom nbagT_eq : nbagT = nbagT_precompute
+
+def nbagM_precompute : StringModule nbagT_precompute := by
+  precomputeTac nbagM by
+    simp [drunfold,seval,drdecide,-AssocList.find?_eq]
+    unfold nbagM nbag
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
+    rw [ε'_merge,ε'_bag]
+    dsimp
+    -- rw [AssocList.find?_gss]
+    conv =>
+      pattern (occs := *) Module.connect'' _ _
+      all_goals
+        rw [(Module.connect''_dep_rw (h := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl)
+                                     (h' := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl))]; rfl
+    -- simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,-Prod.exists]
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
+    unfold Module.connect''
+    simp
 
 end DataflowRewriter.NoC

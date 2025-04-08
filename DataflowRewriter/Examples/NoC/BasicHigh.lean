@@ -30,6 +30,7 @@ open Batteries (AssocList)
 namespace DataflowRewriter.NoC
 
 -- Parameters ------------------------------------------------------------------
+-- TODO: Use types from Noc/Basic instead
 
 -- TODO: Maybe a comment here to explain Yann's hack would be great since this
 -- is also an Example file
@@ -41,6 +42,7 @@ class NocParam where
 variable [T: NocParam]
 
 -- Types -----------------------------------------------------------------------
+-- TODO: Use types from Noc/Basic instead
 
 def RouterID : Type :=
   -- FIXME: This should be Fin T.netsz, but it is annoying
