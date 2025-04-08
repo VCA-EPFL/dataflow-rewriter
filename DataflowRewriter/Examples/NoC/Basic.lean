@@ -1,7 +1,7 @@
 /-
 Copyright (c) 2025 VCA Lab, EPFL. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Yann Herklotz
+Authors: Yann Herklotz, Gurvan Debaussart
 -/
 
 -- Implementation of NoC types and reference implementation using Bags
@@ -74,10 +74,13 @@ def noc (name := "noc") : NatModule (NatModule.Named name (List (T.Data × Route
 -- Basic properties ------------------------------------------------------------
 
 -- TODO
--- theorem find_port {S} (i : RouterID) (f : RouterID -> ((T : Type) × (S → T → S → Prop))) k v :
+-- theorem find_port {S : Type _} (i : Nat) (f : RouterID -> (Σ T : Type _, (S → T → S → Prop))) v :
 --   i < T.netsz →
---   f i = ⟨ k, v ⟩ →
---   (PortMap.getIO (List.range T.netsz |>.map f |>.toAssocList) ↑i = v) := by
+--   f i = v →
+--   (PortMap.getIO
+--     (List.range T.netsz |>.map f |>.toAssocList)
+--     { inst := InstIdent.top, name := i }
+--     = v) := by
 --     sorry
 
 theorem noc_inpT (i : RouterID) :

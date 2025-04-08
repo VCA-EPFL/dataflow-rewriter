@@ -1,14 +1,8 @@
 /-
 Copyright (c) 2025 VCA Lab, EPFL. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Yann Herklotz
+Authors: Yann Herklotz, Gurvan Debaussart
 -/
-
--- Implementation of NoC types and reference implementation using Bags
--- Inputs are defined as a product between an arbitrary type T and a FlitHeader
--- type, which gives information about the desired target of each message.
-
--- FIXME: For now, there is a low of useless comments which should be removed
 
 import Lean
 import Init.Data.BitVec.Lemmas
@@ -24,37 +18,14 @@ import DataflowRewriter.Reduce
 import DataflowRewriter.List
 import DataflowRewriter.Tactic
 import DataflowRewriter.AssocList
+import DataflowRewriter.Examples.NoC.Basic
+import DataflowRewriter.Examples.NoC.Components
 
 open Batteries (AssocList)
 
 namespace DataflowRewriter.NoC
 
--- Parameters ------------------------------------------------------------------
--- TODO: Use types from Noc/Basic instead
-
--- TODO: Maybe a comment here to explain Yann's hack would be great since this
--- is also an Example file
-class NocParam where
-  Data : Type     -- Type of data transmitted over the NoC
-  DataS : String  -- String representation of Data
-  netsz : Nat     -- Network Size (Number of router)
-
 variable [T: NocParam]
-
--- Types -----------------------------------------------------------------------
--- TODO: Use types from Noc/Basic instead
-
-def RouterID : Type :=
-  -- FIXME: This should be Fin T.netsz, but it is annoying
-  -- Notably below for the `nbranch` component, we cannot use a List.range
-  Nat
-
-structure FlitHeader : Type :=
-  dest : RouterID
--- TODO: Should this be deriving stuff ? I cannot for some reason make it work
-
-def FlitHeaderS : String :=
-  s!"FlitHeader {T.netsz}"
 
 -- Components ------------------------------------------------------------------
 
