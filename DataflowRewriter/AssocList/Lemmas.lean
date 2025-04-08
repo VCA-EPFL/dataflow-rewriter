@@ -316,13 +316,15 @@ theorem bijectivePortRenaming_bijective {α} [DecidableEq α] {p : AssocList α 
 
 theorem bijectivePortRenaming_id {α} [DecidableEq α] : @bijectivePortRenaming α _ ∅ = id := by rfl
 
-@[simp] theorem find?_gss : ∀ {α} [DecidableEq α] {β x v} {pm: AssocList α β},
-  (AssocList.find? x (AssocList.cons x v pm)) = .some v := by simp
+@[simp]
+theorem find?_gss : ∀ {α} [DecidableEq α] {β x v} {pm: AssocList α β},
+  (AssocList.find? x (AssocList.cons x v pm)) = .some v := by simpa
 
-@[simp] theorem find?_gso : ∀ {α} [DecidableEq α] {β x' x v} {pm: AssocList α β},
+@[simp]
+theorem find?_gso : ∀ {α} [DecidableEq α] {β x' x v} {pm: AssocList α β},
   x ≠ x' → AssocList.find? x' (AssocList.cons x v pm) = AssocList.find? x' pm := by simp_all
 
 @[simp] theorem find?_ge : ∀ {α} [DecidableEq α] {β x},
-  AssocList.find? x (.nil : AssocList α β) = .none := by simp
+  AssocList.find? x (.nil : AssocList α β) = .none := by simpa
 
 end Batteries.AssocList
