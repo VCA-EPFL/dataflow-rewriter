@@ -38,7 +38,8 @@ class NocParam where
 
 variable [P: NocParam]
 
--- TODO: Unsure why this needs to be an abbrev
+-- TODO: Unsure why this needs to be an abbrev, but it does not work when this
+-- is def
 abbrev RouterID :=
   -- FIXME: This could be a Fin T.netsz, should it ?
   -- What is the expected behavior of a NoC in which the target is invalid?
@@ -54,27 +55,32 @@ def FlitHeaderS : String :=
 
 -- Component -------------------------------------------------------------------
 
+-- Type of the internal state of a NoC
 def nocT : Type :=
   List (P.Data × FlitHeader)
 
-def mk_input_rule (rID : RouterID) : (InternalPort Nat × (Σ T : Type, nocT → T → nocT → Prop)) :=
-  Prod.mk ↑rID ⟨P.Data × FlitHeader, λ oldState v newState => newState = oldState.concat v ⟩
+def mk_input_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
+    ⟨
+      P.Data × FlitHeader,
+      λ oldState v newState => newState = oldState.concat v
+    ⟩
 
--- FIXME: This output rule corresponds to the most restrictive ordered Noc where the internal
--- state is a queue, we would like the most general specification to be done
--- with a bag instead, so use an exists here
-def mk_output_rule (rID : RouterID) : (InternalPort Nat × (Σ T : Type, nocT → T → nocT → Prop)) :=
-  Prod.mk ↑rID
+def mk_output_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
     ⟨
       P.Data,
-      λ oldState data newState => (data, { dest := rID }) :: newState = oldState
+      λ oldState data newState =>
+        ∃ i, newState = oldState.remove i ∧
+        (data, { dest := rID }) = oldState.get i
     ⟩
+
+def lift_f (f : Nat → (Σ T : Type, nocT → T → nocT → Prop)) (n : Nat) : InternalPort Nat × (Σ T : Type, nocT → T → nocT → Prop) :=
+  ⟨ ↑n, f n ⟩
 
 @[drunfold]
 def noc (name := "noc") : NatModule (NatModule.Named name nocT) :=
   {
-    inputs := List.range P.netsz |>.map mk_input_rule |>.toAssocList,
-    outputs := List.range P.netsz |>.map mk_output_rule |>.toAssocList,
+    inputs := List.range P.netsz |>.map (lift_f mk_input_rule) |>.toAssocList,
+    outputs := List.range P.netsz |>.map (lift_f mk_output_rule) |>.toAssocList,
   }
 
 -- Basic properties ------------------------------------------------------------
@@ -82,58 +88,69 @@ def noc (name := "noc") : NatModule (NatModule.Named name nocT) :=
 theorem noc_inpT (i : RouterID) :
   i < P.netsz → (noc.inputs.getIO ↑i).1 = (P.Data × FlitHeader) :=
   by
-    unfold noc
-    dsimp
     intros Hle
-    rw [PortMap.getIO_map (sz := P.netsz) (i := i) (f := mk_input_rule)]
-    rotate_left 4
-    · unfold mk_input_rule; rfl
-    · simpa
-    · simpa
+    unfold noc lift_f
+    dsimp
+    rw [PortMap.getIO_map (i := i) (f := mk_input_rule) (Heq := by unfold mk_input_rule; rfl)]
+    <;> simpa
 
 theorem noc_outT (i : RouterID) :
   i < P.netsz →
   (noc.outputs.getIO i).1 = P.Data :=
   by
-    unfold noc
-    dsimp
     intros Hle
-    rw [PortMap.getIO_map (sz := P.netsz) (i := i) (f := mk_output_rule)]
-    rotate_left 4
-    · unfold mk_output_rule; rfl
-    · simpa
-    · simpa
+    unfold noc lift_f
+    dsimp
+    rw [PortMap.getIO_map (i := i) (f := mk_output_rule) (Heq := by unfold mk_output_rule; rfl)]
+    <;> simpa
 
-theorem full_connectivity (i j : RouterID) (d : P.Data) in_s mid_s
+-- TODO: We can prove something stronger, where we can do other rule than
+-- internal rules.
+-- We can create an inductive which is a subset of existsSR of all rules (need
+-- to prove id), and then show that we can use this inductive to get to any
+-- internal step
+theorem full_connectivity (i j : RouterID) (d : P.Data) pre_s inp_s
   (iLt : i < P.netsz) (jLt : j < P.netsz):
-  -- From any initial state `in_s`, we can reach a new state `mid_s` by using
-  -- the input rule associated to `i` used with value `v`
-  (noc.inputs.getIO i).2 in_s ((noc_inpT i iLt).mpr (d, ⟨j⟩)) mid_s →
-  ∃ out_s,
-  -- There exists a path from this `mid_s` to an output state `out_s`
-  -- TODO: Here, we know for sure that noc.internals is empty, since we just
-  -- defined it that way.
-  -- Does it then still really make sense to express it this way?
-  existSR noc.internals mid_s out_s ∧
-  -- This `out_s` can be used to actually extract the initial value `v` in the
-  (noc.outputs.getIO j).2 mid_s ((noc_outT j jLt).mpr d) out_s
+  -- From any initial state `in_s`, if we can add a message from input port `i`
+  -- with destination port `j` containing data `d`, changing the state to
+  -- `mid_s`...
+  (noc.inputs.getIO i).2 pre_s ((noc_inpT i iLt).mpr (d, { dest := j })) inp_s →
+  -- Then there exists an internal execution path from this `mid_s` to an output
+  -- state `out_s`
+  -- NOTE: We know that noc.internals is actually empty in our current
+  -- definition, but we don't want to expose this fact to users
+  ∃ mid_s, existSR noc.internals inp_s mid_s ∧
+  -- This `out_s` can be used to extract the initial data `d`
+  ∃ out_s, (noc.outputs.getIO j).2 mid_s ((noc_outT j jLt).mpr d) out_s
   := by
     intros Hinp
     unfold noc at *
     dsimp at *
-    exists mid_s
+    exists inp_s
     split_ands
     · constructor
-    · -- TODO(Ask Yann): Why don't I get this definition as hypothesis ?
-      -- How can I get it?
-      let (kinp, vinp) := mk_input_rule i
-      -- TODO(Ask Yann): Is there a cleaner way to do this...
-      rw [PortMap.rw_rule_execution (h := PortMap.getIO_map (sz := P.netsz) (i := i) (f := mk_input_rule) kinp vinp iLt _)] at Hinp
-      · simp at *
-        let (kout, vout) := mk_output_rule i
-        rw [PortMap.rw_rule_execution (h := PortMap.getIO_map (sz := P.netsz) (i := j) (f := mk_output_rule) kout vout jLt _)]
-        · sorry
-        · sorry
-      · sorry
+    · let inp_i := mk_input_rule i
+      rw [PortMap.rw_rule_execution
+        (h := by
+          apply (PortMap.getIO_map (i := i) (f := mk_input_rule) (Heq := by
+            unfold mk_input_rule; rfl))
+          <;> simpa)
+      ] at Hinp
+      · exists pre_s
+        let out_j := mk_output_rule j
+        rw [PortMap.rw_rule_execution
+          (h := by
+            apply (PortMap.getIO_map (i := j) (f := mk_output_rule) (Heq := by
+              unfold mk_output_rule; rfl))
+            <;> simpa)
+        ]
+        dsimp
+        dsimp at Hinp
+        -- TODO: We need to prove
+        --  List.length inp_s = NocParam.netsz
+        --  0 < NocParam.netsz
+        -- And then we should be able to do
+        -- exists (Fin.mk 0)
+        sorry
 
 end DataflowRewriter.NoC

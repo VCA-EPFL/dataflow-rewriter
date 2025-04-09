@@ -69,21 +69,19 @@ theorem getIO_cons {Ident} [DecidableEq Ident] {S}
     unfold PortMap.getIO; simpa
 
 -- TODO: @[simp] ?
-theorem getIO_map {S : Type _} (i : Nat) (sz : Nat) (f : Nat -> InternalPort Nat × (Σ T : Type _, (S → T → S → Prop))) k v :
-  i < sz →
-  f i = ⟨ k, v ⟩ →
-  (PortMap.getIO
-    (List.range sz |>.map (λ n => f n) |>.toAssocList)
-    { inst := InstIdent.top, name := i } -- FIXME: This should be just ↑i...
-    = v) := by
+theorem getIO_map {S : Type _}
+  (i : Nat) (sz : Nat)
+  (f : Nat -> Σ T : Type _, (S → T → S → Prop)) k v
+  (Heq : f i = v) (Hlt : i < sz) :
+  PortMap.getIO (List.range sz |>.map (λ n => ⟨ (↑n : InternalPort Nat), f n ⟩) |>.toAssocList) k = v := by
   -- TODO
   -- The annoying part in this proof is the definition of List.range which is
   -- actually in order, which means we cannot easily do an induction on size.
-  -- Sincewe are only using this function as a convenience and we don't actually
+  -- Since we are only using this function as a convenience and we don't actually
   -- care about the order in this context, we could simply use another function
   -- here, but it would take time to once again prove basic lemmas about this
   -- new function, which might not be what we want
-  sorry
+    sorry
 
 theorem getIO_not_contained_false {Ident} [DecidableEq Ident] {S}
   {pm : PortMap Ident ((T : Type) × (S → T → S → Prop))} {x1 x2 x3 x4}:
