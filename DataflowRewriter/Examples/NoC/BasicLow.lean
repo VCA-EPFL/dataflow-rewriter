@@ -64,8 +64,10 @@ def nbag (T : Type) (TS : String) (n : ℕ) : ExprLow String :=
     }
     s!"Bag {TS}" -- Instance Type
   ExprLow.connect
-    { inst := InstIdent.internal "Merge", name := "merge_to_bag_out"  }
-    { inst := InstIdent.internal "Bag",   name := "merge_to_bag_in"   }
+    {
+      output  := { inst := InstIdent.internal "Merge",  name := "merge_to_bag_out"  },
+      input   := { inst := InstIdent.internal "Bag",    name := "merge_to_bag_in"   },
+    }
     (ExprLow.product bag merge)
 
 def nbagT :=
@@ -101,4 +103,5 @@ def nbagM_precompute : StringModule nbagT_precompute := by
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
     unfold Module.connect''
     simp
+
 end DataflowRewriter.NoC

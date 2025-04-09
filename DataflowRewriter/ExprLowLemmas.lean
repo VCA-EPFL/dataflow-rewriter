@@ -33,7 +33,7 @@ variable (ε : IdentMap Ident (Σ T : Type, Module Ident T))
 
 @[drunfold] def ident_list : ExprLow Ident → List Ident
 | .base i e => [e]
-| .connect _ _ e => e.ident_list
+| .connect _ e => e.ident_list
 | .product a b => a.ident_list ++ b.ident_list
 
 abbrev EType ε (e : ExprLow Ident) := HVector (get_types ε) e.ident_list
@@ -49,9 +49,9 @@ abbrev EType ε (e : ExprLow Ident) := HVector (get_types ε) e.ident_list
       simp_all [get_types]
     some ((H ▸ mod.2).liftD)
   | none => none
-| .connect o i e' => do
+| .connect c e' => do
   let e ← e'.build_moduleD
-  return e.connect' o i
+  return e.connect' c.output c.input
 | .product a b => do
   let a ← a.build_moduleD;
   let b ← b.build_moduleD;
@@ -78,9 +78,9 @@ theorem filterId_empty {α} [DecidableEq α] : PortMapping.filterId (Ident := α
 | .base i e => do
   let mod ← ε.find? e
   return ⟨ _, mod.2.renamePorts i ⟩
-| .connect o i e' => do
+| .connect c e' => do
   let e ← e'.build_module'
-  return ⟨ _, e.2.connect' o i ⟩
+  return ⟨ _, e.2.connect' c.output c.input ⟩
 | .product a b => do
   let a ← a.build_module'
   let b ← b.build_module'
@@ -92,7 +92,7 @@ inductive type_correct_module : ExprLow Ident → Prop where
   type_correct_module e →
   e.build_module' ε = some e' →
   (e'.2.outputs.getIO o).1 = (e'.2.inputs.getIO i).1 →
-  type_correct_module (.connect o i e)
+  type_correct_module (.connect { output := o, input := i } e)
 | product : ∀ e₁ e₂,
   type_correct_module e₁ →
   type_correct_module e₂ →
@@ -101,7 +101,7 @@ inductive type_correct_module : ExprLow Ident → Prop where
 @[drunfold] def build_module_names
     : (e : ExprLow Ident) → List (PortMapping Ident × Ident)
 | .base i e => [(i, e)]
-| .connect o i e' => e'.build_module_names
+| .connect _ e' => e'.build_module_names
 | .product a b => a.build_module_names ++ b.build_module_names
 
 @[drunfold] def build_moduleP
@@ -137,7 +137,7 @@ def wf_mapping : ExprLow Ident → Bool
     ∧ inst.output.keysList.Nodup
   | .none => false
 | .product e₁ e₂ => e₁.wf_mapping ∧ e₂.wf_mapping
-| .connect o i e => e.wf_mapping
+| .connect _ e => e.wf_mapping
 
 variable {ε}
 
@@ -149,7 +149,7 @@ theorem wf_builds_module {e} : wf ε e → (e.build_module' ε).isSome := by
     have := Batteries.AssocList.contains_some hwf
     rw [Option.isSome_iff_exists] at this; cases this
     simp only [*]; rfl
-  | connect i o e ih =>
+  | connect _ e ih =>
     intro hwf; dsimp [wf, all] at hwf
     specialize ih hwf
     simp only [drunfold]; rw [Option.isSome_iff_exists] at ih; cases ih
@@ -196,7 +196,7 @@ theorem build_module_type_rename' {e : ExprLow Ident} {f g} :
   | base map typ =>
     simp [drunfold, -AssocList.find?_eq]
     cases (AssocList.find? typ ε) <;> simp
-  | connect o i e ih =>
+  | connect _ e ih =>
     dsimp [drunfold, -AssocList.find?_eq]
     cases h : build_module' ε e
     · rw [h] at ih; simp [mapPorts2] at ih; simp [ih]
@@ -219,7 +219,7 @@ theorem build_module_type_rename {e f g} :
   | base map typ =>
     simp [drunfold, -AssocList.find?_eq]
     cases h : (AssocList.find? typ ε) <;> rfl
-  | connect o i e ie =>
+  | connect _ e ie =>
     simp [drunfold, -AssocList.find?_eq]
     cases h : build_module' ε e
     · have : (build_module' ε (mapOutputPorts g (mapInputPorts f e))) = none := by
@@ -331,7 +331,7 @@ theorem rename_build_module_eq {e : ExprLow Ident} {f g} (h : Function.Bijective
       congr 1
       · rw [mapKey_comm]
       . rw [mapKey_comm]
-  | connect o i e ih =>
+  | connect _ e ih =>
     intro hwf_mapping
     dsimp [wf_mapping] at hwf_mapping; specialize ih hwf_mapping
     dsimp [drunfold]
@@ -445,10 +445,10 @@ theorem refines_product {e₁ e₂ e₁' e₂'} :
   rw [wf2, wf4] at ref2
   solve_by_elim [Module.refines_product]
 
-theorem refines_connect {e e' o i} :
+theorem refines_connect {e e' c} :
     wf ε e → wf ε e' →
     [e| e, ε ] ⊑ ([e| e', ε ]) →
-    [e| e.connect o i, ε ] ⊑ ([e| e'.connect o i, ε ]) := by
+    [e| e.connect c, ε ] ⊑ ([e| e'.connect c, ε ]) := by
   intro wf1 wf2 ref
   replace wf1 := wf_builds_module wf1
   replace wf2 := wf_builds_module wf2
@@ -505,11 +505,11 @@ theorem check_eq_refines {iexpr iexpr'} :
     unfold wf all at hwf hwf'; unfold wf; aesop
     apply ih₂; dsimp [check_eq] at heq; aesop
     unfold wf all at hwf hwf'; unfold wf; aesop
-  | connect o i e ih =>
+  | connect c e ih =>
     intro iexpr' heq hwf
     have hwf' := check_eq_wf _ ‹_› ‹_›
     cases iexpr' <;> try contradiction
-    rename_i o' i' e'
+    rename_i c' e'
     dsimp [check_eq] at heq; simp at heq
     repeat cases ‹_ ∧ _›; subst_vars
     apply refines_connect
@@ -577,10 +577,10 @@ theorem abstract_refines {iexpr expr_pat i} :
       simp at h; rw [h]; dsimp
       apply refines_product <;> (try assumption)
       <;> [apply ihe₁ ; apply ihe₂] <;> simp_all [wf, all]
-  | connect x y e ih =>
+  | connect c e ih =>
     simp [abstract, replace]
     intro hwf
-    by_cases h : (connect x y e).check_eq expr_pat
+    by_cases h : (connect c e).check_eq expr_pat
     · subst_vars
       simp only [wf,all,Bool.and_eq_true] at hwf
       specialize ih hwf
@@ -588,7 +588,7 @@ theorem abstract_refines {iexpr expr_pat i} :
       apply Module.refines_transitive (imod' := (build_module ε expr_pat).snd)
       · apply check_eq_refines; assumption; unfold wf all; aesop
       · rw [Module.renamePorts_empty]; apply Module.refines_reflexive
-    · have : wf ε (connect x y (e.replace expr_pat (base ∅ i))) := by
+    · have : wf ε (connect c (e.replace expr_pat (base ∅ i))) := by
         simp [wf, all]
         convert_to wf ε (e.replace expr_pat (base ∅ i));
         simp [wf, all]
@@ -658,10 +658,10 @@ theorem abstract_refines2 {iexpr expr_pat i} :
       simp at h; rw [h]; dsimp
       apply refines_product <;> (try assumption)
       <;> [apply ihe₁ ; apply ihe₂] <;> simp_all [wf, all]
-  | connect x y e ih =>
+  | connect c e ih =>
     simp [abstract, replace]
     intro hwf
-    by_cases h : (connect x y e).check_eq expr_pat
+    by_cases h : (connect c e).check_eq expr_pat
     · subst_vars
       simp only [wf,all,Bool.and_eq_true] at hwf
       specialize ih hwf
@@ -670,7 +670,7 @@ theorem abstract_refines2 {iexpr expr_pat i} :
       · rw [Module.renamePorts_empty]; apply Module.refines_reflexive
       · apply check_eq_refines; apply check_eq_symm; assumption
         apply check_eq_wf; assumption; unfold wf all; aesop
-    · have : wf ε (connect x y (e.replace expr_pat (base ∅ i))) := by
+    · have : wf ε (connect c (e.replace expr_pat (base ∅ i))) := by
         simp [wf, all]
         convert_to wf ε (e.replace expr_pat (base ∅ i));
         simp [wf, all]
@@ -703,11 +703,11 @@ theorem replacement {iexpr e_new e_pat} :
       apply check_eq_symm at h; solve_by_elim [check_eq_refines]
     · simp at h; rw [h]
       apply refines_product <;> solve_by_elim [wf_modify_expression,wf_replace]
-  | connect o i e =>
+  | connect c e =>
     intro hwf hfind₁ hfind₂ href
     dsimp only [replace]
     have e₁wf : e.wf ε := by simp [all, wf] at hwf ⊢; simp [hwf]
-    by_cases h : (connect o i e).check_eq e_pat
+    by_cases h : (connect c e).check_eq e_pat
     · rw [h]; dsimp
       apply Module.refines_transitive _ href
       apply check_eq_symm at h; solve_by_elim [check_eq_refines]
@@ -753,7 +753,7 @@ theorem refines_comm_connection'_ {iexpr e' conn} :
     · cases hcomm; apply ExprLow.refines_product <;> try solve_by_elim [wf_comm_connection'_, Module.refines_reflexive]
     · cases hcomm; apply ExprLow.refines_product <;> try solve_by_elim [wf_comm_connection'_, Module.refines_reflexive]
     · cases hcomm
-  | connect o i e ih =>
+  | connect c e ih =>
     intro hwf hcomm
     dsimp [comm_connection'_] at hcomm
     split at hcomm
@@ -801,7 +801,7 @@ theorem refines_comm_connection'_2 {iexpr e' conn} :
     · cases hcomm; apply ExprLow.refines_product <;> try solve_by_elim [wf_comm_connection'_, Module.refines_reflexive]
     · cases hcomm; apply ExprLow.refines_product <;> try solve_by_elim [wf_comm_connection'_, Module.refines_reflexive]
     · cases hcomm
-  | connect o i e ih =>
+  | connect c e ih =>
     intro hwf hcomm
     dsimp [comm_connection'_] at hcomm
     split at hcomm

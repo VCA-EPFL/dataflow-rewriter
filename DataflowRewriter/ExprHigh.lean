@@ -170,7 +170,7 @@ def invert (g : ExprHigh Ident) : ExprHigh Ident :=
     e.modules.toList.foldl (λ expr val =>
         -- return .product (.base (int.toPortMapping val.1) val.2) expr)
         .product (uncurry .base val.snd) expr) el
-  e.connections.foldl (λ expr conn => .connect conn.output conn.input expr) prod_expr
+  e.connections.foldl (λ expr conn => .connect conn expr) prod_expr
 
 @[drunfold] def lower (e : ExprHigh Ident) : Option (ExprLow Ident) :=
   match e.modules.toList with
@@ -197,9 +197,9 @@ variable [Inhabited Ident]
 def higher' [FreshIdent Ident] (fresh : Nat) : ExprLow Ident → (ExprHigh Ident × Nat)
 | .base a b =>
   (ExprHigh.mk [(a.ofPortMapping.getD (FreshIdent.next fresh), (a, b))].toAssocList ∅, fresh + 1)
-| .connect o i e =>
+| .connect c e =>
   let (e', fresh') := e.higher' fresh
-  ({e' with connections := e'.connections.cons ⟨ o, i ⟩}, fresh')
+  ({e' with connections := e'.connections.cons ⟨ c.output, c.input ⟩}, fresh')
 | .product e₁ e₂ =>
   let (e₁', fresh₁) := e₁.higher' fresh
   let (e₂', fresh₂) := e₂.higher' fresh₁
@@ -211,9 +211,9 @@ def higher [Inhabited Ident] [FreshIdent Ident] (e: ExprLow Ident) : ExprHigh Id
 def higherS' (fresh : Nat) (fresh_prefix : String) : ExprLow String → (ExprHigh String × Nat)
 | .base a b =>
   (ExprHigh.mk [(fresh_prefix ++ toString fresh, (a, b))].toAssocList ∅, fresh + 1)
-| .connect o i e =>
+| .connect c e =>
   let (e', fresh') := e.higherS' fresh fresh_prefix
-  ({e' with connections := e'.connections.cons ⟨ o, i ⟩}, fresh')
+  ({e' with connections := e'.connections.cons ⟨ c.output, c.input ⟩}, fresh')
 | .product e₁ e₂ =>
   let (e₁', fresh₁) := e₁.higherS' fresh fresh_prefix
   let (e₂', fresh₂) := e₂.higherS' fresh₁ fresh_prefix
@@ -236,9 +236,9 @@ def _root_.DataflowRewriter.PortMapping.getInstanceName (a : PortMapping Ident) 
 def higherSS : ExprLow String → Option (ExprHigh String)
 | .base a b => do
   return ExprHigh.mk [(← a.getInstanceName, (a, b))].toAssocList ∅
-| .connect o i e => do
+| .connect c e => do
   let e' ← e.higherSS
-  return {e' with connections := e'.connections.cons ⟨ o, i ⟩}
+  return { e' with connections := e'.connections.cons c }
 | .product e₁ e₂ => do
   let e₁' ← e₁.higherSS
   let e₂' ← e₂.higherSS

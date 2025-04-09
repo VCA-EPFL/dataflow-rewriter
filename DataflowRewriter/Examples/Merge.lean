@@ -49,7 +49,7 @@ opaque threemerge_threemerge' T : threemerge T = threemerge' T := by rfl
                                |> .cons ⟨.top, 1⟩ ⟨.top, 2⟩
                        , output := ∅ }) 0
   .product merge1 merge2
-  |> .connect ⟨.internal 1, 0⟩ ⟨.internal 2, 0⟩
+  |> .connect { output := ⟨.internal 1, 0⟩, input := ⟨.internal 2, 0⟩ }
 
 def merge_sem (T: Type _) :=
   mergeLow.build_module [(0, ⟨List T, NatModule.merge T 2⟩)].toAssocList
