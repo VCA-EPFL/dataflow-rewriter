@@ -199,7 +199,7 @@ def higher' [FreshIdent Ident] (fresh : Nat) : ExprLow Ident → (ExprHigh Ident
   (ExprHigh.mk [(a.ofPortMapping.getD (FreshIdent.next fresh), (a, b))].toAssocList ∅, fresh + 1)
 | .connect c e =>
   let (e', fresh') := e.higher' fresh
-  ({e' with connections := e'.connections.cons ⟨ c.output, c.input ⟩}, fresh')
+  ({ e' with connections := e'.connections.cons c }, fresh')
 | .product e₁ e₂ =>
   let (e₁', fresh₁) := e₁.higher' fresh
   let (e₂', fresh₂) := e₂.higher' fresh₁
@@ -213,7 +213,7 @@ def higherS' (fresh : Nat) (fresh_prefix : String) : ExprLow String → (ExprHig
   (ExprHigh.mk [(fresh_prefix ++ toString fresh, (a, b))].toAssocList ∅, fresh + 1)
 | .connect c e =>
   let (e', fresh') := e.higherS' fresh fresh_prefix
-  ({e' with connections := e'.connections.cons ⟨ c.output, c.input ⟩}, fresh')
+  ( {e' with connections := e'.connections.cons c }, fresh')
 | .product e₁ e₂ =>
   let (e₁', fresh₁) := e₁.higherS' fresh fresh_prefix
   let (e₂', fresh₂) := e₂.higherS' fresh₁ fresh_prefix

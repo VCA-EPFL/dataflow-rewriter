@@ -147,7 +147,7 @@ def ofOption {α ε} (e : ε) : Option α → Except ε α
 @[drunfold] def allVars : ExprLow Ident → (List (InternalPort Ident) × List (InternalPort Ident))
 | .base map typ =>
   (map.input.toList.map Prod.snd, map.output.toList.map Prod.snd)
-| .connect c e => e.allVars
+| .connect _ e => e.allVars
 | .product e₁ e₂ =>
   let (e₁i, e₁o) := e₁.allVars
   let (e₂i, e₂o) := e₂.allVars
@@ -322,7 +322,7 @@ def renameUnmappedOutput (typ : Ident) (a b : InternalPort Ident) : ExprLow Iden
     .base map typ'
 | .connect c e =>
   let e' := e.renameUnmappedOutput typ a b
-  if c.input = a then .connect { c with input := b } e' else .connect c e'
+  if c.output = a then .connect { c with output := b } e' else .connect c e'
 | .product e₁ e₂ =>
   .product (e₁.renameUnmappedOutput typ a b) (e₂.renameUnmappedOutput typ a b)
 
@@ -380,8 +380,8 @@ def findAllInputs : ExprLow Ident → List (InternalPort Ident)
 
 def findAllOutputs : ExprLow Ident → List (InternalPort Ident)
 | .base inst _typ => inst.input.valsList
-| .product e₁ e₂ => e₁.findAllInputs ++ e₂.findAllInputs
-| .connect c e => e.findAllInputs.eraseAll c.input
+| .product e₁ e₂ => e₁.findAllOutputs ++ e₂.findAllOutputs
+| .connect c e => e.findAllOutputs.eraseAll c.input
 
 def ensureIOUnmodified (p : PortMapping Ident) (e : ExprLow Ident) : Bool :=
   e.findAllInputs.all (λ x => (p.input.find? x).isNone)
