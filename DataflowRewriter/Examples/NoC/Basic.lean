@@ -59,13 +59,13 @@ def FlitHeaderS : String :=
 def nocT : Type :=
   List (P.Data × FlitHeader)
 
-def mk_input_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
+def mk_noc_input_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
     ⟨
       P.Data × FlitHeader,
       λ oldState v newState => newState = v :: oldState
     ⟩
 
-def mk_output_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
+def mk_noc_output_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
     ⟨
       P.Data,
       λ oldState data newState =>
@@ -73,14 +73,16 @@ def mk_output_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → Prop
         (data, { dest := rID }) = oldState.get i
     ⟩
 
-def lift_f (f : Nat → (Σ T : Type, nocT → T → nocT → Prop)) (n : Nat) : InternalPort Nat × (Σ T : Type, nocT → T → nocT → Prop) :=
+-- TODO: This should be somewhere else, this function is very useful for
+-- defining List.range n |> map lift_f f |>.toAssocList, a very common pattern
+def lift_f {α : Type} (f : Nat → (Σ T : Type, α → T → α → Prop)) (n : Nat) : InternalPort Nat × (Σ T : Type, α → T → α → Prop) :=
   ⟨ ↑n, f n ⟩
 
 @[drunfold]
 def noc (name := "noc") : NatModule (NatModule.Named name nocT) :=
   {
-    inputs := List.range P.netsz |>.map (lift_f mk_input_rule) |>.toAssocList,
-    outputs := List.range P.netsz |>.map (lift_f mk_output_rule) |>.toAssocList,
+    inputs := List.range P.netsz |>.map (lift_f mk_noc_input_rule) |>.toAssocList,
+    outputs := List.range P.netsz |>.map (lift_f mk_noc_output_rule) |>.toAssocList,
   }
 
 -- Basic properties ------------------------------------------------------------
@@ -91,7 +93,7 @@ theorem noc_inpT (i : RouterID) :
     intros Hle
     unfold noc lift_f
     dsimp
-    rw [PortMap.getIO_map (i := i) (f := mk_input_rule) (Heq := by unfold mk_input_rule; rfl)]
+    rw [PortMap.getIO_map (i := i) (f := mk_noc_input_rule) (Heq := by unfold mk_noc_input_rule; rfl)]
     <;> simpa
 
 theorem noc_outT (i : RouterID) :
@@ -101,7 +103,7 @@ theorem noc_outT (i : RouterID) :
     intros Hle
     unfold noc lift_f
     dsimp
-    rw [PortMap.getIO_map (i := i) (f := mk_output_rule) (Heq := by unfold mk_output_rule; rfl)]
+    rw [PortMap.getIO_map (i := i) (f := mk_noc_output_rule) (Heq := by unfold mk_noc_output_rule; rfl)]
     <;> simpa
 
 -- TODO: We can prove something stronger, where we can do other rule than
@@ -129,19 +131,19 @@ theorem full_connectivity (i j : RouterID) (d : P.Data) pre_s inp_s
     exists inp_s
     split_ands
     · constructor
-    · let inp_i := mk_input_rule i
+    · let inp_i := mk_noc_input_rule i
       rw [PortMap.rw_rule_execution
         (h := by
-          apply (PortMap.getIO_map (i := i) (f := mk_input_rule) (Heq := by
-            unfold mk_input_rule; rfl))
+          apply (PortMap.getIO_map (i := i) (f := mk_noc_input_rule) (Heq := by
+            unfold mk_noc_input_rule; rfl))
           <;> simpa)
       ] at Hinp
       · exists pre_s
-        let out_j := mk_output_rule j
+        let out_j := mk_noc_output_rule j
         rw [PortMap.rw_rule_execution
           (h := by
-            apply (PortMap.getIO_map (i := j) (f := mk_output_rule) (Heq := by
-              unfold mk_output_rule; rfl))
+            apply (PortMap.getIO_map (i := j) (f := mk_noc_output_rule) (Heq := by
+              unfold mk_noc_output_rule; rfl))
             <;> simpa)
         ]
         dsimp

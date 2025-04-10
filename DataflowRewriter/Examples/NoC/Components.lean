@@ -22,15 +22,17 @@ open Batteries (AssocList)
 
 namespace DataflowRewriter.NoC
 
-variable [T: NocParam]
+variable [P: NocParam]
 
 -- Components ------------------------------------------------------------------
+-- Reference semantics for useful components
+-- Implementation is provided in `ExprLow` and `ExprHigh` using base components
 
 @[drunfold]
-def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List T.Data × List RouterID)) :=
+def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List P.Data × List RouterID)) :=
   {
     inputs := [
-      (0, ⟨T.Data,
+      (0, ⟨P.Data,
         λ (oldDatas, oldRouterIDs) data (newDatas, newRouterIDs) =>
           newDatas = oldDatas.concat data ∧ newRouterIDs = oldRouterIDs
       ⟩),
@@ -42,8 +44,8 @@ def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List T.Data 
 
     outputs :=
       -- TODO: We would like to have n be cast to a RouterID down the line
-      List.range T.netsz |>.map (λ routerID => Prod.mk ↑routerID
-        (⟨T.Data,
+      List.range P.netsz |>.map (λ routerID => Prod.mk ↑routerID
+        (⟨P.Data,
           λ (oldDatas, oldRouterIDs) data (newDatas, newRouterIDs) =>
             data :: newDatas = oldDatas ∧
             routerID :: newRouterIDs = oldRouterIDs
@@ -55,35 +57,50 @@ def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List T.Data 
 def nbranch :=
   nbranch' |>.stringify
 
--- Environment -----------------------------------------------------------------
+def mk_nbag_input_rule (S : Type) (_ : Nat) : (Σ T : Type, List S → T → List S → Prop) :=
+    ⟨ S, λ oldState v newState => newState = oldState.concat v ⟩
+
+-- Bag with `n` inputs
+@[drunfold]
+def nbag' (T : Type) (n : Nat) (name := "nbag") : NatModule (NatModule.Named name (List T)) :=
+  {
+    inputs := List.range n |>.map (lift_f (mk_nbag_input_rule T)) |>.toAssocList,
+    outputs := [(↑0, ⟨ T, λ oldState v newState => ∃ i, newState = oldState.remove i ∧ v = oldState.get i ⟩)].toAssocList,
+  }
+
+@[drunfold]
+def nbag T n :=
+  nbag' T n |>.stringify
+
+-- Final Environment -----------------------------------------------------------
 
 def ε' : Env :=
   [
     -- Merge to implement the n-bag
-    (s!"Merge {T.DataS} {T.netsz}", ⟨_, StringModule.merge T.Data T.netsz⟩),
+    (s!"Merge {P.DataS} {P.netsz}", ⟨_, StringModule.merge P.Data P.netsz⟩),
 
     -- Splits to separate Data and FlitHeader
-    (s!"Split {T.DataS} {FlitHeaderS}", ⟨_, StringModule.split T.Data FlitHeader⟩),
+    (s!"Split {P.DataS} {FlitHeaderS}", ⟨_, StringModule.split P.Data FlitHeader⟩),
 
     -- Bags to receive message (One per router)
-    (s!"Bag {T.DataS}", ⟨_, StringModule.bag T.Data⟩),
+    (s!"Bag {P.DataS}", ⟨_, StringModule.bag P.Data⟩),
 
     -- Branching for routing
-    (s!"NBranch {T.DataS} {T.netsz}", ⟨_, nbranch⟩),
+    (s!"NBranch {P.DataS} {P.netsz}", ⟨_, nbranch⟩),
   ].toAssocList
 
 -- All of the following Lemmas are used for precomputing modules
 -- TODO: We should probably make the proof into a tactic
 
 def ε'_merge :
-  ε'.find? s!"Merge {T.DataS} {T.netsz}" = .some ⟨_, StringModule.merge T.Data T.netsz⟩ := by
+  ε'.find? s!"Merge {P.DataS} {P.netsz}" = .some ⟨_, StringModule.merge P.Data P.netsz⟩ := by
   simpa
 
 def ε'_split :
-  ε'.find? s!"Split {T.DataS} {FlitHeaderS}" = .some ⟨_, StringModule.split T.Data FlitHeader⟩ := by
+  ε'.find? s!"Split {P.DataS} {FlitHeaderS}" = .some ⟨_, StringModule.split P.Data FlitHeader⟩ := by
     simp
     -- TODO(Ask Yann): Why cannot I use existential here ?
-    exists s!"Split {T.DataS} {FlitHeaderS}"
+    exists s!"Split {P.DataS} {FlitHeaderS}"
     right
     split_ands
     · unfold toString instToStringString instToStringNat; simp
@@ -91,9 +108,9 @@ def ε'_split :
     · rfl
 
 def ε'_bag :
-  ε'.find? s!"Bag {T.DataS}" = .some ⟨_, StringModule.bag T.Data⟩ := by
+  ε'.find? s!"Bag {P.DataS}" = .some ⟨_, StringModule.bag P.Data⟩ := by
     simp
-    exists s!"Bag {T.DataS}"
+    exists s!"Bag {P.DataS}"
     right
     split_ands
     · sorry -- Should be Trivial
@@ -102,9 +119,9 @@ def ε'_bag :
       sorry
 
 def ε'_nbranch :
-  ε'.find? s!"NBranch {T.DataS} {T.netsz}" = .some ⟨_, nbranch⟩ := by
+  ε'.find? s!"NBranch {P.DataS} {P.netsz}" = .some ⟨_, nbranch⟩ := by
     simp
-    exists s!"NBranch {T.DataS} {T.netsz}"
+    exists s!"NBranch {P.DataS} {P.netsz}"
     right
     split_ands
     · sorry -- Should be Trivial
