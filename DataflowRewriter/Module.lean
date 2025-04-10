@@ -354,11 +354,11 @@ instance MatchInterface_connect {I S} {o i} {imod : Module Ident I} {smod : Modu
   dsimp [Module.connect']
   constructor
   · simp only [AssocList.eraseAll_map_comm]
-    by_cases h : i = ident <;> subst_vars
+    by_cases h : ident = i <;> subst_vars
     · simp only [AssocList.find?_eraseAll_eq]
     · simpa (disch := assumption) only [AssocList.find?_eraseAll_neq]
   · simp only [AssocList.eraseAll_map_comm]
-    by_cases h : o = ident <;> subst_vars
+    by_cases h : ident = o <;> subst_vars
     · simp only [AssocList.find?_eraseAll_eq]
     · simpa (disch := assumption) only [AssocList.find?_eraseAll_neq]
 

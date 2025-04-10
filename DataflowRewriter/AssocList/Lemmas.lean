@@ -231,31 +231,33 @@ theorem append_find_right_disjoint {α β} [DecidableEq α] {a b : AssocList α 
   rw [←Batteries.AssocList.findEntry?_eq, ←Option.map_eq_none', ←Batteries.AssocList.find?_eq_findEntry?]
   have := find?_eraseAll_eq a T; unfold eraseAll at *; assumption
 
-@[simp] axiom in_eraseAll_list {α β} {Ta : α} {elem : (α × β)} [DecidableEq α] (a : AssocList α β):
-  elem ∈ (AssocList.eraseAllP (fun k x => decide (k = Ta)) a).toList -> elem ∈ a.toList
+@[simp] theorem find?_eraseAll_neq {α β} [DecidableEq α] {a : AssocList α β} {i i'} :
+  i ≠ i' → (a.eraseAll i').find? i = a.find? i := by
+  induction a with
+  | nil => simp
+  | cons k v xs ih =>
+    intro neq
+    by_cases i' = k
+    · subst i'; symm_saturate; simp (disch := assumption) only [eraseAll_cons_eq, find?_cons_neq, *]
+    · have : i' ≠ k := by assumption
+      symm_saturate; simp (disch := assumption) only [eraseAll_cons_neq];
+      by_cases i = k
+      · subst i; simp
+      · have : i ≠ k := by assumption
+        symm_saturate; simp (disch := assumption) only [eraseAll_cons_eq, find?_cons_neq, *]
 
-@[simp] axiom not_in_eraseAll_list {α β} {Ta : α} {elem : (α × β)} [DecidableEq α] (a : AssocList α β):
-  elem ∈ (AssocList.eraseAllP (fun k x => decide (k = Ta)) a).toList -> elem.1 = Ta -> False
-
-axiom in_eraseAll_noDup {α β γ δ} {l : List ((α × β) × γ × δ)} (Ta : α) [DecidableEq α](a : AssocList α (β × γ × δ)):
-  (List.map Prod.fst ( List.map Prod.fst (l ++ (List.map (fun x => ((x.1, x.2.1), x.2.2.1, x.2.2.2)) a.toList)))).Nodup ->
-  (List.map Prod.fst ( List.map Prod.fst (l ++ List.map (fun x => ((x.1, x.2.1), x.2.2.1, x.2.2.2)) (AssocList.eraseAllP (fun k x => decide (k = Ta)) a).toList))).Nodup
-
-@[simp] axiom in_eraseAll_map_comm {α β} (Ta : α) [DecidableEq α] (a : AssocList α β):
-  (a.toList).Nodup -> ((AssocList.eraseAllP (fun k x => decide (k = Ta)) a).toList).Nodup
-
-@[simp] axiom find?_eraseAll_neg {α β} { T : α} { T' : α} [DecidableEq α] (a : AssocList α β) (i : β):
-Batteries.AssocList.find? T (AssocList.eraseAllP (fun k x => decide (k = T')) a) = some i -> ¬ (T = T') -> (Batteries.AssocList.find? T a = some i)
-
-@[simp] axiom find?_eraseAll_neq {α β} [DecidableEq α] (a : AssocList α β) i i' :
-  i ≠ i' →
-  (a.eraseAll i).find? i' = a.find? i'
+@[simp] def find?_eraseAll_neg {α β} { T : α} { T' : α} [DecidableEq α] (a : AssocList α β) (i : β):
+  Batteries.AssocList.find? T (AssocList.eraseAllP (fun k x => decide (k = T')) a) = some i -> ¬ (T = T') -> (Batteries.AssocList.find? T a = some i) := by
+  intro hfind hne
+  have := find?_eraseAll_neq (a := a) hne
+  unfold eraseAll at this
+  simp only [BEq.beq] at this; rwa [this] at hfind
 
 theorem find?_eraseAll {α β} [DecidableEq α] {a : AssocList α β} {i i' v} :
   (a.eraseAll i').find? i = some v → a.find? i = some v := by
   intro h; by_cases heq : i = i'
   · subst i'; rw [find?_eraseAll_eq] at h; contradiction
-  . rw [find?_eraseAll_neq] at h; assumption; symm; assumption
+  . rwa [find?_eraseAll_neq] at h; assumption
 
 theorem contains_eraseAll {α β} [DecidableEq α] {a : AssocList α β} {i i'} :
   (a.eraseAll i').contains i → a.contains i := by
@@ -272,12 +274,12 @@ theorem keysNotInMap {α β} [DecidableEq α] {m : AssocList α β} {k} : ¬ m.c
   unfold Batteries.AssocList.contains Batteries.AssocList.keysList
   intro Hk; simp_all
 
-axiom disjoint_keys_mapVal {α β γ μ} [DecidableEq α] {a : AssocList α β} {b : AssocList α γ} {f : α → γ → μ} :
-  a.disjoint_keys b → a.disjoint_keys (b.mapVal f)
+-- theorem disjoint_keys_mapVal {α β γ μ} [DecidableEq α] {a : AssocList α β} {b : AssocList α γ} {f : α → γ → μ} :
+--   a.disjoint_keys b → a.disjoint_keys (b.mapVal f)
 
-theorem disjoint_keys_mapVal_both {α β γ μ η} [DecidableEq α] {a : AssocList α β} {b : AssocList α γ} {f : α → γ → μ} {g : α → β → η} :
-  a.disjoint_keys b → (a.mapVal g).disjoint_keys (b.mapVal f) := by
-  intros; solve_by_elim [disjoint_keys_mapVal, disjoint_keys_symm]
+-- theorem disjoint_keys_mapVal_both {α β γ μ η} [DecidableEq α] {a : AssocList α β} {b : AssocList α γ} {f : α → γ → μ} {g : α → β → η} :
+--   a.disjoint_keys b → (a.mapVal g).disjoint_keys (b.mapVal f) := by
+--   intros; solve_by_elim [disjoint_keys_mapVal, disjoint_keys_symm]
 
 theorem mapKey_find? {α β γ} [DecidableEq α] [DecidableEq γ] {a : AssocList α β} {f : α → γ} {i} (hinj : Function.Injective f) :
   (a.mapKey f).find? (f i) = a.find? i := by
@@ -294,8 +296,8 @@ theorem mapKey_find? {α β γ} [DecidableEq α] [DecidableEq γ] {a : AssocList
       have t2 : (k == i) = false := by simp [*]
       rw [t1, t2]
 
-axiom keysList_EqExt {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) :
-  a.EqExt b → a.wf → b.wf → a.keysList.Perm b.keysList
+-- theorem keysList_EqExt {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) :
+--   a.EqExt b → a.wf → b.wf → a.keysList.Perm b.keysList
 
 /-
 These are needed because ExprLow currently only checks equality and uniqueness against the map
@@ -366,5 +368,18 @@ theorem find?_gso : ∀ {α} [DecidableEq α] {β x' x v} {pm: AssocList α β},
 
 @[simp] theorem find?_ge : ∀ {α} [DecidableEq α] {β x},
   AssocList.find? x (.nil : AssocList α β) = .none := by simpa
+
+@[simp] axiom in_eraseAll_list {α β} {Ta : α} {elem : (α × β)} [DecidableEq α] (a : AssocList α β):
+  elem ∈ (AssocList.eraseAllP (fun k x => decide (k = Ta)) a).toList -> elem ∈ a.toList
+
+@[simp] axiom not_in_eraseAll_list {α β} {Ta : α} {elem : (α × β)} [DecidableEq α] (a : AssocList α β):
+  elem ∈ (AssocList.eraseAllP (fun k x => decide (k = Ta)) a).toList -> elem.1 = Ta -> False
+
+axiom in_eraseAll_noDup {α β γ δ} {l : List ((α × β) × γ × δ)} (Ta : α) [DecidableEq α](a : AssocList α (β × γ × δ)):
+  (List.map Prod.fst ( List.map Prod.fst (l ++ (List.map (fun x => ((x.1, x.2.1), x.2.2.1, x.2.2.2)) a.toList)))).Nodup ->
+  (List.map Prod.fst ( List.map Prod.fst (l ++ List.map (fun x => ((x.1, x.2.1), x.2.2.1, x.2.2.2)) (AssocList.eraseAllP (fun k x => decide (k = Ta)) a).toList))).Nodup
+
+@[simp] axiom in_eraseAll_map_comm {α β} (Ta : α) [DecidableEq α] (a : AssocList α β):
+  (a.toList).Nodup -> ((AssocList.eraseAllP (fun k x => decide (k = Ta)) a).toList).Nodup
 
 end Batteries.AssocList
