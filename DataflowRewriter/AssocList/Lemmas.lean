@@ -321,7 +321,7 @@ theorem mapKey_append {α β γ} {f : α → γ} {m n : AssocList α β}:
   (m.mapKey f).append (n.mapKey f) = (m.append n).mapKey f := by
     induction m <;> simpa [append]
 
--- FIXME: False
+-- FIXME: False: requires (h : Bijective f) as additional assumption.
 axiom eraseAll_comm_mapKey {α β γ} [DecidableEq α] [DecidableEq γ] {f : α → γ} {i} {m : AssocList α β} :
   (m.mapKey f).eraseAll (f i) = (m.eraseAll i).mapKey f
 
