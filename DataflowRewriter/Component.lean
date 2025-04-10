@@ -453,9 +453,7 @@ end DataflowRewriter.NatModule
 
 namespace DataflowRewriter.StringModule
 
-@[drunfold] def bag T : StringModule (List T) := NatModule.bag T
-  |>.stringify
-  -- |>.mapIdent (λ x => "enq") (λ x => "deq")
+@[drunfold] def bag T := NatModule.bag T |>.stringify
 
 @[drunfold] def merge T n := NatModule.merge T n |>.stringify
 
@@ -465,9 +463,7 @@ namespace DataflowRewriter.StringModule
 
 @[drunfold] def cntrl_merge T := NatModule.cntrl_merge T |>.stringify
 
-@[drunfold] def queue T : StringModule (List T) := NatModule.queue T
-  |>.stringify
-  -- |>.mapIdent (λ x => "enq") (λ x => "deq")
+@[drunfold] def queue T := NatModule.queue T |>.stringify
 
 @[drunfold] def fork2 T := NatModule.fork2 T|>.stringify
 
