@@ -308,7 +308,17 @@ instance : MatchInterface (@Module.empty Ident S) (Module.empty I) :=
 instance {m : Module Ident S} : MatchInterface m m :=
   ⟨ fun _ => rfl, fun _ => rfl, fun _ => rfl, fun _ => rfl ⟩
 
-axiom MatchInterface_EqExt {S} {imod imod' : Module Ident S} : imod.EqExt imod' → MatchInterface imod imod'
+theorem MatchInterface_EqExt {S} {imod imod' : Module Ident S} :
+  imod.EqExt imod' → MatchInterface imod imod' := by
+    intros Heq
+    unfold Module.EqExt at Heq
+    cases Heq; rename_i Hinp Hr
+    cases Hr; rename_i Hout Hint
+    constructor
+    · intros ident; rw [Hinp]
+    · intros ident; rw [Hout]
+    · intros ident; unfold PortMap.getIO; rw [Hinp]
+    · intros ident; unfold PortMap.getIO; rw [Hout]
 
 theorem MatchInterface_transitive {I J S} {imod : Module Ident I} {smod : Module Ident S} (jmod : Module Ident J) :
   MatchInterface imod jmod →
