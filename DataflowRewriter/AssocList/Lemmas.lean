@@ -310,8 +310,13 @@ axiom filderId_Nodup {α} [DecidableEq α] (p : AssocList α α) : p.keysList.No
 axiom mapVal_mapKey {α β γ σ} {f : α → γ} {g : β → σ} {m : AssocList α β}:
   (m.mapKey f).mapVal (λ _ => g) = (m.mapVal (λ _ => g)).mapKey f
 
-axiom mapKey_append {α β γ} {f : α → γ} {m n : AssocList α β}:
-  (m.mapKey f).append (n.mapKey f) = (m.append n).mapKey f
+theorem mapKey_mapKey {α β γ σ} {f : α → β} {g : β → γ} {m : AssocList α σ}:
+  (m.mapKey f).mapKey g = m.mapKey (λ k => g (f k)) := by
+    induction m <;> simpa
+
+theorem mapKey_append {α β γ} {f : α → γ} {m n : AssocList α β}:
+  (m.mapKey f).append (n.mapKey f) = (m.append n).mapKey f := by
+    induction m <;> simpa [append]
 
 axiom eraseAll_comm_mapKey {α β γ} [DecidableEq α] [DecidableEq γ] {f : α → γ} {i} {m : AssocList α β} :
   (m.mapKey f).eraseAll (f i) = (m.eraseAll i).mapKey f
