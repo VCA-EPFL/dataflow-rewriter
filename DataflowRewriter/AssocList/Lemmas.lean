@@ -180,21 +180,56 @@ theorem append_find_right_disjoint {α β} [DecidableEq α] {a b : AssocList α 
 -- @[simp] theorem erase_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} ident (f : α → β → γ) :
 --   (a.erase ident).mapVal f = (a.mapVal f).erase ident := by sorry
 
-@[simp] axiom eraseAll_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} ident (f : α → β → γ) :
-  (a.eraseAll ident).mapVal f = (a.mapVal f).eraseAll ident
+@[simp] theorem eraseAll_cons_eq {α β} [DecidableEq α] {a : AssocList α β} {ident val} :
+  ((a.cons ident val).eraseAll ident) = a.eraseAll ident := by simp [*, eraseAll]
 
-@[simp] axiom find?_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} ident (f : β → γ) :
-  (a.find? ident).map f = (a.mapVal (λ _ => f)).find? ident
+@[simp] theorem eraseAll_cons_neq {α β} [DecidableEq α] {a : AssocList α β} {ident ident' val} :
+  ident' ≠ ident →
+  ((a.cons ident' val).eraseAll ident) = (a.eraseAll ident).cons ident' val := by
+  simp +contextual (disch := assumption) [eraseAll, beq_false_of_ne]
 
-axiom erase_equiv {α β} [DecidableEq α] {a b : AssocList α β} ident ident' :
-  a.find? ident = b.find? ident →
-  (a.erase ident').find? ident = (b.erase ident').find? ident
+@[simp] theorem eraseAll_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} {ident} {f : α → β → γ} :
+  (a.eraseAll ident).mapVal f = (a.mapVal f).eraseAll ident := by
+  induction a generalizing ident with
+  | nil => rfl
+  | cons k v xs ih =>
+    by_cases k = ident <;> simp [*, eraseAll_cons_eq, mapVal, eraseAll_cons_neq]
 
-@[simp] axiom find?_eraseAll_eq {α β} [DecidableEq α] (a : AssocList α β) i :
-  (a.eraseAll i).find? i = none
+@[simp] theorem find?_cons_eq {α β} [DecidableEq α] {a : AssocList α β} {ident val} :
+  ((a.cons ident val).find? ident) = .some val := by simp
 
-@[simp] axiom find?_eraseAll_list {α β} { T : α} [DecidableEq α] (a : AssocList α β):
-  List.find? (fun x => x.1 == T) (AssocList.eraseAllP (fun k x => decide (k = T)) a).toList = none
+@[simp] theorem find?_cons_neq {α β} [DecidableEq α] {a : AssocList α β} {ident ident' val} :
+  ident' ≠ ident →
+  ((a.cons ident' val).find? ident) = a.find? ident := by
+  simp +contextual (disch := assumption) [find?, beq_false_of_ne]
+
+@[simp] theorem find?_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} ident (f : β → γ) :
+  (a.find? ident).map f = (a.mapVal (λ _ => f)).find? ident := by
+  induction a with
+  | nil => rfl
+  | cons k v xs ih =>
+    by_cases k = ident
+    · subst k; simp
+    · simp (disch := assumption) only [*, find?_cons_neq, mapVal]
+
+-- theorem erase_equiv {α β} [DecidableEq α] {a b : AssocList α β} ident ident' :
+--   a.find? ident = b.find? ident →
+--   (a.erase ident').find? ident = (b.erase ident').find? ident
+
+@[simp] theorem find?_eraseAll_eq {α β} [DecidableEq α] (a : AssocList α β) i :
+  (a.eraseAll i).find? i = none := by
+  induction a with
+  | nil => rfl
+  | cons k v xs ih =>
+    by_cases i = k
+    · subst i; rwa [eraseAll_cons_eq]
+    · have : i ≠ k := by assumption
+      symm_saturate; simp [*]
+
+@[simp] theorem find?_eraseAll_list {α β} { T : α} [DecidableEq α] (a : AssocList α β):
+  List.find? (fun x => x.1 == T) (AssocList.eraseAllP (fun k x => decide (k = T)) a).toList = none := by
+  rw [←Batteries.AssocList.findEntry?_eq, ←Option.map_eq_none', ←Batteries.AssocList.find?_eq_findEntry?]
+  have := find?_eraseAll_eq a T; unfold eraseAll at *; assumption
 
 @[simp] axiom in_eraseAll_list {α β} {Ta : α} {elem : (α × β)} [DecidableEq α] (a : AssocList α β):
   elem ∈ (AssocList.eraseAllP (fun k x => decide (k = Ta)) a).toList -> elem ∈ a.toList
@@ -202,11 +237,9 @@ axiom erase_equiv {α β} [DecidableEq α] {a b : AssocList α β} ident ident' 
 @[simp] axiom not_in_eraseAll_list {α β} {Ta : α} {elem : (α × β)} [DecidableEq α] (a : AssocList α β):
   elem ∈ (AssocList.eraseAllP (fun k x => decide (k = Ta)) a).toList -> elem.1 = Ta -> False
 
-
 axiom in_eraseAll_noDup {α β γ δ} {l : List ((α × β) × γ × δ)} (Ta : α) [DecidableEq α](a : AssocList α (β × γ × δ)):
   (List.map Prod.fst ( List.map Prod.fst (l ++ (List.map (fun x => ((x.1, x.2.1), x.2.2.1, x.2.2.2)) a.toList)))).Nodup ->
   (List.map Prod.fst ( List.map Prod.fst (l ++ List.map (fun x => ((x.1, x.2.1), x.2.2.1, x.2.2.2)) (AssocList.eraseAllP (fun k x => decide (k = Ta)) a).toList))).Nodup
-
 
 @[simp] axiom in_eraseAll_map_comm {α β} (Ta : α) [DecidableEq α] (a : AssocList α β):
   (a.toList).Nodup -> ((AssocList.eraseAllP (fun k x => decide (k = Ta)) a).toList).Nodup

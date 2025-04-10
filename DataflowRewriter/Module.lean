@@ -184,9 +184,22 @@ theorem renamePorts_EqExt {S} (m : Module Ident S) (p p' : PortMapping Ident) :
   intro ⟨hwf1, hwf2⟩ ⟨hwf1', hwf2'⟩ ⟨Heq1, Heq2⟩
   simp [*, AssocList.bijectivePortRenaming_EqExt (p' := p'.input), AssocList.bijectivePortRenaming_EqExt (p' := p'.output)]
 
-axiom comm_conn_product_EqExt {I S} {m₁ : Module Ident I} {m₂ : Module Ident S} {o i}:
+theorem comm_conn_product_EqExt {I S} {m₁ : Module Ident I} {m₂ : Module Ident S} {o i}:
   ¬ (m₁.outputs.contains o) → ¬ (m₁.inputs.contains i) →
-  (m₁.product (m₂.connect' o i)).EqExt ((m₁.product m₂).connect' o i)
+  (m₁.product (m₂.connect' o i)).EqExt ((m₁.product m₂).connect' o i) := by
+  intro hcont1 hcont2
+  and_intros
+  · intro i'; dsimp [Module.connect', Module.product]
+    rw [AssocList.eraseAll_map_comm]
+    by_cases i = i'
+    · subst i'
+      rw [AssocList.append_find_right]
+      · simp only [AssocList.find?_eraseAll_eq]
+      · rw [← AssocList.find?_map_comm,AssocList.contains_none] <;> solve | rfl | assumption
+    . sorry
+  · sorry
+  · sorry
+
 
 axiom comm_conn_conn_EqExt {I} {m : Module Ident I} {o i o' i'}:
   o ≠ o' → i ≠ i' →
