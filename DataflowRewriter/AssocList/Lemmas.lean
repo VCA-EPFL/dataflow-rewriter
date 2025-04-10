@@ -307,8 +307,9 @@ axiom filderId_Nodup {α} [DecidableEq α] (p : AssocList α α) : p.keysList.No
 
 -- theorem filterId_EqExt {α} [DecidableEq α] (p : AssocList α α) := sorry
 
-axiom mapVal_mapKey {α β γ σ} {f : α → γ} {g : β → σ} {m : AssocList α β}:
-  (m.mapKey f).mapVal (λ _ => g) = (m.mapVal (λ _ => g)).mapKey f
+theorem mapVal_mapKey {α β γ σ} {f : α → γ} {g : β → σ} {m : AssocList α β}:
+  (m.mapKey f).mapVal (λ _ => g) = (m.mapVal (λ _ => g)).mapKey f := by
+    induction m <;> simpa
 
 theorem mapKey_mapKey {α β γ σ} {f : α → β} {g : β → γ} {m : AssocList α σ}:
   (m.mapKey f).mapKey g = m.mapKey (λ k => g (f k)) := by
@@ -318,6 +319,7 @@ theorem mapKey_append {α β γ} {f : α → γ} {m n : AssocList α β}:
   (m.mapKey f).append (n.mapKey f) = (m.append n).mapKey f := by
     induction m <;> simpa [append]
 
+-- FIXME: False
 axiom eraseAll_comm_mapKey {α β γ} [DecidableEq α] [DecidableEq γ] {f : α → γ} {i} {m : AssocList α β} :
   (m.mapKey f).eraseAll (f i) = (m.eraseAll i).mapKey f
 
