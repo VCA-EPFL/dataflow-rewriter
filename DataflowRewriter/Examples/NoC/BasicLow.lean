@@ -111,25 +111,14 @@ def nbag_low : ExprLow String :=
     }
     (ExprLow.product bag merge)
 
-def nbag_lowT :=
-  [T| nbag_low, ε_base]
-
-def nbag_lowT_precompute : Type := by
-  precomputeTac nbag_lowT by
-    unfold nbag_lowT
+def nbag_lowT : Type := by
+  precomputeTac [T| nbag_low, ε_base] by
     simp [drunfold, seval, drdecide, -AssocList.find?_eq]
     rw [ε_base_merge, ε_base_bag]
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
 
--- This should be spit out automatically
-axiom nbagT_eq : nbag_lowT = nbag_lowT_precompute
-
-def nbag_lowM :=
-  [e| nbag_low, ε_base]
-
-def nbagM_precompute : StringModule nbag_lowT_precompute := by
-  precomputeTac nbag_lowM by
-    unfold nbag_lowM
+def nbag_lowM : StringModule nbag_lowT := by
+  precomputeTac [e| nbag_low, ε_base] by
     simp [drunfold, seval, drdecide, -AssocList.find?_eq]
     rw [ε_base_merge, ε_base_bag]
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
@@ -145,14 +134,38 @@ def nbagM_precompute : StringModule nbag_lowT_precompute := by
 
 -- Correctness of nbag implementation ------------------------------------------
 
-variable (T : Type)
-variable (TS : String)
-variable (n : ℕ)
-
 instance : MatchInterface nbag_lowM (nbag P.Data P.netsz) where
-  input_types := by sorry
-  output_types := by sorry
+  input_types := by
+    intros ident
+    unfold nbag_lowM nbag nbag'
+    dsimp
+    sorry
+  output_types := by
+    intros ident
+    unfold nbag_lowM nbag nbag'
+    dsimp
+    by_cases H: ({ inst := InstIdent.top, name := NatModule.stringify_output 0 }: InternalPort String) = ident
+    <;> simp [*, drunfold, drnat, PortMap.getIO_cons, NatModule.stringify_output, InternalPort.map] at *
+    <;> simpa [H]
   inputs_present := by sorry
-  outputs_present := by sorry
+  outputs_present := by
+    intros ident;
+    unfold nbag_lowM nbag nbag'
+    by_cases H: ({ inst := InstIdent.top, name := NatModule.stringify_output 0 }: InternalPort String) = ident
+    · sorry
+    · sorry
+
+def φ (I : nbag_lowT) (S : List P.Data) : Prop :=
+  I.fst = S
+
+theorem nbag_low_correctϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
+  sorry
+
+theorem nbag_low_ϕ_indistinguishable:
+  ∀ x y, φ x y → Module.indistinguishable nbag_lowM (nbag P.Data P.netsz) x y := by
+    sorry
+
+theorem nbag_low_correct: nbag_lowM ⊑ (nbag P.Data P.netsz) := by
+  apply (Module.refines_φ_refines nbag_low_ϕ_indistinguishable nbag_low_correctϕ)
 
 end DataflowRewriter.NoC
