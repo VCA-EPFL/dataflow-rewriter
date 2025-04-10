@@ -75,9 +75,11 @@ def mk_noc_output_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → 
 
 -- TODO: This should be somewhere else, this function is very useful for
 -- defining List.range n |> map lift_f f |>.toAssocList, a very common pattern
+-- to design parametric design
 def lift_f {α : Type} (f : Nat → (Σ T : Type, α → T → α → Prop)) (n : Nat) : InternalPort Nat × (Σ T : Type, α → T → α → Prop) :=
   ⟨ ↑n, f n ⟩
 
+-- NOTE: This spec of a NoC also seems to be perfect for the spec of a router?
 @[drunfold]
 def noc (name := "noc") : NatModule (NatModule.Named name nocT) :=
   {

@@ -27,13 +27,25 @@ namespace DataflowRewriter.NoC
 
 variable [P: NocParam]
 
-attribute [drcompute] Batteries.AssocList.toList Function.uncurry Module.mapIdent List.toAssocList List.foldl Option.pure_def Option.bind_eq_bind Option.bind_some Module.renamePorts Batteries.AssocList.mapKey InternalPort.map Nat.repr Nat.toDigits Nat.toDigitsCore Nat.digitChar List.asString Option.bind Batteries.AssocList.mapVal Batteries.AssocList.eraseAll Batteries.AssocList.eraseP beq_self_eq_true Option.getD cond beq_self_eq_true  beq_iff_eq  InternalPort.mk.injEq  String.reduceEq  and_false  imp_self BEq.beq AssocList.bijectivePortRenaming AssocList.keysList AssocList.eraseAllP List.inter AssocList.filterId AssocList.append AssocList.filter
+attribute [drcompute] Batteries.AssocList.toList Function.uncurry Module.mapIdent
+  List.toAssocList List.foldl Option.pure_def Option.bind_eq_bind Option.bind_some
+  Module.renamePorts Batteries.AssocList.mapKey InternalPort.map Nat.repr
+  Nat.toDigits Nat.toDigitsCore Nat.digitChar List.asString Option.bind
+  Batteries.AssocList.mapVal beq_self_eq_true
+  Option.getD cond beq_self_eq_true beq_iff_eq  InternalPort.mk.injEq
+  String.reduceEq and_false imp_self BEq.beq AssocList.bijectivePortRenaming
+  AssocList.keysList List.inter AssocList.filterId
+  AssocList.append AssocList.filter
 
-attribute [drdecide] InternalPort.mk.injEq and_false decide_False decide_True and_true Batteries.AssocList.eraseAllP  InternalPort.mk.injEq
-  and_false  decide_False  decide_True  reduceCtorEq  cond  List.map List.elem_eq_mem List.mem_cons List.mem_singleton Bool.decide_or InternalPort.mk.injEq
-  String.reduceEq and_false decide_false reduceCtorEq and_self Bool.or_self Bool.false_eq_true not_false_eq_true
-  List.filter_cons_of_neg and_true List.filter_nil List.empty_eq decide_true List.nodup_cons List.not_mem_nil
-  List.nodup_nil Bool.and_self reduceIte List.concat_eq_append dreduceIte List.append_nil
+attribute [drdecide] InternalPort.mk.injEq and_false decide_False decide_True
+  and_true Batteries.AssocList.eraseAllP  InternalPort.mk.injEq
+  and_false decide_False decide_True reduceCtorEq cond List.map List.elem_eq_mem
+  List.mem_cons List.mem_singleton Bool.decide_or InternalPort.mk.injEq
+  String.reduceEq and_false decide_false reduceCtorEq and_self Bool.or_self
+  Bool.false_eq_true not_false_eq_true List.filter_cons_of_neg and_true
+  List.filter_nil List.empty_eq decide_true List.nodup_cons List.not_mem_nil
+  List.nodup_nil Bool.and_self reduceIte List.concat_eq_append dreduceIte
+  List.append_nil
 
 -- Base environment ------------------------------------------------------------
 
@@ -79,16 +91,16 @@ def nbag_low : ExprLow String :=
   let merge := ExprLow.base
     {
       input := List.range P.netsz |>.map (λ i => ⟨
-        -- Type port (Must be inst InstIdent.top)
+        -- Port defined in the Type (Must have inst := InstIdent.top)
         NatModule.stringify_input i,
         -- Internal name, here a top level port
         NatModule.stringify_input i,
       ⟩) |>.toAssocList,
       output := [⟨
-          -- Type port (Must be inst InstIdent.top)
-          NatModule.stringify_output 0,
-          -- Internal name
-          { inst := InstIdent.internal "Merge", name := "merge_to_bag_out" }
+        -- Port defined in the Type (Must have inst := InstIdent.top)
+        NatModule.stringify_output 0,
+        -- Internal name
+        { inst := InstIdent.internal "Merge", name := "merge_to_bag_out" }
       ⟩].toAssocList,
     }
     s!"Merge {P.DataS} {P.netsz}" -- Instance Type
@@ -115,7 +127,7 @@ def nbag_lowT : Type := by
   precomputeTac [T| nbag_low, ε_base] by
     simp [drunfold, seval, drdecide, -AssocList.find?_eq]
     rw [ε_base_merge, ε_base_bag]
-    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,-AssocList.mapKey_mapKey]
 
 def nbag_lowM : StringModule nbag_lowT := by
   precomputeTac [e| nbag_low, ε_base] by
@@ -131,8 +143,16 @@ def nbag_lowM : StringModule nbag_lowT := by
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
     unfold Module.connect''
     simp
+    simp [AssocList.eraseAll]
+    simp [AssocList.mapKey_mapKey, AssocList.mapVal_mapKey]
+    simp [AssocList.mapVal_map_toAssocList]
+    simp [AssocList.mapKey_map_toAssocList]
+
+-- TODO: Nbranch implementation
 
 -- Correctness of nbag implementation ------------------------------------------
+-- TODO: We are currently only trying to prove a refinement in one way, but it
+-- would be nice to have a proof of equivalence instead
 
 instance : MatchInterface nbag_lowM (nbag P.Data P.netsz) where
   input_types := by
@@ -146,19 +166,28 @@ instance : MatchInterface nbag_lowM (nbag P.Data P.netsz) where
     dsimp
     by_cases H: ({ inst := InstIdent.top, name := NatModule.stringify_output 0 }: InternalPort String) = ident
     <;> simp [*, drunfold, drnat, PortMap.getIO_cons, NatModule.stringify_output, InternalPort.map] at *
-    <;> simpa [H]
-  inputs_present := by sorry
+    <;> simpa [*]
+  inputs_present := by
+    intros ident
+    unfold nbag_lowM nbag nbag'
+    dsimp
+    sorry
   outputs_present := by
     intros ident;
     unfold nbag_lowM nbag nbag'
     by_cases H: ({ inst := InstIdent.top, name := NatModule.stringify_output 0 }: InternalPort String) = ident
-    · sorry
-    · sorry
+    <;> simp [*, drunfold, drnat, PortMap.getIO_cons, NatModule.stringify_output, InternalPort.map] at *
+    <;> simpa [*]
 
 def φ (I : nbag_lowT) (S : List P.Data) : Prop :=
   I.fst = S
 
 theorem nbag_low_correctϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
+  -- FIXME: Tactic fail to apply
+  -- prove_refines_φ nbag_lowM
+  -- · sorry
+  -- · sorry
+  -- · sorry
   sorry
 
 theorem nbag_low_ϕ_indistinguishable:
@@ -167,5 +196,10 @@ theorem nbag_low_ϕ_indistinguishable:
 
 theorem nbag_low_correct: nbag_lowM ⊑ (nbag P.Data P.netsz) := by
   apply (Module.refines_φ_refines nbag_low_ϕ_indistinguishable nbag_low_correctϕ)
+
+-- NoC implementation ----------------------------------------------------------
+-- TODO: We might need a special `NRoute` component which is just implemented by
+-- a Split into a NBranch, and then we have that a noc is `n * NBranch`
+-- connected to `n * nbag`, each with `n` input
 
 end DataflowRewriter.NoC

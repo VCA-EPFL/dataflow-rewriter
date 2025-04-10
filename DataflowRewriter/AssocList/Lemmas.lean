@@ -103,6 +103,30 @@ theorem mapKey_toList {α β} {l : AssocList α β} {f : α → α} :
   l.mapKey f = (l.toList.map (λ | (a, b) => (f a, b))).toAssocList := by
   induction l <;> simp [*]
 
+theorem mapVal_map_toAssocList {T α β1 β2} {l : List T}
+  {f : α → β1 → β2} {g : T → α} {h : T → β1}:
+  mapVal f (List.map (λ x => (g x, h x)) l).toAssocList
+  = (List.map (λ x => (g x, f (g x) (h x))) l).toAssocList := by
+  induction l <;> simpa
+
+theorem mapVal_map_toAssocList2 {α1 α2 β1 β2 β3} {l : List (α1 × β1)}
+  {f : α2 → β2 → β3} {g : α1 → α2} {h : β1 → β2}:
+  mapVal f (List.map (λ (k, v) => (g k, h v)) l).toAssocList
+  = (List.map (λ (k, v) => (g k, f (g k) (h v))) l).toAssocList := by
+  induction l <;> simpa
+
+theorem mapKey_map_toAssocList {T α1 α2 β} {l : List T}
+  {f : α1 → α2} {g : T → α1} {h : T → β}:
+  mapKey f (List.map (λ x => (g x, h x)) l).toAssocList
+  = (List.map (λ x => (f (g x), h x)) l).toAssocList := by
+  induction l <;> simpa
+
+theorem mapKey_map_toAssocList2 {α1 α2 α3 β1 β2} {l : List (α1 × β1)}
+  {f : α2 → α3} {g : α1 → α2} {h : β1 → β2}:
+  mapKey f (List.map (λ (k, v) => (g k, h v)) l).toAssocList
+  = (List.map (λ (k, v) => (f (g k), (h v))) l).toAssocList := by
+  induction l <;> simpa
+
 theorem mapKey_toList2 {α β} {l : AssocList α β} {f : α → α} :
   (l.mapKey f).toList = (l.toList.map (λ | (a, b) => (f a, b))) := by
   induction l <;> simp [*]
