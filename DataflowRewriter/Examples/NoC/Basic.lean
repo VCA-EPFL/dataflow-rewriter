@@ -62,7 +62,7 @@ def nocT : Type :=
 def mk_input_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
     ⟨
       P.Data × FlitHeader,
-      λ oldState v newState => newState = oldState.concat v
+      λ oldState v newState => newState = v :: oldState
     ⟩
 
 def mk_output_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
@@ -146,11 +146,8 @@ theorem full_connectivity (i j : RouterID) (d : P.Data) pre_s inp_s
         ]
         dsimp
         dsimp at Hinp
-        -- TODO: We need to prove
-        --  List.length inp_s = NocParam.netsz
-        --  0 < NocParam.netsz
-        -- And then we should be able to do
-        -- exists (Fin.mk 0)
-        sorry
-
+        have Hlen: 0 < List.length inp_s
+        · simpa [Hinp]
+        exists (Fin.mk 0 Hlen)
+        split_ands <;> simpa [Hinp]
 end DataflowRewriter.NoC
