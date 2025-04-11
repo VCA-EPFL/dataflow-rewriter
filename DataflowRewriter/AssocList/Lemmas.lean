@@ -287,6 +287,26 @@ theorem contains_eraseAll {α β} [DecidableEq α] {a : AssocList α β} {i i'} 
   (a.eraseAll i').contains i → a.contains i := by
   simp only [←contains_find?_iff]; intro ⟨_, _⟩; solve_by_elim [find?_eraseAll]
 
+theorem eraseAll_not_contains {α β} [DecidableEq α] (a : AssocList α β) (i : α) :
+  ¬a.contains i → a.eraseAll i = a := by
+    intros H
+    induction a <;> simp [eraseAll]
+    rename_i k v a' HR
+    cases Heq: (k == i)
+    · simp; apply HR; intros Hcontains; apply H; simp; right;
+      simp at Hcontains; assumption
+    · exfalso; apply H
+      simp; left; simp at Heq; assumption
+
+theorem eraseAll_map_neq {α β γ} [DecidableEq α] [DecidableEq β]
+    (f : α → β) (g : α → γ) (l : List α) (k : β) (Hneq : ∀ x, f x ≠ k) :
+    (List.map (λ x => (f x, g x)) l).toAssocList.eraseAll k =
+    (List.map (λ x => (f x, g x)) l).toAssocList :=
+  by
+    apply (eraseAll_not_contains (a := (List.map (fun x => (f x, g x)) l).toAssocList))
+    induction l <;> simp
+    split_ands <;> try intros <;> apply Hneq
+
 @[simp] theorem any_map {α β} {f : α → β} {l : List α} {p : β → Bool} : (l.map f).any p = l.any (p ∘ f) := by
   induction l <;> simp
 
@@ -381,6 +401,11 @@ theorem bijectivePortRenaming_bijective {α} [DecidableEq α] {p : AssocList α 
     simp
 
 theorem bijectivePortRenaming_id {α} [DecidableEq α] : @bijectivePortRenaming α _ ∅ = id := by rfl
+
+theorem bijectivePortRenaming_same {α} {β} [DecidableEq α] (f : β → α) (l : List β) (a : α) :
+  (List.map (fun i => (f i, f i)) l).toAssocList.bijectivePortRenaming a = a :=
+  by
+    sorry
 
 @[simp]
 theorem find?_gss : ∀ {α} [DecidableEq α] {β x v} {pm: AssocList α β},

@@ -51,13 +51,13 @@ attribute [drdecide] InternalPort.mk.injEq and_false decide_False decide_True
 
 def ε_base : Env :=
   [
-    (s!"Merge {P.DataS} {P.netsz}", ⟨_, StringModule.merge P.Data P.netsz⟩),
+    (s!"Merge' {P.DataS} {P.netsz}", ⟨_, StringModule.merge' P.Data P.netsz⟩),
     (s!"Split {P.DataS} {FlitHeaderS}", ⟨_, StringModule.split P.Data FlitHeader⟩),
     (s!"Bag {P.DataS}", ⟨_, StringModule.bag P.Data⟩),
   ].toAssocList
 
-def ε_base_merge :
-  ε_base.find? s!"Merge {P.DataS} {P.netsz}" = .some ⟨_, StringModule.merge P.Data P.netsz⟩ := by
+def ε_base_merge' :
+  ε_base.find? s!"Merge' {P.DataS} {P.netsz}" = .some ⟨_, StringModule.merge' P.Data P.netsz⟩ := by
   simpa
 
 def ε_base_split :
@@ -103,7 +103,7 @@ def nbag_low : ExprLow String :=
         { inst := InstIdent.internal "Merge", name := "merge_to_bag_out" }
       ⟩].toAssocList,
     }
-    s!"Merge {P.DataS} {P.netsz}" -- Instance Type
+    s!"Merge' {P.DataS} {P.netsz}" -- Instance Type
   let bag := ExprLow.base
     {
       input := [⟨
@@ -126,13 +126,13 @@ def nbag_low : ExprLow String :=
 def nbag_lowT : Type := by
   precomputeTac [T| nbag_low, ε_base] by
     simp [drunfold, seval, drdecide, -AssocList.find?_eq]
-    rw [ε_base_merge, ε_base_bag]
+    rw [ε_base_merge', ε_base_bag]
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,-AssocList.mapKey_mapKey]
 
 def nbag_lowM : StringModule nbag_lowT := by
   precomputeTac [e| nbag_low, ε_base] by
     simp [drunfold, seval, drdecide, -AssocList.find?_eq]
-    rw [ε_base_merge, ε_base_bag]
+    rw [ε_base_merge', ε_base_bag]
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
     -- rw [AssocList.find?_gss]
     conv =>
@@ -143,10 +143,17 @@ def nbag_lowM : StringModule nbag_lowT := by
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
     unfold Module.connect''
     simp
-    simp [AssocList.eraseAll]
     simp [AssocList.mapKey_mapKey, AssocList.mapVal_mapKey]
     simp [AssocList.mapVal_map_toAssocList]
     simp [AssocList.mapKey_map_toAssocList]
+    simp [AssocList.bijectivePortRenaming_same]
+    simp [InternalPort.map]
+    have Hneq: ∀ x,
+      ({ inst := InstIdent.top, name := NatModule.stringify_input x }: InternalPort String)
+      ≠ ({ inst := InstIdent.internal "Bag", name := "merge_to_bag_in" }: InternalPort String)
+    · simpa
+    simp [AssocList.eraseAll_map_neq (Hneq := Hneq)]
+    simp [AssocList.eraseAll]
 
 -- TODO: Nbranch implementation
 
@@ -154,11 +161,38 @@ def nbag_lowM : StringModule nbag_lowT := by
 -- TODO: We are currently only trying to prove a refinement in one way, but it
 -- would be nice to have a proof of equivalence instead
 
+theorem find?_exists {α} (f : α → Bool) (l : List α) :
+  (List.find? f l).isSome <-> (∃ x, x ∈ l ∧ f x) := by
+    induction l <;> constructor <;> simpa
+
+theorem some_isSome {α} (f : α → Bool) (l : List α) v :
+  List.find? f l = some v -> (List.find? f l).isSome := by
+    intros H; rw [H]; simpa
+
+theorem none_isSome {α} (f : α → Bool) (l : List α) :
+  List.find? f l = none -> (List.find? f l).isSome = false := by
+    intros H; rw [H]; simpa
+
+theorem isSome_same_list {α} (f : α → Bool) (g : α → Bool) (l : List α):
+  ((∃ x, x ∈ l ∧ f x) <-> (∃ x, x ∈ l ∧ g x)) →
+  (List.find? f l).isSome = (List.find? g l).isSome := by
+    intros H
+    obtain ⟨H1, H2⟩ := H
+    cases Hf: (List.find? f l) <;> cases Hg: (List.find? g l) <;> try simpa
+    · apply some_isSome at Hg; rw [find?_exists] at Hg
+      apply H2 at Hg; rw [←find?_exists] at Hg
+      rw [Hf] at Hg
+      contradiction
+    · apply some_isSome at Hf; rw [find?_exists] at Hf
+      apply H1 at Hf; rw [←find?_exists] at Hf
+      rw [Hg] at Hf
+      contradiction
+
 instance : MatchInterface nbag_lowM (nbag P.Data P.netsz) where
   input_types := by
     intros ident
     unfold nbag_lowM nbag nbag'
-    dsimp
+    simp [*, drunfold, drnat, PortMap.getIO_cons, NatModule.stringify_output, InternalPort.map] at *
     sorry
   output_types := by
     intros ident
@@ -170,8 +204,9 @@ instance : MatchInterface nbag_lowM (nbag P.Data P.netsz) where
   inputs_present := by
     intros ident
     unfold nbag_lowM nbag nbag'
-    dsimp
-    sorry
+    simp [NatModule.stringify, Module.mapIdent]
+    apply isSome_same_list
+    constructor <;> intros H <;> obtain ⟨x, Hx1, Hx2⟩ := H <;> simp at * <;> exists x
   outputs_present := by
     intros ident;
     unfold nbag_lowM nbag nbag'
@@ -180,17 +215,34 @@ instance : MatchInterface nbag_lowM (nbag P.Data P.netsz) where
     <;> simpa [*]
 
 def φ (I : nbag_lowT) (S : List P.Data) : Prop :=
-  I.fst = S
+  -- TODO: We actually need something like S = I.fst + any element we want of
+  -- I.snd? Or something like this?
+  I.fst ++ I.snd = S
 
 theorem nbag_low_correctϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
   -- FIXME: Tactic fail to apply
-  -- prove_refines_φ nbag_lowM
-  -- · sorry
-  -- · sorry
-  -- · sorry
-  sorry
+  prove_refines_φ nbag_lowM
+  · sorry
+  · exists mid_i.1
+    split_ands
+    · unfold nbag nbag'
+      simp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output]
+      rw [PortMap.rw_rule_execution]
+      dsimp
+      sorry
+    · sorry
+  · intros _ mid_i _ _; exists mid_i.1
+    split_ands
+    · unfold φ at H
+      rename_i rule H1 H2
+      simp [nbag_lowM, nbag, nbag', NatModule.stringify, Module.mapIdent] at *
+      rw [H1] at H2
+      obtain ⟨a, b, output, ⟨⟨H2, H3⟩, H4, H5⟩⟩ := H2
+      rw [H4, ←H, H3]
+      sorry
+    · sorry
 
-theorem nbag_low_ϕ_indistinguishable:
+theorem nbag_low_ϕ_indistinguishable :
   ∀ x y, φ x y → Module.indistinguishable nbag_lowM (nbag P.Data P.netsz) x y := by
     sorry
 

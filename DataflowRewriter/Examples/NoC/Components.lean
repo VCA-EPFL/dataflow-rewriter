@@ -77,7 +77,7 @@ def nbag T n :=
 def ε' : Env :=
   [
     -- Merge to implement the n-bag
-    (s!"Merge {P.DataS} {P.netsz}", ⟨_, StringModule.merge P.Data P.netsz⟩),
+    (s!"Merge' {P.DataS} {P.netsz}", ⟨_, StringModule.merge' P.Data P.netsz⟩),
 
     -- Splits to separate Data and FlitHeader
     (s!"Split {P.DataS} {FlitHeaderS}", ⟨_, StringModule.split P.Data FlitHeader⟩),
@@ -92,8 +92,8 @@ def ε' : Env :=
 -- All of the following Lemmas are used for precomputing modules
 -- TODO: We should probably make the proof into a tactic
 
-def ε'_merge :
-  ε'.find? s!"Merge {P.DataS} {P.netsz}" = .some ⟨_, StringModule.merge P.Data P.netsz⟩ := by
+def ε'_merge' :
+  ε'.find? s!"Merge' {P.DataS} {P.netsz}" = .some ⟨_, StringModule.merge' P.Data P.netsz⟩ := by
   simpa
 
 def ε'_split :

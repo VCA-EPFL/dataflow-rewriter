@@ -45,10 +45,22 @@ namespace DataflowRewriter.NatModule
 abbrev Named (s : String) (T : Type _) := T
 
 @[drunfold] def merge T (n : Nat) (name : String := "merge") : NatModule (Named name (List T)) :=
-  { inputs := List.range n |>.map (Prod.mk ↑· (⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩)) |>.toAssocList,
+  { inputs := List.range n |>.map (Prod.mk ↑· ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩) |>.toAssocList,
     outputs := [(0, ⟨ T, λ oldList oldElement newList =>
                        ∃ i, newList = oldList.remove i
                          ∧ oldElement = oldList.get i ⟩)].toAssocList
+  }
+
+-- Strictest definition of a merge, where input are totally ordered
+@[drunfold]
+def merge' T (n : Nat) (name : String := "merge'") : NatModule (Named name (List T)) :=
+  {
+    inputs := List.range n |>.map (Prod.mk ↑·
+      ⟨ T, λ oldList newElement newList => newList = oldList.concat newElement ⟩)
+      |>.toAssocList,
+    outputs := [
+      (0, ⟨ T, λ oldList oldElement newList => newList = oldElement :: oldList⟩)
+    ].toAssocList
   }
 
 @[drunfold] def cntrl_merge T (name : String := "cntrl_merge") : NatModule (Named name (List T × List Bool)) :=
@@ -456,6 +468,8 @@ namespace DataflowRewriter.StringModule
 @[drunfold] def bag T := NatModule.bag T |>.stringify
 
 @[drunfold] def merge T n := NatModule.merge T n |>.stringify
+
+@[drunfold] def merge' T n := NatModule.merge' T n |>.stringify
 
 -- @[drunfold] def fork T n := NatModule.fork T n |>.stringify
 
