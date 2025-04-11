@@ -161,17 +161,13 @@ def nbag_lowM : StringModule nbag_lowT := by
 -- TODO: We are currently only trying to prove a refinement in one way, but it
 -- would be nice to have a proof of equivalence instead
 
-theorem find?_exists {α} (f : α → Bool) (l : List α) :
-  (List.find? f l).isSome <-> (∃ x, x ∈ l ∧ f x) := by
-    induction l <;> constructor <;> simpa
-
 theorem some_isSome {α} (f : α → Bool) (l : List α) v :
   List.find? f l = some v -> (List.find? f l).isSome := by
-    intros H; rw [H]; simpa
+    intros H; simpa [H, Option.isSome_some]
 
 theorem none_isSome {α} (f : α → Bool) (l : List α) :
   List.find? f l = none -> (List.find? f l).isSome = false := by
-    intros H; rw [H]; simpa
+    intros H; simpa [H, Option.isSome_none]
 
 theorem isSome_same_list {α} (f : α → Bool) (g : α → Bool) (l : List α):
   ((∃ x, x ∈ l ∧ f x) <-> (∃ x, x ∈ l ∧ g x)) →
@@ -179,12 +175,12 @@ theorem isSome_same_list {α} (f : α → Bool) (g : α → Bool) (l : List α):
     intros H
     obtain ⟨H1, H2⟩ := H
     cases Hf: (List.find? f l) <;> cases Hg: (List.find? g l) <;> try simpa
-    · apply some_isSome at Hg; rw [find?_exists] at Hg
-      apply H2 at Hg; rw [←find?_exists] at Hg
+    · apply some_isSome at Hg; rw [List.find?_isSome] at Hg
+      apply H2 at Hg; rw [←List.find?_isSome] at Hg
       rw [Hf] at Hg
       contradiction
-    · apply some_isSome at Hf; rw [find?_exists] at Hf
-      apply H1 at Hf; rw [←find?_exists] at Hf
+    · apply some_isSome at Hf; rw [List.find?_isSome] at Hf
+      apply H1 at Hf; rw [←List.find?_isSome] at Hf
       rw [Hg] at Hf
       contradiction
 
@@ -192,6 +188,7 @@ instance : MatchInterface nbag_lowM (nbag P.Data P.netsz) where
   input_types := by
     intros ident
     unfold nbag_lowM nbag nbag'
+    unfold lift_f mk_nbag_input_rule
     simp [*, drunfold, drnat, PortMap.getIO_cons, NatModule.stringify_output, InternalPort.map] at *
     sorry
   output_types := by
