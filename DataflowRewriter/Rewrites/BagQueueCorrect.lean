@@ -59,26 +59,22 @@ theorem queue_refine_ϕ_bag: queue T₁ ⊑_{φ} bag T₁ := by
 theorem ϕ_indistinguishable:
   ∀ x y, φ x y → Module.indistinguishable (queue T₁) (bag T₁) x y := by
     intros x y Hϕ
-    constructor <;> intros ident new_i v H <;> exists new_i
-    · unfold queue at *
-      by_cases Hident: ({ inst := InstIdent.top, name := 0 }: InternalPort Nat) = ident
+    constructor <;> intros ident new_i v H <;> exists new_i <;> unfold queue at *
+    · by_cases Hident: ({ inst := InstIdent.top, name := 0 }: InternalPort Nat) = ident
       · rw [PortMap.rw_rule_execution] at H
         unfold bag; subst ident
         rw [PortMap.rw_rule_execution]; rw [Hϕ] at H; exact H
-      · unfold queue at *
-        exfalso
+      · exfalso
         apply (PortMap.getIO_cons_nil_false _ _ ident)
         · exact Hident
         · exact H
-    · unfold queue at *
-      by_cases Hident: ({ inst := InstIdent.top, name := 0 }: InternalPort Nat) = ident
+    · by_cases Hident: ({ inst := InstIdent.top, name := 0 }: InternalPort Nat) = ident
       · rw [PortMap.rw_rule_execution] at H
         subst ident
         rw [PortMap.rw_rule_execution (h := by apply PortMap.getIO_cons)]; rw [Hϕ] at H;
         rw [← H]
         exists (Fin.mk 0 (by simpa))
-      · unfold queue at *
-        exfalso
+      · exfalso
         apply (PortMap.getIO_cons_nil_false _ _ ident)
         · exact Hident
         · exact H
