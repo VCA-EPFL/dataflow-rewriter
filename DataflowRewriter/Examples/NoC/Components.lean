@@ -28,6 +28,7 @@ variable [P: NocParam]
 -- Reference semantics for useful components
 -- Implementation is provided in `ExprLow` and `ExprHigh` using base components
 
+-- Branch with `n` outputs
 @[drunfold]
 def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List P.Data × List RouterID)) :=
   {
@@ -45,17 +46,40 @@ def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List P.Data 
     outputs :=
       -- TODO: We would like to have n be cast to a RouterID down the line
       List.range P.netsz |>.map (λ routerID => Prod.mk ↑routerID
-        (⟨P.Data,
+        ⟨P.Data,
           λ (oldDatas, oldRouterIDs) data (newDatas, newRouterIDs) =>
             data :: newDatas = oldDatas ∧
             routerID :: newRouterIDs = oldRouterIDs
-        ⟩))
+        ⟩)
       |>.toAssocList,
   }
 
 @[drunfold]
 def nbranch :=
   nbranch' |>.stringify
+
+-- NBranch with only one input
+@[drunfold]
+def nroute' (name := "nroute") : NatModule (NatModule.Named name (List (P.Data × RouterID))) :=
+  {
+    inputs := [
+      (0, ⟨P.Data × RouterID,
+        λ oldState v newState => newState = oldState.concat v
+      ⟩),
+    ].toAssocList
+
+    outputs :=
+      -- TODO: We would like to have n be cast to a RouterID down the line
+      List.range P.netsz |>.map (λ routerID => Prod.mk ↑routerID
+        ⟨P.Data,
+          λ oldState data newState => oldState = (data, routerID) :: newState
+        ⟩)
+      |>.toAssocList,
+  }
+
+@[drunfold]
+def nroute :=
+  nroute' |>.stringify
 
 def mk_nbag_input_rule (S : Type) (_ : Nat) : (Σ T : Type, List S → T → List S → Prop) :=
     ⟨ S, λ oldState v newState => newState = oldState.concat v ⟩

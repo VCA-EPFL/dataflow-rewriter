@@ -71,9 +71,9 @@ theorem getIO_cons {Ident} [DecidableEq Ident] {S}
 -- TODO: @[simp] ?
 theorem getIO_map {S : Type _}
   (i : Nat) (sz : Nat)
-  (f : Nat -> Σ T : Type _, (S → T → S → Prop)) k v
+  (f : Nat -> Σ T : Type _, (S → T → S → Prop)) v
   (Heq : f i = v) (Hlt : i < sz) :
-  PortMap.getIO (List.range sz |>.map (λ n => ⟨ (↑n : InternalPort Nat), f n ⟩) |>.toAssocList) k = v := by
+  PortMap.getIO (List.range sz |>.map (λ n => ⟨(↑n : InternalPort Nat), f n⟩) |>.toAssocList) i = v := by
   -- TODO
   -- The annoying part in this proof is the definition of List.range which is
   -- actually in order, which means we cannot easily do an induction on size.

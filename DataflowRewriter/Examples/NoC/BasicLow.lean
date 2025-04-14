@@ -67,7 +67,7 @@ def ε_base_split :
     right
     split_ands
     · unfold toString instToStringString instToStringNat; simp
-      sorry -- Should be Trivial
+      sorry -- FIXME: Should be Trivial
     · rfl
 
 def ε_base_bag :
@@ -76,17 +76,13 @@ def ε_base_bag :
     exists s!"Bag {P.DataS}"
     right
     split_ands
-    · sorry -- Should be Trivial
+    · sorry -- FIXME: Should be Trivial
     · right
       simp
-      sorry -- Should be Trivial
+      sorry -- FIXME: Should be Trivial
 
 -- Implementation --------------------------------------------------------------
 
--- TODO: We should be able to reason about this design inductively but it may be
--- very hard since n is a direct parameter of the merge
--- Another possibility would be to not use a nmerge but only use `two merge`
--- combined in cascade
 def nbag_low : ExprLow String :=
   let merge := ExprLow.base
     {
@@ -156,11 +152,12 @@ def nbag_lowM : StringModule nbag_lowT := by
     simp [AssocList.eraseAll]
     simp [Module.liftR]
 
--- TODO: Nbranch implementation
+-- TODO: NBranch implementation
 
--- Correctness of nbag implementation ------------------------------------------
--- TODO: We are currently only trying to prove a refinement in one way, but it
--- would be nice to have a proof of equivalence instead
+-- TODO: NRoute implementation
+
+-- Useful lemmas ---------------------------------------------------------------
+-- TODO: This should maybe be moved somewhere else
 
 theorem some_isSome {α} (f : α → Bool) (l : List α) v :
   List.find? f l = some v -> (List.find? f l).isSome := by
@@ -184,6 +181,44 @@ theorem isSome_same_list {α} (f : α → Bool) (g : α → Bool) (l : List α) 
       apply H1 at Hf; rw [←List.find?_isSome] at Hf
       rw [Hg] at Hf
       contradiction
+
+theorem eraseIdx_len {T} (l1 l2 : List T) i (H : i < List.length l1):
+  List.eraseIdx (l1 ++ l2) i = (List.eraseIdx l1 i) ++ l2 := by
+    sorry
+
+theorem get_len {T} (l1 l2: List T) i
+  (H1 : i < List.length l1)
+  (H2 : i < List.length (l1 ++ l2) := by simpa [Nat.lt_add_right]):
+  l1[i] = (l1 ++ l2)[i] := by
+    revert H1 H2 i
+    induction l1 <;> intros i <;> induction i <;> simp <;> try contradiction
+    intros H1 H2
+    rename_i hd tl HR1 n HR2
+    apply HR1
+
+-- TODO: This could be generalized, but it is a bit tricky to keep correct
+-- The two version should suffice for simple use cases
+theorem getIO_map_stringify_input {S : Type _}
+  (i : Nat) (sz : Nat)
+  (f : Nat -> Σ T : Type _, (S → T → S → Prop)) v
+  (Heq : f i = v) (Hlt : i < sz) :
+  PortMap.getIO (List.range sz |>.map
+    (λ n => ⟨(NatModule.stringify_input n: InternalPort String), f n⟩) |>.toAssocList)
+    (NatModule.stringify_input i) = v := by
+  sorry
+
+theorem getIO_map_stringify_output {S : Type _}
+  (i : Nat) (sz : Nat)
+  (f : Nat -> Σ T : Type _, (S → T → S → Prop)) v
+  (Heq : f i = v) (Hlt : i < sz) :
+  PortMap.getIO (List.range sz |>.map
+    (λ n => ⟨(NatModule.stringify_output n: InternalPort String), f n⟩) |>.toAssocList)
+    (NatModule.stringify_output i) = v := by
+  sorry
+
+-- Correctness of nbag implementation ------------------------------------------
+-- TODO: We are currently only trying to prove a refinement in one way, but it
+-- would be nice to have a proof of equivalence instead
 
 instance : MatchInterface nbag_lowM (nbag P.Data P.netsz) where
   input_types := by
@@ -214,31 +249,39 @@ instance : MatchInterface nbag_lowM (nbag P.Data P.netsz) where
     <;> simpa [*]
 
 def φ (I : nbag_lowT) (S : List P.Data) : Prop :=
-  -- TODO: We actually need something like S = I.fst + any element we want of
-  -- I.snd? Or something like this?
-  -- ∃ snd_hd snd_tl, I.snd = snd_hd ++ snd_tl ∧ I.fst ++ snd_hd = S
-  I.fst ++ I.snd = S
+  S = I.fst ++ I.snd
 
 theorem nbag_low_correctϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
   -- FIXME: Tactic fail to apply
   prove_refines_φ nbag_lowM
   · rename_i Hcontains
     simp [nbag_lowM] at Hcontains
-    obtain ⟨ T1, T2, n, HnFin, Hident, Hrule' ⟩ := Hcontains
+    obtain ⟨T1, T2, n, HnFin, Hident, Hrule'⟩ := Hcontains
     subst ident
     unfold nbag nbag'
     simp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output]
     exists mid_i.1 ++ mid_i.2
     split_ands
-    ·
-      -- TODO: We need a lemma with hypothesis n < NocParam.sz
-      -- PortMap.getIO (List.map lift_f (List.range NocParam.sz)) (..n) = f n
-      -- But we also need to take into account Stringify here
+    · unfold lift_f;
+      rw [PortMap.rw_rule_execution (h := by rw[AssocList.mapKey_map_toAssocList])]
+      simp [InternalPort.map]
+      rw [PortMap.rw_rule_execution (h := by apply (getIO_map_stringify_input
+          (i := n)
+          (f := mk_nbag_input_rule NocParam.Data)
+          (Heq := by unfold mk_nbag_input_rule; rfl)
+        ) <;> simpa)
+      ]
+      simp
+      subst s
+      unfold nbag_lowM at *
+      dsimp at v Hrule
+      -- TODO: True but we need to simplify Hrule. It has already been
+      -- simplified once for some reason?
       sorry
     · exists mid_i.1 ++ mid_i.2; split_ands
       · constructor
       · rfl
-  · obtain ⟨ ⟨i_1, ⟨H1, H2 ⟩⟩, Hrule2 ⟩ := Hrule
+  · obtain ⟨⟨i_1, ⟨H1, H2⟩⟩, Hrule2⟩ := Hrule
     exists mid_i.1 ++ mid_i.2
     split_ands
     · unfold nbag nbag'
@@ -248,10 +291,10 @@ theorem nbag_low_correctϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
       subst s
       rw [H1, H2]
       have H: (i_1: Nat) < List.length (i.1 ++ i.2) := by simpa [Nat.lt_add_right]
-      exists (Fin.mk i_1 H)
+      exists Fin.mk i_1 H
       split_ands <;> dsimp
-      · sorry -- FIXME: Very probably true, need annoying lemmas
-      · sorry -- FIXME: Very probably true, need annoying lemmas
+      · rw [Hrule2, ←eraseIdx_len] <;> simpa
+      · apply get_len
     · rfl
   · intros _ mid_i _ _;
     rename_i rule H1 H2
@@ -277,6 +320,7 @@ theorem nbag_low_ϕ_indistinguishable :
     · subst y
       unfold nbag_lowM at *
       simp at v H
+      unfold lift_f
       sorry
     · by_cases Hident: ({ inst := InstIdent.top, name := NatModule.stringify_output 0 }: InternalPort String) = ident
       · rw [PortMap.rw_rule_execution] at H
@@ -284,14 +328,14 @@ theorem nbag_low_ϕ_indistinguishable :
         subst ident
         rw [PortMap.rw_rule_execution (h := by apply PortMap.getIO_cons)];
         simp at *
-        obtain ⟨ ⟨ i, Hi1, Hi2 ⟩, H ⟩ := H
+        obtain ⟨⟨i, Hi1, Hi2⟩, H⟩ := H
         rw [Hi1, Hi2]
         subst y
-        have H: (i: Nat) < List.length (x.1 ++ x.2) := by simpa [Nat.lt_add_right]
-        exists (Fin.mk i H)
+        have Hlen: (i: Nat) < List.length (x.1 ++ x.2) := by simpa [Nat.lt_add_right]
+        exists Fin.mk i Hlen
         split_ands
-        · sorry -- FIXME: Need same lemmas as above
-        · sorry -- FIXME: Need same lemmas as above
+        · rw [←eraseIdx_len] <;> simpa [H, Nat.lt_add_right]
+        · apply get_len
       · exfalso
         apply (PortMap.getIO_cons_nil_false _ _ ident)
         · exact Hident
@@ -302,7 +346,42 @@ theorem nbag_low_correct: nbag_lowM ⊑ (nbag P.Data P.netsz) := by
 
 -- NoC implementation ----------------------------------------------------------
 -- TODO: We might need a special `NRoute` component which is just implemented by
--- a Split into a NBranch, and then we have that a noc is `n * NBranch`
--- connected to `n * nbag`, each with `n` input
+-- a Split into a NBranch, and then we have that a noc is `n * NRoute`
+-- connected to `n * NBag`
+-- We could even do something simpler, and only actually use a single NRoute
+-- with a prior merge, but this should be pretty much equivalent?
+-- Maybe we can even prove it but meh
+
+def noc_low : ExprLow String :=
+  let gadget (i : RouterID) :=
+    let nroute := ExprLow.base
+      {
+        input := [⟨
+          NatModule.stringify_input 0,
+          NatModule.stringify_input i,
+        ⟩].toAssocList,
+        output := List.range P.netsz |>.map (λ j => ⟨
+          NatModule.stringify_output j,
+          { inst := InstIdent.internal s!"NRoute {i}", name := NatModule.stringify_output j}
+        ⟩) |>.toAssocList
+      }
+      s!"NRoute {P.DataS} {P.netsz}"
+    let nbag := ExprLow.base
+      {
+        input := List.range P.netsz |>.map (λ j => ⟨
+          NatModule.stringify_input j,
+          { inst := InstIdent.internal s!"NBag {i}", name := NatModule.stringify_output j }
+        ⟩) |>.toAssocList,
+        output := [⟨
+          NatModule.stringify_output 0,
+          NatModule.stringify_output i
+        ⟩].toAssocList,
+      }
+      s!"NBag {P.DataS} {P.netsz}"
+    ExprLow.product nbag nroute
+  -- TODO: product of gadget 0 to P.netsz, with proper connection:
+  -- ∀ i ∈ {0, ..., P.netsz}. ∀ j ∈ {0, ..., P.netsz}.
+  -- NRoute{i}.output{j} -> NBag{j}.input{i}
+  gadget 0
 
 end DataflowRewriter.NoC
