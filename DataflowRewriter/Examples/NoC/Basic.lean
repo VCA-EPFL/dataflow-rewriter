@@ -154,4 +154,5 @@ theorem full_connectivity (i j : RouterID) (d : P.Data) pre_s inp_s
         · simpa [Hinp]
         exists (Fin.mk 0 Hlen)
         split_ands <;> simpa [Hinp]
+
 end DataflowRewriter.NoC

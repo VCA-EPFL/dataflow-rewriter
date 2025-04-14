@@ -264,7 +264,7 @@ theorem nbag_low_correctϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
     split_ands
     · unfold lift_f;
       rw [PortMap.rw_rule_execution (h := by rw[AssocList.mapKey_map_toAssocList])]
-      simp [InternalPort.map]
+      dsimp [InternalPort.map]
       rw [PortMap.rw_rule_execution (h := by apply (getIO_map_stringify_input
           (i := n)
           (f := mk_nbag_input_rule NocParam.Data)
@@ -321,6 +321,10 @@ theorem nbag_low_ϕ_indistinguishable :
       unfold nbag_lowM at *
       simp at v H
       unfold lift_f
+      rw [PortMap.rw_rule_execution (h := by rw [AssocList.mapKey_map_toAssocList])]
+      dsimp [InternalPort.map]
+      -- TODO: We need to do a case analysis on ident here, which is very
+      -- annoying.
       sorry
     · by_cases Hident: ({ inst := InstIdent.top, name := NatModule.stringify_output 0 }: InternalPort String) = ident
       · rw [PortMap.rw_rule_execution] at H
@@ -353,6 +357,7 @@ theorem nbag_low_correct: nbag_lowM ⊑ (nbag P.Data P.netsz) := by
 -- Maybe we can even prove it but meh
 
 def noc_low : ExprLow String :=
+  let empty := ExprLow.base {} s!"Empty"
   let gadget (i : RouterID) :=
     let nroute := ExprLow.base
       {
@@ -370,7 +375,7 @@ def noc_low : ExprLow String :=
       {
         input := List.range P.netsz |>.map (λ j => ⟨
           NatModule.stringify_input j,
-          { inst := InstIdent.internal s!"NBag {i}", name := NatModule.stringify_output j }
+          { inst := InstIdent.internal s!"NBag {i}", name := NatModule.stringify_input j }
         ⟩) |>.toAssocList,
         output := [⟨
           NatModule.stringify_output 0,
@@ -379,9 +384,27 @@ def noc_low : ExprLow String :=
       }
       s!"NBag {P.DataS} {P.netsz}"
     ExprLow.product nbag nroute
-  -- TODO: product of gadget 0 to P.netsz, with proper connection:
-  -- ∀ i ∈ {0, ..., P.netsz}. ∀ j ∈ {0, ..., P.netsz}.
-  -- NRoute{i}.output{j} -> NBag{j}.input{i}
-  gadget 0
+  List.foldl (fun acc i =>
+    List.foldl (fun acc j =>
+      ExprLow.connect
+      {
+        output := { inst := InstIdent.internal s!"NRoute {i}", name := NatModule.stringify_output i },
+        input := { inst := InstIdent.internal s!"NBag {i}", name := NatModule.stringify_input i },
+      }
+      acc
+    )
+    (ExprLow.product acc (gadget i))
+    (List.range P.netsz)
+  )
+  empty
+  (List.range P.netsz)
+
+def noc_lowT : Type := by
+  precomputeTac [T| noc_low, ε_base] by
+    unfold noc_low
+
+def noc_lowM : StringModule noc_lowT := by
+  precomputeTac [e| noc_low, ε_base] by
+    unfold noc_low
 
 end DataflowRewriter.NoC

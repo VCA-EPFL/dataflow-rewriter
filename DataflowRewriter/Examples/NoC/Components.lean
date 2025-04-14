@@ -107,10 +107,10 @@ def ε' : Env :=
     (s!"Split {P.DataS} {FlitHeaderS}", ⟨_, StringModule.split P.Data FlitHeader⟩),
 
     -- Bags to receive message (One per router)
-    (s!"Bag {P.DataS}", ⟨_, StringModule.bag P.Data⟩),
+    (s!"NBag {P.DataS}", ⟨_, StringModule.bag P.Data⟩),
 
     -- Branching for routing
-    (s!"NBranch {P.DataS} {P.netsz}", ⟨_, nbranch⟩),
+    (s!"NRoute {P.DataS} {P.netsz}", ⟨_, nbranch⟩),
   ].toAssocList
 
 -- All of the following Lemmas are used for precomputing modules

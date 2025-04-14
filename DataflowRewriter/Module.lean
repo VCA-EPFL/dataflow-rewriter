@@ -340,6 +340,16 @@ theorem MatchInterface_transitive {I J S} {imod : Module Ident I} {smod : Module
   intro ⟨ i, j, a, b ⟩ ⟨ k, w, c, d ⟩
   constructor <;> (try simp [*]; done) <;> (intros; simp only [*])
 
+theorem MatchInterface_symmetric {I S} {imod : Module Ident I} (smod : Module Ident S) :
+  MatchInterface imod smod →
+  MatchInterface smod imod := by
+    intro ⟨ i, j, a, b ⟩
+    constructor <;> intros
+    · rw[i]
+    · rw[j]
+    · rw[a]
+    · rw[b]
+
 -- theorem MatchInterface_Disjoint {I J S K} {imod : Module Ident I} {smod : Module Ident S} {imod' : Module Ident J} {smod' : Module Ident K}
 --   [MatchInterface imod smod]
 --   [MatchInterface imod' smod'] :
