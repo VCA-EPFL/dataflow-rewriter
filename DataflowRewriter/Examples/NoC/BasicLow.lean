@@ -154,6 +154,7 @@ def nbag_lowM : StringModule nbag_lowT := by
     · simpa
     simp [AssocList.eraseAll_map_neq (Hneq := Hneq)]
     simp [AssocList.eraseAll]
+    simp [Module.liftR]
 
 -- TODO: Nbranch implementation
 
@@ -169,7 +170,7 @@ theorem none_isSome {α} (f : α → Bool) (l : List α) :
   List.find? f l = none -> (List.find? f l).isSome = false := by
     intros H; simpa [H, Option.isSome_none]
 
-theorem isSome_same_list {α} (f : α → Bool) (g : α → Bool) (l : List α):
+theorem isSome_same_list {α} (f : α → Bool) (g : α → Bool) (l : List α) :
   ((∃ x, x ∈ l ∧ f x) <-> (∃ x, x ∈ l ∧ g x)) →
   (List.find? f l).isSome = (List.find? g l).isSome := by
     intros H
@@ -189,8 +190,9 @@ instance : MatchInterface nbag_lowM (nbag P.Data P.netsz) where
     intros ident
     unfold nbag_lowM nbag nbag'
     unfold lift_f mk_nbag_input_rule
-    simp [*, drunfold, drnat, PortMap.getIO_cons, NatModule.stringify_output, InternalPort.map] at *
-    sorry
+    simp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output] at *
+    simp [AssocList.mapKey_map_toAssocList, InternalPort.map]
+    sorry -- TODO: Should be ok
   output_types := by
     intros ident
     unfold nbag_lowM nbag nbag'
@@ -214,34 +216,86 @@ instance : MatchInterface nbag_lowM (nbag P.Data P.netsz) where
 def φ (I : nbag_lowT) (S : List P.Data) : Prop :=
   -- TODO: We actually need something like S = I.fst + any element we want of
   -- I.snd? Or something like this?
+  -- ∃ snd_hd snd_tl, I.snd = snd_hd ++ snd_tl ∧ I.fst ++ snd_hd = S
   I.fst ++ I.snd = S
 
 theorem nbag_low_correctϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
   -- FIXME: Tactic fail to apply
   prove_refines_φ nbag_lowM
-  · sorry
-  · exists mid_i.1
+  · rename_i Hcontains
+    simp [nbag_lowM] at Hcontains
+    obtain ⟨ T1, T2, n, HnFin, Hident, Hrule' ⟩ := Hcontains
+    subst ident
+    unfold nbag nbag'
+    simp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output]
+    exists mid_i.1 ++ mid_i.2
+    split_ands
+    ·
+      -- TODO: We need a lemma with hypothesis n < NocParam.sz
+      -- PortMap.getIO (List.map lift_f (List.range NocParam.sz)) (..n) = f n
+      -- But we also need to take into account Stringify here
+      sorry
+    · exists mid_i.1 ++ mid_i.2; split_ands
+      · constructor
+      · rfl
+  · obtain ⟨ ⟨i_1, ⟨H1, H2 ⟩⟩, Hrule2 ⟩ := Hrule
+    exists mid_i.1 ++ mid_i.2
     split_ands
     · unfold nbag nbag'
       simp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output]
       rw [PortMap.rw_rule_execution]
       dsimp
-      sorry
-    · sorry
-  · intros _ mid_i _ _; exists mid_i.1
+      subst s
+      rw [H1, H2]
+      have H: (i_1: Nat) < List.length (i.1 ++ i.2) := by simpa [Nat.lt_add_right]
+      exists (Fin.mk i_1 H)
+      split_ands <;> dsimp
+      · sorry -- FIXME: Very probably true, need annoying lemmas
+      · sorry -- FIXME: Very probably true, need annoying lemmas
+    · rfl
+  · intros _ mid_i _ _;
+    rename_i rule H1 H2
+    simp [nbag_lowM, nbag, nbag', NatModule.stringify, Module.mapIdent] at *
+    rw [H1] at H2
+    obtain ⟨a, b, output, ⟨⟨H2, H3⟩, H4, H5⟩⟩ := H2
+    exists s
     split_ands
-    · unfold φ at H
-      rename_i rule H1 H2
-      simp [nbag_lowM, nbag, nbag', NatModule.stringify, Module.mapIdent] at *
-      rw [H1] at H2
-      obtain ⟨a, b, output, ⟨⟨H2, H3⟩, H4, H5⟩⟩ := H2
-      rw [H4, ←H, H3]
-      sorry
-    · sorry
+    · constructor
+    · unfold φ at *;
+      subst a b s
+      rw [H4, H2]
+      simpa
 
 theorem nbag_low_ϕ_indistinguishable :
   ∀ x y, φ x y → Module.indistinguishable nbag_lowM (nbag P.Data P.netsz) x y := by
-    sorry
+    intros x y Hϕ
+    constructor
+    <;> intros ident new_i v H
+    <;> exists new_i.1 ++ new_i.2
+    <;> unfold nbag nbag'
+    <;> simp [NatModule.stringify, Module.mapIdent]
+    · subst y
+      unfold nbag_lowM at *
+      simp at v H
+      sorry
+    · by_cases Hident: ({ inst := InstIdent.top, name := NatModule.stringify_output 0 }: InternalPort String) = ident
+      · rw [PortMap.rw_rule_execution] at H
+        simp [NatModule.stringify_output] at *
+        subst ident
+        rw [PortMap.rw_rule_execution (h := by apply PortMap.getIO_cons)];
+        simp at *
+        obtain ⟨ ⟨ i, Hi1, Hi2 ⟩, H ⟩ := H
+        rw [Hi1, Hi2]
+        subst y
+        have H: (i: Nat) < List.length (x.1 ++ x.2) := by simpa [Nat.lt_add_right]
+        exists (Fin.mk i H)
+        split_ands
+        · sorry -- FIXME: Need same lemmas as above
+        · sorry -- FIXME: Need same lemmas as above
+      · exfalso
+        apply (PortMap.getIO_cons_nil_false _ _ ident)
+        · exact Hident
+        · exact H
 
 theorem nbag_low_correct: nbag_lowM ⊑ (nbag P.Data P.netsz) := by
   apply (Module.refines_φ_refines nbag_low_ϕ_indistinguishable nbag_low_correctϕ)

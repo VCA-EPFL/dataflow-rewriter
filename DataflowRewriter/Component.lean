@@ -59,7 +59,7 @@ def merge' T (n : Nat) (name : String := "merge'") : NatModule (Named name (List
       ⟨ T, λ oldList newElement newList => newList = oldList.concat newElement ⟩)
       |>.toAssocList,
     outputs := [
-      (0, ⟨ T, λ oldList oldElement newList => newList = oldElement :: oldList⟩)
+      (0, ⟨ T, λ oldList oldElement newList => oldList = oldElement :: newList⟩)
     ].toAssocList
   }
 
