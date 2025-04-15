@@ -199,8 +199,8 @@ theorem get_len {T} (l1 l2: List T) i
 -- TODO: This could be generalized, but it is a bit tricky to keep correct
 -- The two version should suffice for simple use cases
 theorem getIO_map_stringify_input {S : Type _}
-  (i : Nat) (sz : Nat)
-  (f : Nat -> Σ T : Type _, (S → T → S → Prop)) v
+  {i : Nat} {sz : Nat}
+  {f : Nat -> Σ T : Type _, (S → T → S → Prop)} {v}
   (Heq : f i = v) (Hlt : i < sz) :
   PortMap.getIO (List.range sz |>.map
     (λ n => ⟨(NatModule.stringify_input n: InternalPort String), f n⟩) |>.toAssocList)
@@ -215,6 +215,16 @@ theorem getIO_map_stringify_output {S : Type _}
     (λ n => ⟨(NatModule.stringify_output n: InternalPort String), f n⟩) |>.toAssocList)
     (NatModule.stringify_output i) = v := by
   sorry
+
+-- TODO: Could be potentially generalized to any ⟨ f n, g n ⟩
+theorem getIO_map_ident {Ident} [DecidableEq Ident] {S : Type _}
+  {ident : InternalPort Ident} {sz : Nat}
+  {f : Nat → InternalPort Ident}
+  {g : Nat -> Σ T : Type _, (S → T → S → Prop)} {init_i v new_i}:
+  (PortMap.getIO
+    (List.range sz |>.map (λ n => ⟨f n, g n⟩) |>.toAssocList)
+    ident).snd init_i v new_i → ∃ n, n < sz ∧ ident = f n := by
+      sorry
 
 -- Correctness of nbag implementation ------------------------------------------
 -- TODO: We are currently only trying to prove a refinement in one way, but it
@@ -319,13 +329,30 @@ theorem nbag_low_ϕ_indistinguishable :
     <;> simp [NatModule.stringify, Module.mapIdent]
     · subst y
       unfold nbag_lowM at *
-      simp at v H
+      dsimp at v H
       unfold lift_f
       rw [PortMap.rw_rule_execution (h := by rw [AssocList.mapKey_map_toAssocList])]
       dsimp [InternalPort.map]
-      -- TODO: We need to do a case analysis on ident here, which is very
-      -- annoying.
-      sorry
+      have ⟨ n, Hn1, Hn2 ⟩ := getIO_map_ident H
+      subst ident
+      rw [PortMap.rw_rule_execution
+        (h := by apply (getIO_map_stringify_input (Heq := by unfold mk_nbag_input_rule; rfl)) <;> simpa)
+      ]
+      rw [getIO_map_stringify_input (i := n) (f := fun x => ⟨NocParam.Data, λ x ret
+        (x_1 : List NocParam.Data × List NocParam.Data) => x_1.2 = x.2 ++ [ret] ∧
+        x.1 = x_1.1⟩) (Heq := by rfl)] at v
+      rw [PortMap.rw_rule_execution
+        (h := by apply (getIO_map_stringify_input
+          (i := n)
+          (f := fun x => ⟨NocParam.Data, λ x ret (x_1 : List NocParam.Data × List NocParam.Data) => x_1.2 = x.2 ++ [ret] ∧ x.1 = x_1.1⟩)
+          (Heq := by rfl)) <;> simpa
+        )
+      ] at H
+      dsimp at H v
+      simp
+      obtain ⟨ H1, H2 ⟩ := H
+      rw [H1, ←H2]
+      simpa
     · by_cases Hident: ({ inst := InstIdent.top, name := NatModule.stringify_output 0 }: InternalPort String) = ident
       · rw [PortMap.rw_rule_execution] at H
         simp [NatModule.stringify_output] at *
@@ -357,8 +384,8 @@ theorem nbag_low_correct: nbag_lowM ⊑ (nbag P.Data P.netsz) := by
 -- Maybe we can even prove it but meh
 
 def noc_low : ExprLow String :=
-  let empty := ExprLow.base {} s!"Empty"
-  let gadget (i : RouterID) :=
+  let empty : ExprLow String := ExprLow.base {} s!"Empty"
+  let gadget (i : RouterID) : ExprLow String :=
     let nroute := ExprLow.base
       {
         input := [⟨
@@ -371,7 +398,7 @@ def noc_low : ExprLow String :=
         ⟩) |>.toAssocList
       }
       s!"NRoute {P.DataS} {P.netsz}"
-    let nbag := ExprLow.base
+    let nbag : ExprLow String := ExprLow.base
       {
         input := List.range P.netsz |>.map (λ j => ⟨
           NatModule.stringify_input j,
