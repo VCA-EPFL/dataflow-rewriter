@@ -192,6 +192,10 @@ def cons_n {T} (n : Nat) (l : List (List T)) (t : T) : Option (List (List T)) :=
                        ∃ x, oldListL =  oldElementL :: newListL ∧
                        oldListR = (oldElementR, x) :: newListR ⟩)].toAssocList
   }
+
+@[drunfold] def empty (name := "empty") : NatModule (Named name Unit) :=
+  { inputs := AssocList.nil, outputs := AssocList.nil }
+
 @[drunfold] def bag T (name := "bag") : NatModule (Named name (List T)) :=
   { inputs := [(0,⟨ T, λ oldList newElement newList => newList = oldList.concat newElement ⟩)].toAssocList,
     outputs := [(0,⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)].toAssocList,
@@ -464,6 +468,8 @@ end FixedSize
 end DataflowRewriter.NatModule
 
 namespace DataflowRewriter.StringModule
+
+@[drunfold] def empty := NatModule.empty |>.stringify
 
 @[drunfold] def bag T := NatModule.bag T |>.stringify
 

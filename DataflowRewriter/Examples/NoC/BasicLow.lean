@@ -47,41 +47,25 @@ attribute [drdecide] InternalPort.mk.injEq and_false decide_False decide_True
   List.nodup_nil Bool.and_self reduceIte List.concat_eq_append dreduceIte
   List.append_nil
 
--- Base environment ------------------------------------------------------------
+-- TODO: This file is starting to get big.
+-- We should split every implementation (And proof of correctness) into their
+-- own file
 
-def ε_base : Env :=
+-- NBag Implementation ---------------------------------------------------------
+
+def ε_nbag : Env :=
   [
     (s!"Merge' {P.DataS} {P.netsz}", ⟨_, StringModule.merge' P.Data P.netsz⟩),
-    (s!"Split {P.DataS} {FlitHeaderS}", ⟨_, StringModule.split P.Data FlitHeader⟩),
     (s!"Bag {P.DataS}", ⟨_, StringModule.bag P.Data⟩),
   ].toAssocList
 
-def ε_base_merge' :
-  ε_base.find? s!"Merge' {P.DataS} {P.netsz}" = .some ⟨_, StringModule.merge' P.Data P.netsz⟩ := by
+def ε_nbag_merge' :
+  ε_nbag.find? s!"Merge' {P.DataS} {P.netsz}" = .some ⟨_, StringModule.merge' P.Data P.netsz⟩ := by
   simpa
 
-def ε_base_split :
-  ε_base.find? s!"Split {P.DataS} {FlitHeaderS}" = .some ⟨_, StringModule.split P.Data FlitHeader⟩ := by
-    simp
-    exists s!"Split {P.DataS} {FlitHeaderS}"
-    right
-    split_ands
-    · unfold toString instToStringString instToStringNat; simp
-      sorry -- FIXME: Should be Trivial
-    · rfl
-
-def ε_base_bag :
-  ε_base.find? s!"Bag {P.DataS}" = .some ⟨_, StringModule.bag P.Data⟩ := by
-    simp
-    exists s!"Bag {P.DataS}"
-    right
-    split_ands
-    · sorry -- FIXME: Should be Trivial
-    · right
-      simp
-      sorry -- FIXME: Should be Trivial
-
--- Implementation --------------------------------------------------------------
+def ε_nbag_bag :
+  ε_nbag.find? s!"Bag {P.DataS}" = .some ⟨_, StringModule.bag P.Data⟩ := by
+    sorry
 
 def nbag_low : ExprLow String :=
   let merge := ExprLow.base
@@ -120,17 +104,16 @@ def nbag_low : ExprLow String :=
     (ExprLow.product bag merge)
 
 def nbag_lowT : Type := by
-  precomputeTac [T| nbag_low, ε_base] by
+  precomputeTac [T| nbag_low, ε_nbag] by
     simp [drunfold, seval, drdecide, -AssocList.find?_eq]
-    rw [ε_base_merge', ε_base_bag]
+    rw [ε_nbag_merge', ε_nbag_bag]
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,-AssocList.mapKey_mapKey]
 
 def nbag_lowM : StringModule nbag_lowT := by
-  precomputeTac [e| nbag_low, ε_base] by
+  precomputeTac [e| nbag_low, ε_nbag] by
     simp [drunfold, seval, drdecide, -AssocList.find?_eq]
-    rw [ε_base_merge', ε_base_bag]
+    rw [ε_nbag_merge', ε_nbag_bag]
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
-    -- rw [AssocList.find?_gss]
     conv =>
       pattern (occs := *) Module.connect'' _ _
       all_goals
@@ -152,9 +135,108 @@ def nbag_lowM : StringModule nbag_lowT := by
     simp [AssocList.eraseAll]
     simp [Module.liftR]
 
--- TODO: NBranch implementation
+-- NBranch Implementation ------------------------------------------------------
+-- TODO
 
--- TODO: NRoute implementation
+-- NRoute Implementation -------------------------------------------------------
+
+def ε_nroute : Env :=
+  [
+    (s!"Split {P.DataS} {FlitHeaderS}", ⟨_, StringModule.split P.Data FlitHeader⟩),
+    (s!"NBranch {P.DataS} {P.netsz}", ⟨_, StringModule.bag P.Data⟩),
+  ].toAssocList
+
+def ε_nroute_split :
+  ε_nroute.find? s!"Split {P.DataS} {FlitHeaderS}" = .some ⟨_, StringModule.split P.Data FlitHeader⟩ := by
+  simpa
+
+def ε_nroute_nbranch :
+  ε_nroute.find? s!"NBranch {P.DataS} {P.netsz}" = .some ⟨_, nroute⟩ := by
+    sorry
+
+def nroute_low : ExprLow String :=
+  let split := ExprLow.base
+    {
+      input := [
+        ⟨NatModule.stringify_input 0, NatModule.stringify_input 0⟩
+      ].toAssocList,
+      output := [
+        ⟨
+          NatModule.stringify_output 0,
+          { inst := InstIdent.internal "Split", name := NatModule.stringify_output 0 }
+        ⟩,
+        ⟨
+          NatModule.stringify_output 1,
+          { inst := InstIdent.internal "Split", name := NatModule.stringify_output 1 }
+        ⟩
+      ].toAssocList,
+    }
+    s!"Split {P.DataS} {FlitHeaderS}"
+  let nbranch := ExprLow.base
+    {
+      input := [
+        ⟨
+          NatModule.stringify_input 0,
+          { inst := InstIdent.internal "NBranch", name := NatModule.stringify_input 0 }
+        ⟩,
+        ⟨
+          NatModule.stringify_input 1,
+          { inst := InstIdent.internal "NBranch", name := NatModule.stringify_input 1 }
+        ⟩,
+      ].toAssocList,
+      output := List.range P.netsz |>.map (λ i => ⟨
+        NatModule.stringify_output i,
+        NatModule.stringify_output i,
+      ⟩) |>.toAssocList,
+    }
+    s!"NBranch {P.DataS} {P.netsz}"
+  let connection (i : Nat) : Connection String :=
+    {
+      output := {
+        inst := InstIdent.internal "Split",
+        name := NatModule.stringify_output i
+      },
+      input := {
+        inst := InstIdent.internal "NBranch",
+        name := NatModule.stringify_input i
+      },
+    }
+  ExprLow.product split nbranch
+  |> ExprLow.connect (connection 0)
+  |> ExprLow.connect (connection 1)
+
+def nroute_lowT : Type := by
+  precomputeTac [T| nroute_low, ε_nroute] by
+    simp [drunfold, seval, drdecide, -AssocList.find?_eq]
+    rw [ε_nroute_split, ε_nroute_nbranch]
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,-AssocList.mapKey_mapKey]
+
+def nroute_lowM : StringModule nroute_lowT := by
+  precomputeTac [e| nroute_low, ε_nroute] by
+    simp [drunfold, seval, drdecide, -AssocList.find?_eq]
+    rw [ε_nroute_split, ε_nroute_nbranch]
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
+    conv =>
+      pattern (occs := *) Module.connect'' _ _
+      all_goals
+        rw [(Module.connect''_dep_rw (h := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl)
+                                     (h' := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl))]; rfl
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
+    unfold Module.connect''
+    simp
+    simp [AssocList.mapKey_mapKey, AssocList.mapVal_mapKey]
+    simp [AssocList.mapVal_map_toAssocList]
+    simp [AssocList.mapKey_map_toAssocList]
+    simp [AssocList.bijectivePortRenaming_same]
+    simp [InternalPort.map]
+    -- TODO:
+    -- have Hneq: ∀ x,
+    --   ({ inst := InstIdent.top, name := NatModule.stringify_input x }: InternalPort String)
+    --   ≠ ({ inst := InstIdent.internal "Bag", name := "merge_to_bag_in" }: InternalPort String)
+    -- · simpa
+    -- simp [AssocList.eraseAll_map_neq (Hneq := Hneq)]
+    -- simp [AssocList.eraseAll]
+    -- simp [Module.liftR]
 
 -- Useful lemmas ---------------------------------------------------------------
 -- TODO: This should maybe be moved somewhere else
@@ -233,8 +315,8 @@ theorem getIO_map_ident_match_1 {Ident} [DecidableEq Ident] {S1 S2 : Type _}
   {g1 : Nat -> Σ T : Type _, (S1 → T → S1 → Prop)}
   {g2 : Nat -> Σ T : Type _, (S2 → T → S2 → Prop)}
   (Heq : ∀ n, (g1 n).1 = (g2 n).1):
-  (PortMap.getIO (List.map (λ n => ⟨ f n, g1 n ⟩) (List.range sz)).toAssocList ident).fst =
-  (PortMap.getIO (List.map (λ n => ⟨ f n, g2 n ⟩) (List.range sz)).toAssocList ident).fst :=
+  (PortMap.getIO (List.map (λ n => ⟨f n, g1 n⟩) (List.range sz)).toAssocList ident).fst =
+  (PortMap.getIO (List.map (λ n => ⟨f n, g2 n⟩) (List.range sz)).toAssocList ident).fst :=
   by
     -- FIXME: Induction on List.range is still problematic
     sorry
@@ -407,6 +489,28 @@ theorem nbag_low_correct : nbag_lowM ⊑ (nbag P.Data P.netsz) := by
 
 -- NoC implementation ----------------------------------------------------------
 
+def ε_noc : Env :=
+  [
+    -- Empty component (Always useful)
+    (s!"Empty", ⟨_, StringModule.empty⟩),
+
+    -- Bags to receive message (One per router)
+    (s!"NBag {P.DataS} {P.netsz}", ⟨_, StringModule.bag P.Data⟩),
+
+    -- Branching for routing
+    (s!"NRoute {P.DataS} {P.netsz}", ⟨_, nbranch⟩),
+  ].toAssocList
+
+def ε_noc_empty :
+  ε_noc.find? s!"Empty" = .some ⟨_, StringModule.empty⟩ := by
+  simpa
+
+def ε_noc_nroute :
+  ε_noc.find? s!"NRoute {P.DataS} {P.netsz}" = .some ⟨_, nroute⟩ := by sorry
+
+def ε_noc_nbag :
+  ε_noc.find? s!"NBag {P.DataS} {P.netsz}" = .some ⟨_, nbag P.Data P.netsz⟩ := by sorry
+
 def noc_low : ExprLow String :=
   let empty : ExprLow String := ExprLow.base {} s!"Empty"
   let gadget (i : RouterID) : ExprLow String :=
@@ -451,12 +555,12 @@ def noc_low : ExprLow String :=
   (List.range P.netsz)
 
 def noc_lowT : Type := by
-  precomputeTac [T| noc_low, ε_base] by
+  precomputeTac [T| noc_low, ε_noc] by
     unfold noc_low
     -- TODO
 
 def noc_lowM : StringModule noc_lowT := by
-  precomputeTac [e| noc_low, ε_base] by
+  precomputeTac [e| noc_low, ε_noc] by
     unfold noc_low
     -- TODO
 
