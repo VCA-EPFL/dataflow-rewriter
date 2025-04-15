@@ -159,15 +159,15 @@ def nbag_lowM : StringModule nbag_lowT := by
 -- Useful lemmas ---------------------------------------------------------------
 -- TODO: This should maybe be moved somewhere else
 
-theorem some_isSome {α} (f : α → Bool) (l : List α) v :
+theorem some_isSome {α} {f : α → Bool} {l : List α} v :
   List.find? f l = some v -> (List.find? f l).isSome := by
     intros H; simpa [H, Option.isSome_some]
 
-theorem none_isSome {α} (f : α → Bool) (l : List α) :
+theorem none_isSome {α} {f : α → Bool} {l : List α} :
   List.find? f l = none -> (List.find? f l).isSome = false := by
     intros H; simpa [H, Option.isSome_none]
 
-theorem isSome_same_list {α} (f : α → Bool) (g : α → Bool) (l : List α) :
+theorem isSome_same_list {α} {f : α → Bool} {g : α → Bool} {l : List α} :
   ((∃ x, x ∈ l ∧ f x) <-> (∃ x, x ∈ l ∧ g x)) →
   (List.find? f l).isSome = (List.find? g l).isSome := by
     intros H
@@ -182,7 +182,7 @@ theorem isSome_same_list {α} (f : α → Bool) (g : α → Bool) (l : List α) 
       rw [Hg] at Hf
       contradiction
 
-theorem eraseIdx_len {T} (l1 l2 : List T) i (H : i < List.length l1):
+theorem eraseIdx_len {T} {l1 l2 : List T} {i} (H : i < List.length l1):
   List.eraseIdx (l1 ++ l2) i = (List.eraseIdx l1 i) ++ l2 := by
     sorry
 
@@ -208,23 +208,36 @@ theorem getIO_map_stringify_input {S : Type _}
   sorry
 
 theorem getIO_map_stringify_output {S : Type _}
-  (i : Nat) (sz : Nat)
-  (f : Nat -> Σ T : Type _, (S → T → S → Prop)) v
-  (Heq : f i = v) (Hlt : i < sz) :
+  {i : Nat} {sz : Nat}
+  {f : Nat -> Σ T : Type _, (S → T → S → Prop)} {v}
+  {Heq : f i = v} {Hlt : i < sz} :
   PortMap.getIO (List.range sz |>.map
     (λ n => ⟨(NatModule.stringify_output n: InternalPort String), f n⟩) |>.toAssocList)
     (NatModule.stringify_output i) = v := by
+    -- FIXME: Induction on List.range is still problematic
   sorry
 
--- TODO: Could be potentially generalized to any ⟨ f n, g n ⟩
 theorem getIO_map_ident {Ident} [DecidableEq Ident] {S : Type _}
   {ident : InternalPort Ident} {sz : Nat}
   {f : Nat → InternalPort Ident}
   {g : Nat -> Σ T : Type _, (S → T → S → Prop)} {init_i v new_i}:
-  (PortMap.getIO
-    (List.range sz |>.map (λ n => ⟨f n, g n⟩) |>.toAssocList)
-    ident).snd init_i v new_i → ∃ n, n < sz ∧ ident = f n := by
-      sorry
+  (PortMap.getIO (List.range sz |>.map (λ n => ⟨f n, g n⟩) |>.toAssocList) ident).snd
+    init_i v new_i
+  → ∃ n, n < sz ∧ ident = f n := by
+    -- FIXME: Induction on List.range is still problematic
+    sorry
+
+theorem getIO_map_ident_match_1 {Ident} [DecidableEq Ident] {S1 S2 : Type _}
+  {ident : InternalPort Ident} {sz : Nat}
+  {f : Nat → InternalPort Ident}
+  {g1 : Nat -> Σ T : Type _, (S1 → T → S1 → Prop)}
+  {g2 : Nat -> Σ T : Type _, (S2 → T → S2 → Prop)}
+  (Heq : ∀ n, (g1 n).1 = (g2 n).1):
+  (PortMap.getIO (List.map (λ n => ⟨ f n, g1 n ⟩) (List.range sz)).toAssocList ident).fst =
+  (PortMap.getIO (List.map (λ n => ⟨ f n, g2 n ⟩) (List.range sz)).toAssocList ident).fst :=
+  by
+    -- FIXME: Induction on List.range is still problematic
+    sorry
 
 -- Correctness of nbag implementation ------------------------------------------
 -- TODO: We are currently only trying to prove a refinement in one way, but it
@@ -237,9 +250,7 @@ instance : MatchInterface nbag_lowM (nbag P.Data P.netsz) where
     unfold lift_f mk_nbag_input_rule
     simp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output] at *
     simp [AssocList.mapKey_map_toAssocList, InternalPort.map]
-    -- TODO: Destruct ident to see if it is a stringify_input < n, if so then we
-    -- can apply the above lemma, and otherwise might be annoying
-    sorry -- TODO: Should be ok
+    apply (getIO_map_ident_match_1 (Heq := by intros n; simpa))
   output_types := by
     intros ident
     unfold nbag_lowM nbag nbag'
