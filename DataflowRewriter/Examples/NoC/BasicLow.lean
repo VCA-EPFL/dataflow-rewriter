@@ -237,6 +237,8 @@ instance : MatchInterface nbag_lowM (nbag P.Data P.netsz) where
     unfold lift_f mk_nbag_input_rule
     simp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output] at *
     simp [AssocList.mapKey_map_toAssocList, InternalPort.map]
+    -- TODO: Destruct ident to see if it is a stringify_input < n, if so then we
+    -- can apply the above lemma, and otherwise might be annoying
     sorry -- TODO: Should be ok
   output_types := by
     intros ident
@@ -262,11 +264,13 @@ def φ (I : nbag_lowT) (S : List P.Data) : Prop :=
   S = I.fst ++ I.snd
 
 theorem nbag_low_correctϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
-  -- FIXME: Tactic fail to apply
-  prove_refines_φ nbag_lowM
-  · rename_i Hcontains
+  intros i s H
+  constructor
+  · intro ident mid_i v Hrule
+    case_transition Hcontains : (Module.inputs nbag_lowM), ident,
+     (fun x => PortMap.getIO_not_contained_false' x Hrule)
     simp [nbag_lowM] at Hcontains
-    obtain ⟨T1, T2, n, HnFin, Hident, Hrule'⟩ := Hcontains
+    obtain ⟨ n, HnFin, Hident ⟩ := Hcontains
     subst ident
     unfold nbag nbag'
     simp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output]
@@ -276,22 +280,37 @@ theorem nbag_low_correctϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
       rw [PortMap.rw_rule_execution (h := by rw[AssocList.mapKey_map_toAssocList])]
       dsimp [InternalPort.map]
       rw [PortMap.rw_rule_execution (h := by apply (getIO_map_stringify_input
-          (i := n)
-          (f := mk_nbag_input_rule NocParam.Data)
           (Heq := by unfold mk_nbag_input_rule; rfl)
         ) <;> simpa)
       ]
-      simp
+      dsimp
       subst s
-      unfold nbag_lowM at *
-      dsimp at v Hrule
-      -- TODO: True but we need to simplify Hrule. It has already been
-      -- simplified once for some reason?
-      sorry
+      dsimp [nbag_lowM] at v Hrule
+      rw [getIO_map_stringify_input (i := n) (f := fun x => ⟨NocParam.Data, λ x ret
+        (x_1 : List NocParam.Data × List NocParam.Data) => x_1.2 = x.2 ++ [ret] ∧
+        x.1 = x_1.1⟩) (Heq := by rfl) (Hlt := HnFin)] at v
+      rw [PortMap.rw_rule_execution
+        (h := by apply (getIO_map_stringify_input
+          (i := n)
+          (f := fun x => ⟨NocParam.Data, λ x ret (x_1 : List NocParam.Data × List NocParam.Data) => x_1.2 = x.2 ++ [ret] ∧ x.1 = x_1.1⟩)
+          (Heq := by rfl)
+          (Hlt := HnFin)
+        ) <;> simpa
+        )
+      ] at Hrule
+      dsimp at Hrule v
+      obtain ⟨ Hrule1, Hrule2 ⟩ := Hrule
+      rw [Hrule1, ←Hrule2]
+      simpa
     · exists mid_i.1 ++ mid_i.2; split_ands
       · constructor
       · rfl
-  · obtain ⟨⟨i_1, ⟨H1, H2⟩⟩, Hrule2⟩ := Hrule
+  · intro ident mid_i v Hrule
+    case_transition Hcontains : (Module.outputs nbag_lowM), ident,
+     (fun x => PortMap.getIO_not_contained_false' x Hrule)
+    simp [nbag_lowM] at Hcontains
+    subst ident
+    obtain ⟨⟨i_1, ⟨H1, H2⟩⟩, Hrule2⟩ := Hrule
     exists mid_i.1 ++ mid_i.2
     split_ands
     · unfold nbag nbag'
@@ -372,16 +391,10 @@ theorem nbag_low_ϕ_indistinguishable :
         · exact Hident
         · exact H
 
-theorem nbag_low_correct: nbag_lowM ⊑ (nbag P.Data P.netsz) := by
+theorem nbag_low_correct : nbag_lowM ⊑ (nbag P.Data P.netsz) := by
   apply (Module.refines_φ_refines nbag_low_ϕ_indistinguishable nbag_low_correctϕ)
 
 -- NoC implementation ----------------------------------------------------------
--- TODO: We might need a special `NRoute` component which is just implemented by
--- a Split into a NBranch, and then we have that a noc is `n * NRoute`
--- connected to `n * NBag`
--- We could even do something simpler, and only actually use a single NRoute
--- with a prior merge, but this should be pretty much equivalent?
--- Maybe we can even prove it but meh
 
 def noc_low : ExprLow String :=
   let empty : ExprLow String := ExprLow.base {} s!"Empty"
@@ -429,9 +442,15 @@ def noc_low : ExprLow String :=
 def noc_lowT : Type := by
   precomputeTac [T| noc_low, ε_base] by
     unfold noc_low
+    -- TODO
 
 def noc_lowM : StringModule noc_lowT := by
   precomputeTac [e| noc_low, ε_base] by
     unfold noc_low
+    -- TODO
+
+-- Correctness of NoC implementation -------------------------------------------
+
+-- TODO
 
 end DataflowRewriter.NoC
