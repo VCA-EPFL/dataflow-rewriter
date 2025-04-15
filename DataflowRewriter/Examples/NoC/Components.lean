@@ -8,21 +8,22 @@ import Lean
 import Init.Data.BitVec.Lemmas
 import Qq
 
-import DataflowRewriter.Simp
 import DataflowRewriter.Module
 import DataflowRewriter.Component
-import DataflowRewriter.KernelRefl
-import DataflowRewriter.Reduce
-import DataflowRewriter.List
-import DataflowRewriter.Tactic
-import DataflowRewriter.AssocList
-import DataflowRewriter.Examples.NoC.Basic
 
-open Batteries (AssocList)
+import DataflowRewriter.Examples.NoC.Basic
 
 namespace DataflowRewriter.NoC
 
 variable [P: NocParam]
+
+-- Utils -----------------------------------------------------------------------
+
+-- TODO: This should be somewhere else, this function is very useful for
+-- defining List.range n |> map lift_f f |>.toAssocList, a very common pattern
+-- to design parametric design
+def lift_f {α : Type} (f : Nat → (Σ T : Type, α → T → α → Prop)) (n : Nat) : InternalPort Nat × (Σ T : Type, α → T → α → Prop) :=
+  ⟨ ↑n, f n ⟩
 
 -- Components ------------------------------------------------------------------
 -- Reference semantics for useful components
@@ -41,8 +42,7 @@ def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List P.Data 
         λ (oldDatas, oldRouterIDs) routerID (newDatas, newRouterIDs) =>
           newDatas = oldDatas ∧ newRouterIDs = oldRouterIDs.concat routerID
       ⟩),
-    ].toAssocList
-
+    ].toAssocList,
     outputs :=
       -- TODO: We would like to have n be cast to a RouterID down the line
       List.range P.netsz |>.map (λ routerID => Prod.mk ↑routerID
@@ -54,10 +54,6 @@ def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List P.Data 
       |>.toAssocList,
   }
 
-@[drunfold]
-def nbranch :=
-  nbranch' |>.stringify
-
 -- NBranch with only one input
 @[drunfold]
 def nroute' (name := "nroute") : NatModule (NatModule.Named name (List (P.Data × RouterID))) :=
@@ -66,8 +62,7 @@ def nroute' (name := "nroute") : NatModule (NatModule.Named name (List (P.Data �
       (0, ⟨P.Data × RouterID,
         λ oldState v newState => newState = oldState.concat v
       ⟩),
-    ].toAssocList
-
+    ].toAssocList,
     outputs :=
       -- TODO: We would like to have n be cast to a RouterID down the line
       List.range P.netsz |>.map (λ routerID => Prod.mk ↑routerID
@@ -76,10 +71,6 @@ def nroute' (name := "nroute") : NatModule (NatModule.Named name (List (P.Data �
         ⟩)
       |>.toAssocList,
   }
-
-@[drunfold]
-def nroute :=
-  nroute' |>.stringify
 
 def mk_nbag_input_rule (S : Type) (_ : Nat) : (Σ T : Type, List S → T → List S → Prop) :=
     ⟨ S, λ oldState v newState => newState = oldState.concat v ⟩
@@ -92,6 +83,46 @@ def nbag' (T : Type) (n : Nat) (name := "nbag") : NatModule (NatModule.Named nam
     outputs := [(↑0, ⟨ T, λ oldState v newState => ∃ i, newState = oldState.remove i ∧ v = oldState.get i ⟩)].toAssocList,
   }
 
+-- Type of the internal state of a NoC
+def nocT : Type :=
+  List (P.Data × FlitHeader)
+
+def mk_noc_input_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
+    ⟨
+      P.Data × FlitHeader,
+      λ oldState v newState => newState = v :: oldState
+    ⟩
+
+def mk_noc_output_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
+    ⟨
+      P.Data,
+      λ oldState data newState =>
+        ∃ i, newState = oldState.remove i ∧
+        (data, { dest := rID }) = oldState.get i
+    ⟩
+
+-- NOTE: This spec of a NoC also seems to be perfect for the spec of a router?
+@[drunfold]
+def noc' (name := "noc") : NatModule (NatModule.Named name nocT) :=
+  {
+    inputs := List.range P.netsz |>.map (lift_f mk_noc_input_rule) |>.toAssocList,
+    outputs := List.range P.netsz |>.map (lift_f mk_noc_output_rule) |>.toAssocList,
+  }
+
+-- String version --------------------------------------------------------------
+
 @[drunfold]
 def nbag T n :=
   nbag' T n |>.stringify
+
+@[drunfold]
+def nbranch :=
+  nbranch' |>.stringify
+
+@[drunfold]
+def nroute :=
+  nroute' |>.stringify
+
+@[drunfold]
+def noc :=
+  noc' |>.stringify
