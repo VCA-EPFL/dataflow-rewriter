@@ -200,11 +200,11 @@ theorem nroute_low_correctϕ : nroute_lowM ⊑_{φ} nroute := by
     obtain ⟨n, HnFin, Hident⟩ := Hcontains
     subst ident
     unfold nroute nroute'
-    dsimp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output]
-    unfold lift_f
+    dsimp [NatModule.stringify, Module.mapIdent]
     rw [PortMap.rw_rule_execution
       (h := by rw [AssocList.mapKey_map_toAssocList])
     ]
+
     sorry
   · intro ident mid_i v Hrule
     sorry

@@ -111,7 +111,7 @@ def nbag_lowT : Type := by
   precomputeTac [T| nbag_low, ε_nbag] by
     simp [drunfold, seval, drdecide, -AssocList.find?_eq]
     rw [ε_nbag_merge', ε_nbag_bag]
-    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,-AssocList.mapKey_mapKey]
+    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
 
 def nbag_lowM : StringModule nbag_lowT := by
   precomputeTac [e| nbag_low, ε_nbag] by
@@ -125,15 +125,15 @@ def nbag_lowM : StringModule nbag_lowT := by
                                      (h' := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl))]; rfl
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
     unfold Module.connect''
-    simp
-    simp [AssocList.mapKey_mapKey, AssocList.mapVal_mapKey]
-    simp [AssocList.mapVal_map_toAssocList]
-    simp [AssocList.mapKey_map_toAssocList]
-    simp [AssocList.bijectivePortRenaming_same]
-    simp [InternalPort.map]
+    dsimp
+    simp only [AssocList.mapKey_mapKey, AssocList.mapVal_mapKey]
+    simp only [AssocList.mapVal_map_toAssocList]
+    simp only [AssocList.mapKey_map_toAssocList]
+    simp only [AssocList.bijectivePortRenaming_same]
+    simp only [InternalPort.map]
     simp [AssocList.eraseAll_map_neq]
-    simp [AssocList.eraseAll]
-    simp [Module.liftR]
+    simp only [AssocList.eraseAll, AssocList.eraseAllP]
+    simp only [Module.liftR]
 
 -- Correctness -----------------------------------------------------------------
 -- TODO: We are currently only trying to prove a refinement in one way, but it
@@ -180,8 +180,8 @@ theorem nbag_low_correctϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
     obtain ⟨n, HnFin, Hident⟩ := Hcontains
     subst ident
     unfold nbag nbag'
-    dsimp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output]
-    exists mid_i.1 ++ mid_i.2; split_ands
+    dsimp [NatModule.stringify, Module.mapIdent]
+    exists (mid_i.1 ++ mid_i.2); exists (mid_i.1 ++ mid_i.2); split_ands
     · rw [PortMap.rw_rule_execution
         (h := by rw [AssocList.mapKey_map_toAssocList])
       ]
@@ -191,10 +191,9 @@ theorem nbag_low_correctϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
       subst s
       dsimp [nbag_lowM] at Hrule
       obtain ⟨Hrule1, Hrule2⟩ := Hrule
-      exists mid_i.1 ++ mid_i.2; split_ands
-      · simpa [Hrule1, ←Hrule2, lift_f, mk_nbag_input_rule]
-      · constructor
-      · rfl
+      simpa [Hrule1, ←Hrule2, lift_f, mk_nbag_input_rule]
+    · constructor
+    · rfl
   · intro ident mid_i v Hrule
     case_transition Hcontains : (Module.outputs nbag_lowM), ident,
      (fun x => PortMap.getIO_not_contained_false' x Hrule)
