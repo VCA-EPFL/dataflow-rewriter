@@ -180,33 +180,19 @@ theorem nbag_low_correctϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
     obtain ⟨n, HnFin, Hident⟩ := Hcontains
     subst ident
     unfold nbag nbag'
-    simp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output]
-    exists mid_i.1 ++ mid_i.2
-    split_ands
-    · unfold lift_f;
-      rw [PortMap.rw_rule_execution (h := by rw[AssocList.mapKey_map_toAssocList])]
-      dsimp [InternalPort.map]
-      rw [PortMap.rw_rule_execution (h := by apply (getIO_map_stringify_input
-          (Heq := by unfold mk_nbag_input_rule; rfl)
-        ) <;> simpa)
+    dsimp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output]
+    exists mid_i.1 ++ mid_i.2; split_ands
+    · rw [PortMap.rw_rule_execution
+        (h := by rw [AssocList.mapKey_map_toAssocList])
       ]
-      dsimp
-      subst s
-      dsimp [nbag_lowM] at v Hrule
-      rw [getIO_map_stringify_input (i := n) (f := fun x => ⟨NocParam.Data, λ x ret
-        (x_1 : List NocParam.Data × List NocParam.Data) => x_1.2 = x.2 ++ [ret] ∧
-        x.1 = x_1.1⟩) (Heq := by rfl) (Hlt := HnFin)] at v
       rw [PortMap.rw_rule_execution
-        (h := by apply (getIO_map_stringify_input
-          (f := fun x => ⟨NocParam.Data, λ x ret (x_1 : List NocParam.Data × List NocParam.Data) => x_1.2 = x.2 ++ [ret] ∧ x.1 = x_1.1⟩)
-          (Heq := by rfl)
-        ) <;> simpa
-        )
-      ] at Hrule
-      dsimp at Hrule v
+        (h := by apply (getIO_map_stringify_input) <;> simpa)
+      ] at Hrule ⊢
+      subst s
+      dsimp [nbag_lowM] at Hrule
       obtain ⟨Hrule1, Hrule2⟩ := Hrule
-      simpa [Hrule1, ←Hrule2]
-    · exists mid_i.1 ++ mid_i.2; split_ands
+      exists mid_i.1 ++ mid_i.2; split_ands
+      · simpa [Hrule1, ←Hrule2, lift_f, mk_nbag_input_rule]
       · constructor
       · rfl
   · intro ident mid_i v Hrule
@@ -215,32 +201,26 @@ theorem nbag_low_correctϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
     simp [nbag_lowM] at Hcontains
     subst ident
     obtain ⟨⟨i_1, ⟨H1, H2⟩⟩, Hrule2⟩ := Hrule
-    exists mid_i.1 ++ mid_i.2
-    split_ands
+    exists mid_i.1 ++ mid_i.2; split_ands
     · unfold nbag nbag'
       dsimp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output]
       rw [PortMap.rw_rule_execution]
       dsimp
       subst s
       rw [H1, H2]
-      have H: (i_1: Nat) < List.length (i.1 ++ i.2) := by simpa [Nat.lt_add_right]
-      exists Fin.mk i_1 H
-      split_ands <;> dsimp
+      exists Fin.mk i_1 (by simpa [Nat.lt_add_right]); split_ands <;> dsimp
       · simpa [Hrule2, ←eraseIdx_len]
       · apply get_len
     · rfl
-  · intros _ mid_i _ _;
-    rename_i rule H1 H2
+  · intros rule mid_i H1 H2;
     simp [nbag_lowM, nbag, nbag', NatModule.stringify, Module.mapIdent] at *
     rw [H1] at H2
     obtain ⟨a, b, output, ⟨⟨H2, H3⟩, H4, H5⟩⟩ := H2
-    exists s
-    split_ands
+    exists s; split_ands
     · constructor
     · unfold φ
       subst a b s
-      rw [H4, H2]
-      simpa
+      simpa [H4, H2]
 
 theorem nbag_low_ϕ_indistinguishable :
   ∀ x y, φ x y → Module.indistinguishable nbag_lowM (nbag P.Data P.netsz) x y := by
@@ -253,29 +233,19 @@ theorem nbag_low_ϕ_indistinguishable :
     · subst y
       unfold nbag_lowM at *
       dsimp at v H
-      unfold lift_f
       rw [PortMap.rw_rule_execution (h := by rw [AssocList.mapKey_map_toAssocList])]
       dsimp [InternalPort.map]
-      have ⟨ n, Hn1, Hn2 ⟩ := getIO_map_ident H
+      have ⟨n, Hn1, Hn2⟩ := getIO_map_ident H
       subst ident
       rw [PortMap.rw_rule_execution
-        (h := by apply (getIO_map_stringify_input (Heq := by unfold mk_nbag_input_rule; rfl)) <;> simpa)
+        (h := by apply (getIO_map_stringify_input) <;> simpa)
       ]
-      rw [getIO_map_stringify_input (i := n) (f := fun x => ⟨NocParam.Data, λ x ret
-        (x_1 : List NocParam.Data × List NocParam.Data) => x_1.2 = x.2 ++ [ret] ∧
-        x.1 = x_1.1⟩) (Heq := by rfl)] at v
+      rw [getIO_map_stringify_input] at v
       rw [PortMap.rw_rule_execution
-        (h := by apply (getIO_map_stringify_input
-          (i := n)
-          (f := fun x => ⟨NocParam.Data, λ x ret (x_1 : List NocParam.Data × List NocParam.Data) => x_1.2 = x.2 ++ [ret] ∧ x.1 = x_1.1⟩)
-          (Heq := by rfl)) <;> simpa
-        )
+        (h := by apply (getIO_map_stringify_input) <;> simpa)
       ] at H
       dsimp at H v
-      simp
-      obtain ⟨ H1, H2 ⟩ := H
-      rw [H1, ←H2]
-      simpa
+      simpa [lift_f, mk_nbag_input_rule, H]
     · by_cases Hident: ({ inst := InstIdent.top, name := NatModule.stringify_output 0 }: InternalPort String) = ident
       · rw [PortMap.rw_rule_execution] at H
         dsimp [NatModule.stringify_output] at *
@@ -285,9 +255,7 @@ theorem nbag_low_ϕ_indistinguishable :
         obtain ⟨⟨i, Hi1, Hi2⟩, H⟩ := H
         rw [Hi1, Hi2]
         subst y
-        have Hlen: (i: Nat) < List.length (x.1 ++ x.2) := by simpa [Nat.lt_add_right]
-        exists Fin.mk i Hlen
-        split_ands
+        exists Fin.mk i (by simpa [Nat.lt_add_right]); split_ands
         · simpa [←eraseIdx_len, H, Nat.lt_add_right]
         · apply get_len
       · exfalso

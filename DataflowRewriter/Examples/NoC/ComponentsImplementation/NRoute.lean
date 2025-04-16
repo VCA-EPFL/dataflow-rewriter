@@ -144,7 +144,7 @@ def nroute_lowM : StringModule nroute_lowT := by
     simp only [AssocList.bijectivePortRenaming_same]
     simp only [Module.liftR]
     simp only [InternalPort.map]
-    simp? [stringify_output_neq, stringify_input_neq, internalport_neq]
+    simp [stringify_output_neq, stringify_input_neq, internalport_neq]
     simp [AssocList.eraseAll_map_neq]
     simp only [AssocList.eraseAll, AssocList.eraseAllP]
     -- FIXME: Cannot simplify under the internals for some reason?
@@ -184,7 +184,30 @@ def φ (I : nroute_lowT) (S : nrouteT) : Prop :=
   List.map Prod.snd S = I.1.2 ++ I.2.2
 
 theorem nroute_low_correctϕ : nroute_lowM ⊑_{φ} nroute := by
-  sorry
+  intros i s H
+  constructor
+  · intro ident mid_i v Hrule
+    case_transition Hcontains : (Module.inputs nroute_lowM), ident,
+     (fun x => PortMap.getIO_not_contained_false' x Hrule)
+    simp [nroute_lowM] at Hcontains
+    subst ident
+    unfold nroute nroute'
+    sorry
+  · intro ident mid_i v Hrule
+    case_transition Hcontains : (Module.outputs nroute_lowM), ident,
+     (fun x => PortMap.getIO_not_contained_false' x Hrule)
+    simp [nroute_lowM] at Hcontains
+    obtain ⟨n, HnFin, Hident⟩ := Hcontains
+    subst ident
+    unfold nroute nroute'
+    dsimp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output]
+    unfold lift_f
+    rw [PortMap.rw_rule_execution
+      (h := by rw [AssocList.mapKey_map_toAssocList])
+    ]
+    sorry
+  · intro ident mid_i v Hrule
+    sorry
 
 theorem nroute_low_ϕ_indistinguishable :
   ∀ x y, φ x y → Module.indistinguishable nroute_lowM nroute x y := by

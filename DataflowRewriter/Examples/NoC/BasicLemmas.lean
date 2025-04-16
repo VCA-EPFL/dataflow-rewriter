@@ -66,7 +66,7 @@ theorem get_len {T} (l1 l2: List T) i
 theorem getIO_map_stringify_input {S : Type _}
   {i : Nat} {sz : Nat}
   {f : Nat -> Σ T : Type _, (S → T → S → Prop)} {v}
-  (Heq : f i = v) (Hlt : i < sz) :
+  (Heq : f i = v := by rfl) (Hlt : i < sz := by assumption) :
   PortMap.getIO
     (List.map
       (λ n => ⟨(NatModule.stringify_input n: InternalPort String), f n⟩)
@@ -79,7 +79,7 @@ theorem getIO_map_stringify_input {S : Type _}
 theorem getIO_map_stringify_output {S : Type _}
   {i : Nat} {sz : Nat}
   {f : Nat -> Σ T : Type _, (S → T → S → Prop)} {v}
-  {Heq : f i = v} {Hlt : i < sz} :
+  (Heq : f i = v := by rfl) (Hlt : i < sz := by assumption) :
   PortMap.getIO
     (List.map
       (λ n => ⟨(NatModule.stringify_output n: InternalPort String), f n⟩)
