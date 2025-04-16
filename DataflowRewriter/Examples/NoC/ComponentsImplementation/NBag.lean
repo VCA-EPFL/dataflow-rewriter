@@ -131,11 +131,7 @@ def nbag_lowM : StringModule nbag_lowT := by
     simp [AssocList.mapKey_map_toAssocList]
     simp [AssocList.bijectivePortRenaming_same]
     simp [InternalPort.map]
-    have Hneq: ∀ x,
-      ({ inst := InstIdent.top, name := NatModule.stringify_input x }: InternalPort String)
-      ≠ ({ inst := InstIdent.internal "Bag", name := "merge_to_bag_in" }: InternalPort String)
-    · simpa
-    simp [AssocList.eraseAll_map_neq (Hneq := Hneq)]
+    simp [AssocList.eraseAll_map_neq]
     simp [AssocList.eraseAll]
     simp [Module.liftR]
 
@@ -148,9 +144,9 @@ instance : MatchInterface nbag_lowM (nbag P.Data P.netsz) where
     intros ident
     unfold nbag_lowM nbag nbag'
     unfold lift_f mk_nbag_input_rule
-    simp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output] at *
+    dsimp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output] at *
     simp [AssocList.mapKey_map_toAssocList, InternalPort.map]
-    apply (getIO_map_ident_match_1 (Heq := by intros n; simpa))
+    apply (getIO_map_ident_match_1 (Heq := by intros _; simpa))
   output_types := by
     intros ident
     unfold nbag_lowM nbag nbag'
@@ -181,7 +177,7 @@ theorem nbag_low_correctϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
     case_transition Hcontains : (Module.inputs nbag_lowM), ident,
      (fun x => PortMap.getIO_not_contained_false' x Hrule)
     simp [nbag_lowM] at Hcontains
-    obtain ⟨ n, HnFin, Hident ⟩ := Hcontains
+    obtain ⟨n, HnFin, Hident⟩ := Hcontains
     subst ident
     unfold nbag nbag'
     simp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output]
@@ -208,7 +204,7 @@ theorem nbag_low_correctϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
         )
       ] at Hrule
       dsimp at Hrule v
-      obtain ⟨ Hrule1, Hrule2 ⟩ := Hrule
+      obtain ⟨Hrule1, Hrule2⟩ := Hrule
       simpa [Hrule1, ←Hrule2]
     · exists mid_i.1 ++ mid_i.2; split_ands
       · constructor

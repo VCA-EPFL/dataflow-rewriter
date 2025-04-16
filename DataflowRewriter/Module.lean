@@ -1278,11 +1278,9 @@ abbrev NatModule := Module Nat
 
 abbrev StringModule := Module String
 
-@[drunfold]
 def NatModule.stringify_input (n : ℕ) :=
   s!"in{n + 1}"
 
-@[drunfold]
 def NatModule.stringify_output (n : ℕ) :=
   s!"out{n + 1}"
 

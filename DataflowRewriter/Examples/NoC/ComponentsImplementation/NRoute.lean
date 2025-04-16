@@ -54,7 +54,7 @@ attribute [drdecide] InternalPort.mk.injEq and_false decide_False decide_True
 def ε_nroute : Env :=
   [
     (s!"Split {P.DataS} {FlitHeaderS}", ⟨_, StringModule.split P.Data FlitHeader⟩),
-    (s!"NBranch {P.DataS} {P.netsz}", ⟨_, StringModule.bag P.Data⟩),
+    (s!"NBranch {P.DataS} {P.netsz}", ⟨_, nbranch⟩),
   ].toAssocList
 
 def ε_nroute_split :
@@ -62,8 +62,11 @@ def ε_nroute_split :
   simpa
 
 def ε_nroute_nbranch :
-  ε_nroute.find? s!"NBranch {P.DataS} {P.netsz}" = .some ⟨_, nroute⟩ := by
-    sorry
+  ε_nroute.find? s!"NBranch {P.DataS} {P.netsz}" = .some ⟨_, nbranch⟩ := by
+    dsimp [AssocList.find?]
+    have Hneq : (s!"Split {P.DataS} {FlitHeaderS}" == s!"NBranch {P.DataS} {P.netsz}") = false
+    := by sorry
+    simpa [Hneq]
 
 def nroute_low : ExprLow String :=
   let split := ExprLow.base
@@ -134,23 +137,60 @@ def nroute_lowM : StringModule nroute_lowT := by
                                      (h' := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl))]; rfl
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
     unfold Module.connect''
-    simp
-    simp [AssocList.mapKey_mapKey, AssocList.mapVal_mapKey]
-    simp [AssocList.mapVal_map_toAssocList]
-    simp [AssocList.mapKey_map_toAssocList]
-    simp [AssocList.bijectivePortRenaming_same]
-    simp [InternalPort.map]
-    simp [toString]
-    -- TODO:
-    -- have Hneq: ∀ x,
-    --   ({ inst := InstIdent.top, name := NatModule.stringify_input x }: InternalPort String)
-    --   ≠ ({ inst := InstIdent.internal "Bag", name := "merge_to_bag_in" }: InternalPort String)
-    -- · simpa
-    -- simp [AssocList.eraseAll_map_neq (Hneq := Hneq)]
-    -- simp [AssocList.eraseAll]
-    -- simp [Module.liftR]
+    dsimp
+    simp only [AssocList.mapKey_mapKey, AssocList.mapVal_mapKey]
+    simp only [AssocList.mapVal_map_toAssocList]
+    simp only [AssocList.mapKey_map_toAssocList]
+    simp only [AssocList.bijectivePortRenaming_same]
+    simp only [Module.liftR]
+    simp only [InternalPort.map]
+    simp? [stringify_output_neq, stringify_input_neq, internalport_neq]
+    simp [AssocList.eraseAll_map_neq]
+    simp only [AssocList.eraseAll, AssocList.eraseAllP]
+    -- FIXME: Cannot simplify under the internals for some reason?
 
 -- Correctness -----------------------------------------------------------------
 -- TODO
+
+instance : MatchInterface nroute_lowM nroute where
+  input_types := by
+    intros ident
+    unfold nroute_lowM nroute nroute'
+    dsimp
+    by_cases H: ({ inst := InstIdent.top, name := NatModule.stringify_input 0 }: InternalPort String) = ident
+    <;> simp [*, drunfold, drnat, PortMap.getIO_cons, NatModule.stringify_input, InternalPort.map] at *
+    <;> simpa [*]
+  output_types := by
+    intros ident
+    unfold nroute_lowM nroute nroute'
+    unfold lift_f mk_nroute_output_rule
+    simp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output] at *
+    simp [AssocList.mapKey_map_toAssocList, InternalPort.map]
+    apply (getIO_map_ident_match_1 (Heq := by intros n; simpa))
+  inputs_present := by
+    intros ident
+    unfold nroute_lowM nroute nroute'
+    dsimp [NatModule.stringify, Module.mapIdent]
+    sorry
+  outputs_present := by
+    intros ident
+    unfold nroute_lowM nroute nroute'
+    simp [NatModule.stringify, Module.mapIdent]
+    apply isSome_same_list
+    constructor <;> intros H <;> obtain ⟨x, Hx1, Hx2⟩ := H <;> simp at * <;> exists x
+
+def φ (I : nroute_lowT) (S : nrouteT) : Prop :=
+  List.map Prod.fst S = I.1.1 ++ I.2.1 ∧
+  List.map Prod.snd S = I.1.2 ++ I.2.2
+
+theorem nroute_low_correctϕ : nroute_lowM ⊑_{φ} nroute := by
+  sorry
+
+theorem nroute_low_ϕ_indistinguishable :
+  ∀ x y, φ x y → Module.indistinguishable nroute_lowM nroute x y := by
+    sorry
+
+theorem nroute_low_correct : nroute_lowM ⊑ nroute := by
+  apply (Module.refines_φ_refines nroute_low_ϕ_indistinguishable nroute_low_correctϕ)
 
 end DataflowRewriter.NoC

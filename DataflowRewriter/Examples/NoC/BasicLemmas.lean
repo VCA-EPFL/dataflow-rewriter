@@ -13,6 +13,8 @@ import DataflowRewriter.List
 import DataflowRewriter.Tactic
 import DataflowRewriter.AssocList
 
+open Batteries (AssocList)
+
 namespace DataflowRewriter.NoC
 
 -- TODO: This should be moved elsewhere at some point
@@ -39,6 +41,11 @@ theorem isSome_same_list {α} {f : α → Bool} {g : α → Bool} {l : List α} 
       apply H1 at Hf; rw [←List.find?_isSome] at Hf
       rw [Hg] at Hf
       contradiction
+
+theorem isSome_same_AssocList {α β} [DecidableEq α] {y : α} {l1 l2 : AssocList α β} :
+  (∀ x, l1.contains x <-> l2.contains x) →
+  (l1.find? y).isSome = (l2.find? y).isSome := by
+    sorry
 
 theorem eraseIdx_len {T} {l1 l2 : List T} {i} (H : i < List.length l1):
   List.eraseIdx (l1 ++ l2) i = (List.eraseIdx l1 i) ++ l2 := by
@@ -106,3 +113,17 @@ theorem getIO_map_ident_match_1 {Ident} [DecidableEq Ident] {S1 S2 : Type _}
   by
     -- FIXME: Induction on List.range is still problematic
     sorry
+
+theorem stringify_input_neq {n1 n2 : Nat} (Hneq : n1 ≠ n2) :
+  NatModule.stringify_input n1 ≠ NatModule.stringify_input n2
+    := by sorry
+
+theorem stringify_output_neq {n1 n2 : Nat} (Hneq : n1 ≠ n2) :
+  NatModule.stringify_output n1 ≠ NatModule.stringify_output n2
+    := by sorry
+
+theorem internalport_neq {ident1 ident2 : InstIdent String} {name1 name2 : String}
+  (Hneq : name1 ≠ name2) :
+    ({ inst := ident1, name := name1 }: InternalPort String)
+  ≠ ({ inst := ident2, name := name2}: InternalPort String)
+    := by simp; intros; simpa

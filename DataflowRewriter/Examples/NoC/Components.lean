@@ -20,10 +20,10 @@ variable [P: NocParam]
 -- Utils -----------------------------------------------------------------------
 
 -- TODO: This should be somewhere else, this function is very useful for
--- defining List.range n |> map lift_f f |>.toAssocList, a very common pattern
+-- defining List.range n |>.map (lift_f f) |>.toAssocList, a very common pattern
 -- to design parametric design
 def lift_f {α : Type} (f : Nat → (Σ T : Type, α → T → α → Prop)) (n : Nat) : InternalPort Nat × (Σ T : Type, α → T → α → Prop) :=
-  ⟨ ↑n, f n ⟩
+  ⟨↑n, f n⟩
 
 -- Components ------------------------------------------------------------------
 -- Reference semantics for useful components
@@ -31,45 +31,47 @@ def lift_f {α : Type} (f : Nat → (Σ T : Type, α → T → α → Prop)) (n 
 
 -- Branch with `n` outputs
 @[drunfold]
-def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List P.Data × List RouterID)) :=
+def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List P.Data × List FlitHeader)) :=
   {
     inputs := [
       (0, ⟨P.Data,
         λ (oldDatas, oldRouterIDs) data (newDatas, newRouterIDs) =>
           newDatas = oldDatas.concat data ∧ newRouterIDs = oldRouterIDs
       ⟩),
-      (1, ⟨RouterID,
-        λ (oldDatas, oldRouterIDs) routerID (newDatas, newRouterIDs) =>
-          newDatas = oldDatas ∧ newRouterIDs = oldRouterIDs.concat routerID
+      (1, ⟨FlitHeader,
+        λ (oldDatas, oldRouterIDs) rID (newDatas, newRouterIDs) =>
+          newDatas = oldDatas ∧ newRouterIDs = oldRouterIDs.concat rID
       ⟩),
     ].toAssocList,
     outputs :=
-      -- TODO: We would like to have n be cast to a RouterID down the line
       List.range P.netsz |>.map (λ routerID => Prod.mk ↑routerID
         ⟨P.Data,
           λ (oldDatas, oldRouterIDs) data (newDatas, newRouterIDs) =>
             data :: newDatas = oldDatas ∧
-            routerID :: newRouterIDs = oldRouterIDs
+            { dest := routerID } :: newRouterIDs = oldRouterIDs
         ⟩)
       |>.toAssocList,
   }
 
+def nrouteT := List (P.Data × FlitHeader)
+
+def mk_nroute_output_rule (rID : RouterID) : (Σ T : Type, nrouteT → T → nrouteT → Prop) :=
+  ⟨
+    P.Data,
+    λ oldState data newState => oldState = (data, { dest := rID }) :: newState
+  ⟩
+
 -- NBranch with only one input
 @[drunfold]
-def nroute' (name := "nroute") : NatModule (NatModule.Named name (List (P.Data × RouterID))) :=
+def nroute' (name := "nroute") : NatModule (NatModule.Named name nrouteT) :=
   {
     inputs := [
-      (0, ⟨P.Data × RouterID,
+      (0, ⟨
+        P.Data × FlitHeader,
         λ oldState v newState => newState = oldState.concat v
       ⟩),
     ].toAssocList,
-    outputs :=
-      -- TODO: We would like to have n be cast to a RouterID down the line
-      List.range P.netsz |>.map (λ routerID => Prod.mk ↑routerID
-        ⟨P.Data,
-          λ oldState data newState => oldState = (data, routerID) :: newState
-        ⟩)
-      |>.toAssocList,
+    outputs := List.range P.netsz |>.map (lift_f mk_nroute_output_rule) |>.toAssocList
   }
 
 def mk_nbag_input_rule (S : Type) (_ : Nat) : (Σ T : Type, List S → T → List S → Prop) :=
@@ -83,7 +85,6 @@ def nbag' (T : Type) (n : Nat) (name := "nbag") : NatModule (NatModule.Named nam
     outputs := [(↑0, ⟨ T, λ oldState v newState => ∃ i, newState = oldState.remove i ∧ v = oldState.get i ⟩)].toAssocList,
   }
 
--- Type of the internal state of a NoC
 def nocT : Type :=
   List (P.Data × FlitHeader)
 
@@ -109,20 +110,12 @@ def noc' (name := "noc") : NatModule (NatModule.Named name nocT) :=
     outputs := List.range P.netsz |>.map (lift_f mk_noc_output_rule) |>.toAssocList,
   }
 
--- String version --------------------------------------------------------------
+-- Stringify -------------------------------------------------------------------
 
-@[drunfold]
-def nbag T n :=
-  nbag' T n |>.stringify
+@[drunfold] def nbag T n := nbag' T n |>.stringify
 
-@[drunfold]
-def nbranch :=
-  nbranch' |>.stringify
+@[drunfold] def nbranch := nbranch' |>.stringify
 
-@[drunfold]
-def nroute :=
-  nroute' |>.stringify
+@[drunfold] def nroute := nroute' |>.stringify
 
-@[drunfold]
-def noc :=
-  noc' |>.stringify
+@[drunfold] def noc := noc' |>.stringify
