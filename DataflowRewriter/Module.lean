@@ -712,16 +712,19 @@ variable [DecidableEq Ident]
 variable (imod : Module Ident I)
 variable (smod : Module Ident S)
 
+def refines_initial [mm : MatchInterface imod smod] (R : I → S → Prop) :=
+  ∀ i, imod.init_state i → ∃ s, smod.init_state s ∧ R i s
+
 def refines :=
   ∃ (mm : MatchInterface imod smod) (R : I → S → Prop),
     (imod ⊑_{fun x y => indistinguishable imod smod x y ∧ R x y} smod)
-    ∧ (∀ i, imod.init_state i → ∃ s, smod.init_state s ∧ R i s)
+    ∧ refines_initial imod smod (fun x y => indistinguishable imod smod x y ∧ R x y)
 
 def refines' :=
   ∃ (mm : MatchInterface imod smod) (R : I → S → Prop),
     (imod ⊑_{R} smod)
     ∧ (∀ x y, R x y → indistinguishable imod smod x y)
-    ∧ (∀ i, imod.init_state i → ∃ s, smod.init_state s ∧ R i s)
+    ∧ refines_initial imod smod R
 
 notation:35 x " ⊑ " y:34 => refines x y
 notation:35 x " ⊑' " y:34 => refines' x y
@@ -748,6 +751,11 @@ theorem refines_φ_refines [MatchInterface imod smod] {φ} :
   · intro rule mid_i Hcont Hrule
     specialize Hint rule mid_i Hcont Hrule
     tauto
+  · intros i Hinit';
+    obtain ⟨s, Hs1, Hs2⟩ := Hinit i Hinit'
+    exists s
+    split_ands <;> try assumption
+    apply Hind _ _ Hs2
 
 theorem refines_refines' :
   imod ⊑ smod →
@@ -758,10 +766,8 @@ theorem refines_refines' :
   · assumption
   · simp +contextual
   · intros i Hinit_i
-    obtain ⟨s, Hinit_s, HRis⟩ := (href2 i Hinit_i)
+    obtain ⟨s, _⟩ := href2 i Hinit_i
     exists s
-    split_ands <;> try assumption
-    sorry
 
 theorem refines'_refines :
   imod ⊑' smod →
