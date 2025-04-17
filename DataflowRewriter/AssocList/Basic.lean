@@ -89,13 +89,12 @@ instance {α β} [DecidableEq α] [DecidableEq β] : DecidableRel (@EqExt α β 
 
 def wf {α β} (a : AssocList α β) : Prop := a.keysList.Nodup
 
-def invertible {α} [DecidableEq α] (p : AssocList α α) : Prop :=
+def invertible {α} [DecidableEq α] (p : AssocList α α) : Bool :=
   p.filterId.keysList.inter p.inverse.filterId.keysList = ∅ ∧ p.keysList.Nodup ∧ p.inverse.keysList.Nodup
 
 def bijectivePortRenaming {α} [DecidableEq α] (p : AssocList α α) (i: α) : α :=
-  let p' := p.inverse
-  if p.filterId.keysList.inter p'.filterId.keysList = ∅ && p.keysList.Nodup && p'.keysList.Nodup then
-    let map := p.filterId.append p'.filterId
+  if p.invertible then
+    let map := p.filterId.append p.inverse.filterId
     map.find? i |>.getD i
   else i
 

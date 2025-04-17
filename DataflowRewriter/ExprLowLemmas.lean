@@ -1,5 +1,5 @@
 /-
-Copyright (c) 2024 VCA Lab, EPFL. All rights reserved.
+Copyright (c) 2024-2025 VCA Lab, EPFL. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
@@ -126,6 +126,9 @@ notation:25 "[T| " e ", " ε " ]" => build_module_type ε e
 
 def wf : ExprLow Ident → Bool := all (λ typ => ε.contains typ)
 
+@[drunfold]
+def locally_wf : ExprLow Ident → Bool := all' (λ f _ => f.input.invertible ∧ f.output.invertible)
+
 /- For now we will ensure this structurally by filtering out keys that are not in the base module. -/
 def wf_mapping : ExprLow Ident → Bool
 | .base inst typ =>
@@ -190,78 +193,139 @@ theorem build_module_unfold_2 {r i} :
   build_module' ε (.base r i) = none := by
   intro h; simp only [drunfold]; rw [h]; simp
 
-theorem build_module_type_rename' {e : ExprLow Ident} {f g} :
-  (e.mapPorts2 f g |>.build_module' ε).isSome = (e.build_module' ε).isSome := by
-  induction e with
-  | base map typ =>
-    simp [drunfold, -AssocList.find?_eq]
-    cases (AssocList.find? typ ε) <;> simp
-  | connect _ e ih =>
-    dsimp [drunfold, -AssocList.find?_eq]
-    cases h : build_module' ε e
-    · rw [h] at ih; simp [mapPorts2] at ih; simp [ih]
-    · rw [h] at ih; simp at ih; rw [Option.isSome_iff_exists] at ih; rcases ih with ⟨_, ih⟩
-      unfold mapPorts2 at *; rw [ih]; rfl
-  | product e₁ e₂ ihe₁ ihe₂ =>
-    dsimp [drunfold]
-    cases h : (build_module' ε e₁)
-    · rw [h] at ihe₁; simp [mapPorts2] at ihe₁; simp [ihe₁]
-    · cases h2 : (build_module' ε e₂)
-      · rw [h2] at ihe₂; simp [mapPorts2] at ihe₂; simp [ihe₂]
-      · rw [h] at ihe₁; simp at ihe₁; rw [Option.isSome_iff_exists] at ihe₁; rcases ihe₁ with ⟨_, ihe₁⟩
-        unfold mapPorts2 at *; rw [ihe₁];
-        rw [h2] at ihe₂; simp at ihe₂; rw [Option.isSome_iff_exists] at ihe₂; rcases ihe₂ with ⟨_, ihe₂⟩
-        rw [ihe₂]; rfl
+-- theorem build_module_type_rename' {e : ExprLow Ident} {f g} :
+--   (e.mapPorts2 f g |>.build_module' ε).isSome = (e.build_module' ε).isSome := by
+--   induction e with
+--   | base map typ =>
+--     simp [drunfold, -AssocList.find?_eq]
+--     cases (AssocList.find? typ ε) <;> simp
+--   | connect _ e ih =>
+--     dsimp [drunfold, -AssocList.find?_eq]
+--     cases h : build_module' ε e
+--     · rw [h] at ih; simp [mapPorts2] at ih; simp [ih]
+--     · rw [h] at ih; simp at ih; rw [Option.isSome_iff_exists] at ih; rcases ih with ⟨_, ih⟩
+--       unfold mapPorts2 at *; rw [ih]; rfl
+--   | product e₁ e₂ ihe₁ ihe₂ =>
+--     dsimp [drunfold]
+--     cases h : (build_module' ε e₁)
+--     · rw [h] at ihe₁; simp [mapPorts2] at ihe₁; simp [ihe₁]
+--     · cases h2 : (build_module' ε e₂)
+--       · rw [h2] at ihe₂; simp [mapPorts2] at ihe₂; simp [ihe₂]
+--       · rw [h] at ihe₁; simp at ihe₁; rw [Option.isSome_iff_exists] at ihe₁; rcases ihe₁ with ⟨_, ihe₁⟩
+--         unfold mapPorts2 at *; rw [ihe₁];
+--         rw [h2] at ihe₂; simp at ihe₂; rw [Option.isSome_iff_exists] at ihe₂; rcases ihe₂ with ⟨_, ihe₂⟩
+--         rw [ihe₂]; rfl
 
-theorem build_module_type_rename {e f g} :
-  ([T| e.mapPorts2 f g, ε]) = ([T| e, ε ]) := by
-  induction e with
-  | base map typ =>
-    simp [drunfold, -AssocList.find?_eq]
-    cases h : (AssocList.find? typ ε) <;> rfl
-  | connect _ e ie =>
-    simp [drunfold, -AssocList.find?_eq]
-    cases h : build_module' ε e
-    · have : (build_module' ε (mapOutputPorts g (mapInputPorts f e))) = none := by
-        have := build_module_type_rename' (ε := ε) (e := e) (f := f) (g := g)
-        rw [h] at this; simp_all [mapPorts2]
-      rw [this]; rfl
-    · have := build_module_type_rename' (ε := ε) (e := e) (f := f) (g := g)
-      rw [h] at this; dsimp at this; rw [Option.isSome_iff_exists] at this
-      rcases this with ⟨a, this⟩
-      dsimp [mapPorts2] at this; rw [this]
-      unfold build_module_type build_module at *
-      unfold mapPorts2 at *
-      rw [this] at ie; rw [h] at ie
-      dsimp at ie; assumption
-  | product e₁ e₂ he₁ he₂ =>
-    simp [drunfold, -AssocList.find?_eq]
-    cases h : build_module' ε e₁
-    · have : (build_module' ε (mapOutputPorts g (mapInputPorts f e₁))) = none := by
-        have := build_module_type_rename' (ε := ε) (e := e₁) (f := f) (g := g)
-        rw [h] at this; simp_all [mapPorts2]
-      rw [this]; rfl
-    · have this := build_module_type_rename' (ε := ε) (e := e₁) (f := f) (g := g)
-      have this2 := build_module_type_rename' (ε := ε) (e := e₂) (f := f) (g := g)
-      rw [h] at this; dsimp at this; rw [Option.isSome_iff_exists] at this; rcases this with ⟨ a, this ⟩
-      cases h' : build_module' ε e₂
-      · have this3 : (build_module' ε (mapOutputPorts g (mapInputPorts f e₂))) = none := by
-          rw [h'] at this2; simp_all [mapPorts2]
-        rw [this3]; unfold mapPorts2 at *; rw [this]; rfl
-      · rw [h'] at this2; dsimp at this2; rw [Option.isSome_iff_exists] at this2
-        rcases this2 with ⟨a, this2⟩
-        dsimp [mapPorts2] at this this2; rw [this]
-        unfold build_module_type build_module at *
-        unfold mapPorts2 at *
-        dsimp; rw [this2]; dsimp
-        rw [h,this] at he₁
-        rw [h',this2] at he₂
-        simp at *; congr
+-- theorem build_module_type_rename {e f g} :
+--   ([T| e.mapPorts2 f g, ε]) = ([T| e, ε ]) := by
+--   induction e with
+--   | base map typ =>
+--     simp [drunfold, -AssocList.find?_eq]
+--     cases h : (AssocList.find? typ ε) <;> rfl
+--   | connect _ e ie =>
+--     simp [drunfold, -AssocList.find?_eq]
+--     cases h : build_module' ε e
+--     · have : (build_module' ε (mapOutputPorts g (mapInputPorts f e))) = none := by
+--         have := build_module_type_rename' (ε := ε) (e := e) (f := f) (g := g)
+--         rw [h] at this; simp_all [mapPorts2]
+--       rw [this]; rfl
+--     · have := build_module_type_rename' (ε := ε) (e := e) (f := f) (g := g)
+--       rw [h] at this; dsimp at this; rw [Option.isSome_iff_exists] at this
+--       rcases this with ⟨a, this⟩
+--       dsimp [mapPorts2] at this; rw [this]
+--       unfold build_module_type build_module at *
+--       unfold mapPorts2 at *
+--       rw [this] at ie; rw [h] at ie
+--       dsimp at ie; assumption
+--   | product e₁ e₂ he₁ he₂ =>
+--     simp [drunfold, -AssocList.find?_eq]
+--     cases h : build_module' ε e₁
+--     · have : (build_module' ε (mapOutputPorts g (mapInputPorts f e₁))) = none := by
+--         have := build_module_type_rename' (ε := ε) (e := e₁) (f := f) (g := g)
+--         rw [h] at this; simp_all [mapPorts2]
+--       rw [this]; rfl
+--     · have this := build_module_type_rename' (ε := ε) (e := e₁) (f := f) (g := g)
+--       have this2 := build_module_type_rename' (ε := ε) (e := e₂) (f := f) (g := g)
+--       rw [h] at this; dsimp at this; rw [Option.isSome_iff_exists] at this; rcases this with ⟨ a, this ⟩
+--       cases h' : build_module' ε e₂
+--       · have this3 : (build_module' ε (mapOutputPorts g (mapInputPorts f e₂))) = none := by
+--           rw [h'] at this2; simp_all [mapPorts2]
+--         rw [this3]; unfold mapPorts2 at *; rw [this]; rfl
+--       · rw [h'] at this2; dsimp at this2; rw [Option.isSome_iff_exists] at this2
+--         rcases this2 with ⟨a, this2⟩
+--         dsimp [mapPorts2] at this this2; rw [this]
+--         unfold build_module_type build_module at *
+--         unfold mapPorts2 at *
+--         dsimp; rw [this2]; dsimp
+--         rw [h,this] at he₁
+--         rw [h',this2] at he₂
+--         simp at *; congr
 
-def cast_module {S T} (h : S = T): Module Ident S = Module Ident T := by
-  cases h; rfl
+-- def cast_module {S T} (h : S = T): Module Ident S = Module Ident T := by
+--   cases h; rfl
 
-def _root_.Sigma.map2 {α t} (pair : @Sigma α t) (f : ∀ {a}, t a → t a) : Sigma t := ⟨ _, f pair.snd ⟩
+-- def _root_.Sigma.map2 {α t} (pair : @Sigma α t) (f : ∀ {a}, t a → t a) : Sigma t := ⟨ _, f pair.snd ⟩
+
+axiom filterId_correct {α} [DecidableEq α] {m : AssocList α α} {i} :
+  m.find? i = some i → m.filterId.find? i = none
+
+axiom filterId_correct2 {α} [DecidableEq α] {m : AssocList α α} {i v} :
+  i ≠ v → m.find? i = some v → m.filterId.find? i = some v
+
+axiom inverse_correct {α} [DecidableEq α] {m : AssocList α α} {i v} :
+  m.find? i = some v → m.inverse.find? v = some i
+
+#check Function.Bijective
+
+theorem mapKey_comm2 {α} {m : PortMap Ident α} {inst : PortMap Ident (InternalPort Ident)} {f i}:
+  Function.Bijective f →
+  (inst.mapVal fun _ => f).invertible →
+  inst.invertible →
+  inst.contains i →
+  (inst.mapVal fun _ => f).bijectivePortRenaming i = (f ∘ inst.bijectivePortRenaming) i := by
+  intro hbij hinv1 hinv2 hcont
+  unfold AssocList.bijectivePortRenaming
+  rw [hinv1, hinv2]; dsimp
+  rw [←AssocList.contains_find?_iff] at hcont
+  obtain ⟨v, hfind⟩ := hcont
+  by_cases h : i = f i
+  · rw [h] at hfind ⊢
+    by_cases h' : f i = v
+    · subst v
+      rw [AssocList.append_find_right, AssocList.append_find_right]
+      rw [filterId_correct, filterId_correct]; rw (occs := [2]) [←h]; rfl
+      rwa [inverse_correct]
+      rw [inverse_correct]
+      rw [←AssocList.find?_map_comm]; rw [hfind]; simp [←h]
+      rwa [filterId_correct]
+      rw [filterId_correct]
+      rw [←AssocList.find?_map_comm]; rw [hfind]; simp [←h]
+    · rw [AssocList.append_find_left (x := f v)]
+      rw [AssocList.append_find_left (x := v)]; rfl
+      rw [filterId_correct2] <;> assumption
+      rw [filterId_correct2]; rw [←h] at h'; unfold Not at *; intro h''; apply h';
+      rwa [←hbij.injective.eq_iff]
+      rw [←AssocList.find?_map_comm]
+      rw [hfind]; rfl
+  · by_cases h' : i = v
+    · subst_vars
+    · rw [AssocList.append_find_left (x := f v), AssocList.append_find_left (x := v)]; rfl
+      rw [filterId_correct2] <;> assumption
+
+theorem mapKey_valid_domain {α β γ} [BEq α] [LawfulBEq α] {m : AssocList α β} {f g : α → γ}:
+  (∀ i, m.contains i → f i = g i) →
+  m.mapKey f = m.mapKey g := by
+  induction m with
+  | nil => intros; rfl
+  | cons k v xs ih =>
+    intro h
+    simp only [AssocList.mapKey, AssocList.cons.injEq, true_and]; and_intros
+    · specialize h k (by simp); assumption
+    · apply ih; intro k h'; apply h; simp_all
+
+theorem mapKey_compose {α β γ δ} {m : AssocList α β} {f : α → γ} {g : γ → δ} :
+  (m.mapKey f).mapKey g = m.mapKey (g ∘ f) := by
+  induction m <;> simpa
 
 /-
 Pretty sure these are true based on wf_mapping.  But it also relies on the correctness of bijectivePortRenaming, that it
@@ -271,9 +335,13 @@ before it to ensure that it will actually perform the renaming correctly.  Howev
 to ensure two different properties.  In many cases just having bijectiveness is useful, in others one actually has to
 ensure that one is renaming correctly.
 -/
-axiom mapKey_comm {α} {m : PortMap Ident α} {inst : PortMap Ident (InternalPort Ident)} {f}:
-  m.mapKey (((inst.mapVal λ _ => f).mapKey f).bijectivePortRenaming)
-  = (m.mapKey inst.bijectivePortRenaming).mapKey f
+theorem mapKey_comm {α} {m : PortMap Ident α} {inst : PortMap Ident (InternalPort Ident)} {f}:
+  (inst.mapVal (fun _ => f)).invertible →
+  inst.invertible →
+  (∀ i, AssocList.contains i m → AssocList.contains i inst) →
+  m.mapKey ((inst.mapVal fun _ => f).bijectivePortRenaming) = (m.mapKey inst.bijectivePortRenaming).mapKey f := by
+  intros; rw [mapKey_valid_domain, mapKey_compose]
+  intro i cont; apply mapKey_comm2 <;> solve_by_elim
 
 theorem eraseAll_comm_inputs {S f g i} {Hinj : Function.Injective f} {m : Module Ident S}:
   AssocList.eraseAll (f i) (m.mapPorts2 f g).inputs = AssocList.mapKey f (AssocList.eraseAll i m.inputs) := by
@@ -307,18 +375,38 @@ omit [DecidableEq Ident] in
 theorem mapPorts2_mapKey_outputs {S} {f g} {m : Module Ident S} :
   (m.mapPorts2 f g).outputs = m.outputs.mapKey g := rfl
 
-theorem rename_build_module_eq {e : ExprLow Ident} {f g} (h : Function.Bijective f) (h' : Function.Bijective g) :
+theorem rename_build_module_eq {e e' : ExprLow Ident} {f g} (h : Function.Bijective f) (h' : Function.Bijective g) :
   e.wf_mapping ε →
-  ((e.mapPorts2 f g).build_module' ε) = ((e.build_module' ε).map (·.map id (fun _ y => y.mapPorts2 f g))) := by
+  e.locally_wf →
+  e.mapPorts2 f g = .some e' →
+  (e'.build_module' ε) = ((e.build_module' ε).map (·.map id (fun _ y => y.mapPorts2 f g))) := by
   induction e with
   | base map typ =>
-    intro hwf_mapping
+    intro hwf_mapping hloc heq
     cases hfind : (AssocList.find? typ ε).isSome
     · simp [-AssocList.find?_eq] at hfind
       rw [build_module_unfold_2 hfind]
+      simp [drunfold] at heq
+      repeat rw [Option.bind_eq_some'] at heq
+      obtain ⟨_, h1, heq⟩ := heq
+      rw [Option.bind_eq_some] at h1
+      obtain ⟨_, h1', heq'⟩ := h1
+      cases heq'; simp [drunfold] at heq
+      rw [Option.bind_eq_some] at heq
+      obtain ⟨_, h1'', heq''⟩ := heq
+      cases heq''
       dsimp [drunfold]; rw [hfind]; rfl
     · rw [Option.isSome_iff_exists] at hfind; obtain ⟨m, hfind⟩ := hfind
       rw [build_base_in_env hfind]
+      simp [drunfold] at heq
+      repeat rw [Option.bind_eq_some'] at heq
+      obtain ⟨_, h1, heq⟩ := heq
+      rw [Option.bind_eq_some] at h1
+      obtain ⟨_, h1', heq'⟩ := h1
+      cases heq'; simp [drunfold] at heq
+      rw [Option.bind_eq_some] at heq
+      obtain ⟨_, h1'', heq''⟩ := heq
+      cases heq''
       dsimp [drunfold]; rw [hfind]; dsimp
       obtain ⟨mT, me⟩ := m
       obtain ⟨min, mout, mint⟩ := me; dsimp
@@ -330,7 +418,13 @@ theorem rename_build_module_eq {e : ExprLow Ident} {f g} (h : Function.Bijective
       unfold Module.mapInputPorts Module.mapOutputPorts; dsimp
       congr 1
       · rw [mapKey_comm]
+        · rw [Option.guard_eq_some'] at *
+          assumption
+        · simp [drunfold,all'] at hloc; apply hloc.left
       . rw [mapKey_comm]
+        · rw [Option.guard_eq_some'] at *
+          assumption
+        · simp [drunfold,all'] at hloc; apply hloc.right
   | connect _ e ih =>
     intro hwf_mapping
     dsimp [wf_mapping] at hwf_mapping; specialize ih hwf_mapping

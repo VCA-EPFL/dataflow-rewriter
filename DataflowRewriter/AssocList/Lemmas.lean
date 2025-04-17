@@ -412,7 +412,7 @@ theorem bijectivePortRenaming_bijective {α} [DecidableEq α] {p : AssocList α 
     · refine ⟨b, ?_, ?_⟩
       unfold bijectivePortRenaming; simp [*, -AssocList.find?_eq]
       unfold bijectivePortRenaming; simp [*, -AssocList.find?_eq]
-      intro y Hy; simp at h; simp [h, -AssocList.find?_eq] at Hy
+      intro y Hy; simp at h; simp [invertible,h, -AssocList.find?_eq] at Hy
       cases h'' : AssocList.find? y (p.filterId.append p.inverse.filterId)
       · rw [h''] at Hy; dsimp at Hy; assumption
       · rw [h''] at Hy; dsimp at Hy; subst b
@@ -421,17 +421,17 @@ theorem bijectivePortRenaming_bijective {α} [DecidableEq α] {p : AssocList α 
     · rename_i val
       refine ⟨val, ?_, ?_⟩
       · unfold bijectivePortRenaming; simp [*, -AssocList.find?_eq];
-        simp at h; simp [h, -AssocList.find?_eq]
+        simp at h; simp [invertible, h, -AssocList.find?_eq]
         rw [invertibleMap]; rfl; simp [invertible, *]; assumption
       · unfold bijectivePortRenaming; simp [*, -AssocList.find?_eq]; intros y hY
-        simp at h; simp [h, -AssocList.find?_eq] at hY
+        simp at h; simp [invertible, h, -AssocList.find?_eq] at hY
         cases h'' : AssocList.find? y (p.filterId.append p.inverse.filterId)
         · rw [h''] at hY; dsimp at hY; subst y; rw [h''] at h'; injection h'
         · rename_i val'; rw [h''] at hY; dsimp at *; subst b
           have := invertibleMap (by simp [invertible, *]) h''; rw [this] at h'; injection h'
   · refine ⟨b, ?_, ?_⟩
-    unfold bijectivePortRenaming; simp [*]; intro a b c; exfalso; apply h; simp [*]
-    unfold bijectivePortRenaming; simp [*]; split; exfalso; apply h; simp [*]
+    unfold bijectivePortRenaming; simp [invertible, *]; intro a b c; exfalso; apply h; simp [*]
+    unfold bijectivePortRenaming; simp [invertible, *]; split; exfalso; apply h; simp [*]
     simp
 
 theorem bijectivePortRenaming_id {α} [DecidableEq α] : @bijectivePortRenaming α _ ∅ = id := by rfl
