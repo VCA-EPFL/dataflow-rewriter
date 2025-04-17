@@ -286,7 +286,7 @@ def rename [FreshIdent Ident]
 
 def renamePorts (g : ExprHigh String) (p : PortMapping String) := do
   let g_lower ← g.lower
-  g_lower.renamePorts p |>.higherSS
+  g_lower.renamePorts p >>= ExprLow.higherSS
 
 end ExprHigh
 

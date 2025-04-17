@@ -1,5 +1,5 @@
 /-
-Copyright (c) 2024 VCA Lab, EPFL. All rights reserved.
+Copyright (c) 2024-2025 VCA Lab, EPFL. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
@@ -197,8 +197,8 @@ however, currently the low-level expression language does not remember any names
   let (ext_mapping, int_mapping) ← liftError <| e_sub.weak_beq def_rewrite.input_expr
 
   let comb_mapping := ext_mapping.append int_mapping
-  EStateM.guard (.error "input mapping not invertible") <| ExprLow.invertible comb_mapping.input
-  EStateM.guard (.error "output mapping not invertible") <| ExprLow.invertible comb_mapping.output
+  EStateM.guard (.error "input mapping not invertible") <| comb_mapping.input.invertible
+  EStateM.guard (.error "output mapping not invertible") <| comb_mapping.output.invertible
 
   updRewriteInfo λ rw => {rw with debug := (.some (toString comb_mapping))}
 
@@ -206,8 +206,8 @@ however, currently the low-level expression language does not remember any names
   -- replacing.  In addition to that, we also rename the internal ports of the input_expr so that they match the
   -- internal ports of the extracted subgraph.  We apply the same renaming map to the output_expr, which will mainly
   -- just rename the external ports though.
-  let e_sub_output := def_rewrite.output_expr.renamePorts comb_mapping
-  let e_sub_input := def_rewrite.input_expr.renamePorts comb_mapping
+  let e_sub_output ← ofOption (.error "renaming failed: 1") <| def_rewrite.output_expr.renamePorts comb_mapping
+  let e_sub_input ← ofOption (.error "renaming failed: 2") <| def_rewrite.input_expr.renamePorts comb_mapping
 
   -- We are now left with `e_sub_output` which contains an expression where the external ports are renamed, and the
   -- internal ports have not been renamed from the original graph.  `e_sub_input` where all signals have been renamed so
@@ -238,7 +238,7 @@ however, currently the low-level expression language does not remember any names
 
   let norm := rewritten.normalisedNamesMap fresh_prefix
   EStateM.guard (.error s!"trying to remap IO ports which is forbidden") <| rewritten.ensureIOUnmodified norm
-  let out ← rewritten.renamePorts norm |>.higherSS |> ofOption (.error "could not lift expression to graph")
+  let out ← rewritten.renamePorts norm >>= ExprLow.higherSS |> ofOption (.error "could not lift expression to graph")
 
   -- Using comb_mapping to find the portMap does not work because with rewrites where there is a single module, the name
   -- won't even appear in the rewrite.
@@ -280,7 +280,7 @@ framework should be enough.
   let (abstracted', b) := g_lower.force_abstract (canon e_sub) portMapping abstraction.typ
   EStateM.guard (.error s!"subexpression not found in the graph: {repr g_lower}\n\n{repr (canon e_sub)}") b
 
-  let e_sub' := e_sub.renamePorts portMapping.inverse
+  let e_sub' ← ofOption (.error "renaming failed: 4") <| e_sub.renamePorts portMapping.inverse
 
   let mut abstracted := abstracted'
   let mut portMap : AssocList String (Option String) := .nil
@@ -292,7 +292,7 @@ framework should be enough.
   -- let highered ← abstracted.renamePorts norm |>.higherSS |> ofOption (.error "Could not normalise names")
   if norm then
     let norm := abstracted.normalisedNamesMap fresh_prefix
-    abstracted := abstracted.renamePorts norm
+    abstracted ← ofOption (.error "renaming failed: 3") <| abstracted.renamePorts norm
     portMap ← portmappingToNameRename' sub norm
   let highered ← abstracted |>.higherSS |> ofOption (.error "Could not normalise names 1")
   -- let portMap ← portmappingToNameRename' sub norm
@@ -322,7 +322,7 @@ still fresh in the graph.
   let mut portMap : AssocList String (Option String) := .nil
   if norm then
     let norm := concr.normalisedNamesMap fresh_prefix
-    concr := concr.renamePorts norm
+    concr ← ofOption (.error "renaming failed: 5") <| concr.renamePorts norm
     portMap ← portmappingToNameRename' [concretisation.typ] norm
   let concr_g ← concr.higherSS |> ofOption (.error "Could not normalise names 2")
   -- let outputPortMap := portMap.filter (λ lhs _ => lhs = concretisation.typ)
