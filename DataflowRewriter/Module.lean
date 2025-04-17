@@ -145,7 +145,8 @@ theorem connect''_dep_rw {C : Type} {x y x' y' : Σ (T : Type), C → T → C �
     @Module.connect'' y.1 x.1 C x.2 y.2 = @Module.connect'' y'.1 x'.1 C x'.2 y'.2 := by
   intros; subst_vars; rfl
 
-@[drunfold] def product {S S'} (mod1 : Module Ident S) (mod2: Module Ident S') : Module Ident (S × S') :=
+@[drunfold]
+def product {S S'} (mod1 : Module Ident S) (mod2: Module Ident S') : Module Ident (S × S') :=
   {
     inputs := (mod1.inputs.mapVal (λ _ => liftL)).append (mod2.inputs.mapVal (λ _ => liftR)),
     outputs := (mod1.outputs.mapVal (λ _ => liftL)).append (mod2.outputs.mapVal (λ _ => liftR)),
@@ -155,7 +156,8 @@ theorem connect''_dep_rw {C : Type} {x y x' y' : Σ (T : Type), C → T → C �
 
 def NamedProduct (s : String) T₁ T₂ := T₁ × T₂
 
-@[drunfold] def named_product {S S'} (mod1 : Module Ident S) (mod2: Module Ident S') (str : String := "") : Module Ident (NamedProduct str S S') :=
+@[drunfold]
+def named_product {S S'} (mod1 : Module Ident S) (mod2: Module Ident S') (str : String := "") : Module Ident (NamedProduct str S S') :=
   {
     inputs := (mod1.inputs.mapVal (λ _ => liftL)).append (mod2.inputs.mapVal (λ _ => liftR)),
     outputs := (mod1.outputs.mapVal (λ _ => liftL)).append (mod2.outputs.mapVal (λ _ => liftR)),
@@ -163,7 +165,8 @@ def NamedProduct (s : String) T₁ T₂ := T₁ × T₂
     init_state := λ (s, s') => mod1.init_state s ∧ mod2.init_state s',
   }
 
-@[drunfold] def productD {α} {l₁ l₂ : List α} {f} (mod1 : Module Ident (HVector f l₁)) (mod2: Module Ident (HVector f l₂)) : Module Ident (HVector f (l₁ ++ l₂)) :=
+@[drunfold]
+def productD {α} {l₁ l₂ : List α} {f} (mod1 : Module Ident (HVector f l₁)) (mod2: Module Ident (HVector f l₂)) : Module Ident (HVector f (l₁ ++ l₂)) :=
   {
     inputs := (mod1.inputs.mapVal (λ _ => liftLD)).append (mod2.inputs.mapVal (λ _ => liftRD)),
     outputs := (mod1.outputs.mapVal (λ _ => liftLD)).append (mod2.outputs.mapVal (λ _ => liftRD)),
@@ -171,7 +174,8 @@ def NamedProduct (s : String) T₁ T₂ := T₁ × T₂
     init_state := sorry -- TODO
   }
 
-@[drunfold] def liftD {α} {e : α} {f} (mod : Module Ident (f e)) : Module Ident (HVector f [e]) :=
+@[drunfold]
+def liftD {α} {e : α} {f} (mod : Module Ident (f e)) : Module Ident (HVector f [e]) :=
   {
     inputs := mod.inputs.mapVal λ _ => liftSingle,
     outputs := mod.outputs.mapVal λ _ => liftSingle,
@@ -179,16 +183,20 @@ def NamedProduct (s : String) T₁ T₂ := T₁ × T₂
     init_state := sorry -- TODO
   }
 
-@[drunfold] def mapInputPorts {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
+@[drunfold]
+def mapInputPorts {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
   { mod with inputs := mod.inputs.mapKey f }
 
-@[drunfold] def mapOutputPorts {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
+@[drunfold]
+def mapOutputPorts {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
   { mod with outputs := mod.outputs.mapKey f }
 
-@[drunfold] def mapPorts {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
+@[drunfold]
+def mapPorts {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
   mod.mapInputPorts f |>.mapOutputPorts f
 
-@[drunfold] def mapPorts2 {S} (mod : Module Ident S) (f g : InternalPort Ident → InternalPort Ident) : Module Ident S :=
+@[drunfold]
+def mapPorts2 {S} (mod : Module Ident S) (f g : InternalPort Ident → InternalPort Ident) : Module Ident S :=
   mod.mapInputPorts f |>.mapOutputPorts g
 
 -- #eval (bijectivePortRenaming (Ident := Nat) [(⟨.top, 1⟩, ⟨.top, 2⟩), (⟨.top, 4⟩, ⟨.top, 3⟩)].toAssocList) ⟨.top, 3⟩
@@ -715,6 +723,13 @@ variable (smod : Module Ident S)
 def refines_initial [mm : MatchInterface imod smod] (R : I → S → Prop) :=
   ∀ i, imod.init_state i → ∃ s, smod.init_state s ∧ R i s
 
+theorem refines_initial_reflexive_ext
+  imod' (h : imod.EqExt imod') (mm := MatchInterface_EqExt h) φ (Hφ : ∀ i, φ i i):
+    refines_initial imod imod' φ := by
+  intros i Hi; exists i
+  obtain ⟨_, _, _, h⟩ := h
+  split_ands <;> simpa [←h, Hφ]
+
 def refines :=
   ∃ (mm : MatchInterface imod smod) (R : I → S → Prop),
     (imod ⊑_{fun x y => indistinguishable imod smod x y ∧ R x y} smod)
@@ -787,16 +802,15 @@ theorem refines_reflexive : imod ⊑ imod := by
 theorem refines_reflexive_ext imod' (h : imod.EqExt imod') : imod ⊑ imod' := by
   have _ := MatchInterface_EqExt h
   apply refines_φ_refines (φ := Eq) (smod := imod'); intros; subst_vars
-  all_goals sorry
-  -- all_goals solve_by_elim [indistinguishable_reflexive_ext, refines_φ_reflexive_ext]
+  all_goals solve_by_elim [indistinguishable_reflexive_ext, refines_φ_reflexive_ext, refines_initial_reflexive_ext]
 
 theorem refines_transitive {J} (imod' : Module Ident J):
     imod ⊑ imod' →
     imod' ⊑ smod →
     imod ⊑ smod := by
   intro h1 h2
-  rcases h1 with ⟨ mm1, R1, h1 ⟩
-  rcases h2 with ⟨ mm2, R2, h2 ⟩
+  rcases h1 with ⟨ mm1, R1, h11, h12 ⟩
+  rcases h2 with ⟨ mm2, R2, h21, h22 ⟩
   have mm3 := MatchInterface_transitive imod' mm1 mm2
   constructor <;> try assumption
   exists (fun a b => ∃ c, (imod.indistinguishable imod' a c ∧ R1 a c)
@@ -812,9 +826,15 @@ theorem refines_transitive {J} (imod' : Module Ident J):
     constructor; rotate_left; tauto
     apply indistinguishable_transitive imod smod imod' <;> tauto
   rw [this]
-  sorry
-  -- apply refines_φ_transitive imod smod imod'
-  -- assumption; assumption
+  split_ands
+  · apply refines_φ_transitive imod smod imod'
+    assumption; assumption
+  · intros _ Hi; dsimp;
+    obtain ⟨i', Hi', _⟩ := h12 _ Hi
+    obtain ⟨s, _, _⟩ := h22 _ Hi'
+    exists s
+    split_ands <;> try assumption
+    exists i'
 
 axiom indistinguishability_product {J K} {i i₂ s s₂} {imod₂ : Module Ident J} {smod₂ : Module Ident K}
   [MatchInterface imod smod]
