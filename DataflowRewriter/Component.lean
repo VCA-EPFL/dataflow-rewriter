@@ -165,7 +165,7 @@ def init T (default : T) (name := "init") : NatModule (Named name (List T × Boo
       else
         newList = oldList ∧ newState = true ∧ oldElement = default ⟩)
     ].toAssocList,
-    init_state := sorry,
+    init_state := λ s => s = ⟨[], false⟩,
   }
 
 @[drunfold]
