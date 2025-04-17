@@ -208,7 +208,6 @@ theorem nroute_low_refines_φ : nroute_lowM ⊑_{φ} nroute := by
     rw [PortMap.rw_rule_execution
       (h := by rw [AssocList.mapKey_map_toAssocList])
     ]
-
     sorry
   · intro ident mid_i v Hrule
     sorry

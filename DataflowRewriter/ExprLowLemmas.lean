@@ -275,17 +275,17 @@ axiom mapKey_comm {α} {m : PortMap Ident α} {inst : PortMap Ident (InternalPor
   m.mapKey (((inst.mapVal λ _ => f).mapKey f).bijectivePortRenaming)
   = (m.mapKey inst.bijectivePortRenaming).mapKey f
 
-theorem eraseAll_comm_inputs {S f g i} {m : Module Ident S}:
+theorem eraseAll_comm_inputs {S f g i} {Hinj : Function.Injective f} {m : Module Ident S}:
   AssocList.eraseAll (f i) (m.mapPorts2 f g).inputs = AssocList.mapKey f (AssocList.eraseAll i m.inputs) := by
   obtain ⟨min, mout, mint⟩ := m
   unfold Module.mapPorts2 Module.mapInputPorts Module.mapOutputPorts
-  exact AssocList.eraseAll_comm_mapKey
+  exact (AssocList.eraseAll_comm_mapKey (Hinj := Hinj))
 
-theorem eraseAll_comm_outputs {S f g i} {m : Module Ident S}:
+theorem eraseAll_comm_outputs {S f g i} {Hinj : Function.Injective g} {m : Module Ident S}:
   AssocList.eraseAll (g i) (m.mapPorts2 f g).outputs = AssocList.mapKey g (AssocList.eraseAll i m.outputs) := by
   obtain ⟨min, mout, mint⟩ := m
   unfold Module.mapPorts2 Module.mapInputPorts Module.mapOutputPorts
-  exact AssocList.eraseAll_comm_mapKey
+  exact (AssocList.eraseAll_comm_mapKey (Hinj := Hinj))
 
 theorem find?_comm_inputs {S f g i} {m : Module Ident S} (inj : Function.Injective f) :
   (AssocList.find? (f i) (m.mapPorts2 f g).inputs) = (AssocList.find? i m.inputs) := by
@@ -343,8 +343,8 @@ theorem rename_build_module_eq {e : ExprLow Ident} {f g} (h : Function.Bijective
       rw [hbuild1]; dsimp [Sigma.map];
       unfold Sigma.map at hbuild2; rename_i val; cases val; cases m; dsimp at *
       cases hbuild2; congr 3
-      · rw [eraseAll_comm_inputs]
-      · rw [eraseAll_comm_outputs]
+      · rw [eraseAll_comm_inputs (Hinj := h.injective)]
+      · rw [eraseAll_comm_outputs (Hinj := h'.injective)]
       · rw [find?_comm_outputs h'.injective, find?_comm_inputs h.injective]; rfl
   | product e₁ e₂ ih₁ ih₂ =>
     intro hwf_mapping
