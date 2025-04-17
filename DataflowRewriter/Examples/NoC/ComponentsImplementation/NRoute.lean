@@ -183,7 +183,11 @@ def φ (I : nroute_lowT) (S : nrouteT) : Prop :=
   List.map Prod.fst S = I.1.1 ++ I.2.1 ∧
   List.map Prod.snd S = I.1.2 ++ I.2.2
 
-theorem nroute_low_correctϕ : nroute_lowM ⊑_{φ} nroute := by
+theorem nroute_low_refines_initial :
+  Module.refines_initial nroute_lowM nroute φ := by
+    sorry
+
+theorem nroute_low_refines_φ : nroute_lowM ⊑_{φ} nroute := by
   intros i s H
   constructor
   · intro ident mid_i v Hrule
@@ -214,6 +218,6 @@ theorem nroute_low_ϕ_indistinguishable :
     sorry
 
 theorem nroute_low_correct : nroute_lowM ⊑ nroute := by
-  apply (Module.refines_φ_refines nroute_low_ϕ_indistinguishable nroute_low_correctϕ)
+  apply (Module.refines_φ_refines nroute_low_ϕ_indistinguishable nroute_low_refines_initial nroute_low_refines_φ)
 
 end DataflowRewriter.NoC

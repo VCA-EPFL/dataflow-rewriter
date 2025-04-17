@@ -170,7 +170,13 @@ instance : MatchInterface nbag_lowM (nbag P.Data P.netsz) where
 def φ (I : nbag_lowT) (S : List P.Data) : Prop :=
   S = I.fst ++ I.snd
 
-theorem nbag_low_correctϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
+theorem nbag_low_initial_φ :
+  Module.refines_initial nbag_lowM (nbag P.Data P.netsz) φ := by
+    intros i Hi; exists []; split_ands
+    · simpa [drunfold, Module.mapIdent]
+    · unfold φ; simpa [Hi]
+
+theorem nbag_low_refines_ϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
   intros i s H
   constructor
   · intro ident mid_i v Hrule
@@ -221,7 +227,7 @@ theorem nbag_low_correctϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
       subst a b s
       simpa [H4, H2]
 
-theorem nbag_low_ϕ_indistinguishable :
+theorem nbag_low_indistinguishable_φ :
   ∀ x y, φ x y → Module.indistinguishable nbag_lowM (nbag P.Data P.netsz) x y := by
     intros x y Hϕ
     constructor
@@ -261,6 +267,6 @@ theorem nbag_low_ϕ_indistinguishable :
         apply (PortMap.getIO_cons_nil_false _ _ ident _ _ _ Hident H)
 
 theorem nbag_low_correct : nbag_lowM ⊑ (nbag P.Data P.netsz) := by
-  apply (Module.refines_φ_refines nbag_low_ϕ_indistinguishable nbag_low_correctϕ)
+  apply (Module.refines_φ_refines nbag_low_indistinguishable_φ nbag_low_initial_φ nbag_low_refines_ϕ)
 
 end DataflowRewriter.NoC
