@@ -43,6 +43,7 @@ structure Module (Ident S : Type _) where
   inputs : PortMap Ident (Σ T : Type, (S → T → S → Prop))
   outputs : PortMap Ident (Σ T : Type, (S → T → S → Prop))
   internals : List (S → S → Prop) := []
+  initial_state : S → Prop
 deriving Inhabited
 
 -- mklenses Module
@@ -53,7 +54,13 @@ namespace Module
 /--
 The empty module, which should also be the `default` module.
 -/
-@[drunfold] def empty {Ident : Type _} S : Module Ident S := {inputs := ∅, outputs := ∅, internals:= ∅}
+@[drunfold] def empty {Ident : Type _} S : Module Ident S :=
+  {
+    inputs := ∅,
+    outputs := ∅,
+    internals:= ∅,
+    initial_state := λ _ => True,
+  }
 
 theorem empty_is_default {Ident S} : @empty Ident S = default := Eq.refl _
 
@@ -124,39 +131,49 @@ def connect'' {Ti To S} (ruleO : S → To → S → Prop) (ruleI : S → Ti → 
 precondition that the input and output type must match.
 -/
 @[drunfold] def connect' {S : Type _} (mod : Module Ident S) (o i : InternalPort Ident) : Module Ident S :=
-  { inputs := mod.inputs.eraseAll i ,
+  {
+    inputs := mod.inputs.eraseAll i ,
     outputs :=  mod.outputs.eraseAll o,
-    internals := connect'' (mod.outputs.getIO o).2 (mod.inputs.getIO i).2 -- (existSR mod.internals)
-    :: mod.internals }
+    internals := connect'' (mod.outputs.getIO o).2 (mod.inputs.getIO i).2 :: mod.internals,
+    initial_state := mod.initial_state,
+  }
 
 theorem connect''_dep_rw {C : Type} {x y x' y' : Σ (T : Type), C → T → C → Prop} (h : x' = x := by simp; rfl) (h' : y' = y := by simp; rfl) :
     @Module.connect'' y.1 x.1 C x.2 y.2 = @Module.connect'' y'.1 x'.1 C x'.2 y'.2 := by
   intros; subst_vars; rfl
 
 @[drunfold] def product {S S'} (mod1 : Module Ident S) (mod2: Module Ident S') : Module Ident (S × S') :=
-  { inputs := (mod1.inputs.mapVal (λ _ => liftL)).append (mod2.inputs.mapVal (λ _ => liftR)),
+  {
+    inputs := (mod1.inputs.mapVal (λ _ => liftL)).append (mod2.inputs.mapVal (λ _ => liftR)),
     outputs := (mod1.outputs.mapVal (λ _ => liftL)).append (mod2.outputs.mapVal (λ _ => liftR)),
-    internals := mod1.internals.map liftL' ++ mod2.internals.map liftR'
+    internals := mod1.internals.map liftL' ++ mod2.internals.map liftR',
+    initial_state := λ (s, s') => mod1.initial_state s ∧ mod2.initial_state s',
   }
 
 def NamedProduct (s : String) T₁ T₂ := T₁ × T₂
 
 @[drunfold] def named_product {S S'} (mod1 : Module Ident S) (mod2: Module Ident S') (str : String := "") : Module Ident (NamedProduct str S S') :=
-  { inputs := (mod1.inputs.mapVal (λ _ => liftL)).append (mod2.inputs.mapVal (λ _ => liftR)),
+  {
+    inputs := (mod1.inputs.mapVal (λ _ => liftL)).append (mod2.inputs.mapVal (λ _ => liftR)),
     outputs := (mod1.outputs.mapVal (λ _ => liftL)).append (mod2.outputs.mapVal (λ _ => liftR)),
-    internals := mod1.internals.map liftL' ++ mod2.internals.map liftR'
+    internals := mod1.internals.map liftL' ++ mod2.internals.map liftR',
+    initial_state := λ (s, s') => mod1.initial_state s ∧ mod2.initial_state s',
   }
 
 @[drunfold] def productD {α} {l₁ l₂ : List α} {f} (mod1 : Module Ident (HVector f l₁)) (mod2: Module Ident (HVector f l₂)) : Module Ident (HVector f (l₁ ++ l₂)) :=
-  { inputs := (mod1.inputs.mapVal (λ _ => liftLD)).append (mod2.inputs.mapVal (λ _ => liftRD)),
+  {
+    inputs := (mod1.inputs.mapVal (λ _ => liftLD)).append (mod2.inputs.mapVal (λ _ => liftRD)),
     outputs := (mod1.outputs.mapVal (λ _ => liftLD)).append (mod2.outputs.mapVal (λ _ => liftRD)),
     internals := mod1.internals.map liftLD' ++ mod2.internals.map liftRD'
+    initial_state := sorry -- TODO
   }
 
 @[drunfold] def liftD {α} {e : α} {f} (mod : Module Ident (f e)) : Module Ident (HVector f [e]) :=
-  { inputs := mod.inputs.mapVal λ _ => liftSingle,
+  {
+    inputs := mod.inputs.mapVal λ _ => liftSingle,
     outputs := mod.outputs.mapVal λ _ => liftSingle,
     internals := mod.internals.map liftSingle'
+    initial_state := sorry -- TODO
   }
 
 @[drunfold] def mapInputPorts {S} (mod : Module Ident S) (f : InternalPort Ident → InternalPort Ident) : Module Ident S :=
@@ -199,7 +216,6 @@ theorem comm_conn_product_EqExt {I S} {m₁ : Module Ident I} {m₂ : Module Ide
     . sorry
   · sorry
   · sorry
-
 
 axiom comm_conn_conn_EqExt {I} {m : Module Ident I} {o i o' i'}:
   o ≠ o' → i ≠ i' →
@@ -262,6 +278,7 @@ def mapIdent {Ident Ident' T} (inpR outR: Ident → Ident') (m : Module Ident T)
     inputs := m.inputs.mapKey (InternalPort.map inpR),
     outputs := m.outputs.mapKey (InternalPort.map outR),
     internals := m.internals
+    initial_state := m.initial_state
   }
 
 end
@@ -327,11 +344,11 @@ theorem MatchInterface_EqExt {S} {imod imod' : Module Ident S} :
     unfold Module.EqExt at Heq
     cases Heq; rename_i Hinp Hr
     cases Hr; rename_i Hout Hint
-    constructor
-    · intros ident; rw [Hinp]
-    · intros ident; rw [Hout]
-    · intros ident; unfold PortMap.getIO; rw [Hinp]
-    · intros ident; unfold PortMap.getIO; rw [Hout]
+    constructor <;> intros
+    · rw [Hinp]
+    · rw [Hout]
+    · unfold PortMap.getIO; rw [Hinp]
+    · unfold PortMap.getIO; rw [Hout]
 
 theorem MatchInterface_transitive {I J S} {imod : Module Ident I} {smod : Module Ident S} (jmod : Module Ident J) :
   MatchInterface imod jmod →
