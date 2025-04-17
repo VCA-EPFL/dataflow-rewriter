@@ -38,9 +38,12 @@ instance : MatchInterface (queue T₁) (bag T₁) where
     intros ident;
     unfold queue bag
     by_cases ({ inst := InstIdent.top, name := 0 }: InternalPort Nat) = ident
-    <;> simpa [*]
+    <;> simpa [*, drunfold, drnat]
 
 def φ (I S : List T₁) : Prop := I = S
+
+theorem φ_initial : Module.refines_initial (queue T₁) (bag T₁) φ := by
+  intros i _; exists i
 
 theorem queue_refine_ϕ_bag: queue T₁ ⊑_{φ} bag T₁ := by
   prove_refines_φ (queue T₁)
@@ -80,6 +83,6 @@ theorem ϕ_indistinguishable:
         · exact H
 
 theorem queue_refine_bag: queue T₁ ⊑ bag T₁ := by
-  apply (Module.refines_φ_refines ϕ_indistinguishable queue_refine_ϕ_bag)
+  apply (Module.refines_φ_refines ϕ_indistinguishable φ_initial queue_refine_ϕ_bag)
 
 end DataflowRewriter.BagQueue
