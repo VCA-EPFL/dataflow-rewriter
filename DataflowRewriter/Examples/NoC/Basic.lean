@@ -4,10 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz, Gurvan Debaussart
 -/
 
--- Implementation of NoC types and reference implementation using Bags
--- Inputs are defined as a product between an arbitrary type T and a FlitHeader
--- type, which gives information about the desired target of each message.
-
 namespace DataflowRewriter.NoC
 
 -- TODO: Maybe a comment here to explain Yann's hack would be great since this

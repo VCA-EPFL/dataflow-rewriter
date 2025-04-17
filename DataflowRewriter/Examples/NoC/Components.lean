@@ -51,6 +51,7 @@ def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List P.Data 
             { dest := routerID } :: newRouterIDs = oldRouterIDs
         ⟩)
       |>.toAssocList,
+    init_state := λ s => s = ⟨[], []⟩,
   }
 
 def nrouteT := List (P.Data × FlitHeader)
@@ -66,12 +67,11 @@ def mk_nroute_output_rule (rID : RouterID) : (Σ T : Type, nrouteT → T → nro
 def nroute' (name := "nroute") : NatModule (NatModule.Named name nrouteT) :=
   {
     inputs := [
-      (0, ⟨
-        P.Data × FlitHeader,
-        λ oldState v newState => newState = oldState.concat v
-      ⟩),
+      (0, ⟨P.Data × FlitHeader,
+        λ oldState v newState => newState = oldState.concat v⟩),
     ].toAssocList,
     outputs := List.range P.netsz |>.map (lift_f mk_nroute_output_rule) |>.toAssocList
+    init_state := λ s => s = [],
   }
 
 def mk_nbag_input_rule (S : Type) (_ : Nat) : (Σ T : Type, List S → T → List S → Prop) :=
@@ -82,7 +82,11 @@ def mk_nbag_input_rule (S : Type) (_ : Nat) : (Σ T : Type, List S → T → Lis
 def nbag' (T : Type) (n : Nat) (name := "nbag") : NatModule (NatModule.Named name (List T)) :=
   {
     inputs := List.range n |>.map (lift_f (mk_nbag_input_rule T)) |>.toAssocList,
-    outputs := [(↑0, ⟨ T, λ oldState v newState => ∃ i, newState = oldState.remove i ∧ v = oldState.get i ⟩)].toAssocList,
+    outputs := [
+      (↑0, ⟨ T, λ oldState v newState =>
+        ∃ i, newState = oldState.remove i ∧ v = oldState.get i ⟩)
+    ].toAssocList,
+    init_state := λ s => s = [],
   }
 
 def nocT : Type :=
@@ -108,6 +112,7 @@ def noc' (name := "noc") : NatModule (NatModule.Named name nocT) :=
   {
     inputs := List.range P.netsz |>.map (lift_f mk_noc_input_rule) |>.toAssocList,
     outputs := List.range P.netsz |>.map (lift_f mk_noc_output_rule) |>.toAssocList,
+    init_state := λ s => s = [],
   }
 
 -- Stringify -------------------------------------------------------------------
