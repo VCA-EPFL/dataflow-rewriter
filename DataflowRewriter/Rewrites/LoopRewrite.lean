@@ -251,7 +251,7 @@ Essentially tagger + join without internal rule
         ∃ tag r, oldorder = tag :: neworder ∧ oldmap.find? tag.fst = some (el, r) ∧
         newmap = oldmap.eraseAll tag.fst ∧ newVal = oldVal ⟩),
     ].toAssocList,
-    initial_state := λ s => s = ⟨[], Batteries.AssocList.nil, []⟩,
+    init_state := λ s => s = ⟨[], Batteries.AssocList.nil, []⟩,
   }
 
 @[drunfold] def StringModule.tagger_untagger_val_ghost TagT [DecidableEq TagT] T :=

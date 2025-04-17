@@ -19,7 +19,7 @@ namespace DataflowRewriter.NatModule
   {
     inputs := [(0, ⟨ T, λ s tt s' => s' = s.concat tt ⟩)].toAssocList,
     outputs := [(0, ⟨ T, λ s tt s' => s = tt :: s' ⟩)].toAssocList,
-    initial_state := λ s => s = [],
+    init_state := λ s => s = [],
   }
 
 @[drunfold] def merge_inputs {S} (mod : NatModule S) (in1 in2 : InternalPort Nat) : Option (NatModule S)  := do
@@ -31,7 +31,7 @@ namespace DataflowRewriter.NatModule
       ∃ s_int, in1_t.2 s v1 s_int ∧ in2_t.2 s_int v2 s'⟩,
     outputs := mod.outputs,
     internals := mod.internals,
-    initial_state := mod.initial_state,
+    init_state := mod.init_state,
   }
 
 @[drunfold] def merge_outputs {S} (mod : NatModule S) (out1 out2 : InternalPort Nat) : Option (NatModule S)  := do
@@ -43,7 +43,7 @@ namespace DataflowRewriter.NatModule
     outputs := rmout2.cons out2 ⟨ out1_t.1 × out2_t.1, λ s (v1,v2) s' =>
       ∃ s_int, out1_t.2 s v1 s_int ∧ out2_t.2 s_int v2 s' ⟩,
     internals := mod.internals,
-    initial_state := mod.initial_state,
+    init_state := mod.init_state,
   }
 
 abbrev Named (s : String) (T : Type _) := T
@@ -57,7 +57,7 @@ abbrev Named (s : String) (T : Type _) := T
       (0, ⟨ T, λ oldList oldElement newList =>
         ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)
     ].toAssocList,
-    initial_state := λ s => s = [],
+    init_state := λ s => s = [],
   }
 
 -- Strictest definition of a merge, where input are totally ordered
@@ -70,7 +70,7 @@ def merge' T (n : Nat) (name : String := "merge'") : NatModule (Named name (List
     outputs := [
       (0, ⟨ T, λ oldList oldElement newList => oldList = oldElement :: newList⟩)
     ].toAssocList,
-    initial_state := λ s => s = [],
+    init_state := λ s => s = [],
   }
 
 @[drunfold] def cntrl_merge T (name : String := "cntrl_merge") : NatModule (Named name (List T × List Bool)) :=
@@ -85,7 +85,7 @@ def merge' T (n : Nat) (name : String := "merge'") : NatModule (Named name (List
                , (1, ⟨ Bool, λ (oldListL, oldListR) oldElement (newListL, newListR) =>
                     oldElement :: newListR = oldListR ∧ newListL = oldListL ⟩)
                ].toAssocList,
-    initial_state := λ s => s = ⟨[], []⟩,
+    init_state := λ s => s = ⟨[], []⟩,
   }
 
 @[drunfold] def cntrl_merge_n T (n : Nat) (name : String := "cntrl_merge_n") : NatModule (Named name (List T × List Nat)) :=
@@ -97,7 +97,7 @@ def merge' T (n : Nat) (name : String := "merge'") : NatModule (Named name (List
                , (1, ⟨ Nat, λ (oldListL, oldListR) oldElement (newListL, newListR) =>
                        oldElement :: newListR = oldListR ∧ newListL = oldListL ⟩)
                ].toAssocList,
-    initial_state := λ s => s = ⟨[], []⟩,
+    init_state := λ s => s = ⟨[], []⟩,
   }
 
 -- @[drunfold] def fork T (n : Nat) : NatModule (Named name (List T)) :=
@@ -117,7 +117,7 @@ def merge' T (n : Nat) (name : String := "merge'") : NatModule (Named name (List
       (1, ⟨ T, λ (oldListL, oldListR) oldElement (newListL, newListR) =>
         oldElement :: newListR = oldListR ∧ newListL = oldListL ⟩),
     ] |>.toAssocList
-    initial_state := λ s => s = ⟨[], []⟩,
+    init_state := λ s => s = ⟨[], []⟩,
   }
 
 def push_n {T} (n : Nat) (l : List (List T)) (t : T) : Option (List (List T)) :=
@@ -133,7 +133,7 @@ def cons_n {T} (n : Nat) (l : List (List T)) (t : T) : Option (List (List T)) :=
         λ ind => (↑ind, ⟨ T, λ ol el nl =>
           .some ol = cons_n ind nl el
       ⟩)) |>.toAssocList,
-    initial_state := λ s => s = [],
+    init_state := λ s => s = [],
   }
 
 @[drunfold] def queue T (name := "queue") : NatModule (Named name (List T)) :=
@@ -144,7 +144,7 @@ def cons_n {T} (n : Nat) (l : List (List T)) (t : T) : Option (List (List T)) :=
     outputs := [
       (0, ⟨ T, λ oldList oldElement newList =>  oldElement :: newList = oldList ⟩)
     ].toAssocList
-    initial_state := λ s => s = [],
+    init_state := λ s => s = [],
   }
 
 @[drunfold] def init T (default : T) (name := "init") : NatModule (Named name (List T × Bool)) :=
@@ -159,7 +159,7 @@ def cons_n {T} (n : Nat) (l : List (List T)) (t : T) : Option (List (List T)) :=
       else
         newList = oldList ∧ newState = true ∧ oldElement = default ⟩)
     ].toAssocList,
-    initial_state := sorry,
+    init_state := sorry,
   }
 
 @[drunfold] def join T T' (name := "join") : NatModule (Named name (List T × List T')) :=
@@ -171,7 +171,7 @@ def cons_n {T} (n : Nat) (l : List (List T)) (t : T) : Option (List (List T)) :=
     outputs := [
       (0, ⟨ T × T', λ ol el nl => ol.1 = el.1 :: nl.1 ∧ ol.2 = el.2 :: nl.2 ⟩),
     ].toAssocList
-    initial_state := sorry,
+    init_state := sorry,
   }
 
 @[drunfold] def split T T' (name := "split") : NatModule (Named name (List T × List T')) :=
@@ -186,7 +186,7 @@ def cons_n {T} (n : Nat) (l : List (List T)) (t : T) : Option (List (List T)) :=
       (1, ⟨ T', λ (oldListL, oldListR) oldElementR (newListL, newListR) =>
          oldListR = oldElementR :: newListR ∧ oldListL = newListL ⟩)
     ].toAssocList,
-    initial_state := λ s => s = ⟨[], []⟩,
+    init_state := λ s => s = ⟨[], []⟩,
   }
 
 @[drunfold] def branch T (name := "branch") : NatModule (Named name (List T × List Bool)) :=
@@ -203,7 +203,7 @@ def cons_n {T} (n : Nat) (l : List (List T)) (t : T) : Option (List (List T)) :=
       (1, ⟨ T, λ (oldValList, oldBoolList) val (newValList, newBoolList) =>
         val :: newValList = oldValList ∧ false :: newBoolList = oldBoolList ⟩)
     ].toAssocList,
-    initial_state := λ s => s = ⟨[], []⟩,
+    init_state := λ s => s = ⟨[], []⟩,
   }
 
 @[drunfold] def mux T (name := "mux") : NatModule (Named name (List T × List T × List Bool)) :=
@@ -222,7 +222,7 @@ def cons_n {T} (n : Nat) (l : List (List T)) (t : T) : Option (List (List T)) :=
         ∧ if b then val :: newTrueList = oldTrueList ∧ newFalseList = oldFalseList
          else newTrueList = oldTrueList ∧ val :: newFalseList = oldFalseList ⟩)
     ].toAssocList,
-    initial_state := λ s => s = ⟨[], [], []⟩,
+    init_state := λ s => s = ⟨[], [], []⟩,
   }
 
 @[drunfold] def muxC T (name := "muxC") : NatModule (Named name (List T × List T × List Bool)) :=
@@ -241,7 +241,7 @@ def cons_n {T} (n : Nat) (l : List (List T)) (t : T) : Option (List (List T)) :=
         ∧ if b then val :: newTrueList = oldTrueList ∧ newFalseList = oldFalseList
         else newTrueList = oldTrueList ∧ val :: newFalseList = oldFalseList ⟩)
     ].toAssocList,
-    initial_state := λ s => s = ⟨[], [], []⟩,
+    init_state := λ s => s = ⟨[], [], []⟩,
   }
 
 @[drunfold] def joinC T T' T'' (name := "joinC") : NatModule (Named name (List T × List (T'× T''))) :=
@@ -256,14 +256,14 @@ def cons_n {T} (n : Nat) (l : List (List T)) (t : T) : Option (List (List T)) :=
       (0, ⟨ T × T', λ (oldListL, oldListR) (oldElementL, oldElementR) (newListL, newListR) =>
          ∃ x, oldListL =  oldElementL :: newListL ∧ oldListR = (oldElementR, x) :: newListR ⟩)
     ].toAssocList,
-    initial_state := λ s => s = ⟨[], []⟩,
+    init_state := λ s => s = ⟨[], []⟩,
   }
 
 @[drunfold] def empty (name := "empty") : NatModule (Named name Unit) :=
   {
     inputs := AssocList.nil,
     outputs := AssocList.nil,
-    initial_state := λ _ => True,
+    init_state := λ _ => True,
   }
 
 @[drunfold] def bag T (name := "bag") : NatModule (Named name (List T)) :=
@@ -274,7 +274,7 @@ def cons_n {T} (n : Nat) (l : List (List T)) (t : T) : Option (List (List T)) :=
     outputs := [
       (0, ⟨ T, λ oldList oldElement newList => ∃ i, newList = oldList.remove i ∧ oldElement = oldList.get i ⟩)
     ].toAssocList,
-    initial_state := λ s => s = [],
+    init_state := λ s => s = [],
   }
 
 @[drunfold] def tagger_untagger (TagT : Type 0) [_i: DecidableEq TagT] (T : Type 0) (name := "tagger_untagger") : NatModule (Named name (List TagT × (AssocList TagT T))) :=
@@ -299,7 +299,7 @@ def cons_n {T} (n : Nat) (l : List (List T)) (t : T) : Option (List (List T)) :=
         ∃ l tag , oldorder = l.cons tag ∧ oldmap.find? tag = some el ∧
         newmap = oldmap.eraseAll tag ∧ neworder = l ⟩),
     ].toAssocList,
-    initial_state := λ s => s = ⟨[], AssocList.nil⟩,
+    init_state := λ s => s = ⟨[], AssocList.nil⟩,
   }
 
 /--
@@ -334,7 +334,7 @@ Essentially tagger + join without internal rule
         ∃ tag , oldorder = tag :: neworder ∧ oldmap.find? tag = some el ∧
         newmap = oldmap.eraseAll tag ∧ newVal = oldVal ⟩),
     ].toAssocList,
-    initial_state := λ s => s = ⟨[], AssocList.nil, []⟩,
+    init_state := λ s => s = ⟨[], AssocList.nil, []⟩,
   }
 
 @[drunfold] def tagger (TagT : Type) [DecidableEq TagT] T (name := "tagger") : NatModule (Named name (List (TagT × T) × List TagT)) :=
@@ -351,7 +351,7 @@ Essentially tagger + join without internal rule
       (0, ⟨ TagT × T, λ (oldEl, oldOrder) el (newEl, newOrder) =>
         el :: newEl = oldEl ∧ newOrder = oldOrder⟩)
     ].toAssocList,
-    initial_state := λ s => s = ⟨[], []⟩,
+    init_state := λ s => s = ⟨[], []⟩,
   }
 
 @[drunfold] def aligner TagT [DecidableEq TagT] T (name := "aligner") : NatModule (Named name (List (TagT × T) × List (TagT × T))) :=
@@ -369,14 +369,14 @@ Essentially tagger + join without internal rule
            ∧ newListR = oldListR.eraseP (·.fst = t)
            ∧ oldElement = ((t, v), (t, v')) ⟩)
     ].toAssocList,
-    initial_state := λ s => s = ⟨[], []⟩,
+    init_state := λ s => s = ⟨[], []⟩,
   }
 
 @[drunfold] def sink (T : Type _) (name := "sink") : NatModule (Named name Unit) :=
   {
     inputs := [(0, ⟨ T, λ _ _ _ => True ⟩)].toAssocList,
     outputs := ∅
-    initial_state := λ _ => True,
+    init_state := λ _ => True,
   }
 
 @[drunfold] def unary_op {α R} (f : α → R) (name := "unary_op"): NatModule (Named name (List α)) :=
@@ -387,7 +387,7 @@ Essentially tagger + join without internal rule
     outputs := [
       (0, ⟨ R, λ oldList oldElement newList => ∃ a, a :: newList = oldList ∧ oldElement = f a ⟩)
     ].toAssocList,
-    initial_state := λ s => s = [],
+    init_state := λ s => s = [],
   }
 
 @[drunfold] def binary_op {α β R} (f : α → β → R) (name := "binary_op"): NatModule (Named name (List α × List β)) :=
@@ -400,7 +400,7 @@ Essentially tagger + join without internal rule
       (0, ⟨ R, λ ol el nl =>
         ∃ a b, ol.1 = a :: nl.1 ∧ ol.2 = b :: nl.2 ∧ el = f a b ⟩)
     ].toAssocList,
-    initial_state := λ s => s = ⟨[], []⟩,
+    init_state := λ s => s = ⟨[], []⟩,
   }
 
 @[drunfold] def ternary_op {α β γ R} (f : α → β → γ → R) (name := "ternary_op"): NatModule (Named name (List α × List β × List γ)) :=
@@ -414,7 +414,7 @@ Essentially tagger + join without internal rule
       (0, ⟨ R, λ ol el nl =>
         ∃ a b g, ol.1 = a :: nl.1 ∧ ol.2.1 = b :: nl.2.1 ∧ ol.2.2 = g :: nl.2.2 ∧ el = f a b g ⟩)
     ].toAssocList,
-    initial_state := λ s => s = ⟨[], [], []⟩
+    init_state := λ s => s = ⟨[], [], []⟩
   }
 
 @[drunfold] def constant {T} (t : T) (name := "constant") : NatModule (Named name (List Unit)) :=
@@ -425,7 +425,7 @@ Essentially tagger + join without internal rule
     outputs := [
       (0, ⟨ T, λ oldList oldElement newList => ∃ a, a :: newList = oldList ∧ oldElement = t ⟩)
     ].toAssocList,
-    initial_state := λ s => s = [],
+    init_state := λ s => s = [],
   }
 
 @[drunfold] def sync {T S} (name := "sync") : NatModule (Named name (List S × List T)) :=
@@ -437,7 +437,7 @@ Essentially tagger + join without internal rule
     outputs := [
       (0, ⟨ T, λ (lo, ro) t (ln, rn) => ∃ s, lo = s :: ln ∧ ro = t :: rn ⟩)
     ].toAssocList,
-    initial_state := λ s => s = ⟨[], []⟩,
+    init_state := λ s => s = ⟨[], []⟩,
   }
 
 @[drunfold] def sync1 {T S} (name := "sync1") : NatModule (Named name (Option S × List T)) :=
@@ -449,7 +449,7 @@ Essentially tagger + join without internal rule
     outputs := [
       (0, ⟨ T, λ (lo, ro) t (ln, rn) => ∃ s, lo = some s ∧ ln = none ∧ ro = t :: rn ⟩)
     ].toAssocList,
-    initial_state := λ s => s = ⟨none, []⟩,
+    init_state := λ s => s = ⟨none, []⟩,
   }
 
 @[drunfold] def dsync {T S} (f : T → S) (name := "dsync") : NatModule (Named name (List S × List T)) :=
@@ -461,7 +461,7 @@ Essentially tagger + join without internal rule
       (0, ⟨ S, λ (lo, ro) s (ln, rn) => lo = s :: ln ⟩),
       (1, ⟨ T, λ (lo, ro) t (ln, rn) => ro = t :: rn ⟩)
     ].toAssocList,
-    initial_state := λ s => s = ⟨[], []⟩,
+    init_state := λ s => s = ⟨[], []⟩,
   }
 
 @[drunfold] def dsyncU {T} (name := "dsyncU") : NatModule (Named name (List Unit × List T)) :=
@@ -476,7 +476,7 @@ Essentially tagger + join without internal rule
       (0, ⟨ S, λ (lo, ro) s (ln, rn) => lo = some s ∧ ln = none ⟩),
       (1, ⟨ T, λ (lo, ro) t (ln, rn) => ro = t :: rn ⟩)
     ].toAssocList,
-    initial_state := λ s => s = ⟨none, []⟩,
+    init_state := λ s => s = ⟨none, []⟩,
   }
 
 @[drunfold] def dsync1U {T} (name := "dsync1U") : NatModule (Named name (Option Unit × List T)) :=
@@ -492,7 +492,7 @@ Essentially tagger + join without internal rule
       (0, ⟨S, λ before el after => el :: after.1 = before.1 ∧ after.2 = before.2⟩),
       (1, ⟨T, λ before el after => el :: after.2 = before.2 ∧ after.1 = before.1⟩),
     ].toAssocList,
-    initial_state := λ s => s = ⟨[], []⟩,
+    init_state := λ s => s = ⟨[], []⟩,
   }
 
 @[drunfold] def pure {S T} (f : S → T) (name := "pure") : NatModule (Named name (List T)) :=
@@ -503,7 +503,7 @@ Essentially tagger + join without internal rule
     outputs := [
       (0, ⟨T, λ before el after => el :: after = before⟩)
     ].toAssocList,
-    initial_state := λ s => s = [],
+    init_state := λ s => s = [],
   }
 
 section
@@ -564,7 +564,7 @@ def BoundedList T n := { ls : List T // ls.length <= n }
         oldListL.val = newListL.val.concat oldElementL
         ∧ oldListR.val = newListR.val.concat oldElementR ⟩)
     ].toAssocList,
-    initial_state := sorry,
+    init_state := sorry,
   }
 
 @[drunfold] def joinL T T' T'' n : NatModule (BoundedList (T × T') n × BoundedList T'' n) :=
@@ -580,7 +580,7 @@ def BoundedList T n := { ls : List T // ls.length <= n }
         oldListL.val = newListL.val.concat (oldElementL₁, oldElementL₂)
         ∧ oldListR.val = newListR.val.concat oldElementR⟩)
     ].toAssocList,
-    initial_state := sorry,
+    init_state := sorry,
   }
 
 end FixedSize
