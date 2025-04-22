@@ -111,7 +111,7 @@ def nbag_lowT : Type := by
   precomputeTac [T| nbag_low, ε_nbag] by
     simp [drunfold, seval, drdecide, -AssocList.find?_eq]
     rw [ε_nbag_merge', ε_nbag_bag]
-    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
+    simp [drunfold, seval, drcompute, drdecide]
 
 def nbag_lowM : StringModule nbag_lowT := by
   precomputeTac [e| nbag_low, ε_nbag] by
@@ -126,14 +126,24 @@ def nbag_lowM : StringModule nbag_lowT := by
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
     unfold Module.connect''
     dsimp
-    simp only [AssocList.mapKey_mapKey, AssocList.mapVal_mapKey]
-    simp only [AssocList.mapVal_map_toAssocList]
-    simp only [AssocList.mapKey_map_toAssocList]
-    simp only [AssocList.bijectivePortRenaming_same]
-    simp only [InternalPort.map]
-    simp [AssocList.eraseAll_map_neq]
-    simp only [AssocList.eraseAll, AssocList.eraseAllP]
-    simp only [Module.liftR]
+    simp [
+      Module.connect'',
+      Module.liftR,
+      Module.liftL,
+      AssocList.mapVal_map_toAssocList,
+      AssocList.mapKey_map_toAssocList,
+      AssocList.mapKey_mapKey,
+      AssocList.mapVal_mapKey,
+      AssocList.eraseAll_append,
+      AssocList.eraseAll_map_neq,
+      AssocList.eraseAll_nil,
+      AssocList.append_nil,
+      AssocList.bijectivePortRenaming_same,
+      InternalPort.map,
+      stringify_output_neq,
+      stringify_input_neq,
+      internalport_neq,
+    ]
 
 -- Correctness -----------------------------------------------------------------
 -- TODO: We are currently only trying to prove a refinement in one way, but it

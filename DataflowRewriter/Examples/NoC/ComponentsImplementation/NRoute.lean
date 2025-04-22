@@ -115,7 +115,7 @@ def nroute_low : ExprLow String :=
         name := NatModule.stringify_input i
       },
     }
-  ExprLow.product split nbranch
+  ExprLow.product nbranch split
   |> ExprLow.connect (connection 0)
   |> ExprLow.connect (connection 1)
 
@@ -123,7 +123,7 @@ def nroute_lowT : Type := by
   precomputeTac [T| nroute_low, ε_nroute] by
     simp [drunfold, seval, drdecide, -AssocList.find?_eq]
     rw [ε_nroute_split, ε_nroute_nbranch]
-    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,-AssocList.mapKey_mapKey]
+    simp [drunfold, seval, drcompute, drdecide]
 
 def nroute_lowM : StringModule nroute_lowT := by
   precomputeTac [e| nroute_low, ε_nroute] by
@@ -138,25 +138,31 @@ def nroute_lowM : StringModule nroute_lowT := by
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
     unfold Module.connect''
     dsimp
-    simp only [AssocList.mapKey_mapKey, AssocList.mapVal_mapKey]
-    simp only [AssocList.mapVal_map_toAssocList]
-    simp only [AssocList.mapKey_map_toAssocList]
-    simp only [AssocList.bijectivePortRenaming_same]
-    simp only [Module.liftR]
-    simp only [InternalPort.map]
-    simp [stringify_output_neq, stringify_input_neq, internalport_neq]
-    simp [AssocList.eraseAll_map_neq]
-    simp only [AssocList.eraseAll, AssocList.eraseAllP]
+    simp [
+      Module.liftR,
+      Module.liftL,
+      AssocList.mapVal_map_toAssocList,
+      AssocList.mapKey_map_toAssocList,
+      AssocList.mapKey_mapKey,
+      AssocList.mapVal_mapKey,
+      AssocList.eraseAll_append,
+      AssocList.eraseAll_map_neq,
+      AssocList.eraseAll_nil,
+      AssocList.append_nil,
+      AssocList.bijectivePortRenaming_same,
+      InternalPort.map,
+      stringify_output_neq,
+      stringify_input_neq,
+      internalport_neq,
+    ]
     -- FIXME: Cannot simplify under the internals for some reason?
 
 -- Correctness -----------------------------------------------------------------
--- TODO
 
 instance : MatchInterface nroute_lowM nroute where
   input_types := by
     intros ident
     unfold nroute_lowM nroute nroute'
-    dsimp
     by_cases H: ({ inst := InstIdent.top, name := NatModule.stringify_input 0 }: InternalPort String) = ident
     <;> simp [*, drunfold, drnat, PortMap.getIO_cons, NatModule.stringify_input, InternalPort.map] at *
     <;> simpa [*]
@@ -170,8 +176,9 @@ instance : MatchInterface nroute_lowM nroute where
   inputs_present := by
     intros ident
     unfold nroute_lowM nroute nroute'
-    dsimp [NatModule.stringify, Module.mapIdent]
-    sorry
+    by_cases H: ({ inst := InstIdent.top, name := NatModule.stringify_input 0 }: InternalPort String) = ident
+    <;> simp [*, drunfold, drnat, PortMap.getIO_cons, NatModule.stringify_input, InternalPort.map] at *
+    <;> simpa [*]
   outputs_present := by
     intros ident
     unfold nroute_lowM nroute nroute'
@@ -180,37 +187,88 @@ instance : MatchInterface nroute_lowM nroute where
     constructor <;> intros H <;> obtain ⟨x, Hx1, Hx2⟩ := H <;> simp at * <;> exists x
 
 def φ (I : nroute_lowT) (S : nrouteT) : Prop :=
-  List.map Prod.fst S = I.1.1 ++ I.2.1 ∧
-  List.map Prod.snd S = I.1.2 ++ I.2.2
+  I.2.1.length = I.2.2.length ∧
+  I.1.1.length = I.1.2.length ∧
+  S = (List.zip I.1.1 I.1.2) ++ (List.zip I.2.1 I.2.2)
+
+theorem zip_concat {α β} {l1 : List α} {l2 : List β} {v}
+  (Hlen : List.length l1 = List.length l2) :
+  (l1.zip l2) ++ [v] = (l1 ++ [v.1]).zip (l2 ++ [v.2]) := by
+  revert Hlen
+  induction l1 generalizing l2 <;> induction l2 <;> intros Hlen
+  · simpa [List.zip]
+  · contradiction
+  · contradiction
+  · rename_i _ _ HR1 _ _ _
+    repeat rw [List.length_cons] at Hlen
+    rw [add_left_inj] at Hlen
+    specialize (HR1 Hlen)
+    simpa [List.zip]
 
 theorem nroute_low_refines_initial :
   Module.refines_initial nroute_lowM nroute φ := by
-    sorry
+    unfold nroute_lowM nroute nroute'
+    dsimp [Module.refines_initial, NatModule.stringify, Module.mapIdent]
+    intros i Hi
+    obtain ⟨Hi1, Hi2⟩ := Hi
+    unfold φ
+    rw [Hi1, Hi2]
+    exists []
 
 theorem nroute_low_refines_φ : nroute_lowM ⊑_{φ} nroute := by
   intros i s H
+  obtain ⟨H1, H2, H3⟩ := H
   constructor
-  · intro ident mid_i v Hrule
-    case_transition Hcontains : (Module.inputs nroute_lowM), ident,
+  <;> unfold nroute nroute' nroute_lowM
+  <;> intros ident mid_i v Hrule
+  <;> dsimp [
+    NatModule.stringify, Module.mapIdent,
+    InternalPort.map, lift_f, mk_nroute_output_rule
+  ] at v Hrule ⊢
+  · case_transition Hcontains : (Module.inputs nroute_lowM), ident,
      (fun x => PortMap.getIO_not_contained_false' x Hrule)
-    simp [nroute_lowM] at Hcontains
+    simp at Hcontains
     subst ident
-    unfold nroute nroute'
-    sorry
-  · intro ident mid_i v Hrule
-    case_transition Hcontains : (Module.outputs nroute_lowM), ident,
+    unfold PortMap.getIO at v Hrule ⊢
+    exists s.concat v
+    exists s.concat v
+    rw [PortMap.rw_rule_execution
+      (h := by rw [AssocList.find?_cons_eq] <;> rfl)
+    ] at Hrule ⊢
+    rw [AssocList.find?_cons_eq] at v
+    dsimp at Hrule v ⊢
+    obtain ⟨⟨Hrule1, Hrule2⟩, Hrule3⟩ := Hrule
+    split_ands
+    · rfl
+    · constructor
+    · simpa [Hrule1, Hrule2]
+    · simpa [←Hrule3, H2]
+    · simpa [H3, Hrule1, Hrule2, Hrule3, zip_concat (Hlen := H1)]
+  · case_transition Hcontains : (Module.outputs nroute_lowM), ident,
      (fun x => PortMap.getIO_not_contained_false' x Hrule)
     simp [nroute_lowM] at Hcontains
     obtain ⟨n, HnFin, Hident⟩ := Hcontains
     subst ident
-    unfold nroute nroute'
-    dsimp [NatModule.stringify, Module.mapIdent]
+    unfold φ
+    exists (List.zip mid_i.1.1 mid_i.1.2) ++ (List.zip mid_i.2.1 mid_i.2.2)
     rw [PortMap.rw_rule_execution
       (h := by rw [AssocList.mapKey_map_toAssocList])
     ]
-    sorry
-  · intro ident mid_i v Hrule
-    sorry
+    rw [PortMap.rw_rule_execution
+      (h := by apply (getIO_map_stringify_output) <;> rfl)
+    ] at Hrule ⊢
+    rw [getIO_map_stringify_output] at v
+    dsimp at v Hrule ⊢
+    unfold lift_f mk_nroute_output_rule
+    dsimp at v Hrule ⊢
+    obtain ⟨⟨Hrule1, Hrule2⟩, Hrule3⟩ := Hrule
+    split_ands
+    · simpa [H3, ←Hrule1, ←Hrule2, ←Hrule3, List.zip]
+    · simpa [←Hrule3, H1]
+    · simp [←Hrule1, ←Hrule2] at H2
+      assumption
+    · rfl
+  · sorry
 
 theorem nroute_low_ϕ_indistinguishable :
   ∀ x y, φ x y → Module.indistinguishable nroute_lowM nroute x y := by

@@ -298,7 +298,7 @@ theorem eraseAll_not_contains {α β} [DecidableEq α] (a : AssocList α β) (i 
     · exfalso; apply H
       simp; left; simp at Heq; assumption
 
-theorem eraseAll_map_neq {α β γ} [DecidableEq α] [DecidableEq β]
+@[simp] theorem eraseAll_map_neq {α β γ} [DecidableEq α] [DecidableEq β]
     (f : α → β) (g : α → γ) (l : List α) (k : β) (Hneq : ∀ x, f x ≠ k) :
     (List.map (λ x => (f x, g x)) l).toAssocList.eraseAll k =
     (List.map (λ x => (f x, g x)) l).toAssocList :=
@@ -306,6 +306,19 @@ theorem eraseAll_map_neq {α β γ} [DecidableEq α] [DecidableEq β]
     apply (eraseAll_not_contains (a := (List.map (fun x => (f x, g x)) l).toAssocList))
     induction l <;> simp
     split_ands <;> try intros <;> apply Hneq
+
+theorem eraseAll_append {α β} [DecidableEq α] {l1 l2 : AssocList α β} {i}:
+  AssocList.eraseAll i (l1.append l2) =
+  (AssocList.eraseAll i l1).append (AssocList.eraseAll i l2) := by
+    sorry
+
+@[simp] theorem eraseAll_nil {α β} [DecidableEq α] {i}:
+  AssocList.eraseAll i (AssocList.nil: AssocList α β) = AssocList.nil
+   := by simpa [eraseAll, eraseAllP]
+
+@[simp] theorem append_nil {α β} [DecidableEq α] {l : AssocList α β}:
+  l.append AssocList.nil = l
+   := by induction l <;> simpa [append]
 
 @[simp] theorem any_map {α β} {f : α → β} {l : List α} {p : β → Bool} : (l.map f).any p = l.any (p ∘ f) := by
   induction l <;> simp
