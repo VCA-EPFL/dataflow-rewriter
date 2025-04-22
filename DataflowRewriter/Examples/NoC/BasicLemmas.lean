@@ -47,9 +47,17 @@ theorem isSome_same_AssocList {α β} [DecidableEq α] {y : α} {l1 l2 : AssocLi
   (l1.find? y).isSome = (l2.find? y).isSome := by
     sorry
 
-theorem eraseIdx_len {T} {l1 l2 : List T} {i} (H : i < List.length l1):
+theorem eraseIdx_len {T} {l1 l2 : List T} {i} (Hlen : i < List.length l1):
   List.eraseIdx (l1 ++ l2) i = (List.eraseIdx l1 i) ++ l2 := by
-    sorry
+    revert l2
+    revert i
+    induction l1
+    · intros; contradiction
+    · intros i; induction i <;> try simpa
+      intros Hlen l2
+      simp only [List.length_cons, add_lt_add_iff_right] at Hlen
+      rename_i _ _ H3 _ _
+      simpa [H3 Hlen]
 
 theorem get_len {T} (l1 l2: List T) i
   (H1 : i < List.length l1)
@@ -126,4 +134,4 @@ theorem internalport_neq {ident1 ident2 : InstIdent String} {name1 name2 : Strin
   (Hneq : name1 ≠ name2) :
     ({ inst := ident1, name := name1 }: InternalPort String)
   ≠ ({ inst := ident2, name := name2}: InternalPort String)
-    := by simp; intros; simpa
+    := by simpa [Hneq]

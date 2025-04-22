@@ -241,40 +241,35 @@ theorem nbag_low_indistinguishable_φ :
   ∀ x y, φ x y → Module.indistinguishable nbag_lowM (nbag P.Data P.netsz) x y := by
     intros x y Hϕ
     constructor
-    <;> intros ident new_i v H
+    <;> intros ident new_i v Hrule
     <;> exists new_i.1 ++ new_i.2
-    <;> unfold nbag nbag'
-    <;> simp [NatModule.stringify, Module.mapIdent]
-    · subst y
-      unfold nbag_lowM at *
-      dsimp at v H
+    <;> unfold nbag nbag' nbag_lowM at *
+    <;> dsimp [NatModule.stringify, Module.mapIdent]
+    <;> subst y
+    · dsimp at v Hrule
       rw [PortMap.rw_rule_execution (h := by rw [AssocList.mapKey_map_toAssocList])]
       dsimp [InternalPort.map]
-      have ⟨n, Hn1, Hn2⟩ := getIO_map_ident H
+      have ⟨n, Hn1, Hn2⟩ := getIO_map_ident Hrule
       subst ident
-      rw [PortMap.rw_rule_execution
-        (h := by apply (getIO_map_stringify_input) <;> simpa)
-      ]
       rw [getIO_map_stringify_input] at v
       rw [PortMap.rw_rule_execution
         (h := by apply (getIO_map_stringify_input) <;> simpa)
-      ] at H
-      dsimp at H v
-      simpa [lift_f, mk_nbag_input_rule, H]
+      ] at Hrule ⊢
+      dsimp at Hrule v
+      simpa [lift_f, mk_nbag_input_rule, Hrule]
     · by_cases Hident: ({ inst := InstIdent.top, name := NatModule.stringify_output 0 }: InternalPort String) = ident
-      · rw [PortMap.rw_rule_execution] at H
+      · rw [PortMap.rw_rule_execution] at Hrule
         dsimp [NatModule.stringify_output] at *
         subst ident
         rw [PortMap.rw_rule_execution (h := by apply PortMap.getIO_cons)];
-        dsimp at H ⊢
-        obtain ⟨⟨i, Hi1, Hi2⟩, H⟩ := H
+        dsimp at Hrule ⊢
+        obtain ⟨⟨i, Hi1, Hi2⟩, H⟩ := Hrule
         rw [Hi1, Hi2]
-        subst y
         exists Fin.mk i (by simpa [Nat.lt_add_right]); split_ands
         · simpa [←eraseIdx_len, H, Nat.lt_add_right]
         · apply get_len
       · exfalso
-        apply (PortMap.getIO_cons_nil_false _ _ ident _ _ _ Hident H)
+        apply (PortMap.getIO_cons_nil_false _ _ ident _ _ _ Hident Hrule)
 
 theorem nbag_low_correct : nbag_lowM ⊑ (nbag P.Data P.netsz) := by
   apply (Module.refines_φ_refines nbag_low_indistinguishable_φ nbag_low_initial_φ nbag_low_refines_ϕ)

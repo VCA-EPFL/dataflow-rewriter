@@ -272,7 +272,30 @@ theorem nroute_low_refines_φ : nroute_lowM ⊑_{φ} nroute := by
 
 theorem nroute_low_ϕ_indistinguishable :
   ∀ x y, φ x y → Module.indistinguishable nroute_lowM nroute x y := by
-    sorry
+    intros x y Hφ
+    constructor
+    <;> intros ident new_i v Hrule
+    <;> unfold nroute nroute' nroute_lowM at *
+    <;> dsimp at v Hrule
+    <;> dsimp [NatModule.stringify, Module.mapIdent]
+    <;> obtain ⟨H1, H2, H3⟩ := Hφ
+    · case_transition Hcontains : (Module.inputs nroute_lowM), ident,
+        (fun x => PortMap.getIO_not_contained_false' x Hrule)
+      simp at Hcontains
+      subst ident
+      exists y.concat v
+    · have ⟨n, Hn1, Hn2⟩ := getIO_map_ident Hrule
+      subst ident
+      exists (List.zip new_i.1.1 new_i.1.2) ++ (List.zip x.2.1 x.2.2)
+      rw [getIO_map_stringify_output] at v
+      rw [PortMap.rw_rule_execution (h := by rw [AssocList.mapKey_map_toAssocList])]
+      rw [PortMap.rw_rule_execution
+        (h := by apply (getIO_map_stringify_output) <;> rfl)
+      ] at Hrule ⊢
+      unfold lift_f mk_nroute_output_rule
+      dsimp at Hrule v ⊢
+      obtain ⟨⟨Hrule1, Hrule2⟩, Hrule2⟩ := Hrule
+      simpa [H3, ←Hrule2, ←Hrule1]
 
 theorem nroute_low_correct : nroute_lowM ⊑ nroute := by
   apply (Module.refines_φ_refines nroute_low_ϕ_indistinguishable nroute_low_refines_initial nroute_low_refines_φ)
