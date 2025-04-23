@@ -275,8 +275,6 @@ axiom filterId_correct2 {α} [DecidableEq α] {m : AssocList α α} {i v} :
 axiom inverse_correct {α} [DecidableEq α] {m : AssocList α α} {i v} :
   m.find? i = some v → m.inverse.find? v = some i
 
-#check Function.Bijective
-
 theorem mapKey_comm2 {α} {m : PortMap Ident α} {inst : PortMap Ident (InternalPort Ident)} {f i}:
   Function.Bijective f →
   (inst.mapVal fun _ => f).invertible →
@@ -308,9 +306,27 @@ theorem mapKey_comm2 {α} {m : PortMap Ident α} {inst : PortMap Ident (Internal
       rw [←AssocList.find?_map_comm]
       rw [hfind]; rfl
   · by_cases h' : i = v
-    · subst_vars
-    · rw [AssocList.append_find_left (x := f v), AssocList.append_find_left (x := v)]; rfl
-      rw [filterId_correct2] <;> assumption
+    · subst i
+      rw [AssocList.append_find_left (x := f v), AssocList.append_find_right]
+      rw [filterId_correct]; rfl
+      rw [inverse_correct]
+      assumption
+      rw [filterId_correct]; assumption
+      rw [filterId_correct2]; assumption
+      rw [←AssocList.find?_map_comm]; rw [hfind]; rfl
+    · by_cases h'' : i = f v
+      · subst i
+        rw [AssocList.append_find_right, AssocList.append_find_left (x := v)]
+        dsimp; rw [filterId_correct]; rfl
+        rw [inverse_correct]
+        rw [←AssocList.find?_map_comm]; rw [hfind]; rfl
+        rw [filterId_correct2] <;> assumption
+        rw [filterId_correct]
+        rw [←AssocList.find?_map_comm]; rw [hfind]; rfl
+      · rw [AssocList.append_find_left (x := f v), AssocList.append_find_left (x := v)]; rfl
+        rw [filterId_correct2]; assumption; assumption
+        rw [filterId_correct2]; assumption
+        rw [←AssocList.find?_map_comm]; rw [hfind]; rfl
 
 theorem mapKey_valid_domain {α β γ} [BEq α] [LawfulBEq α] {m : AssocList α β} {f g : α → γ}:
   (∀ i, m.contains i → f i = g i) →
@@ -335,7 +351,7 @@ before it to ensure that it will actually perform the renaming correctly.  Howev
 to ensure two different properties.  In many cases just having bijectiveness is useful, in others one actually has to
 ensure that one is renaming correctly.
 -/
-theorem mapKey_comm {α} {m : PortMap Ident α} {inst : PortMap Ident (InternalPort Ident)} {f}:
+theorem mapKey_comm {α} {m : PortMap Ident α} {inst : PortMap Ident (InternalPort Ident)} {f} {hbij : Function.Bijective f}:
   (inst.mapVal (fun _ => f)).invertible →
   inst.invertible →
   (∀ i, AssocList.contains i m → AssocList.contains i inst) →
@@ -375,12 +391,49 @@ omit [DecidableEq Ident] in
 theorem mapPorts2_mapKey_outputs {S} {f g} {m : Module Ident S} :
   (m.mapPorts2 f g).outputs = m.outputs.mapKey g := rfl
 
+theorem keysInMap_iff {α β} [DecidableEq α] {m : AssocList α β} {k} : m.contains k ↔ k ∈ m.keysList := by
+  constructor <;> intros
+  · solve_by_elim [AssocList.keysInMap]
+  · by_cases h' : AssocList.contains k m <;> try assumption
+    have h := AssocList.keysNotInMap h'
+    contradiction
+
+theorem mapPorts2_unfold_connect {e e' : ExprLow Ident} {f g c} :
+  mapPorts2 f g (connect c e) = some e' →
+  ∃ e'', mapPorts2 f g e = some e'' ∧ e' = connect { output := g c.output, input := f c.input } e'' := by
+  intro h
+  dsimp [drunfold] at h
+  cases h1 : mapInputPorts f e
+  · rw [h1] at h; contradiction
+  · rename_i v1; rw [h1] at h; dsimp at h
+    dsimp [drunfold] at h
+    cases h2 : (mapOutputPorts g v1)
+    · rw [h2] at h; contradiction
+    · rename_i v2; rw [h2] at h; dsimp [drunfold] at h
+      cases h; simp
+      unfold mapPorts2
+      rw [h1]; assumption
+
+theorem mapPorts2_unfold_product {e₁ e₂ e' : ExprLow Ident} {f g} :
+  mapPorts2 f g (product e₁ e₂) = some e' →
+  ∃ e₁' e₂', mapPorts2 f g e₁ = some e₁' ∧ mapPorts2 f g e₂ = some e₂' ∧ e' = product e₁' e₂' := by
+  intro h
+  dsimp [drunfold] at h
+  cases h1 : mapInputPorts f e₁ <;> rw [h1] at h <;> try contradiction
+  cases h1' : mapInputPorts f e₂ <;> rw [h1'] at h <;> try contradiction
+  rename_i v1 v2; dsimp [drunfold] at h
+  cases h2 : mapOutputPorts g v1 <;> rw [h2] at h <;> try contradiction
+  cases h2' : mapOutputPorts g v2 <;> rw [h2'] at h <;> try contradiction
+  rename_i v1' v2'
+  dsimp at h; cases h
+  exists v1', v2'; and_intros <;> try simp [mapPorts2, *]
+
 theorem rename_build_module_eq {e e' : ExprLow Ident} {f g} (h : Function.Bijective f) (h' : Function.Bijective g) :
   e.wf_mapping ε →
   e.locally_wf →
   e.mapPorts2 f g = .some e' →
   (e'.build_module' ε) = ((e.build_module' ε).map (·.map id (fun _ y => y.mapPorts2 f g))) := by
-  induction e with
+  induction e generalizing e' with
   | base map typ =>
     intro hwf_mapping hloc heq
     cases hfind : (AssocList.find? typ ε).isSome
@@ -411,7 +464,6 @@ theorem rename_build_module_eq {e e' : ExprLow Ident} {f g} (h : Function.Biject
       obtain ⟨mT, me⟩ := m
       obtain ⟨min, mout, mint⟩ := me; dsimp
       congr
-      -- unfold PortMapping.filterId; dsimp
       unfold Module.renamePorts
       dsimp
       unfold Module.mapPorts2
@@ -421,19 +473,40 @@ theorem rename_build_module_eq {e e' : ExprLow Ident} {f g} (h : Function.Biject
         · rw [Option.guard_eq_some'] at *
           assumption
         · simp [drunfold,all'] at hloc; apply hloc.left
+        · unfold wf_mapping at *; rw [hfind] at hwf_mapping; simp at hwf_mapping
+          intro i hi
+          rw [keysInMap_iff] at hi ⊢
+          rwa [List.Perm.mem_iff hwf_mapping.left]
+        · assumption
       . rw [mapKey_comm]
         · rw [Option.guard_eq_some'] at *
           assumption
         · simp [drunfold,all'] at hloc; apply hloc.right
-  | connect _ e ih =>
-    intro hwf_mapping
-    dsimp [wf_mapping] at hwf_mapping; specialize ih hwf_mapping
-    dsimp [drunfold]
-    cases hfind : build_module' ε (mapPorts2 f g e)
-    · unfold mapPorts2 at hfind ih; rw [hfind]; dsimp
-      rw [hfind] at ih; symm at ih; rw [Option.map_eq_none'] at ih; rw [ih]; rfl
-    · unfold mapPorts2 at hfind ih; rw [hfind] at ih ⊢; dsimp
-      symm at ih; rw [Option.map_eq_some'] at ih; obtain ⟨m, hbuild1, hbuild2⟩ := ih
+        · unfold wf_mapping at *; rw [hfind] at hwf_mapping; simp at hwf_mapping
+          intro i hi
+          rw [keysInMap_iff] at hi ⊢
+          rwa [List.Perm.mem_iff hwf_mapping.right.left]
+        · assumption
+  | connect c e ih =>
+    intro hwf_mapping hloc heq
+    dsimp [wf_mapping] at hwf_mapping
+    cases hfind : build_module' ε e'
+    · obtain ⟨e', heq', e'eq⟩ := mapPorts2_unfold_connect heq; subst_vars
+      specialize ih (by assumption) (by assumption) heq'
+      dsimp [drunfold] at hfind
+      dsimp [drunfold]; rw [Option.bind_eq_none] at hfind
+      cases h : build_module' ε e'
+      · clear hfind; rw [h] at ih
+        symm at ih; rw [Option.map_eq_none'] at ih
+        rw [ih]; rfl
+      · have := hfind _ h; contradiction
+    · obtain ⟨e', heq', e'eq⟩ := mapPorts2_unfold_connect heq; subst_vars
+      rename_i val
+      specialize ih (by assumption) (by assumption) heq'
+      symm at ih; dsimp [drunfold] at hfind; rw [Option.bind_eq_some] at hfind
+      obtain ⟨val', hfind', hst⟩ := hfind
+      stop
+      rw [Option.map_eq_some'] at ih; obtain ⟨m, hbuild1, hbuild2⟩ := ih
       rw [hbuild1]; dsimp [Sigma.map];
       unfold Sigma.map at hbuild2; rename_i val; cases val; cases m; dsimp at *
       cases hbuild2; congr 3
@@ -445,6 +518,7 @@ theorem rename_build_module_eq {e e' : ExprLow Ident} {f g} (h : Function.Biject
     dsimp [wf_mapping] at hwf_mapping; simp at hwf_mapping
     specialize ih₁ hwf_mapping.1
     specialize ih₂ hwf_mapping.2
+    stop
     dsimp [drunfold]
     cases hfind : build_module' ε (mapPorts2 f g e₁) <;> cases hfind₂ : build_module' ε (mapPorts2 f g e₂)
     · unfold mapPorts2 at hfind ih₁ ih₂ hfind₂; rw [hfind,hfind₂]; dsimp
@@ -468,11 +542,13 @@ theorem rename_build_module_eq {e e' : ExprLow Ident} {f g} (h : Function.Biject
       · simp [mapPorts2_mapKey_inputs,AssocList.mapVal_mapKey,AssocList.mapVal_mapKey,AssocList.mapKey_append]
       · simp [mapPorts2_mapKey_outputs,AssocList.mapVal_mapKey,AssocList.mapVal_mapKey,AssocList.mapKey_append]
 
-theorem refines_mapPorts2_1 {e f g} :
+theorem refines_mapPorts2_1 {e e' f g} :
   Function.Bijective f → Function.Bijective g → e.wf_mapping ε →
-  ([e| e, ε ]).mapPorts2 f g ⊑ ([e| e.mapPorts2 f g, ε]) := by
-  unfold build_module_expr; intro hbijf hbijg hwf;
-  unfold build_module; rw [rename_build_module_eq]
+  e.locally_wf →
+  e.mapPorts2 f g = some e' →
+  ([e| e, ε ]).mapPorts2 f g ⊑ ([e| e', ε]) := by
+  unfold build_module_expr; intro hbijf hbijg hwf hloc hmapports;
+  unfold build_module; rw [rename_build_module_eq (e := e) (e' := e') (g := g) (f := f)]
   any_goals assumption
   unfold Sigma.map; dsimp
   generalize h : (Option.map (fun x : TModule Ident =>
@@ -482,11 +558,13 @@ theorem refines_mapPorts2_1 {e f g} :
   rw [← this, Option.getD_map] at h; subst y
   apply Module.refines_reflexive
 
-theorem refines_mapPorts2_2 {e f g} :
+theorem refines_mapPorts2_2 {e e' f g} :
   Function.Bijective f → Function.Bijective g → e.wf_mapping ε →
-  ([e| e.mapPorts2 f g, ε]) ⊑ ([e| e, ε ]).mapPorts2 f g := by
-  unfold build_module_expr; intro hbijf hbijg hwf;
-  unfold build_module; rw [rename_build_module_eq]
+  e.locally_wf →
+  e.mapPorts2 f g = some e' →
+  ([e| e', ε]) ⊑ ([e| e, ε ]).mapPorts2 f g := by
+  unfold build_module_expr; intro hbijf hbijg hwf hloc hmapports;
+  unfold build_module; rw [rename_build_module_eq (e := e) (e' := e') (g := g) (f := f)]
   any_goals assumption
   unfold Sigma.map; dsimp
   generalize h : (Option.map (fun x : TModule Ident =>
@@ -496,13 +574,13 @@ theorem refines_mapPorts2_2 {e f g} :
   rw [← this, Option.getD_map] at h; subst y
   apply Module.refines_reflexive
 
-theorem refines_renamePorts_1 {e inst} :
-  e.wf_mapping ε → ([e| e, ε ]).renamePorts inst ⊑ ([e| e.renamePorts inst, ε]) := by
+theorem refines_renamePorts_1 {e e' inst} :
+  e.wf_mapping ε → e.locally_wf → e.renamePorts inst = some e' → ([e| e, ε ]).renamePorts inst ⊑ ([e| e', ε]) := by
   intro hwf; unfold renamePorts Module.renamePorts
   solve_by_elim [refines_mapPorts2_1, AssocList.bijectivePortRenaming_bijective]
 
-theorem refines_renamePorts_2 {e inst} :
-  e.wf_mapping ε → ([e| e.renamePorts inst, ε]) ⊑ ([e| e, ε ]).renamePorts inst := by
+theorem refines_renamePorts_2 {e e' inst} :
+  e.wf_mapping ε → e.locally_wf → e.renamePorts inst = some e' → ([e| e', ε]) ⊑ ([e| e, ε ]).renamePorts inst := by
   intro hwf; unfold renamePorts Module.renamePorts
   solve_by_elim [refines_mapPorts2_2, AssocList.bijectivePortRenaming_bijective]
 
