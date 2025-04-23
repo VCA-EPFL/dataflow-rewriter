@@ -100,6 +100,14 @@ theorem Rewrite_run'_correct {g g' : ExprHigh String} {s _st _st'} {rw : Correct
     rename (EStateM.map _ _ _ = .ok _ _) => hofOption
     replace hofOption := EStateM.map_eq_ok hofOption
     let ⟨_, _, _, _, _⟩ := hofOption; clear hofOption
+  -- TODO: Fix main proof
+  rename (Option.bind _ _ = some _) => hrewrite
+  -- have hrewrite := ‹Option.bind _ _ = some _›
+  stop
+  set_option pp.explicit true in trace_state
+  replace hrewrite := Option.bind_eq_some.mp hrewrite
+  let ⟨_, _, _, hrewrite'⟩ := hrewrite
+  clear hrewrite; have hrewrite := hrewrite'; clear hrewrite'
   subst_vars
   repeat cases ‹Unit›
   rename List RewriteInfo => rewrite_info
