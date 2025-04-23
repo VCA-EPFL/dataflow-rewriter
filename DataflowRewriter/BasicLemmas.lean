@@ -59,7 +59,7 @@ theorem EqExt_getIO {S} {m m' : PortMap Ident ((T : Type) × (S → T → S → 
 
 @[simp]
 theorem cons_find? : ∀ {α} [HDEq : DecidableEq (InternalPort α)] β x v (pm: PortMap α β),
-  (AssocList.find? x (AssocList.cons x v pm)) = v := by
+  AssocList.find? x (AssocList.cons x v pm) = v := by
    simpa
 
 @[simp]

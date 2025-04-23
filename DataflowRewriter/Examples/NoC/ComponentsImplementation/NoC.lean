@@ -27,7 +27,7 @@ open Batteries (AssocList)
 
 namespace DataflowRewriter.NoC
 
-variable [P: NocParam]
+variable [P : NocParam]
 
 attribute [drcompute] Batteries.AssocList.toList Function.uncurry Module.mapIdent
   List.toAssocList List.foldl Option.pure_def Option.bind_eq_bind Option.bind_some
@@ -128,5 +128,33 @@ def noc_lowM : StringModule noc_lowT := by
 
 -- Correctness -----------------------------------------------------------------
 -- TODO
+
+instance : MatchInterface noc_lowM noc where
+  input_types := by sorry
+  output_types := by sorry
+  inputs_present := by sorry
+  outputs_present := by sorry
+
+def φ (I : noc_lowT) (S : nocT) : Prop :=
+  False
+
+theorem noc_low_refines_initial :
+  Module.refines_initial noc_lowM noc φ := by
+    sorry
+
+theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
+  sorry
+
+theorem noc_low_ϕ_indistinguishable :
+  ∀ x y, φ x y → Module.indistinguishable noc_lowM noc x y := by
+    sorry
+
+theorem noc_low_correct : noc_lowM ⊑ noc := by
+  apply (
+    Module.refines_φ_refines
+    noc_low_ϕ_indistinguishable
+    noc_low_refines_initial
+    noc_low_refines_φ
+  )
 
 end DataflowRewriter.NoC

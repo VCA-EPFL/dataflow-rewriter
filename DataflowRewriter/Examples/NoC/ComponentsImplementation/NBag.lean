@@ -27,7 +27,7 @@ open Batteries (AssocList)
 
 namespace DataflowRewriter.NoC
 
-variable [P: NocParam]
+variable [P : NocParam]
 
 attribute [drcompute] Batteries.AssocList.toList Function.uncurry Module.mapIdent
   List.toAssocList List.foldl Option.pure_def Option.bind_eq_bind Option.bind_some
@@ -93,7 +93,7 @@ def nbag_low : ExprLow String :=
         NatModule.stringify_output 0
       ⟩].toAssocList,
     }
-    s!"Bag {P.DataS}" -- Instance Type
+    s!"Bag {P.DataS}"
   ExprLow.connect
     {
       output := {
@@ -161,7 +161,7 @@ instance : MatchInterface nbag_lowM (nbag P.Data P.netsz) where
     intros ident
     unfold nbag_lowM nbag nbag'
     dsimp
-    by_cases H: ({ inst := InstIdent.top, name := NatModule.stringify_output 0 }: InternalPort String) = ident
+    by_cases H: (NatModule.stringify_output 0 : InternalPort String) = ident
     <;> simp [*, drunfold, drnat, PortMap.getIO_cons, NatModule.stringify_output, InternalPort.map] at *
     <;> simpa [*]
   inputs_present := by
@@ -169,11 +169,11 @@ instance : MatchInterface nbag_lowM (nbag P.Data P.netsz) where
     unfold nbag_lowM nbag nbag'
     simp [NatModule.stringify, Module.mapIdent]
     apply isSome_same_list
-    constructor <;> intros H <;> obtain ⟨x, Hx1, Hx2⟩ := H <;> simp at * <;> exists x
+    constructor <;> intros H <;> obtain ⟨x, _, _⟩ := H <;> exists x <;> simpa
   outputs_present := by
     intros ident;
     unfold nbag_lowM nbag nbag'
-    by_cases H: ({ inst := InstIdent.top, name := NatModule.stringify_output 0 }: InternalPort String) = ident
+    by_cases H: (NatModule.stringify_output 0 : InternalPort String) = ident
     <;> simp [*, drunfold, drnat, PortMap.getIO_cons, NatModule.stringify_output, InternalPort.map] at *
     <;> simpa [*]
 
@@ -244,10 +244,10 @@ theorem nbag_low_indistinguishable_φ :
     <;> intros ident new_i v Hrule
     <;> exists new_i.1 ++ new_i.2
     <;> unfold nbag nbag' nbag_lowM at *
+    <;> dsimp at v Hrule
     <;> dsimp [NatModule.stringify, Module.mapIdent]
     <;> subst y
-    · dsimp at v Hrule
-      rw [PortMap.rw_rule_execution (h := by rw [AssocList.mapKey_map_toAssocList])]
+    · rw [PortMap.rw_rule_execution (h := by rw [AssocList.mapKey_map_toAssocList])]
       dsimp [InternalPort.map]
       have ⟨n, Hn1, Hn2⟩ := getIO_map_ident Hrule
       subst ident
@@ -257,19 +257,19 @@ theorem nbag_low_indistinguishable_φ :
       ] at Hrule ⊢
       dsimp at Hrule v
       simpa [lift_f, mk_nbag_input_rule, Hrule]
-    · by_cases Hident: ({ inst := InstIdent.top, name := NatModule.stringify_output 0 }: InternalPort String) = ident
-      · rw [PortMap.rw_rule_execution] at Hrule
-        dsimp [NatModule.stringify_output] at *
-        subst ident
-        rw [PortMap.rw_rule_execution (h := by apply PortMap.getIO_cons)];
-        dsimp at Hrule ⊢
-        obtain ⟨⟨i, Hi1, Hi2⟩, H⟩ := Hrule
-        rw [Hi1, Hi2]
-        exists Fin.mk i (by simpa [Nat.lt_add_right]); split_ands
-        · simpa [←eraseIdx_len, H, Nat.lt_add_right]
-        · apply get_len
-      · exfalso
-        apply (PortMap.getIO_cons_nil_false _ _ ident _ _ _ Hident Hrule)
+    · case_transition Hcontains : (Module.outputs nbag_lowM), ident,
+        (fun x => PortMap.getIO_not_contained_false' x Hrule)
+      simp at Hcontains
+      subst ident
+      rw [PortMap.rw_rule_execution] at Hrule
+      dsimp [NatModule.stringify_output] at *
+      rw [PortMap.rw_rule_execution (h := by apply PortMap.getIO_cons)];
+      dsimp at Hrule ⊢
+      obtain ⟨⟨i, Hi1, Hi2⟩, H⟩ := Hrule
+      rw [Hi1, Hi2]
+      exists Fin.mk i (by simpa [Nat.lt_add_right]); split_ands
+      · simpa [←eraseIdx_len, H, Nat.lt_add_right]
+      · apply get_len
 
 theorem nbag_low_correct : nbag_lowM ⊑ (nbag P.Data P.netsz) := by
   apply (Module.refines_φ_refines nbag_low_indistinguishable_φ nbag_low_initial_φ nbag_low_refines_ϕ)

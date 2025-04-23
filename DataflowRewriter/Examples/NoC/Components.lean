@@ -15,7 +15,7 @@ import DataflowRewriter.Examples.NoC.Basic
 
 namespace DataflowRewriter.NoC
 
-variable [P: NocParam]
+variable [P : NocParam]
 
 -- Utils -----------------------------------------------------------------------
 

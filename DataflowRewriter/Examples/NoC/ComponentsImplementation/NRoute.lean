@@ -27,7 +27,7 @@ open Batteries (AssocList)
 
 namespace DataflowRewriter.NoC
 
-variable [P: NocParam]
+variable [P : NocParam]
 
 attribute [drcompute] Batteries.AssocList.toList Function.uncurry Module.mapIdent
   List.toAssocList List.foldl Option.pure_def Option.bind_eq_bind Option.bind_some
@@ -125,6 +125,18 @@ def nroute_lowT : Type := by
     rw [ε_nroute_split, ε_nroute_nbranch]
     simp [drunfold, seval, drcompute, drdecide]
 
+theorem assoclist_find?_append {α β} [DecidableEq α] {l1 l2 : AssocList α β} {f}:
+  AssocList.find? f (l1.append l2) = match AssocList.find? f l1 with
+  | some x => x
+  | none => AssocList.find? f l2 := by
+    sorry
+
+theorem tmp_neq {α β} [DecidableEq α] k (f : Nat → α) (g : Nat → β) sz
+  (Hneq: ∀ x, f x ≠ k):
+  AssocList.find? k
+    (List.map (λ x => ⟨f x, g x⟩) (List.range sz)).toAssocList = none := by
+      sorry
+
 def nroute_lowM : StringModule nroute_lowT := by
   precomputeTac [e| nroute_low, ε_nroute] by
     simp [drunfold, seval, drdecide, -AssocList.find?_eq]
@@ -138,7 +150,7 @@ def nroute_lowM : StringModule nroute_lowT := by
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
     unfold Module.connect''
     dsimp
-    simp [
+    simp? [
       Module.liftR,
       Module.liftL,
       AssocList.mapVal_map_toAssocList,
@@ -150,12 +162,49 @@ def nroute_lowM : StringModule nroute_lowT := by
       AssocList.eraseAll_nil,
       AssocList.append_nil,
       AssocList.bijectivePortRenaming_same,
+      -AssocList.find?_eq,
       InternalPort.map,
       stringify_output_neq,
       stringify_input_neq,
       internalport_neq,
+      ----
+      assoclist_find?_append,
+      tmp_neq
     ]
-    -- FIXME: Cannot simplify under the internals for some reason?
+    -- TODO: Find a way to make this portable
+    conv =>
+      -- pattern (occs := *) Exists _
+      -- all_goals
+      pattern (occs := *) And _ _
+      all_goals congr
+      any_goals
+        rw [PortMap.rw_rule_execution
+          (h := by simp [
+            Module.liftR,
+            Module.liftL,
+            AssocList.mapVal_map_toAssocList,
+            AssocList.mapKey_map_toAssocList,
+            AssocList.mapKey_mapKey,
+            AssocList.mapVal_mapKey,
+            AssocList.eraseAll_append,
+            AssocList.eraseAll_map_neq,
+            AssocList.eraseAll_nil,
+            AssocList.append_nil,
+            AssocList.bijectivePortRenaming_same,
+            -AssocList.find?_eq,
+            InternalPort.map,
+            stringify_output_neq,
+            stringify_input_neq,
+            internalport_neq,
+            ----
+            assoclist_find?_append,
+            tmp_neq
+          ]
+          <;> rfl)
+        ]
+        dsimp
+      all_goals rfl
+    skip
 
 -- Correctness -----------------------------------------------------------------
 
@@ -163,20 +212,19 @@ instance : MatchInterface nroute_lowM nroute where
   input_types := by
     intros ident
     unfold nroute_lowM nroute nroute'
-    by_cases H: ({ inst := InstIdent.top, name := NatModule.stringify_input 0 }: InternalPort String) = ident
+    by_cases H: (NatModule.stringify_input 0 : InternalPort String) = ident
     <;> simp [*, drunfold, drnat, PortMap.getIO_cons, NatModule.stringify_input, InternalPort.map] at *
     <;> simpa [*]
   output_types := by
     intros ident
-    unfold nroute_lowM nroute nroute'
-    unfold lift_f mk_nroute_output_rule
+    unfold nroute_lowM nroute nroute' lift_f mk_nroute_output_rule
     simp [NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_output] at *
     simp [AssocList.mapKey_map_toAssocList, InternalPort.map]
-    apply (getIO_map_ident_match_1 (Heq := by intros n; simpa))
+    apply (getIO_map_ident_match_1 (Heq := by simpa))
   inputs_present := by
     intros ident
     unfold nroute_lowM nroute nroute'
-    by_cases H: ({ inst := InstIdent.top, name := NatModule.stringify_input 0 }: InternalPort String) = ident
+    by_cases H: (NatModule.stringify_input 0 : InternalPort String) = ident
     <;> simp [*, drunfold, drnat, PortMap.getIO_cons, NatModule.stringify_input, InternalPort.map] at *
     <;> simpa [*]
   outputs_present := by
@@ -184,12 +232,11 @@ instance : MatchInterface nroute_lowM nroute where
     unfold nroute_lowM nroute nroute'
     simp [NatModule.stringify, Module.mapIdent]
     apply isSome_same_list
-    constructor <;> intros H <;> obtain ⟨x, Hx1, Hx2⟩ := H <;> simp at * <;> exists x
+    constructor <;> intros H <;> obtain ⟨x, _, _⟩ := H <;> exists x <;> simpa
 
 def φ (I : nroute_lowT) (S : nrouteT) : Prop :=
-  I.2.1.length = I.2.2.length ∧
-  I.1.1.length = I.1.2.length ∧
-  S = (List.zip I.1.1 I.1.2) ++ (List.zip I.2.1 I.2.2)
+  (I.1.1 ++ I.2.1).length = (I.1.2 ++ I.2.2).length ∧
+  S = List.zip (I.1.1 ++ I.2.1) (I.1.2 ++ I.2.2)
 
 theorem zip_concat {α β} {l1 : List α} {l2 : List β} {v}
   (Hlen : List.length l1 = List.length l2) :
@@ -217,7 +264,7 @@ theorem nroute_low_refines_initial :
 
 theorem nroute_low_refines_φ : nroute_lowM ⊑_{φ} nroute := by
   intros i s H
-  obtain ⟨H1, H2, H3⟩ := H
+  obtain ⟨H1, H2⟩ := H
   constructor
   <;> unfold nroute nroute' nroute_lowM
   <;> intros ident mid_i v Hrule
@@ -241,16 +288,16 @@ theorem nroute_low_refines_φ : nroute_lowM ⊑_{φ} nroute := by
     split_ands
     · rfl
     · constructor
-    · simpa [Hrule1, Hrule2]
-    · simpa [←Hrule3, H2]
-    · simpa [H3, Hrule1, Hrule2, Hrule3, zip_concat (Hlen := H1)]
+    · rw [List.length_append] at H1
+      simpa [Hrule1, Hrule2, ←Hrule3, ←add_assoc, H1]
+    · simpa [H2, Hrule1, Hrule2, ←Hrule3, zip_concat (Hlen := H1)]
   · case_transition Hcontains : (Module.outputs nroute_lowM), ident,
      (fun x => PortMap.getIO_not_contained_false' x Hrule)
     simp [nroute_lowM] at Hcontains
     obtain ⟨n, HnFin, Hident⟩ := Hcontains
     subst ident
     unfold φ
-    exists (List.zip mid_i.1.1 mid_i.1.2) ++ (List.zip mid_i.2.1 mid_i.2.2)
+    exists List.zip (mid_i.1.1 ++ mid_i.2.1) (mid_i.1.2 ++ mid_i.2.2)
     rw [PortMap.rw_rule_execution
       (h := by rw [AssocList.mapKey_map_toAssocList])
     ]
@@ -263,12 +310,45 @@ theorem nroute_low_refines_φ : nroute_lowM ⊑_{φ} nroute := by
     dsimp at v Hrule ⊢
     obtain ⟨⟨Hrule1, Hrule2⟩, Hrule3⟩ := Hrule
     split_ands
-    · simpa [H3, ←Hrule1, ←Hrule2, ←Hrule3, List.zip]
-    · simpa [←Hrule3, H1]
-    · simp [←Hrule1, ←Hrule2] at H2
+    · simpa [H2, ←Hrule1, ←Hrule2, ←Hrule3, List.zip]
+    · rw [←Hrule1, ←Hrule2, Hrule3] at H1
+      dsimp at H1
+      simp only [add_left_inj] at H1
       assumption
     · rfl
-  · sorry
+  · exists s; constructor -- FIXME: Names are wrong (Hrule, v...)
+    · constructor
+    · simp at v
+      cases v
+      · rename_i H; simp at H;
+        subst ident
+        obtain ⟨
+          a, b, a', b', output,
+          ⟨⟨Hrule1, Hrule2⟩, Hrule3⟩,
+          ⟨Hrule4, Hrule5⟩,
+          Hrule6
+        ⟩ := Hrule
+        unfold φ
+        subst a a' s
+        split_ands
+        · rw [Hrule1, Hrule3] at H1
+          dsimp at H1
+          simpa [←Hrule6, Hrule5, H1]
+        · simpa [Hrule1, Hrule3, Hrule5, ←Hrule6]
+      · rename_i H; simp at H;
+        subst ident
+        obtain ⟨
+          a, b, a', b', output,
+          ⟨⟨Hrule1, Hrule2⟩, Hrule3⟩,
+          ⟨Hrule4, Hrule5⟩,
+          Hrule6
+        ⟩ := Hrule
+        unfold φ
+        subst b b' s
+        split_ands
+        · rw [Hrule3] at H1; dsimp at H1
+          simpa [←Hrule6, ←H1, Hrule1, Hrule4]
+        · simpa [Hrule1, Hrule4, Hrule3, ←Hrule6]
 
 theorem nroute_low_ϕ_indistinguishable :
   ∀ x y, φ x y → Module.indistinguishable nroute_lowM nroute x y := by
@@ -278,7 +358,7 @@ theorem nroute_low_ϕ_indistinguishable :
     <;> unfold nroute nroute' nroute_lowM at *
     <;> dsimp at v Hrule
     <;> dsimp [NatModule.stringify, Module.mapIdent]
-    <;> obtain ⟨H1, H2, H3⟩ := Hφ
+    <;> obtain ⟨H1, H2⟩ := Hφ
     · case_transition Hcontains : (Module.inputs nroute_lowM), ident,
         (fun x => PortMap.getIO_not_contained_false' x Hrule)
       simp at Hcontains
@@ -286,7 +366,7 @@ theorem nroute_low_ϕ_indistinguishable :
       exists y.concat v
     · have ⟨n, Hn1, Hn2⟩ := getIO_map_ident Hrule
       subst ident
-      exists (List.zip new_i.1.1 new_i.1.2) ++ (List.zip x.2.1 x.2.2)
+      exists List.zip (new_i.1.1 ++ x.2.1) (new_i.1.2 ++ x.2.2)
       rw [getIO_map_stringify_output] at v
       rw [PortMap.rw_rule_execution (h := by rw [AssocList.mapKey_map_toAssocList])]
       rw [PortMap.rw_rule_execution
@@ -295,9 +375,14 @@ theorem nroute_low_ϕ_indistinguishable :
       unfold lift_f mk_nroute_output_rule
       dsimp at Hrule v ⊢
       obtain ⟨⟨Hrule1, Hrule2⟩, Hrule2⟩ := Hrule
-      simpa [H3, ←Hrule2, ←Hrule1]
+      simpa [H2, ←Hrule2, ←Hrule1]
 
 theorem nroute_low_correct : nroute_lowM ⊑ nroute := by
-  apply (Module.refines_φ_refines nroute_low_ϕ_indistinguishable nroute_low_refines_initial nroute_low_refines_φ)
+  apply (
+    Module.refines_φ_refines
+      nroute_low_ϕ_indistinguishable
+      nroute_low_refines_initial
+      nroute_low_refines_φ
+  )
 
 end DataflowRewriter.NoC

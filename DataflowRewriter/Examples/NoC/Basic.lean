@@ -13,7 +13,7 @@ class NocParam where
   DataS : String  -- String representation of Data
   netsz : Nat     -- Network Size (Number of router)
 
-variable [P: NocParam]
+variable [P : NocParam]
 
 -- TODO: Unsure why this needs to be an abbrev, but it does not work when this
 -- is def

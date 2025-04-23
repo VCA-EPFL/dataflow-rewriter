@@ -547,27 +547,27 @@ structure indistinguishable (init_i : I) (init_s : S) : Prop where
     (imod.outputs.getIO ident).2 init_i v new_i →
     ∃ new_s, (smod.outputs.getIO ident).2 init_s ((mm.output_types ident).mp v) new_s
 
-structure comp_refines (R : I → S → Prop) (init_i : I) (init_s : S) : Prop where
+structure comp_refines (φ : I → S → Prop) (init_i : I) (init_s : S) : Prop where
   inputs :
     ∀ ident mid_i v,
       (imod.inputs.getIO ident).2 init_i v mid_i →
       ∃ almost_mid_s mid_s,
         (smod.inputs.getIO ident).2 init_s ((mm.input_types ident).mp v) almost_mid_s
         ∧ existSR smod.internals almost_mid_s mid_s
-        ∧ R mid_i mid_s
+        ∧ φ mid_i mid_s
   outputs :
     ∀ ident mid_i v,
       (imod.outputs.getIO ident).2 init_i v mid_i →
       ∃ mid_s,
         (smod.outputs.getIO ident).2 init_s ((mm.output_types ident).mp v) mid_s
-        ∧ R mid_i mid_s
+        ∧ φ mid_i mid_s
   internals :
     ∀ rule mid_i,
       rule ∈ imod.internals →
       rule init_i mid_i →
       ∃ mid_s,
         existSR smod.internals init_s mid_s
-        ∧ R mid_i mid_s
+        ∧ φ mid_i mid_s
 
 theorem indistinguishable_reflexive i_init :
   indistinguishable imod imod i_init i_init := by
@@ -608,12 +608,12 @@ axiom indistinguishable_mapOutputPorts
   imod.indistinguishable smod i_init s_init →
   (imod.mapOutputPorts f).indistinguishable (smod.mapOutputPorts f) i_init s_init
 
-def refines_φ (R : I → S → Prop) :=
+def refines_φ (φ : I → S → Prop) :=
   ∀ (init_i : I) (init_s : S),
-    R init_i init_s →
-     comp_refines imod smod R init_i init_s
+    φ init_i init_s →
+     comp_refines imod smod φ init_i init_s
 
-notation:35 x " ⊑_{" R:35 "} " y:34 => refines_φ x y R
+notation:35 x " ⊑_{" φ:35 "} " y:34 => refines_φ x y φ
 
 theorem refines_φ_reflexive : imod ⊑_{Eq} imod := by
   intro init_i init_s heq; subst_vars
@@ -720,8 +720,8 @@ variable [DecidableEq Ident]
 variable (imod : Module Ident I)
 variable (smod : Module Ident S)
 
-def refines_initial [mm : MatchInterface imod smod] (R : I → S → Prop) :=
-  ∀ i, imod.init_state i → ∃ s, smod.init_state s ∧ R i s
+def refines_initial [mm : MatchInterface imod smod] (φ : I → S → Prop) :=
+  ∀ i, imod.init_state i → ∃ s, smod.init_state s ∧ φ i s
 
 theorem refines_initial_reflexive_ext
   imod' (h : imod.EqExt imod') (mm := MatchInterface_EqExt h) φ (Hφ : ∀ i, φ i i):
@@ -731,15 +731,15 @@ theorem refines_initial_reflexive_ext
   split_ands <;> simpa [←h, Hφ]
 
 def refines :=
-  ∃ (mm : MatchInterface imod smod) (R : I → S → Prop),
-    (imod ⊑_{fun x y => indistinguishable imod smod x y ∧ R x y} smod)
-    ∧ refines_initial imod smod (fun x y => indistinguishable imod smod x y ∧ R x y)
+  ∃ (mm : MatchInterface imod smod) (φ : I → S → Prop),
+    (imod ⊑_{fun x y => indistinguishable imod smod x y ∧ φ x y} smod)
+    ∧ refines_initial imod smod (fun x y => indistinguishable imod smod x y ∧ φ x y)
 
 def refines' :=
-  ∃ (mm : MatchInterface imod smod) (R : I → S → Prop),
-    (imod ⊑_{R} smod)
-    ∧ (∀ x y, R x y → indistinguishable imod smod x y)
-    ∧ refines_initial imod smod R
+  ∃ (mm : MatchInterface imod smod) (φ : I → S → Prop),
+    (imod ⊑_{φ} smod)
+    ∧ (∀ x y, φ x y → indistinguishable imod smod x y)
+    ∧ refines_initial imod smod φ
 
 notation:35 x " ⊑ " y:34 => refines x y
 notation:35 x " ⊑' " y:34 => refines' x y

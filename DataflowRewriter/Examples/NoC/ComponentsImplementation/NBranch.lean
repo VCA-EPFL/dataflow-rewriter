@@ -27,7 +27,7 @@ open Batteries (AssocList)
 
 namespace DataflowRewriter.NoC
 
-variable [P: NocParam]
+variable [P : NocParam]
 
 attribute [drcompute] Batteries.AssocList.toList Function.uncurry Module.mapIdent
   List.toAssocList List.foldl Option.pure_def Option.bind_eq_bind Option.bind_some
