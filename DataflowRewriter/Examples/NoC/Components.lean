@@ -22,6 +22,8 @@ variable [P : NocParam]
 -- TODO: This should be somewhere else, this function is very useful for
 -- defining List.range n |>.map (lift_f f) |>.toAssocList, a very common pattern
 -- to design parametric design
+-- But it should also be given a better name
+@[drunfold]
 def lift_f {α : Type} (f : Nat → (Σ T : Type, α → T → α → Prop)) (n : Nat) : InternalPort Nat × (Σ T : Type, α → T → α → Prop) :=
   ⟨↑n, f n⟩
 
@@ -58,8 +60,8 @@ def nrouteT := List (P.Data × FlitHeader)
 
 def mk_nroute_output_rule (rID : RouterID) : (Σ T : Type, nrouteT → T → nrouteT → Prop) :=
   ⟨
-    P.Data,
-    λ oldState data newState => oldState = (data, { dest := rID }) :: newState
+    P.Data × FlitHeader,
+    λ oldState data newState => oldState = data :: newState
   ⟩
 
 -- NBranch with only one input

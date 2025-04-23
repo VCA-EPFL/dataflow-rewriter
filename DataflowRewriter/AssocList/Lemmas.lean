@@ -141,6 +141,11 @@ theorem contains_none {α β} [DecidableEq α] {m : AssocList α β} {ident} :
   simp at *; unfold Not; intros; apply H
   subst_vars; assumption
 
+theorem find?_map_neq {α β γ} [DecidableEq β] k (f : α → β) (g : α → γ) {l : List α}
+  (Hneq: ∀ x, x ∈ l → f x ≠ k):
+  AssocList.find? k (List.map (λ x => ⟨f x, g x⟩) l).toAssocList = none := by
+      simpa [contains_none, Hneq]
+
 theorem contains_some {α β} [DecidableEq α] {m : AssocList α β} {ident} :
     m.contains ident →
     (m.find? ident).isSome := by
@@ -310,7 +315,9 @@ theorem eraseAll_not_contains {α β} [DecidableEq α] (a : AssocList α β) (i 
 theorem eraseAll_append {α β} [DecidableEq α] {l1 l2 : AssocList α β} {i}:
   AssocList.eraseAll i (l1.append l2) =
   (AssocList.eraseAll i l1).append (AssocList.eraseAll i l2) := by
-    sorry
+    induction l1 <;> simp [eraseAll, append]
+    rename_i k _ _ _
+    cases k == i <;> simpa [append, eraseAll]
 
 @[simp] theorem eraseAll_nil {α β} [DecidableEq α] {i}:
   AssocList.eraseAll i (AssocList.nil: AssocList α β) = AssocList.nil
@@ -457,5 +464,20 @@ axiom in_eraseAll_noDup {α β γ δ} {l : List ((α × β) × γ × δ)} (Ta : 
 
 @[simp] axiom in_eraseAll_map_comm {α β} (Ta : α) [DecidableEq α] (a : AssocList α β):
   (a.toList).Nodup -> ((AssocList.eraseAllP (fun k x => decide (k = Ta)) a).toList).Nodup
+
+theorem cons_append {α β} [DecidableEq α] {k v} {l1 l2 : AssocList α β} :
+  (AssocList.cons k v l1).append l2 = AssocList.cons k v (l1.append l2) := by
+    induction l1 <;> simpa [append]
+
+theorem find?_append {α β} [DecidableEq α] {l1 l2 : AssocList α β} {k}:
+  find? k (l1.append l2) = match find? k l1 with
+  | some x => x
+  | none => find? k l2 := by
+    induction l1
+    · simp [append]
+    · rename_i k1 v1 l1 HR
+      cases Heq: decide (k1 = k) <;> simp at Heq
+      · rw [find?_cons_neq Heq, ←HR, cons_append, find?_cons_neq Heq]
+      · simp [find?, Heq]
 
 end Batteries.AssocList
