@@ -125,17 +125,30 @@ def nroute_lowT : Type := by
     rw [ε_nroute_split, ε_nroute_nbranch]
     simp [drunfold, seval, drcompute, drdecide]
 
-theorem assoclist_find?_append {α β} [DecidableEq α] {l1 l2 : AssocList α β} {f}:
-  AssocList.find? f (l1.append l2) = match AssocList.find? f l1 with
-  | some x => x
-  | none => AssocList.find? f l2 := by
-    sorry
+theorem assoclist_cons_append {α β} [DecidableEq α] {k v} {l1 l2 : AssocList α β} :
+  (AssocList.cons k v l1).append l2 = AssocList.cons k v (l1.append l2) := by
+    induction l1 <;> simpa [AssocList.append]
 
-theorem tmp_neq {α β} [DecidableEq α] k (f : Nat → α) (g : Nat → β) sz
+theorem assoclist_find?_append {α β} [DecidableEq α] {l1 l2 : AssocList α β} {k}:
+  AssocList.find? k (l1.append l2) = match AssocList.find? k l1 with
+  | some x => x
+  | none => AssocList.find? k l2 := by
+    induction l1
+    · simp [AssocList.append]
+    · rename_i k1 v1 l1 HR
+      cases Heq: decide (k1 = k) <;> simp at Heq
+      · rw [AssocList.find?_cons_neq Heq, ←HR, assoclist_cons_append, AssocList.find?_cons_neq Heq]
+      · simp [AssocList.find?, Heq]
+
+-- FIXME: Very specialized for now to be useful below, the `sz` is useless in
+-- this formulation and List.range sz could be any `l`.
+-- We could have Hneq : x < sz → f x ≠ k and then this lemma would make sense to
+-- be specialized
+theorem find?_map {α β} [DecidableEq α] k (f : Nat → α) (g : Nat → β) sz
   (Hneq: ∀ x, f x ≠ k):
   AssocList.find? k
     (List.map (λ x => ⟨f x, g x⟩) (List.range sz)).toAssocList = none := by
-      sorry
+      simpa [AssocList.contains_none, Hneq]
 
 def nroute_lowM : StringModule nroute_lowT := by
   precomputeTac [e| nroute_low, ε_nroute] by
@@ -169,7 +182,7 @@ def nroute_lowM : StringModule nroute_lowT := by
       internalport_neq,
       ----
       assoclist_find?_append,
-      tmp_neq
+      find?_map
     ]
     -- TODO: Find a way to make this portable
     conv =>
@@ -198,7 +211,7 @@ def nroute_lowM : StringModule nroute_lowT := by
             internalport_neq,
             ----
             assoclist_find?_append,
-            tmp_neq
+            find?_map
           ]
           <;> rfl)
         ]
