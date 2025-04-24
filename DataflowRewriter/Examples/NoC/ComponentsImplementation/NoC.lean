@@ -68,69 +68,6 @@ def ε_noc_nbag :
   = .some ⟨_, nbag (P.Data × FlitHeader) P.netsz⟩ := by
     sorry
 
--- This definition is intuitive and it is a good example of something we would
--- like to prove correct, but unfortunately it is very hard to reduce easily,
--- most notably due the use of fold and stuff.
--- A way to improve it would be to make "routers" into it's own module type and
--- prove its correctness before using it here, but it would be very cumbersome.
--- This "router" definition would also not be a true router, as it would only
--- allow sending message to a network on its output, receiving messages on
--- inputs, but not allow communication between them, as these connections would
--- be handled by the noc.
--- The proper definition of a router is, in fact, the same definition as a noc
-def noc_low : ExprLow String :=
-  let empty : ExprLow String := ExprLow.base {} s!"Empty"
-  let router (i : RouterID) : ExprLow String :=
-    let nroute := ExprLow.base
-      {
-        input := [⟨
-          NatModule.stringify_input 0,
-          NatModule.stringify_input i,
-        ⟩].toAssocList,
-        output := List.range P.netsz |>.map (λ j => ⟨
-          NatModule.stringify_output j,
-          { inst := InstIdent.internal s!"NRoute {i}", name := NatModule.stringify_output j}
-        ⟩) |>.toAssocList
-      }
-      s!"NRoute {P.DataS} {P.netsz}"
-    let nbag : ExprLow String := ExprLow.base
-      {
-        input := List.range P.netsz |>.map (λ j => ⟨
-          NatModule.stringify_input j,
-          { inst := InstIdent.internal s!"NBag {i}", name := NatModule.stringify_input j }
-        ⟩) |>.toAssocList,
-        output := [⟨
-          NatModule.stringify_output 0,
-          NatModule.stringify_output i
-        ⟩].toAssocList,
-      }
-      s!"NBag {P.DataS} {P.netsz}"
-    ExprLow.product nbag nroute
-  let connect (id_src : RouterID) (acc : ExprLow String) (id_dst : RouterID) : ExprLow String :=
-      ExprLow.connect
-        {
-          output := {
-            inst := InstIdent.internal s!"NRoute {id_src}",
-            name := NatModule.stringify_output id_src
-          },
-          input := {
-            inst := InstIdent.internal s!"NBag {id_dst}",
-            name := NatModule.stringify_input id_dst
-          },
-        }
-        acc
-  List.foldl
-    (λ acc i =>
-      List.foldl
-        (connect i)
-        (ExprLow.product acc (router i))
-        (List.range P.netsz)
-    )
-    empty
-    (List.range P.netsz)
-
--- NOTE: This definition is much simpler and would be a lot easier to prove correct
--- and to reduce.
 def noc_low' : ExprLow String :=
   let nbag : ExprLow String := ExprLow.base
     {
@@ -241,7 +178,7 @@ def noc_lowM : StringModule noc_lowT := by
 
 -- Utilities which does not belong here (TODO: Move elsewhere) -----------------
 
--- TODO: Find better name
+-- TODO: Find better name, prove
 theorem permutation_lemma1 {α} {v : α} {l1 l2 : List α}
   (Heq : l1 ∈ List.permutations (v :: l2)) :
     ∃ i : Fin l1.length, l1[i] = v ∧ l1.eraseIdx i ∈ List.permutations l2 := by
@@ -251,17 +188,17 @@ theorem permutation_lemma1 {α} {v : α} {l1 l2 : List α}
       simpa
     · sorry
 
--- TODO: Find a good name or something, prove this, move somewhere else
+-- TODO: Find better name, prove
 theorem permutation_lemma2 {α} {l l1 l2 l2': List α}
   (Hleft : l ∈ (l1 ++ l2).permutations)
   (Hright : l2 ∈ l2'.permutations) :
   l ∈ (l1 ++ l2').permutations := by sorry
 
--- TODO: Find better name
+-- TODO: Find better name, prove
 theorem permutation_lemma3 {α} {l : List α} {n : Fin l.length} :
   l ∈ (l[n] :: List.eraseIdx l ↑n).permutations := by sorry
 
--- TODO: Find better name
+-- TODO: Find better name, prove
 theorem permutation_lemma4 {α} {l l' : List α} {v} {H : l ∈ List.permutations l'} :
   l.concat v ∈ List.permutations (l'.concat v) := by
     sorry
@@ -333,7 +270,7 @@ theorem noc_low_refines_initial :
   Module.refines_initial noc_lowM noc φ := by
     unfold noc_lowM noc noc'
     dsimp [Module.refines_initial, NatModule.stringify, Module.mapIdent]
-    intros i Hi;
+    intros i Hi
     obtain ⟨Hi1, Hi2⟩ := Hi
     unfold φ
     rw [Hi1, Hi2]
@@ -426,10 +363,9 @@ theorem noc_low_ϕ_indistinguishable :
     <;> dsimp at v Hrule
     <;> dsimp [NatModule.stringify, Module.mapIdent]
     <;> obtain ⟨i', Hi'1, Hi'2⟩ := Hφ
-    <;> subst s
-    · have ⟨n, Hn1, Hn2⟩ := getIO_map_ident Hrule
-      subst ident
-      have_hole Hv : typeOf v = _ := by
+    <;> have ⟨n, Hn1, Hn2⟩ := getIO_map_ident Hrule
+    <;> subst s ident
+    · have_hole Hv : typeOf v = _ := by
         unfold typeOf
         rewrite [getIO_map_stringify_input]
         dsimp [mk_nbag_input_rule]
@@ -442,9 +378,7 @@ theorem noc_low_ϕ_indistinguishable :
       ] at Hrule ⊢
       dsimp [lift_f, mk_noc_input_rule, mk_nbag_input_rule] at Hrule ⊢
       simpa
-    · have ⟨n, Hn1, Hn2⟩ := getIO_map_ident Hrule
-      subst ident
-      rw [getIO_map_stringify_output] at v
+    · rw [getIO_map_stringify_output] at v
       rw [PortMap.rw_rule_execution
         (h := by apply (getIO_map_stringify_output) <;> rfl)
       ] at Hrule

@@ -83,7 +83,8 @@ theorem full_connectivity (i j : RouterID) (d : P.Data) pre_s inp_s
         <;> simpa)
       ]
       dsimp at Hinp ⊢
-      have Hlen: 0 < List.length inp_s
-      · simpa [Hinp]
-      exists (Fin.mk 0 Hlen)
-      split_ands <;> simpa [Hinp]
+      exists (Fin.mk ((List.length inp_s) - 1) (by simpa [Hinp]))
+      split_ands <;> simp [Hinp]
+      -- TODO Need annoying lemma about List.concat and removing last element of the list
+      sorry
+
