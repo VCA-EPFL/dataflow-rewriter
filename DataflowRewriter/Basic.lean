@@ -123,15 +123,19 @@ namespace PortMapping
 
 variable {Ident}
 
+instance : EmptyCollection (PortMapping Ident) := ⟨⟨∅, ∅⟩⟩
+
 def append (a b : PortMapping Ident) :=
   PortMapping.mk (a.input ++ b.input) (a.output ++ b.output)
 
 instance : Append (PortMapping Ident) := ⟨append⟩
 
+@[simp] theorem empty_append {α} (as : PortMapping α) : ∅ ++ as = as := rfl
+@[simp] theorem append_elements {α} (a b c d : PortMap α (InternalPort α)) : PortMapping.mk a b ++ ⟨c, d⟩ = ⟨a ++ c, b ++ d⟩ := rfl
+@[simp] theorem lift_append {α} (as bs : PortMapping α) : as.append bs = as ++ bs := rfl
+
 def filter (f : InternalPort Ident → InternalPort Ident → Bool) (a : PortMapping Ident) :=
   PortMapping.mk (a.input.filter f) (a.output.filter f)
-
-instance : EmptyCollection (PortMapping Ident) := ⟨⟨∅, ∅⟩⟩
 
 def ofPortMapping [DecidableEq Ident] (p : PortMapping Ident) : Option Ident :=
   match p.input with

@@ -4,30 +4,30 @@ import Mathlib.Logic.Function.Basic
 namespace Batteries.AssocList
 
 theorem append_eq {α β} {a b : AssocList α β} :
-  (a.append b).toList = a.toList ++ b.toList := by
+  (a ++ b).toList = a.toList ++ b.toList := by
   induction a generalizing b <;> simp [*, append]
 
 theorem append_eq2 {α β} {a b : AssocList α β} :
-  a.append b = (a.toList ++ b.toList).toAssocList := by
+  a ++ b = (a.toList ++ b.toList).toAssocList := by
   induction a generalizing b <;> simp [*, append]
 
 theorem append_find? {α β} [DecidableEq α] (a b : AssocList α β) (i) :
-  (a.append b).find? i = a.find? i
-  ∨ (a.append b).find? i = b.find? i := by
+  (a ++ b).find? i = a.find? i
+  ∨ (a ++ b).find? i = b.find? i := by
   induction a with
-  | nil => simp [append]
+  | nil => simp
   | cons k v t ih =>
     by_cases h : k = i
-    <;> simp_all [append, List.find?_cons_of_pos, List.find?_cons_of_neg]
+    <;> simp_all [List.find?_cons_of_pos, List.find?_cons_of_neg]
 
 theorem append_find?2 {α β} [DecidableEq α] {a b : AssocList α β} {i x} :
-  (a.append b).find? i = some x →
+  (a ++ b).find? i = some x →
   a.find? i = some x ∨ (a.find? i = none ∧ b.find? i = some x) := by
   induction a with
-  | nil => simp [append]
+  | nil => simp
   | cons k v t ih =>
     by_cases h : k = i
-    <;> simp_all [append, List.find?_cons_of_pos, List.find?_cons_of_neg]
+    <;> simp_all [List.find?_cons_of_pos, List.find?_cons_of_neg]
 
 theorem find?_mapVal {α β γ} [DecidableEq α] {a : AssocList α β} {f : α → β → γ} {i}:
   (a.mapVal f).find? i = (a.find? i).map (f i) := by
@@ -53,12 +53,12 @@ theorem disjoint_keys_symm {α β γ} [DecidableEq α] {a : AssocList α β} {b 
 
 theorem append_find_left {α β} [DecidableEq α] {a b : AssocList α β} {i x} :
   a.find? i = some x →
-  (a.append b).find? i = some x := by
+  (a ++ b).find? i = some x := by
   induction a with
   | nil => simp
   | cons a y t ih =>
     intro hfind
-    simp only [append]
+    simp only [cons_append]
     rw [Batteries.AssocList.find?.eq_2] at hfind ⊢
     split <;> rename_i _ heq
     · simp_all
@@ -66,12 +66,12 @@ theorem append_find_left {α β} [DecidableEq α] {a b : AssocList α β} {i x} 
 
 theorem append_find_right {α β} [DecidableEq α] (a b : AssocList α β) {i} :
   a.find? i = none →
-  (a.append b).find? i = b.find? i := by
+  (a ++ b).find? i = b.find? i := by
   induction a with
-  | nil => simp [append]
+  | nil => simp
   | cons a y t ih =>
     intro hfind
-    simp only [append]
+    simp only [cons_append]
     rw [Batteries.AssocList.find?.eq_2] at hfind ⊢
     split <;> rename_i _ heq
     · simp_all
@@ -190,12 +190,12 @@ theorem notkeysList_find2 {α β} [DecidableEq α] {m : AssocList α β} {ident}
 theorem append_find_right_disjoint {α β} [DecidableEq α] {a b : AssocList α β} {i x} :
   a.disjoint_keys b →
   b.find? i = some x →
-  (a.append b).find? i = some x := by
+  (a ++ b).find? i = some x := by
   induction a with
-  | nil => simp [append]
+  | nil => simp
   | cons a y t ih =>
     intro hdisj hfind
-    simp only [append]
+    simp only [cons_append]
     rw [Batteries.AssocList.find?.eq_2]
     split <;> rename_i _ heq
     · exfalso; clear ih;
@@ -263,7 +263,7 @@ theorem append_find_right_disjoint {α β} [DecidableEq α] {a b : AssocList α 
 @[simp] theorem find?_eraseAll_neq {α β} [DecidableEq α] {a : AssocList α β} {i i'} :
   i ≠ i' → (a.eraseAll i').find? i = a.find? i := by
   induction a with
-  | nil => simp
+  | nil => simp [eraseAll]
   | cons k v xs ih =>
     intro neq
     by_cases i' = k
@@ -382,8 +382,8 @@ theorem mapKey_mapKey {α β γ σ} {f : α → β} {g : β → γ} {m : AssocLi
     induction m <;> simpa
 
 theorem mapKey_append {α β γ} {f : α → γ} {m n : AssocList α β}:
-  (m.mapKey f).append (n.mapKey f) = (m.append n).mapKey f := by
-    induction m <;> simpa [append]
+  m.mapKey f ++ n.mapKey f = (m ++ n).mapKey f := by
+  induction m <;> simpa
 
 theorem eraseAll_comm_mapKey {α β γ} [DecidableEq α] [DecidableEq γ] {f : α → γ}
   {Hinj : Function.Injective f} {i} {m : AssocList α β} :
@@ -408,15 +408,17 @@ theorem bijectivePortRenaming_bijective {α} [DecidableEq α] {p : AssocList α 
   rw [Function.bijective_iff_existsUnique]
   intro b
   by_cases h : p.filterId.keysList.inter p.inverse.filterId.keysList = ∅ && p.keysList.Nodup && p.inverse.keysList.Nodup
-  · cases h' : (p.filterId.append p.inverse.filterId).find? b
+  · cases h' : (p.filterId ++ p.inverse.filterId).find? b
     · refine ⟨b, ?_, ?_⟩
       unfold bijectivePortRenaming; simp [*, -AssocList.find?_eq]
       unfold bijectivePortRenaming; simp [*, -AssocList.find?_eq]
-      intro y Hy; simp at h; simp [invertible,h, -AssocList.find?_eq] at Hy
-      cases h'' : AssocList.find? y (p.filterId.append p.inverse.filterId)
+      intro y Hy; simp only [List.empty_eq, Bool.and_eq_true, decide_eq_true_eq] at h
+      simp only [invertible, h, List.empty_eq, and_self, decide_true, ↓reduceIte] at Hy
+      cases h'' : AssocList.find? y (p.filterId ++ p.inverse.filterId)
       · rw [h''] at Hy; dsimp at Hy; assumption
       · rw [h''] at Hy; dsimp at Hy; subst b
         have := invertibleMap (by unfold invertible; simp [*]) h''
+        simp only [lift_append] at this
         rw [this] at h'; injection h'
     · rename_i val
       refine ⟨val, ?_, ?_⟩
@@ -425,7 +427,7 @@ theorem bijectivePortRenaming_bijective {α} [DecidableEq α] {p : AssocList α 
         rw [invertibleMap]; rfl; simp [invertible, *]; assumption
       · unfold bijectivePortRenaming; simp [*, -AssocList.find?_eq]; intros y hY
         simp at h; simp [invertible, h, -AssocList.find?_eq] at hY
-        cases h'' : AssocList.find? y (p.filterId.append p.inverse.filterId)
+        cases h'' : AssocList.find? y (p.filterId ++ p.inverse.filterId)
         · rw [h''] at hY; dsimp at hY; subst y; rw [h''] at h'; injection h'
         · rename_i val'; rw [h''] at hY; dsimp at *; subst b
           have := invertibleMap (by simp [invertible, *]) h''; rw [this] at h'; injection h'
