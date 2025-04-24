@@ -217,6 +217,9 @@ theorem append_find_right_disjoint {α β} [DecidableEq α] {a b : AssocList α 
   ((a.cons ident' val).eraseAll ident) = (a.eraseAll ident).cons ident' val := by
   simp +contextual (disch := assumption) [eraseAll, beq_false_of_ne]
 
+@[simp] theorem eraseAll_nil {α β} [DecidableEq α] {ident} :
+  ((@nil α β).eraseAll ident) = .nil := by rfl
+
 @[simp] theorem eraseAll_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} {ident} {f : α → β → γ} :
   (a.eraseAll ident).mapVal f = (a.mapVal f).eraseAll ident := by
   induction a generalizing ident with
