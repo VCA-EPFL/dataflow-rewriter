@@ -301,6 +301,30 @@ instance : MatchInterface noc_lowM noc where
 def φ (I : noc_lowT) (S : nocT) : Prop :=
   ∃ I' ∈ List.permutations (I.1 ++ I.2), S = I'
 
+-- TODO: Find a good name or something, prove this, move somewhere else
+theorem permutation_lemma1 {α} {v : α} {l1 l2 : List α}
+  (Heq : l1 ∈ List.permutations (v :: l2)) :
+    ∃ i : Fin l1.length, l1[i] = v ∧ l1.eraseIdx i ∈ List.permutations l2 := by
+    induction l2 generalizing l1
+    · simp at Heq; rw [Heq]
+      exists (Fin.mk 0 (by simpa))
+      simpa
+    · sorry
+
+-- TODO: Find a good name or something, prove this, move somewhere else
+theorem permutation_lemma2 {α} {l l1 l2 l2': List α}
+  (Hleft : l ∈ (l1 ++ l2).permutations)
+  (Hright : l2 ∈ l2'.permutations) :
+  l ∈ (l1 ++ l2').permutations := by sorry
+
+-- TODO: Find a good name or something, prove this, move somewhere else
+theorem permutation_lemma3 {α} {l : List α} {n : Fin l.length} :
+  l ∈ (l[n] :: List.eraseIdx l ↑n).permutations := by sorry
+
+theorem permutation_lemma4 {α} {l l' : List α} {v} {H : l ∈ List.permutations l'} :
+  l.concat v ∈ List.permutations (l'.concat v) := by
+    sorry
+
 theorem noc_low_refines_initial :
   Module.refines_initial noc_lowM noc φ := by
     unfold noc_lowM noc noc'
@@ -346,7 +370,9 @@ theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
     · unfold φ; rw [Hrule1, ←Hrule2]
       exists i'.concat v
       split_ands
-      · sorry -- True but annoying to prove and weird
+      · rw [List.concat_eq_append, ←List.append_assoc]
+        -- apply permutation_lemma4 -- Cannot apply due to weird thing
+        sorry -- True but annoying to prove and weird
       · simpa
   · case_transition Hcontains : (Module.outputs noc_lowM), ident,
      (fun x => PortMap.getIO_not_contained_false' x Hrule)
@@ -355,21 +381,24 @@ theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
     subst ident
     -- TODO: Investigate why this create a new hypothesis
     -- rw [getIO_map_stringify_output] at v
-    exists mid_i.1 ++ mid_i.2
+    rw [PortMap.rw_rule_execution
+      (h := by apply (getIO_map_stringify_output) <;> rfl)
+    ] at Hrule
+    dsimp at Hrule
+    obtain ⟨Hrule1, Hrule2⟩ := Hrule
+    rw [Hrule1, Hrule2] at Hi'1
+    obtain ⟨index, Hindex1, Hindex2⟩ := permutation_lemma1 Hi'1
+    exists i'.eraseIdx index
     rw [PortMap.rw_rule_execution
       (h := by rw [AssocList.mapKey_map_toAssocList])
     ]
     rw [PortMap.rw_rule_execution
       (h := by apply (getIO_map_stringify_output) <;> rfl)
-    ] at Hrule ⊢
-    dsimp [lift_f, mk_noc_output_rule] at Hrule v ⊢
-    obtain ⟨Hrule1, Hrule2⟩ := Hrule
-    rw [Hrule1, Hrule2] at Hi'1
-    -- We need to say that there exists an index i such that i'[i] = (v, {...})
-    -- Then we can say that the actual exists we want here is i' where we remove
-    -- this index i
-    simp at Hi'1
-    sorry
+    ]
+    dsimp [lift_f, mk_noc_output_rule] at v ⊢
+    split_ands
+    · exists index; simpa [←Hindex1]
+    · exists i'.eraseIdx ↑index
   · exists i'; split_ands
     · constructor
     · simp at v
@@ -379,7 +408,11 @@ theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
       exists i'; split_ands
       · rw [H4, ←H5, H1, H2]
         rw [H3] at Hi'1
-        sorry -- True from Hi'1 but annoying to prove
+        rw [List.append_assoc]
+        apply (permutation_lemma2 (l := i')
+          (Hleft := Hi'1)
+          (Hright := by apply permutation_lemma3)
+        )
       · rfl
 
 theorem noc_low_ϕ_indistinguishable :
@@ -404,23 +437,26 @@ theorem noc_low_ϕ_indistinguishable :
       ] at Hrule ⊢
       dsimp [lift_f, mk_noc_input_rule, mk_nbag_input_rule] at Hrule v ⊢
       obtain ⟨Hrule1, Hrule2⟩ := Hrule
-      sorry -- True
+      sorry -- True but weird
     · have ⟨n, Hn1, Hn2⟩ := getIO_map_ident Hrule
       subst ident
       rw [getIO_map_stringify_output] at v
-      exists []
+      rw [PortMap.rw_rule_execution
+        (h := by apply (getIO_map_stringify_output) <;> rfl)
+      ] at Hrule
+      dsimp [lift_f, mk_noc_output_rule, mk_nroute_output_rule] at Hrule v
+      obtain ⟨Hrule1, Hrule2⟩ := Hrule
+      rw [Hrule1, Hrule2] at Hi'1
+      obtain ⟨index, Hindex1, Hindex2⟩ := permutation_lemma1 Hi'1
+      exists i'.eraseIdx index
       rw [PortMap.rw_rule_execution
         (h := by rw [AssocList.mapKey_map_toAssocList])
       ]
       rw [PortMap.rw_rule_execution
         (h := by apply (getIO_map_stringify_output) <;> rfl)
-      ] at Hrule ⊢
-      dsimp [lift_f, mk_noc_output_rule, mk_nroute_output_rule] at Hrule v ⊢
-      obtain ⟨Hrule1, Hrule2⟩ := Hrule
-      rw [Hrule1, Hrule2] at Hi'1
-      -- True but annoying, we need to extract the index from the fact i' is a
-      -- permutation and use this for the exists
-      sorry
+      ]
+      dsimp [lift_f, mk_noc_output_rule, mk_nroute_output_rule]
+      exists index; split_ands <;> simpa [←Hindex1]
 
 theorem noc_low_correct : noc_lowM ⊑ noc := by
   apply (
