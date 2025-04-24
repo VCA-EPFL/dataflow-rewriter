@@ -93,6 +93,8 @@ def lhsModuleType : Type := by
   precomputeTac [T| (rewriteLhsRhs S₁ S₂ S₃).input_expr, @environmentLhs T₁ T₂ T₃ S₁ S₂ S₃ ] by
     -- ExprHigh reduction
     dsimp [rewriteLhsRhs, rewrite, lhsLower, lhs_extract, lhs, ExprHigh.extract]
+    dsimp [List.foldlM]
+    simp (disch := simp) only [AssocList.find?_cons_eq, AssocList.find?_cons_neq]; dsimp
     simp
     -- Lowering reduction -> creates ExprLow
     dsimp [ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry]
@@ -101,52 +103,80 @@ def lhsModuleType : Type := by
     -- Reduce environment access
     simp only [find?_join1_data, find?_join2_data]; dsimp
 
+def cast_module_type {α} {f : α → Type _} {s s' : Σ T, f T} (heq : s = s') : f s.1 = f s'.1 := by simp_all
+
+theorem rw_opaque {f : Type _ → Type _} {s s' : Σ T, f T} (heq : s = s') : @Opaque (f s.fst) s.snd ↔ @Opaque (f s'.fst) s'.snd := by
+  subst s; rfl
+
+@[simp] theorem toString1 : toString 1 = "1" := rfl
+@[simp] theorem toString2 : toString 2 = "2" := rfl
+@[simp] theorem toString3 : toString 3 = "3" := rfl
+
+attribute [drcompute] Option.some_bind
+      Option.bind_some AssocList.foldl_eq AssocList.findEntryP?_eq
+      List.partition_eq_filter_filter List.mem_cons List.not_mem_nil or_false not_or
+      Bool.decide_and decide_not Batteries.AssocList.toList List.reverse_cons List.reverse_nil
+      List.nil_append List.cons_append List.toAssocList List.foldl_cons
+      PortMapping.empty_append PortMapping.append_elements AssocList.cons_append
+      AssocList.nil_append List.foldl_nil InternalPort.mk.injEq reduceCtorEq String.reduceEq
+      and_self decide_false Bool.false_eq_true not_false_eq_true List.find?_cons_of_neg
+      decide_true List.find?_cons_of_pos Option.isSome_some Bool.and_self
+      List.filter_cons_of_pos List.filter_nil Function.comp_apply Bool.not_true
+      List.filter_cons_of_neg Option.get_some decide_not
+      Bool.not_eq_eq_eq_not Bool.not_true decide_eq_false_iff_not ite_not AssocList.foldl_eq
+      Batteries.AssocList.toList List.foldl_cons InternalPort.mk.injEq reduceCtorEq and_true
+      String.reduceEq and_false List.foldl_nil AssocList.cons_append
+      AssocList.nil_append beq_iff_eq not_false_eq_true
+      List.find?_cons_of_neg BEq.rfl List.find?_cons_of_pos Option.map_some Option.getD_some
+      List.concat_eq_append AssocList.eraseAll_cons_neq AssocList.eraseAll_cons_eq AssocList.eraseAll_nil
+      AssocList.find?_cons_eq AssocList.find?_cons_neq PortMap.getIO
+
 variable (T₁ T₂ T₃) in
 @[drunfold] def lhsModule : StringModule (lhsModuleType T₁ T₂ T₃) := by
   precomputeTac [e| (rewriteLhsRhs S₁ S₂ S₃).input_expr, @environmentLhs T₁ T₂ T₃ S₁ S₂ S₃ ] by
-    dsimp [rewriteLhsRhs, rewrite, lhsLower, lhs_extract, lhs, ExprHigh.extract]
-    simp
-    dsimp [ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry]
-    dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
-    simp only [find?_join1_data, find?_join2_data]; dsimp
-    -- simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
-    -- rw [find?_join1_data,find?_join2_data]
-    -- simp [-AssocList.find?_eq]
-    -- unfold Module.liftR Module.liftL
-    -- dsimp
-    -- conv =>
-    --   pattern (occs := *) Module.connect'' _ _
-    --   all_goals
-    --     rw [(Module.connect''_dep_rw (h := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl)
-    --                                  (h' := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl))]; rfl
-    -- simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,-Prod.exists]
-    -- simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
-    -- unfold Module.connect''
-    -- dsimp
+    dsimp [ExprLow.build_module_expr, rewriteLhsRhs, rewrite, lhsLower, lhs_extract, lhs, ExprHigh.extract, List.foldlM]
+    rw [rw_opaque (by simp (disch := simp) only [drcompute, ↓reduceIte]; rfl)]
+    dsimp [ ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry
+          , ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    rw [rw_opaque (by simp (disch := simp) only [drcompute, ↓reduceIte]; rfl)]
+    dsimp [join, NatModule.join, NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_input, NatModule.stringify_output, toString]
+    dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter]; simp (disch := simp) only [drcompute, ↓reduceIte]
+    dsimp [Module.product, Module.liftL, Module.liftR]
+    dsimp [Module.connect']
+    simp (disch := simp) only [drcompute, ↓reduceIte]
+    rw [(Module.connect''_dep_rw (h := by simp (disch := simp) only [drcompute, ↓reduceIte]; dsimp)
+                                 (h' := by simp (disch := simp) only [drcompute, ↓reduceIte]; dsimp))]
+    unfold Module.connect''
+    dsimp
 
-#check (lhsModule T₁ T₂ T₃).internals
-
-set_option maxHeartbeats 0 in
 variable (T₁ T₂ T₃) in
 def rhsModuleType : Type := by
   precomputeTac [T| (rewriteLhsRhs S₁ S₂ S₃).output_expr, @environmentRhs T₁ T₂ T₃ S₁ S₂ S₃ ] by
-    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,-PortMap.cons_find?,-PortMap.getIO_cons]
+    -- ExprHigh reduction
+    dsimp [rewriteLhsRhs, rewrite, rhsLower, rhs, ExprHigh.extract, toString]
+    -- Lowering reduction -> creates ExprLow
+    dsimp [ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry]
+    -- Unfold build_module
+    dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    -- Reduce environment access
+    simp only [find?_join1_data2, find?_join2_data2, find?_pure_data2]; dsimp
 
 variable (T₁ T₂ T₃) in
 @[drunfold] def rhsModule : StringModule (rhsModuleType T₁ T₂ T₃) := by
   precomputeTac [e| (rewriteLhsRhs S₁ S₂ S₃).output_expr, @environmentRhs T₁ T₂ T₃ S₁ S₂ S₃ ] by
-    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
-    rw [find?_join1_data2,find?_join2_data2,find?_pure_data2]
-    simp [-AssocList.find?_eq]
-    unfold Module.liftR Module.liftL
-    dsimp
-    conv =>
-      pattern (occs := *) Module.connect'' _ _
-      all_goals
-        rw [(Module.connect''_dep_rw (h := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl)
-                                     (h' := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl))]; rfl
-    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,-Prod.exists]
-    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
+    dsimp [ExprLow.build_module_expr, rewriteLhsRhs, rewrite, rhsLower, rhs, ExprHigh.extract, List.foldlM]
+    rw [rw_opaque (by simp (disch := simp) only [drcompute, ↓reduceIte]; rfl)]
+    dsimp [ ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry
+          , ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    rw [rw_opaque (by simp only [find?_join1_data2, find?_join2_data2, find?_pure_data2]; rfl)]
+    rw [rw_opaque (by simp (disch := simp) only [drcompute, ↓reduceIte]; rfl)]
+    dsimp [join, NatModule.join, NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_input, NatModule.stringify_output, toString]
+    dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter]; simp (disch := simp) only [drcompute, ↓reduceIte]
+    dsimp [Module.product, Module.liftL, Module.liftR]
+    dsimp [Module.connect']
+    simp (disch := simp) only [drcompute, ↓reduceIte]
+    rw [(Module.connect''_dep_rw (h := by simp (disch := simp) only [drcompute, ↓reduceIte]; dsimp)
+                                 (h' := by simp (disch := simp) only [drcompute, ↓reduceIte]; dsimp))]
     unfold Module.connect''
     dsimp
 
