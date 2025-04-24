@@ -55,25 +55,18 @@ attribute [drdecide] InternalPort.mk.injEq and_false decide_False decide_True
 
 def ε_noc : Env :=
   [
-    -- Empty component (Always useful)
-    (s!"Empty", ⟨_, StringModule.empty⟩),
-
-    -- Bags to receive message (One per router)
-    (s!"NBag {P.DataS} {P.netsz}", ⟨_, StringModule.bag P.Data⟩),
-
-    -- Branching for routing
+    (s!"NBag {P.DataS} × {FlitHeaderS} {P.netsz}", ⟨_, nbag (P.Data × FlitHeader) P.netsz⟩),
     (s!"NRoute {P.DataS} {P.netsz}", ⟨_, nbranch⟩),
   ].toAssocList
 
-def ε_noc_empty :
-  ε_noc.find? s!"Empty" = .some ⟨_, StringModule.empty⟩ := by
-  simpa
-
 def ε_noc_nroute :
-  ε_noc.find? s!"NRoute {P.DataS} {P.netsz}" = .some ⟨_, nroute⟩ := by sorry
+  ε_noc.find? s!"NRoute {P.DataS} {P.netsz}" = .some ⟨_, nroute⟩ := by
+    sorry
 
 def ε_noc_nbag :
-  ε_noc.find? s!"NBag {P.DataS} {P.netsz}" = .some ⟨_, nbag P.Data P.netsz⟩ := by sorry
+  ε_noc.find? s!"NBag {P.DataS} × {FlitHeaderS} {P.netsz}"
+  = .some ⟨_, nbag (P.Data × FlitHeader) P.netsz⟩ := by
+    sorry
 
 -- This definition is intuitive and it is a good example of something we would
 -- like to prove correct, but unfortunately it is very hard to reduce easily,
@@ -150,7 +143,7 @@ def noc_low' : ExprLow String :=
         { inst := InstIdent.internal "NBag", name := NatModule.stringify_output 0 }
       ⟩].toAssocList,
     }
-    s!"NBag {P.DataS} {P.netsz}"
+    s!"NBag {P.DataS} × {FlitHeaderS} {P.netsz}"
   let nroute : ExprLow String := ExprLow.base
     {
       input := [⟨
@@ -168,13 +161,13 @@ def noc_low' : ExprLow String :=
     output := { inst := InstIdent.internal "NBag", name := NatModule.stringify_output 0 }
     input := { inst := InstIdent.internal "NRoute", name := NatModule.stringify_input 0 }
   }
-  (ExprLow.product nbag nroute)
+  (ExprLow.product nroute nbag)
 
 def noc_lowT : Type := by
   precomputeTac [T| noc_low', ε_noc] by
     simp [drunfold, seval, drdecide, -AssocList.find?_eq]
     rw [ε_noc_nbag, ε_noc_nroute]
-    simp [drunfold, seval, drcompute, drdecide]
+    simp [drunfold, seval, drcompute, drdecide, nrouteT]
 
 def noc_lowM : StringModule noc_lowT := by
   precomputeTac [e| noc_low', ε_noc] by
@@ -211,29 +204,223 @@ def noc_lowM : StringModule noc_lowT := by
       stringify_input_neq,
       internalport_neq
     ]
+    -- TODO: Make this not ugly and actually portable
+    conv =>
+      pattern (occs := *) And _ _
+      all_goals congr
+      rfl
+      rfl
+      rfl
+      rfl
+      rw [PortMap.rw_rule_execution
+        (h := by simp [
+          Module.liftR,
+          Module.liftL,
+          AssocList.mapVal_map_toAssocList,
+          AssocList.mapKey_map_toAssocList,
+          AssocList.mapKey_mapKey,
+          AssocList.mapVal_mapKey,
+          AssocList.eraseAll_append,
+          AssocList.eraseAll_map_neq,
+          AssocList.eraseAll_nil,
+          AssocList.append_nil,
+          AssocList.find?_append,
+          AssocList.find?_map_neq,
+          AssocList.bijectivePortRenaming_same,
+          -AssocList.find?_eq,
+          InternalPort.map,
+          stringify_output_neq,
+          stringify_input_neq,
+          internalport_neq,
+        ]
+        <;> rfl)
+      ]
+      dsimp
+      all_goals rfl
+    skip
 
 -- Correctness -----------------------------------------------------------------
 -- TODO
 
 instance : MatchInterface noc_lowM noc where
-  input_types := by sorry
-  output_types := by sorry
-  inputs_present := by sorry
-  outputs_present := by sorry
+  input_types := by
+    intros ident
+    dsimp [
+      noc_lowM, noc, noc',
+      NatModule.stringify, Module.mapIdent, InternalPort.map,
+      NatModule.stringify_input, NatModule.stringify_output,
+    ]
+    rw [AssocList.mapKey_map_toAssocList]
+    dsimp [
+      NatModule.stringify, Module.mapIdent, InternalPort.map,
+      NatModule.stringify_input, NatModule.stringify_output,
+      lift_f, mk_noc_input_rule, mk_nbag_input_rule
+    ]
+    apply (getIO_map_ident_match_1 (Heq := by simpa))
+  output_types := by
+    intros ident
+    dsimp [
+      noc_lowM, noc, noc',
+      NatModule.stringify, Module.mapIdent, InternalPort.map,
+      NatModule.stringify_input, NatModule.stringify_output,
+    ]
+    rw [AssocList.mapKey_map_toAssocList]
+    dsimp [
+      NatModule.stringify, Module.mapIdent, InternalPort.map,
+      NatModule.stringify_input, NatModule.stringify_output,
+      lift_f, mk_noc_output_rule, mk_nroute_output_rule
+    ]
+    apply (getIO_map_ident_match_1 (Heq := by simpa))
+  inputs_present := by
+    intros ident
+    unfold noc_lowM noc noc'
+    dsimp [
+      NatModule.stringify, Module.mapIdent,
+      mk_nroute_output_rule,
+      mk_noc_output_rule
+    ]
+    rw [AssocList.mapKey_map_toAssocList]
+    dsimp [InternalPort.map, lift_f, mk_noc_output_rule]
+    simp
+    apply isSome_same_list
+    constructor <;> intros H <;> obtain ⟨x, _, _⟩ := H <;> exists x <;> simpa
+  outputs_present := by
+    intros ident
+    unfold noc_lowM noc noc'
+    dsimp [
+      NatModule.stringify, Module.mapIdent,
+      mk_nroute_output_rule,
+      mk_noc_output_rule
+    ]
+    rw [AssocList.mapKey_map_toAssocList]
+    dsimp [InternalPort.map, lift_f, mk_noc_output_rule]
+    simp
+    apply isSome_same_list
+    constructor <;> intros H <;> obtain ⟨x, _, _⟩ := H <;> exists x <;> simpa
 
 def φ (I : noc_lowT) (S : nocT) : Prop :=
-  False
+  ∃ I' ∈ List.permutations (I.1 ++ I.2), S = I'
 
 theorem noc_low_refines_initial :
   Module.refines_initial noc_lowM noc φ := by
-    sorry
+    unfold noc_lowM noc noc'
+    dsimp [Module.refines_initial, NatModule.stringify, Module.mapIdent]
+    intros i Hi;
+    obtain ⟨Hi1, Hi2⟩ := Hi
+    unfold φ
+    rw [Hi1, Hi2]
+    exists []; simpa
 
 theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
-  sorry
+  intros i s H
+  constructor
+  <;> unfold noc noc' noc_lowM
+  <;> intros ident mid_i v Hrule
+  <;> dsimp [
+    NatModule.stringify, Module.mapIdent,
+    InternalPort.map, lift_f, mk_nroute_output_rule
+  ] at v Hrule ⊢
+  <;> obtain ⟨i', Hi'1, Hi'2⟩ := H
+  <;> subst s
+  · case_transition Hcontains : (Module.inputs noc_lowM), ident,
+     (fun x => PortMap.getIO_not_contained_false' x Hrule)
+    simp [noc_lowM] at Hcontains
+    obtain ⟨n, HnFin, _⟩ := Hcontains
+    subst ident
+    -- TODO: Investigate why this create a new hypothesis
+    rw [getIO_map_stringify_input] at v
+    dsimp [mk_nbag_input_rule] at v
+    exists i'.concat v
+    exists i'.concat v
+    rw [PortMap.rw_rule_execution
+      (h := by rw [AssocList.mapKey_map_toAssocList])
+    ]
+    rw [PortMap.rw_rule_execution
+      (h := by apply (getIO_map_stringify_input) <;> rfl)
+    ] at Hrule ⊢
+    dsimp [lift_f, mk_noc_input_rule, mk_nbag_input_rule] at v Hrule ⊢
+    obtain ⟨Hrule1, Hrule2⟩ := Hrule
+    split_ands
+    · sorry -- True but weird
+    · constructor
+    · unfold φ; rw [Hrule1, ←Hrule2]
+      exists i'.concat v
+      split_ands
+      · sorry -- True but annoying to prove and weird
+      · simpa
+  · case_transition Hcontains : (Module.outputs noc_lowM), ident,
+     (fun x => PortMap.getIO_not_contained_false' x Hrule)
+    simp [noc_lowM] at Hcontains
+    obtain ⟨n, HnFin, _⟩ := Hcontains
+    subst ident
+    -- TODO: Investigate why this create a new hypothesis
+    -- rw [getIO_map_stringify_output] at v
+    exists mid_i.1 ++ mid_i.2
+    rw [PortMap.rw_rule_execution
+      (h := by rw [AssocList.mapKey_map_toAssocList])
+    ]
+    rw [PortMap.rw_rule_execution
+      (h := by apply (getIO_map_stringify_output) <;> rfl)
+    ] at Hrule ⊢
+    dsimp [lift_f, mk_noc_output_rule] at Hrule v ⊢
+    obtain ⟨Hrule1, Hrule2⟩ := Hrule
+    rw [Hrule1, Hrule2] at Hi'1
+    -- We need to say that there exists an index i such that i'[i] = (v, {...})
+    -- Then we can say that the actual exists we want here is i' where we remove
+    -- this index i
+    simp at Hi'1
+    sorry
+  · exists i'; split_ands
+    · constructor
+    · simp at v
+      subst ident
+      obtain ⟨a, b, output, ⟨⟨n, H1, H2⟩, H3⟩, ⟨H4, H5⟩⟩ := Hrule
+      unfold φ
+      exists i'; split_ands
+      · rw [H4, ←H5, H1, H2]
+        rw [H3] at Hi'1
+        sorry -- True from Hi'1 but annoying to prove
+      · rfl
 
 theorem noc_low_ϕ_indistinguishable :
-  ∀ x y, φ x y → Module.indistinguishable noc_lowM noc x y := by
-    sorry
+  ∀ i s, φ i s → Module.indistinguishable noc_lowM noc i s := by
+    intros i s Hφ
+    constructor
+    <;> intros ident new_i v Hrule
+    <;> unfold noc noc' noc_lowM at *
+    <;> dsimp at v Hrule
+    <;> dsimp [NatModule.stringify, Module.mapIdent]
+    <;> obtain ⟨i', Hi'1, Hi'2⟩ := Hφ
+    <;> subst s
+    · have ⟨n, Hn1, Hn2⟩ := getIO_map_ident Hrule
+      subst ident
+      rw [getIO_map_stringify_input] at v
+      exists i'.concat v
+      rw [PortMap.rw_rule_execution
+        (h := by rw [AssocList.mapKey_map_toAssocList])
+      ]
+      rw [PortMap.rw_rule_execution
+        (h := by apply (getIO_map_stringify_input) <;> rfl)
+      ] at Hrule ⊢
+      dsimp [lift_f, mk_noc_input_rule, mk_nbag_input_rule] at Hrule v ⊢
+      obtain ⟨Hrule1, Hrule2⟩ := Hrule
+      sorry -- True
+    · have ⟨n, Hn1, Hn2⟩ := getIO_map_ident Hrule
+      subst ident
+      rw [getIO_map_stringify_output] at v
+      exists []
+      rw [PortMap.rw_rule_execution
+        (h := by rw [AssocList.mapKey_map_toAssocList])
+      ]
+      rw [PortMap.rw_rule_execution
+        (h := by apply (getIO_map_stringify_output) <;> rfl)
+      ] at Hrule ⊢
+      dsimp [lift_f, mk_noc_output_rule, mk_nroute_output_rule] at Hrule v ⊢
+      obtain ⟨Hrule1, Hrule2⟩ := Hrule
+      rw [Hrule1, Hrule2] at Hi'1
+      -- True but annoying, we need to extract the index from the fact i' is a
+      -- permutation and use this for the exists
+      sorry
 
 theorem noc_low_correct : noc_lowM ⊑ noc := by
   apply (

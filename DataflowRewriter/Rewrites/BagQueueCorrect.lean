@@ -75,7 +75,7 @@ theorem ϕ_indistinguishable:
       · rw [PortMap.rw_rule_execution] at H
         subst ident
         rw [PortMap.rw_rule_execution (h := by apply PortMap.getIO_cons)]; rw [Hϕ] at H;
-        rw [← H]
+        rw [←H]
         exists (Fin.mk 0 (by simpa))
       · exfalso
         apply (PortMap.getIO_cons_nil_false _ _ ident)

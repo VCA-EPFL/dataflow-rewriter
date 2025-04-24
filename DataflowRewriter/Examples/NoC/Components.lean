@@ -60,8 +60,8 @@ def nrouteT := List (P.Data × FlitHeader)
 
 def mk_nroute_output_rule (rID : RouterID) : (Σ T : Type, nrouteT → T → nrouteT → Prop) :=
   ⟨
-    P.Data × FlitHeader,
-    λ oldState data newState => oldState = data :: newState
+    P.Data,
+    λ oldState data newState => oldState = (data, { dest := rID }) :: newState
   ⟩
 
 -- NBranch with only one input
@@ -97,7 +97,7 @@ def nocT : Type :=
 def mk_noc_input_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
     ⟨
       P.Data × FlitHeader,
-      λ oldState v newState => newState = v :: oldState
+      λ oldState v newState => newState = oldState.concat v
     ⟩
 
 def mk_noc_output_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=

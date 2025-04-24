@@ -161,8 +161,6 @@ def nroute_lowM : StringModule nroute_lowT := by
     -- TODO: Find a way to make this portable
     -- We are trying to write under existentials and dependent types
     conv =>
-      -- pattern (occs := *) Exists _
-      -- all_goals
       pattern (occs := *) And _ _
       all_goals congr
       any_goals
