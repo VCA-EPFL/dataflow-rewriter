@@ -57,19 +57,19 @@ abbrev EType ε (e : ExprLow Ident) := HVector (get_types ε) e.ident_list
   let b ← b.build_moduleD;
   return a.productD b
 
-theorem build_moduleD.dep_rewrite {instIdent} : ∀ {modIdent : Ident} {ε a} (Hfind : ε.find? modIdent = a),
-  (Option.rec (motive := fun x =>
-    Batteries.AssocList.find? modIdent ε = x →
-      Option (Module Ident (EType ε (base instIdent modIdent))))
-    (fun h_1 => none)
-    (fun val h_1 => some (build_moduleD.proof_2 ε modIdent val h_1 ▸ val.snd).liftD)
-    (Batteries.AssocList.find? modIdent ε)
-    (Eq.refl (Batteries.AssocList.find? modIdent ε))) =
-  (Option.rec (motive := fun x => a = x → Option (Module Ident (EType ε (base instIdent modIdent))))
-    (fun h_1 => none)
-    (fun val h_1 => some (build_moduleD.proof_2 ε modIdent val (Hfind ▸ h_1) ▸ val.snd).liftD)
-    a
-    (Eq.refl a)) := by intro a b c d; cases d; rfl
+-- theorem build_moduleD.dep_rewrite {instIdent} : ∀ {modIdent : Ident} {ε a} (Hfind : ε.find? modIdent = a),
+--   (Option.rec (motive := fun x =>
+--     Batteries.AssocList.find? modIdent ε = x →
+--       Option (Module Ident (EType ε (base instIdent modIdent))))
+--     (fun h_1 => none)
+--     (fun val h_1 => some (build_moduleD.proof_2 ε modIdent val h_1 ▸ val.snd).liftD)
+--     (Batteries.AssocList.find? modIdent ε)
+--     (Eq.refl (Batteries.AssocList.find? modIdent ε))) =
+--   (Option.rec (motive := fun x => a = x → Option (Module Ident (EType ε (base instIdent modIdent))))
+--     (fun h_1 => none)
+--     (fun val h_1 => some (build_moduleD.proof_2 ε modIdent val (Hfind ▸ h_1) ▸ val.snd).liftD)
+--     a
+--     (Eq.refl a)) := by intro a b c d; cases d; rfl
 
 theorem filterId_empty {α} [DecidableEq α] : PortMapping.filterId (Ident := α) ∅ = ∅ := by rfl
 

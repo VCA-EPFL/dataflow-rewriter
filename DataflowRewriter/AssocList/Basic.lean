@@ -19,6 +19,10 @@ def append {α β} (a b : AssocList α β) : AssocList α β :=
 
 instance {α β} : Append (AssocList α β) := ⟨ append ⟩
 
+@[simp] theorem nil_append {α β} (as : AssocList α β) : .nil ++ as = as := rfl
+@[simp] theorem cons_append {α β} {a : α} {a' : β} {as bs : AssocList α β} : (.cons a a' as) ++ bs = .cons a a' (as ++ bs) := rfl
+@[simp] theorem lift_append {α β} (as bs : AssocList α β) : as.append bs = as ++ bs := rfl
+
 @[specialize, simp] def eraseAllP {α β} (p : α → β → Bool) : AssocList α β → AssocList α β
   | nil         => nil
   | cons k v es => bif p k v then eraseAllP p es else cons k v (eraseAllP p es)
@@ -107,6 +111,6 @@ axiom bijectivePortRenaming_EqExt {α} [DecidableEq α] (p p' : AssocList α α)
 
 axiom invertibleMap {α} [DecidableEq α] {p : AssocList α α} {a b} :
   invertible p →
-  (p.filterId.append p.inverse.filterId).find? a = some b → (p.filterId.append p.inverse.filterId).find? b = some a
+  (p.filterId ++ p.inverse.filterId).find? a = some b → (p.filterId ++ p.inverse.filterId).find? b = some a
 
 end Batteries.AssocList
