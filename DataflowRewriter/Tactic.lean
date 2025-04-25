@@ -126,7 +126,7 @@ implementation.  You could probably also implement this as a theorem itself.
 -/
 elab "case_transition " h:ident " : " ct:term ", " i:term ", " ht:term : tactic => Tactic.withMainContext do
   let containsExpr ← elabTerm (← `(Batteries.AssocList.contains $i $ct)) (.some (.const ``Bool []))
-  let htExpr ← elabTerm ht (← elabTerm (← `(Batteries.AssocList.contains $i $ct = false → False)) .none)
+  let htExpr ← elabTerm ht (← elabTerm (← `(¬Batteries.AssocList.contains $i $ct → False)) .none)
   liftMetaTactic fun mvar => do
     let mvarType ← inferType (mkMVar mvar)
     let e ← mkAppOptM ``ite_destruct #[mvarType, containsExpr]

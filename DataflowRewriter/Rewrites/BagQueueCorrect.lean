@@ -46,18 +46,29 @@ theorem φ_initial : Module.refines_initial (queue T₁) (bag T₁) φ := by
   intros i _; exists i
 
 theorem queue_refine_ϕ_bag: queue T₁ ⊑_{φ} bag T₁ := by
-  prove_refines_φ (queue T₁)
-  · exists mid_i, mid_i; subst mid_i; unfold bag
+  intros i s H
+  constructor
+  <;> intros ident mid_i v Hrule
+  · case_transition Hcontains : Module.inputs (queue T₁), ident,
+     (PortMap.getIO_not_contained_false' Hrule)
+    simp [queue] at Hrule Hcontains;
+    subst ident
+    exists mid_i, mid_i;
+    subst mid_i; unfold bag
     and_intros
-    · rw [PortMap.rw_rule_execution]; subst i; rfl
+    · rw [PortMap.rw_rule_execution]; subst i; simpa [queue]
     · constructor
     · rfl
-  · exists mid_i
+  · case_transition Hcontains : Module.outputs (queue T₁), ident,
+     (PortMap.getIO_not_contained_false' Hrule)
+    simp [queue] at Hrule Hcontains;
+    subst ident
+    exists mid_i
     and_intros
     · unfold bag; rw [PortMap.rw_rule_execution (h := by apply PortMap.getIO_cons)]
       subst i s; exists (Fin.mk 0 (by simpa))
     · rfl
-  · intros _ mid_i _ _; exists mid_i
+  · exists mid_i
 
 theorem ϕ_indistinguishable:
   ∀ x y, φ x y → Module.indistinguishable (queue T₁) (bag T₁) x y := by

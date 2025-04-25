@@ -284,7 +284,7 @@ theorem φ_indistinguishable :
         unfold φ ψ at Hφ <;> simp at Hφ
         dsimp
         and_intros <;> rfl
-    . exfalso; exact (PortMap.getIO_not_contained_false HContains H)
+    . exfalso; exact (PortMap.getIO_not_contained_false H HContains)
   . by_cases HContains: ((rhsModule T₁ T₂ T₃).outputs.contains ident)
     . unfold rhsModule lhsModule at *; simp at v H HContains; simp
       subst ident
@@ -321,7 +321,7 @@ theorem φ_indistinguishable :
         rw [PortMap.rw_rule_execution]
         dsimp
         and_intros <;> try rfl
-    . exfalso; exact (PortMap.getIO_not_contained_false HContains H)
+    . exfalso; exact (PortMap.getIO_not_contained_false H HContains)
 
 theorem something':
   ∀ s, ∃ s', existSR (lhsModule T₁ T₂ T₃).internals s s' ∧ partially_flushed s' := by
@@ -435,7 +435,7 @@ theorem refines {T: Type _} [DecidableEq T]: rhsModule T₁ T₂ T₃ ⊑_{φ} l
         sorry
       . sorry
       . sorry
-    . exfalso; exact (PortMap.getIO_not_contained_false HContains a)
+    . exfalso; exact (PortMap.getIO_not_contained_false a HContains)
   -- output rules
   . intros ident mid_i v rhs
     by_cases HContains: ((rhsModule T₁ T₂ T₃).outputs.contains ident)
@@ -456,7 +456,7 @@ theorem refines {T: Type _} [DecidableEq T]: rhsModule T₁ T₂ T₃ ⊑_{φ} l
         . unfold lhsModule; simp; rw [PortMap.rw_rule_execution] <;> sorry
         . sorry
       . sorry
-    . exfalso; exact (PortMap.getIO_not_contained_false HContains rhs)
+    . exfalso; exact (PortMap.getIO_not_contained_false rhs HContains)
   -- internal rules
   . intros rule mid_i HruleIn Hrule
     unfold φ at Hφ <;> obtain ⟨ Hψ, _ ⟩ := Hφ

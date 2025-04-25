@@ -88,32 +88,32 @@ theorem getIO_map {S : Type _}
 
 theorem getIO_not_contained_false {Ident} [DecidableEq Ident] {S}
   {pm : PortMap Ident ((T : Type) × (S → T → S → Prop))} {x1 x2 x3 x4}:
-  ¬ pm.contains x1 → (pm.getIO x1).snd x2 x3 x4 → False := by
+  (pm.getIO x1).snd x2 x3 x4 → ¬ pm.contains x1 → False := by
     intros H1 H2
-    replace H1 := AssocList.contains_none H1
-    replace H1 := PortMap.getIO_none _ _ H1
-    rw [rw_rule_execution (h := H1)] at H2;
-    dsimp at H2
+    replace H2 := AssocList.contains_none H2
+    replace H2 := PortMap.getIO_none _ _ H2
+    rw [rw_rule_execution (h := H2)] at H1;
+    dsimp at H1
 
 theorem getIO_not_contained_false' {Ident} [DecidableEq Ident] {S}
   {pm : PortMap Ident ((T : Type) × (S → T → S → Prop))} {x1 x2 x3 x4}:
-  pm.contains x1 = false → (pm.getIO x1).snd x2 x3 x4 → False := by
+ (pm.getIO x1).snd x2 x3 x4 → pm.contains x1 = false → False := by
   intros; solve_by_elim [getIO_not_contained_false (Ident := Ident), ne_true_of_eq_false]
 
 theorem getIO_cons_false
   {Ident} [DecidableEq Ident] {S}
   {pm : PortMap Ident ((T : Type) × (S → T → S → Prop))} {x1 v x2 x3 x4 x5}:
-    ¬(x1 = x2) →
-    ¬(pm.contains x2) →
+    ¬ x1 = x2 →
+    ¬ pm.contains x2→
     (PortMap.getIO (AssocList.cons x1 v pm) x2).snd x3 x4 x5 → False := by
   revert x2 x3 x4 x5
   generalize Hpm' : (AssocList.cons x1 v pm) = pm'
   intros x2 x3 x4 x5 H1 H2 H3
   have Hcontains : ¬ pm'.contains x2 := by
-    rw [← Hpm']; simp; split_ands
+    rw [←Hpm']; simp; split_ands
     · exact H1
     · simp at H2; exact H2
-  exact (getIO_not_contained_false Hcontains H3)
+  exact (getIO_not_contained_false H3 Hcontains)
 
 theorem getIO_cons_nil_false
   {Ident} [DecidableEq Ident] {S}
