@@ -127,7 +127,7 @@ attribute [drcompute] Option.some_bind
       Batteries.AssocList.toList List.foldl_cons InternalPort.mk.injEq reduceCtorEq and_true
       String.reduceEq and_false List.foldl_nil AssocList.cons_append
       AssocList.nil_append beq_iff_eq not_false_eq_true
-      List.find?_cons_of_neg BEq.rfl List.find?_cons_of_pos Option.map_some Option.getD_some
+      BEq.rfl Option.map_some Option.getD_some
       List.concat_eq_append AssocList.eraseAll_cons_neq AssocList.eraseAll_cons_eq AssocList.eraseAll_nil
       AssocList.find?_cons_eq AssocList.find?_cons_neq PortMap.getIO
 
@@ -144,8 +144,11 @@ variable (T₁ T₂ T₃) in
     dsimp [Module.product, Module.liftL, Module.liftR]
     dsimp [Module.connect']
     simp (disch := simp) only [drcompute, ↓reduceIte]
-    rw [(Module.connect''_dep_rw (h := by simp (disch := simp) only [drcompute, ↓reduceIte]; dsimp)
-                                 (h' := by simp (disch := simp) only [drcompute, ↓reduceIte]; dsimp))]
+    conv =>
+      pattern (occs := *) Module.connect'' _ _
+      all_goals
+        rw [(Module.connect''_dep_rw (h := by simp (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp)
+                                 (h' := by simp (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp))]
     unfold Module.connect''
     dsimp
 
@@ -153,7 +156,9 @@ variable (T₁ T₂ T₃) in
 def rhsModuleType : Type := by
   precomputeTac [T| (rewriteLhsRhs S₁ S₂ S₃).output_expr, @environmentRhs T₁ T₂ T₃ S₁ S₂ S₃ ] by
     -- ExprHigh reduction
-    dsimp [rewriteLhsRhs, rewrite, rhsLower, rhs, ExprHigh.extract, toString]
+    dsimp [rewriteLhsRhs, rewrite, rhsLower, rhs_extract, rhs, ExprHigh.extract, toString, List.foldlM]
+    simp (disch := simp) only [AssocList.find?_cons_eq, AssocList.find?_cons_neq]; dsimp
+    simp
     -- Lowering reduction -> creates ExprLow
     dsimp [ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry]
     -- Unfold build_module
@@ -161,22 +166,38 @@ def rhsModuleType : Type := by
     -- Reduce environment access
     simp only [find?_join1_data2, find?_join2_data2, find?_pure_data2]; dsimp
 
+theorem mapKey_cons {α β γ} {a b} {f : α → γ} {m : AssocList α β}:
+  (m.cons a b).mapKey f = (m.mapKey f).cons (f a) b := rfl
+
+theorem mapKey_nil {α β γ} {f : α → γ}:
+  (@Batteries.AssocList.nil α β).mapKey f = .nil := rfl
+
+theorem mapVal_cons {α β γ} {a b} {f : α → β → γ} {m : AssocList α β}:
+  (m.cons a b).mapVal f = (m.mapVal f).cons a (f a b) := rfl
+
+theorem mapVal_nil {α β γ} {f : α → β → γ}:
+  (@Batteries.AssocList.nil α β).mapVal f = .nil := rfl
+
 variable (T₁ T₂ T₃) in
 @[drunfold] def rhsModule : StringModule (rhsModuleType T₁ T₂ T₃) := by
   precomputeTac [e| (rewriteLhsRhs S₁ S₂ S₃).output_expr, @environmentRhs T₁ T₂ T₃ S₁ S₂ S₃ ] by
-    dsimp [ExprLow.build_module_expr, rewriteLhsRhs, rewrite, rhsLower, rhs, ExprHigh.extract, List.foldlM]
+    dsimp [ExprLow.build_module_expr, rewriteLhsRhs, rewrite, rhs_extract, rhsLower, rhs, ExprHigh.extract, List.foldlM]
     rw [rw_opaque (by simp (disch := simp) only [drcompute, ↓reduceIte]; rfl)]
     dsimp [ ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry
           , ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
     rw [rw_opaque (by simp only [find?_join1_data2, find?_join2_data2, find?_pure_data2]; rfl)]
     rw [rw_opaque (by simp (disch := simp) only [drcompute, ↓reduceIte]; rfl)]
-    dsimp [join, NatModule.join, NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_input, NatModule.stringify_output, toString]
+    dsimp [StringModule.pure, NatModule.pure, join, NatModule.join, NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_input, NatModule.stringify_output, toString]
     dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter]; simp (disch := simp) only [drcompute, ↓reduceIte]
     dsimp [Module.product, Module.liftL, Module.liftR]
     dsimp [Module.connect']
-    simp (disch := simp) only [drcompute, ↓reduceIte]
-    rw [(Module.connect''_dep_rw (h := by simp (disch := simp) only [drcompute, ↓reduceIte]; dsimp)
-                                 (h' := by simp (disch := simp) only [drcompute, ↓reduceIte]; dsimp))]
+    simp (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil]
+    -- simp (disch := simp) only [drcompute, ↓reduceIte]
+    conv =>
+      pattern (occs := *) Module.connect'' _ _
+      all_goals
+        rw [(Module.connect''_dep_rw (h := by simp (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp)
+                                 (h' := by simp (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp))]
     unfold Module.connect''
     dsimp
 
@@ -232,6 +253,8 @@ inductive partially
 inductive partially_flushed: lhsModuleType T₁ T₂ T₃ -> Prop where
 | lhs: ∀ lower arb, partially_flushed ⟨lower, ⟨ [], arb ⟩ ⟩
 | rhs: ∀ lower arb, partially_flushed ⟨lower, ⟨ arb, [] ⟩ ⟩
+
+#print rhsModuleType
 
 def ψ (rhs : rhsModuleType T₁ T₂ T₃) (lhs : lhsModuleType T₁ T₂ T₃) : Prop :=
   let ⟨⟨j2l, j2r⟩, ⟨j1l, j1r⟩⟩ := lhs

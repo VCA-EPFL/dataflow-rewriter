@@ -58,7 +58,11 @@ def rhs (T₁ T₂ T₃ : Type) (S₁ S₂ S₃ : String) : ExprHigh String × I
     pure -> o_out [from = "out1"];
   ]
 
-def rhsLower S₁ S₂ S₃ := (rhs Unit Unit Unit S₁ S₂ S₃).fst.lower.get rfl
+def rhs_extract S₁ S₂ S₃ := (rhs Unit Unit Unit S₁ S₂ S₃).fst.extract ["pure", "join1", "join2"] |>.get rfl
+
+theorem double_check_empty_snd_rhs S₁ S₂ S₃ : (rhs_extract S₁ S₂ S₃).snd = ExprHigh.mk ∅ ∅ := by rfl
+
+def rhsLower S₁ S₂ S₃ := (rhs_extract S₁ S₂ S₃).fst.lower.get rfl
 
 def rewrite : Rewrite String :=
   { abstractions := [],
