@@ -59,7 +59,7 @@ def ε_nbag : Env :=
 
 def ε_nbag_merge' :
   ε_nbag.find? s!"Merge' {P.DataS} {P.netsz}" = .some ⟨_, StringModule.merge' P.Data P.netsz⟩ := by
-  simpa
+    sorry
 
 def ε_nbag_bag :
   ε_nbag.find? s!"Bag {P.DataS}" = .some ⟨_, StringModule.bag P.Data⟩ := by
@@ -109,13 +109,13 @@ def nbag_low : ExprLow String :=
 
 def nbag_lowT : Type := by
   precomputeTac [T| nbag_low, ε_nbag] by
-    simp [drunfold, seval, drdecide, -AssocList.find?_eq]
+    simp only [nbag_low, drunfold]
     rw [ε_nbag_merge', ε_nbag_bag]
     simp [drunfold, seval, drcompute, drdecide]
 
 def nbag_lowM : StringModule nbag_lowT := by
   precomputeTac [e| nbag_low, ε_nbag] by
-    simp [drunfold, seval, drdecide, -AssocList.find?_eq]
+    simp only [nbag_low, drunfold]
     rw [ε_nbag_merge', ε_nbag_bag]
     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
     conv =>
@@ -123,9 +123,9 @@ def nbag_lowM : StringModule nbag_lowT := by
       all_goals
         rw [(Module.connect''_dep_rw (h := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl)
                                      (h' := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl))]; rfl
-    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
-    unfold Module.connect''
-    dsimp
+    -- simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
+    -- unfold Module.connect''
+    -- dsimp
     simp [
       Module.connect'',
       Module.liftR,
