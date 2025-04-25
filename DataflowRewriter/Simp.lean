@@ -44,3 +44,13 @@ open Lean Meta Simp
 --   simp [_example.match_1]
 
 --   sorry
+
+def fromExpr? (e : Expr) : SimpM (Option Nat) :=
+  getNatValue? e
+
+@[inline] def reduceToStringImp (e : Expr) : SimpM Simp.DStep := do
+  let some n ← fromExpr? e.appArg! | return .continue
+  return .done <| .lit <| .strVal <| toString n
+
+-- Reduce `toString 5` to `"5"`
+dsimproc [simp, seval] reduceToString (toString (_ : Nat)) := reduceToStringImp

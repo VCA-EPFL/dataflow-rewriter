@@ -108,10 +108,6 @@ def cast_module_type {α} {f : α → Type _} {s s' : Σ T, f T} (heq : s = s') 
 theorem rw_opaque {f : Type _ → Type _} {s s' : Σ T, f T} (heq : s = s') : @Opaque (f s.fst) s.snd ↔ @Opaque (f s'.fst) s'.snd := by
   subst s; rfl
 
-@[simp] theorem toString1 : toString 1 = "1" := rfl
-@[simp] theorem toString2 : toString 2 = "2" := rfl
-@[simp] theorem toString3 : toString 3 = "3" := rfl
-
 attribute [drcompute] Option.some_bind
       Option.bind_some AssocList.foldl_eq AssocList.findEntryP?_eq
       List.partition_eq_filter_filter List.mem_cons List.not_mem_nil or_false not_or
