@@ -322,13 +322,8 @@ theorem eraseAll_append {α β} [DecidableEq α] {l1 l2 : AssocList α β} {i}:
     rename_i k _ _ _
     cases k == i <;> simpa [append, eraseAll]
 
-@[simp] theorem eraseAll_nil {α β} [DecidableEq α] {i}:
-  AssocList.eraseAll i (AssocList.nil: AssocList α β) = AssocList.nil
-   := by simpa [eraseAll, eraseAllP]
-
 @[simp] theorem append_nil {α β} [DecidableEq α] {l : AssocList α β}:
-  l.append AssocList.nil = l
-   := by induction l <;> simpa [append]
+  l ++ AssocList.nil = l := by induction l <;> simpa [append]
 
 @[simp] theorem any_map {α β} {f : α → β} {l : List α} {p : β → Bool} : (l.map f).any p = l.any (p ∘ f) := by
   induction l <;> simp
@@ -470,12 +465,8 @@ axiom in_eraseAll_noDup {α β γ δ} {l : List ((α × β) × γ × δ)} (Ta : 
 @[simp] axiom in_eraseAll_map_comm {α β} (Ta : α) [DecidableEq α] (a : AssocList α β):
   (a.toList).Nodup -> ((AssocList.eraseAllP (fun k x => decide (k = Ta)) a).toList).Nodup
 
-theorem cons_append {α β} [DecidableEq α] {k v} {l1 l2 : AssocList α β} :
-  (AssocList.cons k v l1).append l2 = AssocList.cons k v (l1.append l2) := by
-    induction l1 <;> simpa [append]
-
 theorem find?_append {α β} [DecidableEq α] {l1 l2 : AssocList α β} {k}:
-  find? k (l1.append l2) = match find? k l1 with
+  find? k (l1 ++ l2) = match find? k l1 with
   | some x => x
   | none => find? k l2 := by
     induction l1
