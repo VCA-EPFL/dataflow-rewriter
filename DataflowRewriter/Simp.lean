@@ -12,6 +12,7 @@ register_simp_attr drcompute
 register_simp_attr drdecide
 register_simp_attr drnat
 register_simp_attr drunfold_defs
+register_simp_attr drcomponents
 
 -- def fromExpr? (e : Expr) : SimpM (Option String) := do
 --   return getStringValue? et

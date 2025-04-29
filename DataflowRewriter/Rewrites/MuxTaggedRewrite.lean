@@ -9,9 +9,9 @@ import DataflowRewriter.ExprHighElaborator
 
 namespace DataflowRewriter.MuxTaggedRewrite
 
-def matcher (g : ExprHigh String) : RewriteResult (List String) := sorry
+def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := sorry
 
-def lhs' : ExprHigh String := [graph|
+@[drunfold_defs] def lhs' : ExprHigh String := [graph|
     i_t [type = "io"];
     i_f [type = "io"];
     i_c [type = "io"];
@@ -32,13 +32,13 @@ def lhs' : ExprHigh String := [graph|
     join -> o_out [from = "out1"];
   ]
 
-def lhs := lhs'.extract ["mux", "join"] |>.get rfl
+@[drunfold_defs] def lhs := lhs'.extract ["mux", "join"] |>.get rfl
 
 theorem double_check_empty_snd : lhs.snd = ExprHigh.mk ∅ ∅ := by rfl
 
-def lhsLower := lhs.fst.lower.get rfl
+@[drunfold_defs] def lhsLower := lhs.fst.lower.get rfl
 
-def rhs : ExprHigh String := [graph|
+@[drunfold_defs] def rhs : ExprHigh String := [graph|
     i_t [type = "io"];
     i_f [type = "io"];
     i_c [type = "io"];
@@ -69,12 +69,40 @@ def rhs : ExprHigh String := [graph|
     mux -> o_out [from = "out1"];
   ]
 
-def rhsLower := rhs.lower.get rfl
+@[drunfold_defs] def rhs_extract := rhs.extract ["mux", "join_f", "join_t", "fork", "branch"] |>.get rfl
 
-def rewrite : Rewrite String :=
-  { abstractions := [],
-    pattern := matcher,
-    input_expr := lhsLower,
-    output_expr := rhsLower }
+@[drunfold_defs] def rhsLower := rhs.lower.get rfl
+
+@[drunfold_defs] def rewrite : Rewrite String :=
+  { pattern := matcher,
+    rewrite := fun _ => some ⟨lhsLower, rhsLower⟩
+  }
+
+@[drunfold_defs] def lhs_int : ExprHigh String := [graph|
+    i_t [type = "io"];
+    i_f [type = "io"];
+    i_c [type = "io"];
+    i_tag [type = "io"];
+    o_out [type = "io"];
+
+    mux [type = "muxC"];
+    join [type = "joinC"];
+
+    i_t -> mux [to = "in1"];
+    i_f -> mux [to = "in2"];
+    i_c -> mux [to = "in3"];
+
+    i_tag -> join [to = "in1"];
+
+    mux -> join [from = "out1", to = "in2"];
+
+    join -> o_out [from = "out1"];
+  ]
+
+@[drunfold_defs] def lhs_int_extract := lhs_int.extract ["mux", "join"] |>.get rfl
+
+theorem double_check_empty_snd1 : lhs_int_extract.snd = ExprHigh.mk ∅ ∅ := by rfl
+
+@[drunfold_defs] def lhsLower_int := lhs_int_extract.fst.lower.get rfl
 
 end DataflowRewriter.MuxTaggedRewrite

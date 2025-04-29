@@ -26,38 +26,6 @@ open Meta Elab
 
 namespace DataflowRewriter.MuxTaggedRewrite
 
-def lhs_int : ExprHigh String := [graph|
-    i_t [type = "io"];
-    i_f [type = "io"];
-    i_c [type = "io"];
-    i_tag [type = "io"];
-    o_out [type = "io"];
-
-    mux [type = "muxC"];
-    join [type = "joinC"];
-
-    i_t -> mux [to = "in1"];
-    i_f -> mux [to = "in2"];
-    i_c -> mux [to = "in3"];
-
-    i_tag -> join [to = "in1"];
-
-    mux -> join [from = "out1", to = "in2"];
-
-    join -> o_out [from = "out1"];
-  ]
-
-def lhs_int_extract := lhs_int.extract ["mux", "join"] |>.get rfl
-
-theorem double_check_empty_snd1 : lhs_int_extract.snd = ExprHigh.mk ∅ ∅ := by rfl
-
-def lhsLower_int := lhs_int_extract.fst.lower.get rfl
-
-attribute [drcompute] Batteries.AssocList.toList Function.uncurry Module.mapIdent List.toAssocList List.foldl Batteries.AssocList.find? Option.pure_def Option.bind_eq_bind Option.bind_some Module.renamePorts Batteries.AssocList.mapKey InternalPort.map toString Nat.repr Nat.toDigits Nat.toDigitsCore Nat.digitChar List.asString Option.bind Batteries.AssocList.mapVal Batteries.AssocList.eraseAll Batteries.AssocList.eraseP beq_self_eq_true Option.getD cond beq_self_eq_true  beq_iff_eq  InternalPort.mk.injEq  String.reduceEq  and_false  imp_self BEq.beq
-
-attribute [drdecide] InternalPort.mk.injEq and_false decide_False decide_True and_true Batteries.AssocList.eraseAllP  InternalPort.mk.injEq
-  and_false  decide_False  decide_True  reduceCtorEq  cond  List.map
-
 abbrev Ident := Nat
 
 def ε (Tag T : Type _) : IdentMap String (TModule String) :=
@@ -70,52 +38,108 @@ def ε (Tag T : Type _) : IdentMap String (TModule String) :=
   , ("branch", ⟨ _, StringModule.branch Tag ⟩)
   ].toAssocList
 
-def lhsNames := rewrite.input_expr.build_module_names
+def lhsNames := (rewrite.rewrite []).get rfl |>.input_expr.build_module_names
 def lhs_intNames := lhsLower_int.build_module_names
-def rhsNames := rewrite.output_expr.build_module_names
+def rhsNames := (rewrite.rewrite []).get rfl |>.output_expr.build_module_names
 
 def lhsModuleType (Tag T : Type _) : Type := by
-  precomputeTac [T| rewrite.input_expr, ε Tag T ] by
-    dsimp only [drunfold,seval,drcompute]
+  precomputeTac [T| (rewrite.rewrite []).get rfl |>.input_expr, ε Tag T ] by
+    -- ExprHigh reduction
+    dsimp [drunfold_defs, ExprHigh.extract, List.foldlM]
+    simp (disch := simp) only [AssocList.find?_cons_eq, AssocList.find?_cons_neq]; dsimp
+    simp
+    -- Lowering reduction -> creates ExprLow
+    dsimp [ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry]
+    -- Unfold build_module
+    dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    -- Reduce environment access
+    simp [ε]
 
 def lhs_intModuleType (Tag T : Type _) : Type := by
   precomputeTac [T| lhsLower_int, ε Tag T ] by
-    dsimp only [drunfold,seval,drcompute]
+    dsimp [drunfold_defs, ExprHigh.extract, List.foldlM]
+    simp (disch := simp) only [AssocList.find?_cons_eq, AssocList.find?_cons_neq]; dsimp
+    simp
+    -- Lowering reduction -> creates ExprLow
+    dsimp [ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry]
+    -- Unfold build_module
+    dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    simp [ε]
+
+attribute [drcomponents] NatModule.stringify Module.mapIdent InternalPort.map NatModule.stringify_input NatModule.stringify_output toString
 
 @[drunfold] def lhsModule (Tag T : Type _) : StringModule (lhsModuleType Tag T) := by
-  precomputeTac [e| rewrite.input_expr, ε Tag T ] by
-    dsimp only [drunfold,seval,drcompute]
-    simp only [seval,drdecide]
-    conv in Module.connect'' _ _ => rw [Module.connect''_dep_rw]; rfl
+  precomputeTac [e| (rewrite.rewrite []).get rfl |>.input_expr, ε Tag T ] by
+    dsimp [drunfold_defs, ExprHigh.extract, List.foldlM]
+    rw [rw_opaque (by simp (disch := simp) only [drcompute, ↓reduceIte]; rfl)]
+    dsimp [ ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry
+          , ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    rw [rw_opaque (by simp (disch := simp) only [ε, drcompute, ↓reduceIte]; rfl)]
+    dsimp [drcomponents]
+    dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter]; simp (disch := simp) only [drcompute, ↓reduceIte]
+    dsimp [Module.product, Module.liftL, Module.liftR]
+    dsimp [Module.connect']
+    simp (disch := simp) only [drcompute, ↓reduceIte]
+    conv =>
+      pattern (occs := *) Module.connect'' _ _
+      all_goals
+        rw [(Module.connect''_dep_rw (h := by simp (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp)
+                                 (h' := by simp (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp))]
     unfold Module.connect''
     dsimp
 
 @[drunfold] def lhs_intModule (Tag T : Type _) : StringModule (lhs_intModuleType Tag T) := by
   precomputeTac [e| lhsLower_int, ε Tag T ] by
-    dsimp only [drunfold,seval,drcompute]
-    simp only [seval,drdecide]
-    conv in Module.connect'' _ _ => rw [Module.connect''_dep_rw]; rfl
+    dsimp [drunfold_defs, ExprHigh.extract, List.foldlM]
+    rw [rw_opaque (by simp (disch := simp) only [drcompute, ↓reduceIte]; rfl)]
+    dsimp [ ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry
+          , ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    rw [rw_opaque (by simp (disch := simp) only [ε, drcompute, ↓reduceIte]; rfl)]
+    dsimp [drcomponents]
+    dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter]; simp (disch := simp) only [drcompute, ↓reduceIte]
+    dsimp [Module.product, Module.liftL, Module.liftR]
+    dsimp [Module.connect']
+    simp (disch := simp) only [drcompute, ↓reduceIte]
+    conv =>
+      pattern (occs := *) Module.connect'' _ _
+      all_goals
+        rw [(Module.connect''_dep_rw (h := by simp (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp)
+                                 (h' := by simp (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp))]
     unfold Module.connect''
     dsimp
 
-
 def rhsModuleType (Tag T : Type _) : Type := by
-  precomputeTac [T| rewrite.output_expr, ε Tag T ] by
-    dsimp only [drunfold,seval,drcompute]
+  precomputeTac [T| (rewrite.rewrite []).get rfl |>.output_expr, ε Tag T ] by
+    dsimp [drunfold_defs, ExprHigh.extract, List.foldlM]
+    -- simp (disch := simp) only [AssocList.find?_cons_eq, AssocList.find?_cons_neq]; dsimp
+    -- simp
+    -- Lowering reduction -> creates ExprLow
+    dsimp [ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry]
+    -- Unfold build_module
+    dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    simp [ε]
 
 -- #reduce rhsNames
 -- #reduce rhsModuleType
 
 @[drunfold] def rhsModule (Tag T : Type _) : StringModule (rhsModuleType Tag T) := by
-  precomputeTac [e| rewrite.output_expr, ε Tag T ] by
-    dsimp only [drunfold,seval,drcompute]
-    simp only [seval,drdecide]
-    conv in Module.connect'' _ _ => rw [Module.connect''_dep_rw]; rfl
-    conv in _ :: Module.connect'' _ _ :: _ => arg 2; rw [Module.connect''_dep_rw]; rfl
-    conv in _ :: Module.connect'' _ _ :: _ => arg 2; arg 2; rw [Module.connect''_dep_rw]; rfl
-    conv in _ :: Module.connect'' _ _ :: _ => arg 2; arg 2; arg 2; rw [Module.connect''_dep_rw]; rfl
-    conv in _ :: Module.connect'' _ _ :: _ => arg 2; arg 2; arg 2; arg 2; rw [Module.connect''_dep_rw]; rfl
-    conv in _ :: Module.connect'' _ _ :: _ => arg 2; arg 2; arg 2; arg 2; arg 2; rw [Module.connect''_dep_rw]; rfl
+  precomputeTac [e| (rewrite.rewrite []).get rfl |>.output_expr, ε Tag T ] by
+    dsimp [drunfold_defs, ExprHigh.extract, List.foldlM]
+    rw [rw_opaque (by simp -failIfUnchanged (disch := simp) only [drcompute, ↓reduceIte]; rfl)]
+    dsimp [ ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry
+          , ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    rw [rw_opaque (by simp (disch := simp) only [ε, drcompute, ↓reduceIte]; rfl)]
+    dsimp [drcomponents]
+    dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter]; simp (disch := simp) only [drcompute, ↓reduceIte]
+    dsimp [Module.product, Module.liftL, Module.liftR]
+    dsimp [Module.connect']
+    simp (disch := simp) only [drcompute, ↓reduceIte]
+    conv =>
+      pattern (occs := *) Module.connect'' _ _
+      all_goals
+        rw [(Module.connect''_dep_rw (h := by simp (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp)
+                                 (h' := by simp (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp))]
+    unfold Module.connect''
     dsimp
 
 attribute [dmod] Batteries.AssocList.find? BEq.beq

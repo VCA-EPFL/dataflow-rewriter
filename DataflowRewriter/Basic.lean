@@ -16,6 +16,24 @@ namespace DataflowRewriter
 
 attribute [drnat] OfNat.ofNat instOfNatNat
 
+attribute [drcompute] Option.some_bind
+      Option.bind_some AssocList.foldl_eq AssocList.findEntryP?_eq
+      List.partition_eq_filter_filter List.mem_cons List.not_mem_nil or_false not_or
+      Bool.decide_and decide_not Batteries.AssocList.toList List.reverse_cons List.reverse_nil
+      List.nil_append List.cons_append List.toAssocList List.foldl_cons
+      AssocList.cons_append
+      AssocList.nil_append List.foldl_nil reduceCtorEq String.reduceEq
+      and_self decide_false Bool.false_eq_true not_false_eq_true List.find?_cons_of_neg
+      decide_true List.find?_cons_of_pos Option.isSome_some Bool.and_self
+      List.filter_cons_of_pos List.filter_nil Function.comp_apply Bool.not_true
+      List.filter_cons_of_neg Option.get_some decide_not
+      Bool.not_eq_eq_eq_not Bool.not_true decide_eq_false_iff_not ite_not AssocList.foldl_eq
+      Batteries.AssocList.toList List.foldl_cons reduceCtorEq and_true
+      String.reduceEq and_false List.foldl_nil AssocList.cons_append
+      AssocList.nil_append beq_iff_eq not_false_eq_true
+      BEq.rfl Option.map_some Option.getD_some
+      List.concat_eq_append
+
 /--
 An instance may refer to an internal instance by name, or it may refer to the
 current (top-level) module.
@@ -54,6 +72,8 @@ structure InternalPort (Ident : Type _) where
   inst : InstIdent Ident
   name : Ident
 deriving Repr, Hashable, Ord, Inhabited, DecidableEq
+
+attribute [drcompute] InternalPort.mk.injEq
 
 def InternalPort.map {α β} (f : α → β) : InternalPort α → InternalPort β
 | ⟨ .top, a ⟩ => ⟨ .top, f a ⟩
@@ -100,7 +120,7 @@ variable [DecidableEq Ident]
 Get an IO port using external IO ports, i.e. `InternalPort Ident` with the
 instance set to `top`.
 -/
-@[drunfold] def getIO.{u₁, u₂} {S : Type u₁}
+@[drunfold, drcompute] def getIO.{u₁, u₂} {S : Type u₁}
     (l : PortMap Ident (Σ T : Type u₂, (S → T → S → Prop)))
     (n : InternalPort Ident)
     : Σ T : Type u₂, (S → T → S → Prop) :=
@@ -130,9 +150,9 @@ def append (a b : PortMapping Ident) :=
 
 instance : Append (PortMapping Ident) := ⟨append⟩
 
-@[simp] theorem empty_append {α} (as : PortMapping α) : ∅ ++ as = as := rfl
-@[simp] theorem append_elements {α} (a b c d : PortMap α (InternalPort α)) : PortMapping.mk a b ++ ⟨c, d⟩ = ⟨a ++ c, b ++ d⟩ := rfl
-@[simp] theorem lift_append {α} (as bs : PortMapping α) : as.append bs = as ++ bs := rfl
+@[simp, drcompute] theorem empty_append {α} (as : PortMapping α) : ∅ ++ as = as := rfl
+@[simp, drcompute] theorem append_elements {α} (a b c d : PortMap α (InternalPort α)) : PortMapping.mk a b ++ ⟨c, d⟩ = ⟨a ++ c, b ++ d⟩ := rfl
+@[simp, drcompute] theorem lift_append {α} (as bs : PortMapping α) : as.append bs = as ++ bs := rfl
 
 def filter (f : InternalPort Ident → InternalPort Ident → Bool) (a : PortMapping Ident) :=
   PortMapping.mk (a.input.filter f) (a.output.filter f)

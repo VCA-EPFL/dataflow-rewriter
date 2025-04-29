@@ -1,4 +1,5 @@
 import DataflowRewriter.AssocList.Basic
+import DataflowRewriter.Simp
 import Mathlib.Logic.Function.Basic
 
 namespace Batteries.AssocList
@@ -209,15 +210,15 @@ theorem append_find_right_disjoint {α β} [DecidableEq α] {a b : AssocList α 
 -- @[simp] theorem erase_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} ident (f : α → β → γ) :
 --   (a.erase ident).mapVal f = (a.mapVal f).erase ident := by sorry
 
-@[simp] theorem eraseAll_cons_eq {α β} [DecidableEq α] {a : AssocList α β} {ident val} :
+@[simp, drcompute] theorem eraseAll_cons_eq {α β} [DecidableEq α] {a : AssocList α β} {ident val} :
   ((a.cons ident val).eraseAll ident) = a.eraseAll ident := by simp [*, eraseAll]
 
-@[simp] theorem eraseAll_cons_neq {α β} [DecidableEq α] {a : AssocList α β} {ident ident' val} :
+@[simp, drcompute] theorem eraseAll_cons_neq {α β} [DecidableEq α] {a : AssocList α β} {ident ident' val} :
   ident' ≠ ident →
   ((a.cons ident' val).eraseAll ident) = (a.eraseAll ident).cons ident' val := by
   simp +contextual (disch := assumption) [eraseAll, beq_false_of_ne]
 
-@[simp] theorem eraseAll_nil {α β} [DecidableEq α] {ident} :
+@[simp, drcompute] theorem eraseAll_nil {α β} [DecidableEq α] {ident} :
   ((@nil α β).eraseAll ident) = .nil := by rfl
 
 @[simp] theorem eraseAll_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} {ident} {f : α → β → γ} :
@@ -227,13 +228,16 @@ theorem append_find_right_disjoint {α β} [DecidableEq α] {a b : AssocList α 
   | cons k v xs ih =>
     by_cases k = ident <;> simp [*, eraseAll_cons_eq, mapVal, eraseAll_cons_neq]
 
-@[simp] theorem find?_cons_eq {α β} [DecidableEq α] {a : AssocList α β} {ident val} :
-  ((a.cons ident val).find? ident) = .some val := by simp
+@[simp, drcompute] theorem find?_cons_eq {α β} [DecidableEq α] {a : AssocList α β} {ident val} :
+  ((a.cons ident val).find? ident) = some val := by simp
 
-@[simp] theorem find?_cons_neq {α β} [DecidableEq α] {a : AssocList α β} {ident ident' val} :
+@[simp, drcompute] theorem find?_cons_neq {α β} [DecidableEq α] {a : AssocList α β} {ident ident' val} :
   ident' ≠ ident →
   ((a.cons ident' val).find? ident) = a.find? ident := by
   simp +contextual (disch := assumption) [find?, beq_false_of_ne]
+
+@[simp, drcompute] theorem find?_nil {α β} [DecidableEq α] {ident} :
+  (nil : AssocList α β).find? ident = none := rfl
 
 @[simp] theorem find?_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} ident (f : β → γ) :
   (a.find? ident).map f = (a.mapVal (λ _ => f)).find? ident := by

@@ -11,6 +11,8 @@ import DataflowRewriter.Reduce
 
 import Batteries
 
+namespace DataflowRewriter
+
 open Batteries (AssocList)
 
 open Lean Meta Elab Tactic
@@ -103,6 +105,9 @@ elab "precomputeTac " t:term " by " tac:tacticSeq : tactic => Tactic.withMainCon
   let r := (← l.getDecl).type.getArg!' 1
   (← getMainGoal).assign r
 
+theorem rw_opaque {f : Type _ → Type _} {s s' : Σ T, f T} (heq : s = s') : @Opaque (f s.fst) s.snd ↔ @Opaque (f s'.fst) s'.snd := by
+  subst s; rfl
+
 /--
 Creates a have which allows metavar holes in it.
 -/
@@ -179,4 +184,4 @@ macro "prove_refines_φ " t:term : tactic =>
       <;> [simp -failIfUnchanged at $(mkIdent `Hrule):ident; simp -failIfUnchanged at $(mkIdent `Hrule):ident; skip]
    )
 
--- TODO: It would be nice to have a similar tactic for indistinguishability proofs (maybe it's the exact same).
+end DataflowRewriter
