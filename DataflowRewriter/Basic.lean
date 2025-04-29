@@ -1,5 +1,5 @@
 /-
-Copyright (c) 2024 VCA Lab, EPFL. All rights reserved.
+Copyright (c) 2024, 2025 VCA Lab, EPFL. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
@@ -33,6 +33,26 @@ attribute [drcompute] Option.some_bind
       AssocList.nil_append beq_iff_eq not_false_eq_true
       BEq.rfl Option.map_some Option.getD_some
       List.concat_eq_append
+
+attribute [drunfold_defs] List.foldlM
+
+section SimpProc
+
+open Lean Meta Simp
+
+def fromExpr? (e : Expr) : SimpM (Option Nat) :=
+  getNatValue? e
+
+/--
+Reduce `toString 5` to `"5"`
+-/
+@[inline] def reduceToStringImp (e : Expr) : SimpM Simp.DStep := do
+  let some n ← fromExpr? e.appArg! | return .continue
+  return .done <| .lit <| .strVal <| toString n
+
+dsimproc [simp, seval, drcompute] reduceToString (toString (_ : Nat)) := reduceToStringImp
+
+end SimpProc
 
 /--
 An instance may refer to an internal instance by name, or it may refer to the

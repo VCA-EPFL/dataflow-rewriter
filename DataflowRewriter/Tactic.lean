@@ -63,7 +63,7 @@ elab "precompute " t:term : tactic => Tactic.withMainContext do
 Opaque definition used to lift any type into a `Prop`, so that it can be used as
 the goal in `TacticM` mode.
 -/
-@[irreducible] def Opaque {A : Sort _} (_ : A) : Prop := False
+opaque Opaque {A : Sort _} (_ : A) : Prop := False
 
 open Qq in
 /--

@@ -257,7 +257,7 @@ variable [Inhabited Ident]
   let m2 := g.modules.filter (λ k v => k ∉ sub)
   {g with modules := m1 ++ m2}
 
-@[drunfold] def extract (g : ExprHigh Ident) (sub : List Ident)
+@[drunfold, drunfold_defs] def extract (g : ExprHigh Ident) (sub : List Ident)
     : Option (ExprHigh Ident × ExprHigh Ident) := do
   let modules : IdentMap Ident (PortMapping Ident × Ident) ← sub.foldlM (λ a b => do
       let l ← g.modules.find? b

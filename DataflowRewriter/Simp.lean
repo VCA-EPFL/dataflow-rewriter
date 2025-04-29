@@ -8,50 +8,17 @@ import Lean
 
 register_simp_attr dmod
 register_simp_attr drunfold
-register_simp_attr drcompute
 register_simp_attr drdecide
 register_simp_attr drnat
+
+-- General reduction of datastructures such as AssocLists.
+register_simp_attr drcompute
+
+-- Reduction of top-level rewrite definitions.
 register_simp_attr drunfold_defs
+
+-- Reduction of components, so it should include all functions that are used to construct StringModules from NatModules.
 register_simp_attr drcomponents
 
--- def fromExpr? (e : Expr) : SimpM (Option String) := do
---   return getStringValue? et
-
-open Lean Meta Simp
-
--- simproc ↓ decideDecidable (Bool.rec _ _ c) := fun e => do
---   let_expr f@Bool.rec _ a b c ← e | return .continue
---   let r ← simp c
---   return .done r
-
--- @[inline] def reduceBoolPred (declName : Name) (arity : Nat) (op : String → String → Bool) (e : Expr) : SimpM DStep := do
---   unless e.isAppOfArity declName arity do return .continue
---   let some n ← Expr.fromExpr? e.appFn!.appArg! | return .continue
---   let some m ← fromExpr? e.appArg! | return .continue
---   return .done <| toExpr (op n m)
-
-
--- structure A where
---   a : String
---   b : String
--- deriving DecidableEq
-
--- example b : (match ({ a := "", b := "b" } : A) == { a := "", b := "c" } with
---              | true => 1
---              | false => 2) = b := by
---   -- simp
---   have : (({ a := "", b := "b" } : A) == { a := "", b := "c" }) = false := by decide
---   unfold _example.match_1
---   simp [_example.match_1]
-
---   sorry
-
-def fromExpr? (e : Expr) : SimpM (Option Nat) :=
-  getNatValue? e
-
-@[inline] def reduceToStringImp (e : Expr) : SimpM Simp.DStep := do
-  let some n ← fromExpr? e.appArg! | return .continue
-  return .done <| .lit <| .strVal <| toString n
-
--- Reduce `toString 5` to `"5"`
-dsimproc [simp, seval] reduceToString (toString (_ : Nat)) := reduceToStringImp
+-- Common options for module reduction, which will be passed to all simp and dsimp calls.
+register_simp_attr drcommon

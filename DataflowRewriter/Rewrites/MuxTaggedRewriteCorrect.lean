@@ -10,6 +10,7 @@ import Qq
 
 import DataflowRewriter.Simp
 import DataflowRewriter.Module
+import DataflowRewriter.ModuleReduction
 import DataflowRewriter.ExprLow
 import DataflowRewriter.Component
 import DataflowRewriter.KernelRefl
@@ -68,25 +69,27 @@ def lhs_intModuleType (Tag T : Type _) : Type := by
 
 attribute [drcomponents] NatModule.stringify Module.mapIdent InternalPort.map NatModule.stringify_input NatModule.stringify_output toString
 
-@[drunfold] def lhsModule (Tag T : Type _) : StringModule (lhsModuleType Tag T) := by
-  precomputeTac [e| (rewrite.rewrite []).get rfl |>.input_expr, ε Tag T ] by
-    dsimp [drunfold_defs, ExprHigh.extract, List.foldlM]
-    rw [rw_opaque (by simp (disch := simp) only [drcompute, ↓reduceIte]; rfl)]
-    dsimp [ ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry
-          , ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
-    rw [rw_opaque (by simp (disch := simp) only [ε, drcompute, ↓reduceIte]; rfl)]
-    dsimp [drcomponents]
-    dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter]; simp (disch := simp) only [drcompute, ↓reduceIte]
-    dsimp [Module.product, Module.liftL, Module.liftR]
-    dsimp [Module.connect']
-    simp (disch := simp) only [drcompute, ↓reduceIte]
-    conv =>
-      pattern (occs := *) Module.connect'' _ _
-      all_goals
-        rw [(Module.connect''_dep_rw (h := by simp (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp)
-                                 (h' := by simp (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp))]
-    unfold Module.connect''
-    dsimp
+def_module lhsModule (Tag T : Type _) : StringModule (lhsModuleType Tag T) :=
+  [e| (rewrite.rewrite []).get rfl |>.input_expr, ε Tag T ]
+reduction_by
+  dr_reduce_module
+  (dsimp -failIfUnchanged [drunfold_defs, ExprHigh.extract, List.foldlM]
+   rw [rw_opaque (by simp -failIfUnchanged (disch := simp) only [drcompute, ↓reduceIte]; rfl)]
+   dsimp -failIfUnchanged [ ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry
+         , ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+   rw [rw_opaque (by simp -failIfUnchanged (disch := simp) only [ε, drcompute, ↓reduceIte]; rfl)]
+   dsimp -failIfUnchanged [drcomponents]
+   dsimp -failIfUnchanged [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter]; simp (disch := simp) only [drcompute, ↓reduceIte]
+   dsimp -failIfUnchanged [Module.product, Module.liftL, Module.liftR]
+   dsimp -failIfUnchanged [Module.connect']
+   simp -failIfUnchanged (disch := simp) only [drcompute, ↓reduceIte]
+   conv =>
+     pattern (occs := *) Module.connect'' _ _
+     all_goals
+       rw [(Module.connect''_dep_rw (h := by simp -failIfUnchanged (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp -failIfUnchanged)
+                                (h' := by simp -failIfUnchanged (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp -failIfUnchanged))]
+   unfold Module.connect''
+   dsimp -failIfUnchanged)
 
 @[drunfold] def lhs_intModule (Tag T : Type _) : StringModule (lhs_intModuleType Tag T) := by
   precomputeTac [e| lhsLower_int, ε Tag T ] by
