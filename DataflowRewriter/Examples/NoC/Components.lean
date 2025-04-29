@@ -65,6 +65,9 @@ def mk_nroute_output_rule (rID : RouterID) : (Σ T : Type, nrouteT → T → nro
   ⟩
 
 -- NBranch with only one input
+-- TODO: This should be generalized as a `router`, which take one input
+-- `P.Data × FlitHeader`, and spit out this same input on an output port based
+-- on a routing function of type `FlitHeader → ...`
 @[drunfold]
 def nroute' (name := "nroute") : NatModule (NatModule.Named name nrouteT) :=
   {

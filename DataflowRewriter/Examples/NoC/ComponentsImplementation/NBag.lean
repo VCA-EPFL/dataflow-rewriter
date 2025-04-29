@@ -18,6 +18,7 @@ import DataflowRewriter.Reduce
 import DataflowRewriter.List
 import DataflowRewriter.Tactic
 import DataflowRewriter.AssocList
+import DataflowRewriter.ModuleReduction
 
 import DataflowRewriter.Examples.NoC.Basic
 import DataflowRewriter.Examples.NoC.BasicLemmas
@@ -29,26 +30,6 @@ namespace DataflowRewriter.NoC
 
 variable [P : NocParam]
 
-attribute [drcompute] Batteries.AssocList.toList Function.uncurry Module.mapIdent
-  List.toAssocList List.foldl Option.pure_def Option.bind_eq_bind Option.bind_some
-  Module.renamePorts Batteries.AssocList.mapKey InternalPort.map Nat.repr
-  Nat.toDigits Nat.toDigitsCore Nat.digitChar List.asString Option.bind
-  Batteries.AssocList.mapVal beq_self_eq_true
-  Option.getD cond beq_self_eq_true beq_iff_eq  InternalPort.mk.injEq
-  String.reduceEq and_false imp_self BEq.beq AssocList.bijectivePortRenaming
-  AssocList.keysList List.inter AssocList.filterId
-  AssocList.append AssocList.filter
-
-attribute [drdecide] InternalPort.mk.injEq and_false decide_False decide_True
-  and_true Batteries.AssocList.eraseAllP  InternalPort.mk.injEq
-  and_false decide_False decide_True reduceCtorEq cond List.map List.elem_eq_mem
-  List.mem_cons List.mem_singleton Bool.decide_or InternalPort.mk.injEq
-  String.reduceEq and_false decide_false reduceCtorEq and_self Bool.or_self
-  Bool.false_eq_true not_false_eq_true List.filter_cons_of_neg and_true
-  List.filter_nil List.empty_eq decide_true List.nodup_cons List.not_mem_nil
-  List.nodup_nil Bool.and_self reduceIte List.concat_eq_append dreduceIte
-  List.append_nil
-
 -- Implementation --------------------------------------------------------------
 
 def ε_nbag : Env :=
@@ -57,14 +38,15 @@ def ε_nbag : Env :=
     (s!"Bag {P.DataS}", ⟨_, StringModule.bag P.Data⟩),
   ].toAssocList
 
-def ε_nbag_merge' :
+theorem ε_nbag_merge' :
   ε_nbag.find? s!"Merge' {P.DataS} {P.netsz}" = .some ⟨_, StringModule.merge' P.Data P.netsz⟩ := by
     sorry
 
-def ε_nbag_bag :
+theorem ε_nbag_bag :
   ε_nbag.find? s!"Bag {P.DataS}" = .some ⟨_, StringModule.bag P.Data⟩ := by
     sorry
 
+@[drcomponents]
 def nbag_low : ExprLow String :=
   let merge := ExprLow.base
     {
@@ -112,6 +94,81 @@ def nbag_lowT : Type := by
     simp only [nbag_low, drunfold]
     rw [ε_nbag_merge', ε_nbag_bag]
     simp [drunfold, seval, drcompute, drdecide]
+
+def_module nbag_lowM (Tag T : Type _) : StringModule nbag_lowT :=
+  [e| nbag_low, ε_nbag]
+  reduction_by
+    dsimp -failIfUnchanged [drunfold_defs, ExprHigh.extract, List.foldlM]
+    rw [rw_opaque (by simp -failIfUnchanged (disch := simp) only [drcompute, drunfold]; rfl)]
+    dsimp -failIfUnchanged [drunfold, drcomponents, ExprLow.build_module']
+    rw [rw_opaque (by simp -failIfUnchanged (disch := simp) only [drcompute, ε_nbag_merge', ε_nbag_bag]; rfl)]
+    dsimp -failIfUnchanged [drcomponents]
+    dsimp -failIfUnchanged [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter];
+    -- simp (disch := simp) only [drcompute, ↓reduceIte]
+    dsimp -failIfUnchanged [Module.product, Module.liftL, Module.liftR]
+    dsimp -failIfUnchanged [Module.connect']
+    simp -failIfUnchanged (disch := simp) only [
+      drcompute,
+      drcomponents,
+      Module.mapIdent,
+      Module.liftL,
+      Module.liftR,
+      AssocList.mapVal,
+      AssocList.eraseAll_cons_neq,
+      AssocList.eraseAll_cons_eq,
+      AssocList.eraseAll_nil,
+      PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq,
+      Module.connect'', Module.liftR, Module.liftL,
+      AssocList.mapVal_map_toAssocList, AssocList.mapKey_map_toAssocList,
+      AssocList.mapKey_mapKey, AssocList.mapVal_mapKey,
+      AssocList.eraseAll_append, AssocList.eraseAll_map_neq,
+      AssocList.append_nil,
+      AssocList.bijectivePortRenaming,
+      AssocList.invertible,
+      AssocList.bijectivePortRenaming_same, InternalPort.map,
+    ]
+    dsimp -failIfUnchanged [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter];
+    conv =>
+     pattern (occs := *) Module.connect'' _ _
+     all_goals
+      rw [(Module.connect''_dep_rw
+        (h := by simp -failIfUnchanged (disch := simp) only [
+          drcompute,
+          drunfold,
+          drcomponents,
+          Module.mapIdent,
+          AssocList.eraseAll_cons_neq,
+          AssocList.eraseAll_cons_eq,
+          AssocList.eraseAll_nil,
+          PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq,
+          Module.connect'', Module.liftR, Module.liftL,
+          AssocList.mapVal_map_toAssocList, AssocList.mapKey_map_toAssocList,
+          AssocList.mapKey_mapKey, AssocList.mapVal_mapKey,
+          AssocList.eraseAll_append, AssocList.eraseAll_map_neq,
+          AssocList.append_nil,
+          AssocList.bijectivePortRenaming_same, InternalPort.map,
+          stringify_output_neq, stringify_input_neq, internalport_neq]; simp[AssocList.mapKey_map_toAssocList]; dsimp -failIfUnchanged)
+        (h' := by simp -failIfUnchanged (disch := simp) only [
+          drcompute,
+          drunfold,
+          drcomponents,
+          Module.mapIdent,
+          Module.liftL,
+          Module.liftR,
+          AssocList.mapVal,
+          AssocList.eraseAll_cons_neq,
+          AssocList.eraseAll_cons_eq,
+          AssocList.eraseAll_nil,
+          PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq,
+          Module.connect'', Module.liftR, Module.liftL,
+          AssocList.mapVal_map_toAssocList, AssocList.mapKey_map_toAssocList,
+          AssocList.mapKey_mapKey, AssocList.mapVal_mapKey,
+          AssocList.eraseAll_append, AssocList.eraseAll_map_neq,
+          AssocList.append_nil,
+          AssocList.bijectivePortRenaming_same, InternalPort.map,
+          stringify_output_neq, stringify_input_neq, internalport_neq, List.map]; simp[AssocList.mapKey_map_toAssocList]; dsimp -failIfUnchanged))]
+    unfold Module.connect''
+    dsimp -failIfUnchanged
 
 def nbag_lowM : StringModule nbag_lowT := by
   precomputeTac [e| nbag_low, ε_nbag] by
