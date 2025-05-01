@@ -27,7 +27,7 @@ import DataflowRewriter.Examples.NoC.Components
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.NoC
+namespace DataflowRewriter.Examples.NoC
 
 variable [P : NocParam]
 
@@ -384,4 +384,4 @@ theorem noc_low_correct : noc_lowM ⊑ noc := by
       noc_low_refines_φ
   )
 
-end DataflowRewriter.NoC
+end DataflowRewriter.Examples.NoC

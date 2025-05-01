@@ -25,7 +25,7 @@ import DataflowRewriter.Examples.NoC.Components
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.NoC
+namespace DataflowRewriter.Examples.NoC
 
 variable [P : NocParam]
 
@@ -35,4 +35,4 @@ variable [P : NocParam]
 -- Correctness -----------------------------------------------------------------
 -- TODO
 
-end DataflowRewriter.NoC
+end DataflowRewriter.Examples.NoC

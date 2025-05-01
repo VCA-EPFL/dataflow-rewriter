@@ -26,7 +26,7 @@ import DataflowRewriter.Examples.NoC.Components
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.NoC
+namespace DataflowRewriter.Examples.NoC
 
 variable [P : NocParam]
 
@@ -110,7 +110,7 @@ theorem inputGen_filterId_empty {n : List _} :
   | cons =>
     dsimp
     rw (occs := [1, 2]) [inputGen]
-    rw [AssocList.filterId_cons_eq]; assumption
+    rwa [AssocList.filterId_cons_eq]
 
 theorem bijectivePortRenaming_id {n : List _} :
   (n.map inputGen).toAssocList.bijectivePortRenaming = id := by
@@ -142,7 +142,7 @@ def_module nbag_lowM : StringModule nbag_lowT :=
     unfold inputGen
     rw [AssocList.bijectivePortRenaming_same]
     dsimp [InternalPort.map, NatModule.stringify_output, NatModule.stringify_input]
-    repeat rw [bijectivePortRenaming_invert]
+    repeat rw [AssocList.bijectivePortRenaming_invert]
 
     simp -failIfUnchanged (disch := simpa) only [drcompute]
     dsimp
@@ -158,10 +158,9 @@ def_module nbag_lowM : StringModule nbag_lowT :=
       drcomponents,
       AssocList.mapVal,
       AssocList.mapVal_mapKey,
-      AssocList.bijectivePortRenaming,
+      -- AssocList.bijectivePortRenaming,
       AssocList.invertible,
     ]
-    skip
     conv =>
      pattern (occs := *) Module.connect'' _ _
      all_goals
@@ -315,4 +314,4 @@ theorem nbag_low_indistinguishable_φ :
 theorem nbag_low_correct : nbag_lowM ⊑ (nbag P.Data P.netsz) := by
   apply (Module.refines_φ_refines nbag_low_indistinguishable_φ nbag_low_initial_φ nbag_low_refines_ϕ)
 
-end DataflowRewriter.NoC
+end DataflowRewriter.Examples.NoC

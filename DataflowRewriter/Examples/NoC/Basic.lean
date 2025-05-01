@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz, Gurvan Debaussart
 -/
 
-namespace DataflowRewriter.NoC
+namespace DataflowRewriter.Examples.NoC
 
 -- TODO: Maybe a comment here to explain Yann's hack would be great since this
 -- is also an Example file
@@ -30,4 +30,6 @@ structure FlitHeader : Type :=
 def FlitHeaderS : String :=
   s!"FlitHeader {P.netsz}"
 
-end DataflowRewriter.NoC
+abbrev Flit := P.Data × FlitHeader
+
+end DataflowRewriter.Examples.NoC
