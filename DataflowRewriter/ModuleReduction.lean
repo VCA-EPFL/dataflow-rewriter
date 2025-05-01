@@ -34,8 +34,8 @@ macro "dr_reduce_module" : tactic =>
 /--
 Define a module by reducing it beforehand.
 -/
-elab "def_module " name:ident l:optDeclSig " := " t:term "reduction_by " tac:tacticSeq : command => do
-  elabCommand <|← `(def $name $l := by precomputeTac $t by $tac)
+elab mods:declModifiers "def_module " name:ident l:optDeclSig " := " t:term "reduction_by " tac:tacticSeq : command => do
+  elabCommand <|← `($mods:declModifiers def $name $l := by precomputeTac $t by $tac)
 
-elab "def_module " name:ident l:optDeclSig " := " t:term : command => do
-  elabCommand <|← `(def_module $name $l := $t reduction_by dr_reduce_module)
+elab mods:declModifiers "def_module " name:ident l:optDeclSig " := " t:term : command => do
+  elabCommand <|← `($mods:declModifiers def_module $name $l := $t reduction_by dr_reduce_module)
