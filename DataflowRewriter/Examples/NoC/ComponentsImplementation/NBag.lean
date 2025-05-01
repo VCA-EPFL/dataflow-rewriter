@@ -121,11 +121,6 @@ attribute [drcompute]
   AssocList.mapVal
   AssocList.mapVal_mapKey
 
-axiom bijectivePortRenaming_invert {α} [DecidableEq α] {p : AssocList α α} {i : α} (H : p.invertible):
-    (p.bijectivePortRenaming i) =
-    let map := p.filterId.append p.inverse.filterId
-    map.find? i |>.getD i
-
 def_module nbag_lowM : StringModule nbag_lowT :=
   [e| nbag_low, ε_nbag]
   reduction_by
@@ -158,7 +153,7 @@ def_module nbag_lowM : StringModule nbag_lowT :=
 
     -- Simplify connect
     dsimp [Module.connect', Module.liftL, Module.liftR]
-    simp -failIfUnchanged (disch := simp) only [
+    simp -failIfUnchanged (disch := simpa) only [
       drcompute,
       drcomponents,
       AssocList.mapVal,
@@ -167,19 +162,18 @@ def_module nbag_lowM : StringModule nbag_lowT :=
       AssocList.invertible,
     ]
     skip
-    dsimp -failIfUnchanged [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter];
     conv =>
      pattern (occs := *) Module.connect'' _ _
      all_goals
       rewrite [(Module.connect''_dep_rw
-        (h := by simp -failIfUnchanged (disch := simp) only [
+        (h := by simp -failIfUnchanged (disch := simpa) only [
           drcompute,
           drcomponents,
           AssocList.mapVal,
           AssocList.mapVal_mapKey,
           AssocList.bijectivePortRenaming,
           AssocList.invertible]; dsimp -failIfUnchanged)
-        (h' := by simp -failIfUnchanged (disch := simp) only [
+        (h' := by simp -failIfUnchanged (disch := simpa) only [
           drcompute,
           drcomponents,
           AssocList.mapVal,

@@ -6,11 +6,11 @@ namespace Batteries.AssocList
 
 theorem append_eq {α β} {a b : AssocList α β} :
   (a ++ b).toList = a.toList ++ b.toList := by
-  induction a generalizing b <;> simp [*, append]
+  induction a generalizing b <;> simpa [*, append]
 
 theorem append_eq2 {α β} {a b : AssocList α β} :
   a ++ b = (a.toList ++ b.toList).toAssocList := by
-  induction a generalizing b <;> simp [*, append]
+  induction a generalizing b <;> simpa [*, append]
 
 theorem append_find? {α β} [DecidableEq α] (a b : AssocList α β) (i) :
   (a ++ b).find? i = a.find? i
@@ -134,16 +134,16 @@ theorem mapKey_map_toAssocList2 {α1 α2 α3 β1 β2} {l : List (α1 × β1)}
 
 theorem mapKey_toList2 {α β} {l : AssocList α β} {f : α → α} :
   (l.mapKey f).toList = (l.toList.map (λ | (a, b) => (f a, b))) := by
-  induction l <;> simp [*]
+  induction l <;> simpa
 
 @[drcompute]
 theorem contains_none {α β} [DecidableEq α] {m : AssocList α β} {ident} :
   ¬ m.contains ident → m.find? ident = none := by
     intros H; rw [Batteries.AssocList.contains_eq] at H
-    rw [Batteries.AssocList.find?_eq]
-    rw [Option.map_eq_none', List.find?_eq_none]; intros x H
-    rcases x with ⟨ a, b⟩
-    simp at *; unfold Not; intros; apply H
+    rw [Batteries.AssocList.find?_eq, Option.map_eq_none', List.find?_eq_none]
+    intros x H
+    rcases x with ⟨a, b⟩
+    simp at *; intros _; apply H
     subst_vars; assumption
 
 theorem find?_map_neq {α β γ} [DecidableEq β] k (f : α → β) (g : α → γ) {l : List α}
@@ -220,7 +220,7 @@ theorem append_find_right_disjoint {α β} [DecidableEq α] {a b : AssocList α 
 @[simp, drcompute] theorem eraseAll_cons_neq {α β} [DecidableEq α] {a : AssocList α β} {ident ident' val} :
   ident' ≠ ident →
   ((a.cons ident' val).eraseAll ident) = (a.eraseAll ident).cons ident' val := by
-  simp +contextual (disch := assumption) [eraseAll, beq_false_of_ne]
+  simpa +contextual [eraseAll, beq_false_of_ne]
 
 @[simp, drcompute] theorem eraseAll_nil {α β} [DecidableEq α] {ident} :
   ((@nil α β).eraseAll ident) = .nil := by rfl
@@ -230,15 +230,15 @@ theorem append_find_right_disjoint {α β} [DecidableEq α] {a b : AssocList α 
   induction a generalizing ident with
   | nil => rfl
   | cons k v xs ih =>
-    by_cases k = ident <;> simp [*, eraseAll_cons_eq, mapVal, eraseAll_cons_neq]
+    by_cases k = ident <;> simpa [*, eraseAll_cons_eq, mapVal, eraseAll_cons_neq]
 
 @[simp, drcompute] theorem find?_cons_eq {α β} [DecidableEq α] {a : AssocList α β} {ident val} :
-  ((a.cons ident val).find? ident) = some val := by simp
+  ((a.cons ident val).find? ident) = some val := by
+    simpa
 
 @[simp, drcompute] theorem find?_cons_neq {α β} [DecidableEq α] {a : AssocList α β} {ident ident' val} :
-  ident' ≠ ident →
-  ((a.cons ident' val).find? ident) = a.find? ident := by
-  simp +contextual (disch := assumption) [find?, beq_false_of_ne]
+  ident' ≠ ident → ((a.cons ident' val).find? ident) = a.find? ident := by
+    simp +contextual (disch := assumption) [find?, beq_false_of_ne]
 
 @[simp, drcompute] theorem find?_nil {α β} [DecidableEq α] {ident} :
   (nil : AssocList α β).find? ident = none := rfl
@@ -359,12 +359,12 @@ theorem mapKey_find? {α β γ} [DecidableEq α] [DecidableEq γ] {a : AssocList
   | cons k v xs ih =>
     dsimp
     by_cases h : f k = f i
-    · have h' := hinj h; rw [h']; simp
+    · have h' := hinj h; simpa [h']
     · have h' := hinj.ne_iff.mp h;
       rw [Batteries.AssocList.find?.eq_2]
       rw [Batteries.AssocList.find?.eq_2]; rw [ih]
-      have t1 : (f k == f i) = false := by simp [*]
-      have t2 : (k == i) = false := by simp [*]
+      have t1 : (f k == f i) = false := by simpa [*]
+      have t2 : (k == i) = false := by simpa [*]
       rw [t1, t2]
 
 -- theorem keysList_EqExt {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) :
@@ -443,7 +443,7 @@ theorem bijectivePortRenaming_bijective {α} [DecidableEq α] {p : AssocList α 
   · refine ⟨b, ?_, ?_⟩
     unfold bijectivePortRenaming; simp [invertible, *]; intro a b c; exfalso; apply h; simp [*]
     unfold bijectivePortRenaming; simp [invertible, *]; split; exfalso; apply h; simp [*]
-    simp
+    simpa
 
 theorem bijectivePortRenaming_id {α} [DecidableEq α] : @bijectivePortRenaming α _ ∅ = id := by rfl
 
@@ -452,6 +452,10 @@ theorem bijectivePortRenaming_same {α} {β} [DecidableEq α] (f : β → α) (l
   (List.map (λ i => (f i, f i)) l).toAssocList.bijectivePortRenaming = id :=
   by
     sorry
+
+@[drcompute]
+axiom bijectivePortRenaming_invert {α} [DecidableEq α] {p : AssocList α α} {i : α} (Hinv : p.invertible):
+  p.bijectivePortRenaming i = ((p.filterId.append p.inverse.filterId).find? i).getD i
 
 @[simp]
 theorem find?_gss : ∀ {α} [DecidableEq α] {β x v} {pm: AssocList α β},
@@ -490,8 +494,7 @@ theorem find?_append {α β} [DecidableEq α] {l1 l2 : AssocList α β} {k}:
 
 @[drcompute]
 theorem filterId_cons_eq {α} [DecidableEq α] {a} {n : AssocList α α} :
-  (n.cons a a).filterId = n.filterId := by
-    sorry
+  (n.cons a a).filterId = n.filterId := by simpa [filterId, filter]
 
 @[drcompute]
 theorem filterId_cons_neq {α} [DecidableEq α] {a b} {n : AssocList α α} (H : b ≠ a):
@@ -505,11 +508,12 @@ theorem filterId_nil {α} [DecidableEq α] :
 @[drcompute]
 theorem inverse_cons {α β} [DecidableEq α] {a b} {n : AssocList α β} :
   (n.cons a b).inverse = n.inverse.cons b a := by
-    sorry
+    induction n generalizing a b with
+    | nil => rfl
+    | cons k v tl H => unfold inverse; simpa [H]
 
 @[drcompute]
 theorem inverse_nil {α β} [DecidableEq α] :
-  (.nil : AssocList α β).inverse = .nil := by
-    sorry
+  (.nil : AssocList α β).inverse = .nil := by rfl
 
 end Batteries.AssocList
