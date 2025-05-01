@@ -440,8 +440,8 @@ theorem bijectivePortRenaming_bijective {α} [DecidableEq α] {p : AssocList α 
 
 theorem bijectivePortRenaming_id {α} [DecidableEq α] : @bijectivePortRenaming α _ ∅ = id := by rfl
 
-theorem bijectivePortRenaming_same {α} {β} [DecidableEq α] (f : β → α) (l : List β) (a : α) :
-  (List.map (λ i => (f i, f i)) l).toAssocList.bijectivePortRenaming a = a :=
+theorem bijectivePortRenaming_same {α} {β} [DecidableEq α] (f : β → α) (l : List β) :
+  (List.map (λ i => (f i, f i)) l).toAssocList.bijectivePortRenaming = id :=
   by
     sorry
 

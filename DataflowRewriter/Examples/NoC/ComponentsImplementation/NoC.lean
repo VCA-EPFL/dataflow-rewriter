@@ -31,26 +31,6 @@ namespace DataflowRewriter.NoC
 
 variable [P : NocParam]
 
-attribute [drcompute] Batteries.AssocList.toList Function.uncurry Module.mapIdent
-  List.toAssocList List.foldl Option.pure_def Option.bind_eq_bind Option.bind_some
-  Module.renamePorts Batteries.AssocList.mapKey InternalPort.map Nat.repr
-  Nat.toDigits Nat.toDigitsCore Nat.digitChar List.asString Option.bind
-  Batteries.AssocList.mapVal beq_self_eq_true
-  Option.getD cond beq_self_eq_true beq_iff_eq  InternalPort.mk.injEq
-  String.reduceEq and_false imp_self BEq.beq AssocList.bijectivePortRenaming
-  AssocList.keysList List.inter AssocList.filterId
-  AssocList.append AssocList.filter
-
-attribute [drdecide] InternalPort.mk.injEq and_false decide_False decide_True
-  and_true Batteries.AssocList.eraseAllP  InternalPort.mk.injEq
-  and_false decide_False decide_True reduceCtorEq cond List.map List.elem_eq_mem
-  List.mem_cons List.mem_singleton Bool.decide_or InternalPort.mk.injEq
-  String.reduceEq and_false decide_false reduceCtorEq and_self Bool.or_self
-  Bool.false_eq_true not_false_eq_true List.filter_cons_of_neg and_true
-  List.filter_nil List.empty_eq decide_true List.nodup_cons List.not_mem_nil
-  List.nodup_nil Bool.and_self reduceIte List.concat_eq_append dreduceIte
-  List.append_nil
-
 -- Implementation --------------------------------------------------------------
 
 def ε_noc : Env :=
@@ -59,11 +39,11 @@ def ε_noc : Env :=
     (s!"NRoute {P.DataS} {P.netsz}", ⟨_, nbranch⟩),
   ].toAssocList
 
-def ε_noc_nroute :
+theorem ε_noc_nroute :
   ε_noc.find? s!"NRoute {P.DataS} {P.netsz}" = .some ⟨_, nroute⟩ := by
     sorry
 
-def ε_noc_nbag :
+theorem ε_noc_nbag :
   ε_noc.find? s!"NBag {P.DataS} × {FlitHeaderS} {P.netsz}"
   = .some ⟨_, nbag (P.Data × FlitHeader) P.netsz⟩ := by
     sorry

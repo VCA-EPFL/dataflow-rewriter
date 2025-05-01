@@ -16,23 +16,28 @@ namespace DataflowRewriter
 
 attribute [drnat] OfNat.ofNat instOfNatNat
 
-attribute [drcompute] Option.some_bind
-      Option.bind_some AssocList.foldl_eq AssocList.findEntryP?_eq
-      List.partition_eq_filter_filter List.mem_cons List.not_mem_nil or_false not_or
-      Bool.decide_and decide_not Batteries.AssocList.toList List.reverse_cons List.reverse_nil
-      List.nil_append List.cons_append List.toAssocList List.foldl_cons
-      AssocList.cons_append
-      AssocList.nil_append List.foldl_nil reduceCtorEq String.reduceEq
-      and_self decide_false Bool.false_eq_true not_false_eq_true List.find?_cons_of_neg
-      decide_true List.find?_cons_of_pos Option.isSome_some Bool.and_self
-      List.filter_cons_of_pos List.filter_nil Function.comp_apply Bool.not_true
-      List.filter_cons_of_neg Option.get_some decide_not
-      Bool.not_eq_eq_eq_not Bool.not_true decide_eq_false_iff_not ite_not AssocList.foldl_eq
-      Batteries.AssocList.toList List.foldl_cons reduceCtorEq and_true
-      String.reduceEq and_false List.foldl_nil AssocList.cons_append
-      AssocList.nil_append beq_iff_eq not_false_eq_true
-      BEq.rfl Option.map_some Option.getD_some
-      List.concat_eq_append
+attribute [drcompute]
+  Option.some_bind Option.bind_some
+  AssocList.foldl_eq AssocList.findEntryP?_eq
+  List.partition_eq_filter_filter List.mem_cons List.not_mem_nil or_false not_or
+  Bool.decide_and decide_not Batteries.AssocList.toList List.reverse_cons List.reverse_nil
+  List.nil_append List.cons_append List.toAssocList List.foldl_cons
+  AssocList.cons_append
+  reduceIte
+  AssocList.nil_append List.foldl_nil reduceCtorEq String.reduceEq
+  and_self decide_false Bool.false_eq_true not_false_eq_true List.find?_cons_of_neg
+  decide_true List.find?_cons_of_pos Option.isSome_some Bool.and_self
+  List.filter_cons_of_pos List.filter_nil Function.comp_apply
+  List.filter_cons_of_neg Option.get_some decide_not
+  Bool.not_eq_eq_eq_not Bool.not_true decide_eq_false_iff_not ite_not AssocList.foldl_eq
+  Batteries.AssocList.toList List.foldl_cons reduceCtorEq and_true
+  String.reduceEq and_false List.foldl_nil AssocList.cons_append
+  AssocList.nil_append beq_iff_eq not_false_eq_true
+  BEq.rfl Option.map_some Option.getD_some
+  List.concat_eq_append
+  eq_mp_eq_cast cast_eq Prod.exists forall_const ne_eq
+  not_true_eq_false imp_self
+  String.append_empty String.reduceAppend
 
 attribute [drunfold_defs] List.foldlM
 
@@ -95,6 +100,7 @@ deriving Repr, Hashable, Ord, Inhabited, DecidableEq
 
 attribute [drcompute] InternalPort.mk.injEq
 
+@[drcomponents]
 def InternalPort.map {α β} (f : α → β) : InternalPort α → InternalPort β
 | ⟨ .top, a ⟩ => ⟨ .top, f a ⟩
 | ⟨ .internal b, a ⟩ => ⟨ .internal (f b), f a ⟩

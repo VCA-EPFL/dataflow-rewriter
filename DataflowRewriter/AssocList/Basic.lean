@@ -5,6 +5,7 @@ Authors: Yann Herklotz
 -/
 
 import Batteries
+import DataflowRewriter.Simp
 
 namespace Batteries.AssocList
 
@@ -19,9 +20,9 @@ def append {α β} (a b : AssocList α β) : AssocList α β :=
 
 instance {α β} : Append (AssocList α β) := ⟨ append ⟩
 
-@[simp] theorem nil_append {α β} (as : AssocList α β) : .nil ++ as = as := rfl
-@[simp] theorem cons_append {α β} {a : α} {a' : β} {as bs : AssocList α β} : (.cons a a' as) ++ bs = .cons a a' (as ++ bs) := rfl
-@[simp] theorem lift_append {α β} (as bs : AssocList α β) : as.append bs = as ++ bs := rfl
+@[simp, drcompute] theorem nil_append {α β} (as : AssocList α β) : .nil ++ as = as := rfl
+@[simp, drcompute] theorem cons_append {α β} {a : α} {a' : β} {as bs : AssocList α β} : (.cons a a' as) ++ bs = .cons a a' (as ++ bs) := rfl
+@[simp, drcompute] theorem lift_append {α β} (as bs : AssocList α β) : as.append bs = as ++ bs := rfl
 
 @[specialize, simp] def eraseAllP {α β} (p : α → β → Bool) : AssocList α β → AssocList α β
   | nil         => nil
