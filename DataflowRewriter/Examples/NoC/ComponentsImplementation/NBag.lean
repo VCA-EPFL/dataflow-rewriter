@@ -46,7 +46,8 @@ theorem ε_nbag_bag :
   ε_nbag.find? s!"Bag {P.DataS}" = .some ⟨_, StringModule.bag P.Data⟩ := by
     sorry
 
-def inputGen (i : Nat) : InternalPort String × InternalPort String :=
+@[drcomponents]
+def inputGen (i : ℕ) : InternalPort String × InternalPort String :=
   ⟨
     -- Port defined in the Type (Must have inst := InstIdent.top)
     NatModule.stringify_input i,
@@ -98,30 +99,6 @@ def nbag_lowT : Type := by
     rw [ε_nbag_merge', ε_nbag_bag]
     simp [drunfold, seval, drcompute, drdecide]
 
-@[drcompute]
-theorem filterId_cons_eq {α} [DecidableEq α] {a} {n : AssocList α α} :
-  (n.cons a a).filterId = n.filterId := by
-    sorry
-
-@[drcompute]
-theorem filterId_cons_neq {α} [DecidableEq α] {a b} {n : AssocList α α} (H : b ≠ a):
-  (n.cons a b).filterId = n.filterId.cons a b := by
-    sorry
-
-@[drcompute]
-theorem filterId_nil {α} [DecidableEq α] :
-  (.nil : AssocList α α).filterId = .nil := by rfl
-
-@[drcompute]
-theorem inverse_cons {α β} [DecidableEq α] {a b} {n : AssocList α β} :
-  (n.cons a b).inverse = n.inverse.cons b a := by
-    sorry
-
-@[drcompute]
-theorem inverse_nil {α β} [DecidableEq α] :
-  (.nil : AssocList α β).inverse = .nil := by
-    sorry
-
 theorem inputGen_reverse {n : List _} :
   (n.map inputGen).toAssocList.inverse = (n.map inputGen).toAssocList := by
     sorry
@@ -133,7 +110,7 @@ theorem inputGen_filterId_empty {n : List _} :
   | cons =>
     dsimp
     rw (occs := [1, 2]) [inputGen]
-    rw [filterId_cons_eq]; assumption
+    rw [AssocList.filterId_cons_eq]; assumption
 
 theorem bijectivePortRenaming_id {n : List _} :
   (n.map inputGen).toAssocList.bijectivePortRenaming = id := by
@@ -142,19 +119,9 @@ theorem bijectivePortRenaming_id {n : List _} :
 
 attribute [drcompute]
   AssocList.mapVal
-  AssocList.eraseAll_cons_neq
-  AssocList.eraseAll_cons_eq
-  AssocList.eraseAll_nil
-  AssocList.mapVal_map_toAssocList AssocList.mapKey_map_toAssocList
-  AssocList.mapKey_mapKey AssocList.mapVal_mapKey
-  AssocList.eraseAll_append AssocList.eraseAll_map_neq
-  AssocList.append_nil
-  -- AssocList.bijectivePortRenaming
-  -- AssocList.invertible
-  AssocList.bijectivePortRenaming_same
-  filterId_nil
+  AssocList.mapVal_mapKey
 
-axiom tmp {α} [DecidableEq α] {p : AssocList α α} {i : α} (H : p.invertible):
+axiom bijectivePortRenaming_invert {α} [DecidableEq α] {p : AssocList α α} {i : α} (H : p.invertible):
     (p.bijectivePortRenaming i) =
     let map := p.filterId.append p.inverse.filterId
     map.find? i |>.getD i
@@ -180,7 +147,7 @@ def_module nbag_lowM : StringModule nbag_lowT :=
     unfold inputGen
     rw [AssocList.bijectivePortRenaming_same]
     dsimp [InternalPort.map, NatModule.stringify_output, NatModule.stringify_input]
-    repeat rw [tmp]
+    repeat rw [bijectivePortRenaming_invert]
 
     simp -failIfUnchanged (disch := simpa) only [drcompute]
     dsimp
@@ -194,15 +161,10 @@ def_module nbag_lowM : StringModule nbag_lowT :=
     simp -failIfUnchanged (disch := simp) only [
       drcompute,
       drcomponents,
-      Module.mapIdent,
       AssocList.mapVal,
-      AssocList.mapVal_map_toAssocList, AssocList.mapKey_map_toAssocList,
-      AssocList.mapKey_mapKey, AssocList.mapVal_mapKey,
-      AssocList.eraseAll_append, AssocList.eraseAll_map_neq,
-      AssocList.append_nil,
+      AssocList.mapVal_mapKey,
       AssocList.bijectivePortRenaming,
       AssocList.invertible,
-      AssocList.bijectivePortRenaming_same, InternalPort.map,
     ]
     skip
     dsimp -failIfUnchanged [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter];
@@ -212,75 +174,22 @@ def_module nbag_lowM : StringModule nbag_lowT :=
       rewrite [(Module.connect''_dep_rw
         (h := by simp -failIfUnchanged (disch := simp) only [
           drcompute,
-          drunfold,
           drcomponents,
-          Module.mapIdent,
-          AssocList.eraseAll_cons_neq,
-          AssocList.eraseAll_cons_eq,
-          AssocList.eraseAll_nil,
-          PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq,
-          Module.connect'', Module.liftR, Module.liftL,
-          AssocList.mapVal_map_toAssocList, AssocList.mapKey_map_toAssocList,
-          AssocList.mapKey_mapKey, AssocList.mapVal_mapKey,
-          AssocList.eraseAll_append, AssocList.eraseAll_map_neq,
-          AssocList.append_nil,
-          AssocList.bijectivePortRenaming_same, InternalPort.map,
-          stringify_output_neq, stringify_input_neq, internalport_neq]; dsimp -failIfUnchanged)
+          AssocList.mapVal,
+          AssocList.mapVal_mapKey,
+          AssocList.bijectivePortRenaming,
+          AssocList.invertible]; dsimp -failIfUnchanged)
         (h' := by simp -failIfUnchanged (disch := simp) only [
           drcompute,
-          drunfold,
           drcomponents,
-          Module.mapIdent,
-          Module.liftL,
-          Module.liftR,
           AssocList.mapVal,
-          AssocList.eraseAll_cons_neq,
-          AssocList.eraseAll_cons_eq,
-          AssocList.eraseAll_nil,
-          PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq,
-          Module.connect'', Module.liftR, Module.liftL,
-          AssocList.mapVal_map_toAssocList, AssocList.mapKey_map_toAssocList,
-          AssocList.mapKey_mapKey, AssocList.mapVal_mapKey,
-          AssocList.eraseAll_append, AssocList.eraseAll_map_neq,
-          AssocList.append_nil,
-          AssocList.bijectivePortRenaming_same, InternalPort.map,
-          stringify_output_neq, stringify_input_neq, internalport_neq, List.map]; dsimp -failIfUnchanged))]
+          AssocList.mapVal_mapKey,
+          AssocList.bijectivePortRenaming,
+          AssocList.invertible]; dsimp -failIfUnchanged))]
       unfold Module.connect''
       simp only [drcompute]
       dsimp
     skip
-
--- def nbag_lowM : StringModule nbag_lowT := by
---   precomputeTac [e| nbag_low, ε_nbag] by
---     simp only [nbag_low, drunfold]
---     rw [ε_nbag_merge', ε_nbag_bag]
---     simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
---     conv =>
---       pattern (occs := *) Module.connect'' _ _
---       all_goals
---         rw [(Module.connect''_dep_rw (h := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl)
---                                      (h' := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl))]; rfl
---     -- simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
---     -- unfold Module.connect''
---     -- dsimp
---     simp [
---       Module.connect'',
---       Module.liftR,
---       Module.liftL,
---       AssocList.mapVal_map_toAssocList,
---       AssocList.mapKey_map_toAssocList,
---       AssocList.mapKey_mapKey,
---       AssocList.mapVal_mapKey,
---       AssocList.eraseAll_append,
---       AssocList.eraseAll_map_neq,
---       AssocList.eraseAll_nil,
---       AssocList.append_nil,
---       AssocList.bijectivePortRenaming_same,
---       InternalPort.map,
---       stringify_output_neq,
---       stringify_input_neq,
---       internalport_neq,
---     ]
 
 -- Correctness -----------------------------------------------------------------
 -- TODO: We are currently only trying to prove a refinement in one way, but it
@@ -382,18 +291,19 @@ theorem nbag_low_indistinguishable_φ :
     <;> exists new_i.1 ++ new_i.2
     <;> unfold nbag nbag' nbag_lowM at *
     <;> dsimp at v Hrule
-    <;> dsimp [drcomponents, nbag_lowM]
+    <;> dsimp [drcomponents]
     <;> subst y
     · rw [PortMap.rw_rule_execution (h := by rw [AssocList.mapKey_map_toAssocList])]
       dsimp [InternalPort.map]
       have ⟨n, Hn1, Hn2⟩ := getIO_map_ident Hrule
       subst ident
-      rw [getIO_map_stringify_input] at v
+      rw [getIO_map_range] at v
       rw [PortMap.rw_rule_execution
         (h := by apply (getIO_map_stringify_input) <;> simpa)
       ] at Hrule ⊢
       dsimp at Hrule v
       simpa [lift_f, mk_nbag_input_rule, Hrule]
+      · sorry
     · case_transition Hcontains : (Module.outputs nbag_lowM), ident,
         (PortMap.getIO_not_contained_false' Hrule)
       simp [nbag_lowM] at Hcontains
