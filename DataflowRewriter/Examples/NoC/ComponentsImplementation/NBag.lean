@@ -46,16 +46,19 @@ theorem ε_nbag_bag :
   ε_nbag.find? s!"Bag {P.DataS}" = .some ⟨_, StringModule.bag P.Data⟩ := by
     sorry
 
+def inputGen (i : Nat) : InternalPort String × InternalPort String :=
+  ⟨
+    -- Port defined in the Type (Must have inst := InstIdent.top)
+    NatModule.stringify_input i,
+    -- Internal name, here a top level port
+    NatModule.stringify_input i,
+  ⟩
+
 @[drcomponents]
 def nbag_low : ExprLow String :=
   let merge := ExprLow.base
     {
-      input := List.range P.netsz |>.map (λ i => ⟨
-        -- Port defined in the Type (Must have inst := InstIdent.top)
-        NatModule.stringify_input i,
-        -- Internal name, here a top level port
-        NatModule.stringify_input i,
-      ⟩) |>.toAssocList,
+      input := List.range P.netsz |>.map inputGen |>.toAssocList,
       output := [⟨
         -- Port defined in the Type (Must have inst := InstIdent.top)
         NatModule.stringify_output 0,
@@ -95,15 +98,49 @@ def nbag_lowT : Type := by
     rw [ε_nbag_merge', ε_nbag_bag]
     simp [drunfold, seval, drcompute, drdecide]
 
+theorem filterId_cons_eq {α} [DecidableEq α] {a} {n : AssocList α α} : (n.cons a a).filterId = n.filterId := by sorry
+
+theorem inputGen_reverse {n : List _} : (n.map inputGen).toAssocList.inverse = (n.map inputGen).toAssocList := by sorry
+
+theorem inputGen_filterId_empty {n : List _} : (n.map inputGen).toAssocList.filterId = .nil := by
+  induction n with
+  | nil => rfl
+  | cons =>
+    dsimp
+    rw (occs := [1, 2]) [inputGen]
+    rw [filterId_cons_eq]; assumption
+
+theorem bijectivePortRenaming_id {n : List _} : (n.map inputGen).toAssocList.bijectivePortRenaming = id := by
+  ext i; simp [AssocList.bijectivePortRenaming, inputGen_reverse, inputGen_filterId_empty]
+
+attribute [drcompute]       AssocList.mapVal
+      AssocList.eraseAll_cons_neq
+      AssocList.eraseAll_cons_eq
+      AssocList.eraseAll_nil
+      AssocList.mapVal_map_toAssocList AssocList.mapKey_map_toAssocList
+      AssocList.mapKey_mapKey AssocList.mapVal_mapKey
+      AssocList.eraseAll_append AssocList.eraseAll_map_neq
+      AssocList.append_nil
+      -- AssocList.bijectivePortRenaming
+      -- AssocList.invertible
+      AssocList.bijectivePortRenaming_same
+
 def_module nbag_lowM (Tag T : Type _) : StringModule nbag_lowT :=
   [e| nbag_low, ε_nbag]
   reduction_by
-    dsimp -failIfUnchanged [drunfold_defs, ExprHigh.extract, List.foldlM]
-    rw [rw_opaque (by simp -failIfUnchanged (disch := simp) only [drcompute, drunfold]; rfl)]
-    dsimp -failIfUnchanged [drunfold, drcomponents, ExprLow.build_module']
-    rw [rw_opaque (by simp -failIfUnchanged (disch := simp) only [drcompute, ε_nbag_merge', ε_nbag_bag]; rfl)]
-    dsimp -failIfUnchanged [drcomponents]
-    dsimp -failIfUnchanged [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter];
+    dsimp -failIfUnchanged [drunfold_defs, nbag_low, ExprHigh.extract, List.foldlM]
+    rw [rw_opaque (by simp -failIfUnchanged (disch := simp) only [drcompute]; dsimp)]
+    dsimp -failIfUnchanged [drcomponents, ExprLow.build_module, ExprLow.build_module']
+    rw [rw_opaque (by rewrite [ε_nbag_bag, ε_nbag_merge']; dsimp)]; dsimp
+    dsimp [StringModule.merge', NatModule.merge', NatModule.stringify, Module.mapIdent]
+    -- rw [AssocList.mapKey_map_toAssocList]
+    -- rw [rw_opaque (by simp -failIfUnchanged (disch := simp) only [drcompute]; rfl)]
+    -- dsimp -failIfUnchanged [drcomponents]
+    dsimp -failIfUnchanged [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.filterId, AssocList.filter, List.inter, InternalPort.map];
+    simp -failIfUnchanged (disch := simp) only [
+      drcompute
+    ]
+    rw [bijectivePortRenaming_id]; dsimp
     -- simp (disch := simp) only [drcompute, ↓reduceIte]
     dsimp -failIfUnchanged [Module.product, Module.liftL, Module.liftR]
     dsimp -failIfUnchanged [Module.connect']
