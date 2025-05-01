@@ -67,7 +67,7 @@ def lhs_intModuleType (Tag T : Type _) : Type := by
     dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
     simp [ε]
 
-attribute [drcomponents] NatModule.stringify Module.mapIdent InternalPort.map NatModule.stringify_input NatModule.stringify_output toString
+attribute [drcomponents] toString
 
 def_module lhsModule (Tag T : Type _) : StringModule (lhsModuleType Tag T) :=
   [e| (rewrite.rewrite []).get rfl |>.input_expr, ε Tag T ]

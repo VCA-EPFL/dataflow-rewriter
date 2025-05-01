@@ -74,7 +74,7 @@ theorem get_len {T} (l1 l2: List T) i
 theorem getIO_map_stringify_input {S : Type _}
   {i : Nat} {sz : Nat}
   {f : Nat -> Σ T : Type _, (S → T → S → Prop)} {v}
-  (Heq : f i = v := by rfl) (Hlt : i < sz := by assumption) :
+  (Heq : f i = v := by rfl) (Hlt : i < sz := by simpa) :
   PortMap.getIO
     (List.map
       (λ n => ⟨(NatModule.stringify_input n: InternalPort String), f n⟩)
@@ -84,10 +84,19 @@ theorem getIO_map_stringify_input {S : Type _}
   = v := by
     sorry
 
+theorem getIO_map_range {S : Type _} {Ident} [DecidableEq Ident]
+  {f : Nat -> InternalPort Ident} {Hinj : Function.Injective f}
+  {g : Nat -> Σ T : Type _, (S → T → S → Prop)}
+  {i : Nat} {sz : Nat} {v}
+  (Heq : g i = v := by rfl) (Hlt : i < sz := by simpa) :
+  PortMap.getIO (List.map (λ n => ⟨f n, g n⟩) (List.range sz)).toAssocList (f i)
+  = v := by
+    sorry
+
 theorem getIO_map_stringify_output {S : Type _}
   {i : Nat} {sz : Nat}
   {f : Nat -> Σ T : Type _, (S → T → S → Prop)} {v}
-  (Heq : f i = v := by rfl) (Hlt : i < sz := by assumption) :
+  (Heq : f i = v := by rfl) (Hlt : i < sz := by simpa) :
   PortMap.getIO
     (List.map
       (λ n => ⟨(NatModule.stringify_output n: InternalPort String), f n⟩)
@@ -122,16 +131,26 @@ theorem getIO_map_ident_match_1 {Ident} [DecidableEq Ident] {S1 S2 : Type _}
     -- FIXME: Induction on List.range is still problematic
     sorry
 
+theorem stringify_input_inj :
+  Function.Injective NatModule.stringify_input := by
+    sorry
+
 theorem stringify_input_neq {n1 n2 : Nat} (Hneq : n1 ≠ n2) :
   NatModule.stringify_input n1 ≠ NatModule.stringify_input n2
-    := by sorry
+    := by
+      intros H; apply stringify_input_inj at H; contradiction
+
+theorem stringify_output_inj :
+  Function.Injective NatModule.stringify_output := by
+    sorry
 
 theorem stringify_output_neq {n1 n2 : Nat} (Hneq : n1 ≠ n2) :
   NatModule.stringify_output n1 ≠ NatModule.stringify_output n2
-    := by sorry
+    := by
+      intros H; apply stringify_output_inj at H; contradiction
 
 theorem internalport_neq {ident1 ident2 : InstIdent String} {name1 name2 : String}
   (Hneq : name1 ≠ name2) :
     ({ inst := ident1, name := name1 }: InternalPort String)
-  ≠ ({ inst := ident2, name := name2}: InternalPort String)
+  ≠ ({ inst := ident2, name := name2 }: InternalPort String)
     := by simpa [Hneq]

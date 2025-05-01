@@ -23,7 +23,7 @@ variable [P : NocParam]
 -- defining List.range n |>.map (lift_f f) |>.toAssocList, a very common pattern
 -- to design parametric design
 -- But it should also be given a better name
-@[drunfold]
+@[drcomponents]
 def lift_f {α : Type} (f : Nat → (Σ T : Type, α → T → α → Prop)) (n : Nat) : InternalPort Nat × (Σ T : Type, α → T → α → Prop) :=
   ⟨↑n, f n⟩
 
@@ -32,7 +32,7 @@ def lift_f {α : Type} (f : Nat → (Σ T : Type, α → T → α → Prop)) (n 
 -- Implementation is provided in `ExprLow` and `ExprHigh` using base components
 
 -- Branch with `n` outputs
-@[drunfold]
+@[drcomponents]
 def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List P.Data × List FlitHeader)) :=
   {
     inputs := [
@@ -58,6 +58,7 @@ def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List P.Data 
 
 def nrouteT := List (P.Data × FlitHeader)
 
+@[drcomponents]
 def mk_nroute_output_rule (rID : RouterID) : (Σ T : Type, nrouteT → T → nrouteT → Prop) :=
   ⟨
     P.Data,
@@ -68,7 +69,7 @@ def mk_nroute_output_rule (rID : RouterID) : (Σ T : Type, nrouteT → T → nro
 -- TODO: This should be generalized as a `router`, which take one input
 -- `P.Data × FlitHeader`, and spit out this same input on an output port based
 -- on a routing function of type `FlitHeader → ...`
-@[drunfold]
+@[drcomponents]
 def nroute' (name := "nroute") : NatModule (NatModule.Named name nrouteT) :=
   {
     inputs := [
@@ -79,11 +80,12 @@ def nroute' (name := "nroute") : NatModule (NatModule.Named name nrouteT) :=
     init_state := λ s => s = [],
   }
 
+@[drcomponents]
 def mk_nbag_input_rule (S : Type) (_ : Nat) : (Σ T : Type, List S → T → List S → Prop) :=
     ⟨ S, λ oldState v newState => newState = oldState.concat v ⟩
 
 -- Bag with `n` inputs
-@[drunfold]
+@[drcomponents]
 def nbag' (T : Type) (n : Nat) (name := "nbag") : NatModule (NatModule.Named name (List T)) :=
   {
     inputs := List.range n |>.map (lift_f (mk_nbag_input_rule T)) |>.toAssocList,
@@ -97,12 +99,14 @@ def nbag' (T : Type) (n : Nat) (name := "nbag") : NatModule (NatModule.Named nam
 def nocT : Type :=
   List (P.Data × FlitHeader)
 
+@[drcomponents]
 def mk_noc_input_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
     ⟨
       P.Data × FlitHeader,
       λ oldState v newState => newState = oldState.concat v
     ⟩
 
+@[drcomponents]
 def mk_noc_output_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
     ⟨
       P.Data,
@@ -112,7 +116,7 @@ def mk_noc_output_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → 
     ⟩
 
 -- NOTE: This spec of a NoC also seems to be perfect for the spec of a router?
-@[drunfold]
+@[drcomponents]
 def noc' (name := "noc") : NatModule (NatModule.Named name nocT) :=
   {
     inputs := List.range P.netsz |>.map (lift_f mk_noc_input_rule) |>.toAssocList,
@@ -122,10 +126,10 @@ def noc' (name := "noc") : NatModule (NatModule.Named name nocT) :=
 
 -- Stringify -------------------------------------------------------------------
 
-@[drunfold] def nbag T n := nbag' T n |>.stringify
+@[drcomponents] def nbag T n := nbag' T n |>.stringify
 
-@[drunfold] def nbranch := nbranch' |>.stringify
+@[drcomponents] def nbranch := nbranch' |>.stringify
 
-@[drunfold] def nroute := nroute' |>.stringify
+@[drcomponents] def nroute := nroute' |>.stringify
 
-@[drunfold] def noc := noc' |>.stringify
+@[drcomponents] def noc := noc' |>.stringify

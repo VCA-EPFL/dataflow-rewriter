@@ -284,6 +284,7 @@ theorem renamePorts_empty {m : Module Ident S} :
   rw [i,o]
   rw [AssocList.bijectivePortRenaming_id]; unfold Module.mapPorts2; rw [mapInputPorts_id,mapOutputPorts_id]
 
+@[drcomponents]
 def mapIdent {Ident Ident' T} (inpR outR: Ident → Ident') (m : Module Ident T)
  : Module Ident' T :=
   {
@@ -1343,13 +1344,16 @@ abbrev NatModule := Module Nat
 
 abbrev StringModule := Module String
 
+@[drcomponents]
 def NatModule.stringify_input (n : ℕ) :=
   s!"in{n + 1}"
 
+@[drcomponents]
 def NatModule.stringify_output (n : ℕ) :=
   s!"out{n + 1}"
 
-@[drunfold] def NatModule.stringify {T} (m : NatModule T) : StringModule T :=
+@[drunfold, drcomponents]
+def NatModule.stringify {T} (m : NatModule T) : StringModule T :=
   m |>.mapIdent stringify_input stringify_output
 
 def IdentMap.toInterface {Ident} (i : IdentMap Ident (Σ T, Module Ident T))
