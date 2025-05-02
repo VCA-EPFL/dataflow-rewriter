@@ -391,8 +391,8 @@ def aligner TagT [DecidableEq TagT] T (name := "aligner") : NatModule (Named nam
 @[drunfold, drcomponents]
 def sink (T : Type _) (name := "sink") : NatModule (Named name Unit) :=
   {
-    inputs := [(0, ⟨ T, λ _ _ _ => True ⟩)].toAssocList,
-    outputs := ∅
+    inputs := [(0, ⟨T, λ _ _ _ => True⟩)].toAssocList,
+    outputs := ∅,
     init_state := λ _ => True,
   }
 
