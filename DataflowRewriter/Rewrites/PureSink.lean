@@ -38,7 +38,7 @@ def lhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i [type = "io"];
 
     pure [typeImp = $(⟨_, pure f⟩), type = $(s!"pure {S} {S'}")];
-    sink [typeImp = $(⟨_, sink T'⟩), type = $(s!"sink {S'}")];
+    sink [typeImp = $(⟨_, sink T' 1⟩), type = $(s!"sink {S'} 1")];
 
     i -> pure [to="in1"];
     pure -> sink [from="out1", to="in1"];
@@ -53,7 +53,7 @@ def lhsLower := (lhs_extract S S').fst.lower.get rfl
 def rhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i [type = "io"];
 
-    sink [typeImp = $(⟨_, sink (T×T')⟩), type = $(s!"sink ({S}×{S'})")];
+    sink [typeImp = $(⟨_, sink (T × T') 1⟩), type = $(s!"sink ({S} × {S'}) 1")];
 
     i -> sink [to="in1"];
   ]

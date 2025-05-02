@@ -290,11 +290,11 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
 
       if typVal = "Sink" then
         if splitAndSearch l "in" "in1:0" then
-          typVal := s!"sink Unit"
+          typVal := s!"sink Unit 1"
         else if splitAndSearch l "in" "in1:1" then
-          typVal := s!"sink Bool"
+          typVal := s!"sink Bool 1"
         else
-          typVal := s!"sink T"
+          typVal := s!"sink T 1"
 
       if typVal = "Operator" then
         if splitAndSearch l "op" "mc_store_op" || splitAndSearch l "op" "mc_load_op" then

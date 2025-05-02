@@ -389,9 +389,9 @@ def aligner TagT [DecidableEq TagT] T (name := "aligner") : NatModule (Named nam
   }
 
 @[drunfold, drcomponents]
-def sink (T : Type _) (name := "sink") : NatModule (Named name Unit) :=
+def sink (T : Type _) (sz : Nat) (name := "sink") : NatModule (Named name Unit) :=
   {
-    inputs := [(0, ⟨T, λ _ _ _ => True⟩)].toAssocList,
+    inputs := List.range sz |>.map (λ n => ⟨n, ⟨T, λ _ _ _ => True⟩⟩) |>.toAssocList,
     outputs := ∅,
     init_state := λ _ => True,
   }
@@ -645,7 +645,7 @@ namespace DataflowRewriter.StringModule
 
 @[drunfold, drcomponents] def split T T' := NatModule.split T T' |>.stringify
 
-@[drunfold, drcomponents] def sink T := NatModule.sink T |>.stringify
+@[drunfold, drcomponents] def sink T n := NatModule.sink T n |>.stringify
 
 @[drunfold, drcomponents] def branch T := NatModule.branch T |>.stringify
   -- |>.mapIdent (λ | 0 => "val" | _ => "cond") (λ | 0 => "true" | _ => "false")
@@ -708,8 +708,8 @@ def ε (Tag : Type) [DecidableEq Tag] (T : Type) [Inhabited T] : Env :=
   , ("Merge", ⟨_, StringModule.merge T 2⟩)
   , ("TaggedMerge", ⟨_, StringModule.merge (Tag × T) 2⟩)
 
-  , ("Sink", ⟨_, StringModule.sink T⟩)
-  , ("TaggedSink", ⟨_, StringModule.sink Tag⟩)
+  , ("Sink", ⟨_, StringModule.sink T 1⟩)
+  , ("TaggedSink", ⟨_, StringModule.sink Tag 1⟩)
 
   -- , ("Fork", ⟨_, StringModule.fork T 2⟩)
   -- , ("Fork3", ⟨_, StringModule.fork T 3⟩)
@@ -777,7 +777,7 @@ def ε_global' (s : String) (args : List FuncExpr) : Option (Σ (T : Type), Stri
   | "bag", [.typ t] => .some ⟨ _, bag t.denote ⟩
   | "tagger_untagger_val", [.typ t1, .typ t2] => .some ⟨ _, tagger_untagger_val Nat t1.denote t2.denote ⟩
   | "aligner", [.typ t] => .some ⟨ _, aligner Nat t.denote ⟩
-  | "sink", [.typ t] => .some ⟨ _, sink t.denote ⟩
+  | "sink", [.typ t] => .some ⟨ _, sink t.denote 1 ⟩
   -- | "pure", [f] => .some ⟨ _, pure f ⟩
   | _, _ => .none
 
