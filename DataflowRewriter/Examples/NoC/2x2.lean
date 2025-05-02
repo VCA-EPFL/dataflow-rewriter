@@ -155,14 +155,6 @@ def noc_low : ExprLow String :=
     ExprLow.connect
       { output := router_internal_out b portB, input := router_internal_inp a portA }
 
-  -- West - East connection
-  let mkconn_we (w e : RouterID) (base : ExprLow String) :=
-    mkconn_bi w e 1 2 base
-
-  -- North -- South connection
-  let mkconn_ns (n s : RouterID) (base : ExprLow String) :=
-    mkconn_bi n s 3 4 base
-
   let sink_internal_inp (sId : Nat) :=
     { inst := InstIdent.internal "Sink", name := NatModule.stringify_input sId }
 
@@ -183,22 +175,22 @@ def noc_low : ExprLow String :=
       { output := router_internal_out rId dir, input := sink_internal_inp sId }
       base
 
-  mksink                        |>  -- Sink for unused i/o
-  ExprLow.product (mkrouter 0)  |>  -- Top left router
-  ExprLow.product (mkrouter 1)  |>  -- Top right router
-  ExprLow.product (mkrouter 2)  |>  -- Bot left router
-  ExprLow.product (mkrouter 3)  |>  -- Bot right router
-  mkconn_we 0 1                 |>
-  mkconn_we 2 3                 |>
-  mkconn_ns 0 2                 |>
-  mkconn_ns 1 3                 |>
-  mkconn_sink 0 0 DirNorth      |>
-  mkconn_sink 0 1 DirWest       |>
-  mkconn_sink 1 2 DirNorth      |>
-  mkconn_sink 1 3 DirEast       |>
-  mkconn_sink 2 4 DirSouth      |>
-  mkconn_sink 2 5 DirWest       |>
-  mkconn_sink 3 6 DirSouth      |>
+  mksink                          |>  -- Sink for unused i/o
+  ExprLow.product (mkrouter 0)    |>  -- Top left router
+  ExprLow.product (mkrouter 1)    |>  -- Top right router
+  ExprLow.product (mkrouter 2)    |>  -- Bot left router
+  ExprLow.product (mkrouter 3)    |>  -- Bot right router
+  mkconn_bi 0 1 DirEast DirWest   |>
+  mkconn_bi 2 3 DirEast DirWest   |>
+  mkconn_bi 0 2 DirSouth DirNorth |>
+  mkconn_bi 1 3 DirSouth DirNorth |>
+  mkconn_sink 0 0 DirNorth        |>
+  mkconn_sink 0 1 DirWest         |>
+  mkconn_sink 1 2 DirNorth        |>
+  mkconn_sink 1 3 DirEast         |>
+  mkconn_sink 2 4 DirSouth        |>
+  mkconn_sink 2 5 DirWest         |>
+  mkconn_sink 3 6 DirSouth        |>
   mkconn_sink 3 7 DirEast
 
 def noc_lowT : Type := by
@@ -259,5 +251,33 @@ set_option pp.maxSteps 1000000 in
 #print noc_lowM
 
 -- Proof of correctness --------------------------------------------------------
+
+instance : MatchInterface noc_lowM noc where
+  input_types := by sorry
+  output_types := by sorry
+  inputs_present := by sorry
+  outputs_present := by sorry
+
+def φ (I : noc_lowT) (S : nocT) : Prop :=
+  False
+
+theorem noc_low_refines_initial :
+  Module.refines_initial noc_lowM noc φ := by
+    sorry
+
+theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
+  sorry
+
+theorem noc_low_ϕ_indistinguishable :
+  ∀ i s, φ i s → Module.indistinguishable noc_lowM noc i s := by
+    sorry
+
+theorem noc_low_correct : noc_lowM ⊑ noc := by
+  apply (
+    Module.refines_φ_refines
+      noc_low_ϕ_indistinguishable
+      noc_low_refines_initial
+      noc_low_refines_φ
+  )
 
 end DataflowRewriter.Examples.NoC
