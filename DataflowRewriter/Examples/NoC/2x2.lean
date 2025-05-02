@@ -110,11 +110,11 @@ def routerXY := router arbiterXY
 
 def ε_noc : Env :=
   [
-    (s!"Sink Flit", ⟨_, StringModule.sink Flit⟩), -- Sink for unused i/o
-    (s!"Router 0",  ⟨_, router arbiterXY 0⟩),     -- Top left router
-    (s!"Router 1",  ⟨_, router arbiterXY 1⟩),     -- Top right router
-    (s!"Router 2",  ⟨_, router arbiterXY 2⟩),     -- Bot left router
-    (s!"Router 3",  ⟨_, router arbiterXY 3⟩),     -- Bot right router
+    (s!"Sink Flit 8", ⟨_, StringModule.sink Flit 8⟩), -- Sink for unused i/o
+    (s!"Router 0",    ⟨_, router arbiterXY 0⟩),       -- Top left router
+    (s!"Router 1",    ⟨_, router arbiterXY 1⟩),       -- Top right router
+    (s!"Router 2",    ⟨_, router arbiterXY 2⟩),       -- Bot left router
+    (s!"Router 3",    ⟨_, router arbiterXY 3⟩),       -- Bot right router
   ].toAssocList
 
 @[drunfold_defs]
@@ -131,7 +131,7 @@ def noc_low : ExprLow String :=
 
   let mkrouter (rId : RouterID) : ExprLow String := ExprLow.base
     {
-      -- 0 is a special case : The local port
+      -- 0 is a special case (Local port)
       input :=
         ⟨NatModule.stringify_input DirLocal, NatModule.stringify_input rId⟩ ::
         List.map
@@ -146,20 +146,6 @@ def noc_low : ExprLow String :=
         |>.toAssocList,
     }
     s!"Router {rId}"
-
-  let sink_internal (sId : Nat) :=
-    InstIdent.internal s!"Sink {sId}"
-
-  let sink_internal_inp (sId : Nat) :=
-    { inst := sink_internal sId, name := NatModule.stringify_input 0 }
-
-  -- We use sinks to discard unconnected ports of our routers
-  let mksink (sId : Nat) : ExprLow String := ExprLow.base
-    {
-      input := [⟨NatModule.stringify_input 0, sink_internal_inp sId⟩].toAssocList,
-      output := .nil,
-    }
-    s!"Sink Flit"
 
   -- Make a bidirectional connection between two routers
   let mkconn_bi (a b : RouterID) (portA portB : Nat) (base : ExprLow String) :=
@@ -177,24 +163,31 @@ def noc_low : ExprLow String :=
   let mkconn_ns (n s : RouterID) (base : ExprLow String) :=
     mkconn_bi n s 3 4 base
 
+  let sink_internal_inp (sId : Nat) :=
+    { inst := InstIdent.internal "Sink", name := NatModule.stringify_input sId }
+
+  -- We use sinks to discard unconnected ports of our routers
+  let mksink : ExprLow String := ExprLow.base
+    {
+      input :=
+        List.range 7
+        |>.map (λ n => ⟨NatModule.stringify_input 0, sink_internal_inp n⟩)
+        |>.toAssocList,
+      output := .nil,
+    }
+    s!"Sink Flit 8"
+
   -- Connect an output of a router to a sink
   let mkconn_sink (rId : RouterID) (sId : Nat) (dir : Dir) (base : ExprLow String) :=
     ExprLow.connect
       { output := router_internal_out rId dir, input := sink_internal_inp sId }
       base
 
-  mkrouter 0                    |>  -- Top left router
+  mksink                        |>  -- Sink for unused i/o
+  ExprLow.product (mkrouter 0)  |>  -- Top left router
   ExprLow.product (mkrouter 1)  |>  -- Top right router
   ExprLow.product (mkrouter 2)  |>  -- Bot left router
   ExprLow.product (mkrouter 3)  |>  -- Bot right router
-  ExprLow.product (mksink 0)    |>  -- 0 North
-  ExprLow.product (mksink 1)    |>  -- 0 West
-  ExprLow.product (mksink 2)    |>  -- 1 North
-  ExprLow.product (mksink 3)    |>  -- 1 East
-  ExprLow.product (mksink 4)    |>  -- 2 South
-  ExprLow.product (mksink 5)    |>  -- 2 West
-  ExprLow.product (mksink 6)    |>  -- 3 South
-  ExprLow.product (mksink 7)    |>  -- 3 East
   mkconn_we 0 1                 |>
   mkconn_we 2 3                 |>
   mkconn_ns 0 2                 |>
@@ -215,7 +208,7 @@ def noc_lowT : Type := by
     simp (disch := simpa) only [toString, drcompute]
 
 @[simp] theorem sink_in_ε :
-  AssocList.find? "Sink Flit" ε_noc = .some ⟨_, StringModule.sink Flit⟩ := rfl
+  AssocList.find? "Sink Flit 8" ε_noc = .some ⟨_, StringModule.sink Flit 8⟩ := rfl
 
 @[simp] theorem router_in_ε_0 :
   AssocList.find? "Router 0" ε_noc = .some ⟨_, router arbiterXY 0⟩ := rfl
