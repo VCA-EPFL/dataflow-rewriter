@@ -236,21 +236,20 @@ axiom bijectivePortRenaming_invert' {α} [DecidableEq α] {p : AssocList α α} 
 attribute [-drcompute] AssocList.bijectivePortRenaming_invert
 
 set_option maxHeartbeats 1000000 in
+set_option profiler true in
 def_module noc_lowM : StringModule noc_lowT :=
   [e| noc_low, ε_noc]
   reduction_by
-    dsimp -failIfUnchanged [drunfold_defs, ExprHigh.extract, List.foldlM, drcomponents]
-    rw [rw_opaque (by simp -failIfUnchanged (disch := simpa) only [drcompute, toString, InternalPort.map]; rfl)]
-    dsimp -failIfUnchanged [ ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry
-          , ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
-    dsimp only [toString, drcompute, List.range, List.map, List.range.loop]
-    simp (disch := solve | simp | rfl | simpa) only [toString, drcompute, List.range, List.map, List.range.loop, drcomponents]
-    dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts];
-    simp (disch := solve | simp | rfl) only [toString, drcompute, List.range, List.map, List.range.loop, drcomponents]
+    dsimp -failIfUnchanged [drunfold_defs, ExprHigh.extract, List.foldlM]
+    dsimp [toString, drcompute, List.range, List.map, List.range.loop, NatModule.stringify_output, NatModule.stringify_input]
+    rw [rw_opaque (by dsimp [ ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry
+                            , ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module'])]
+    dsimp [toString, drcompute, List.range, List.map, List.range.loop, NatModule.stringify_output, NatModule.stringify_input, drcomponents]
+    dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts]
     dsimp [Module.product, Module.liftL, Module.liftR]
-    simp (disch := solve | simp | rfl) only [toString, drcompute, List.range, List.map, List.range.loop, drcomponents]
     dsimp [Module.connect']
-    simp (disch := solve | simp | rfl) only [toString, drcompute, List.range, List.map, List.range.loop, drcomponents]
+    -- conv => arg 1; arg 1; whnf
+    simp (disch := solve | trivial | simp | rfl) only [drcompute]
     conv =>
       pattern (occs := *) Module.connect'' _ _
       all_goals
@@ -261,9 +260,9 @@ def_module noc_lowM : StringModule noc_lowT :=
     skip
 
 #check noc_lowM
-set_option pp.deepTerms true in
-set_option pp.maxSteps 1000000 in
-#print noc_lowM
+-- set_option pp.deepTerms true in
+-- set_option pp.maxSteps 1000000 in
+-- #print noc_lowM
 
 -- Proof of correctness --------------------------------------------------------
 
