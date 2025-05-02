@@ -59,7 +59,7 @@ def rhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     o [type = "io"];
 
     pure [typeImp = $(⟨_, StringModule.pure f⟩), type = $(s!"pure {S₁} {S₂}")];
-    sink [typeImp = $(⟨_, sink Unit⟩), type = $("sink Unit")];
+    sink [typeImp = $(⟨_, sink Unit 1⟩), type = $("sink Unit 1")];
 
     i1 -> pure [to="in1"];
     i2 -> sink [to="in1"];

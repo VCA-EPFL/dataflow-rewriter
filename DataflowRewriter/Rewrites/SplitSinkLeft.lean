@@ -37,7 +37,7 @@ def lhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     o [type = "io"];
 
     split [typeImp = $(⟨_, split T T'⟩), type = $(s!"split {S} {S'}")];
-    sink [typeImp = $(⟨_, sink T⟩), type = $(s!"sink {S}")];
+    sink [typeImp = $(⟨_, sink T 1⟩), type = $(s!"sink {S} 1")];
 
     i -> split [to="in1"];
     split -> o [from="out2"];
