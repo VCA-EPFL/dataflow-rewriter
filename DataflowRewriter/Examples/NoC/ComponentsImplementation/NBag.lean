@@ -26,7 +26,7 @@ import DataflowRewriter.Examples.NoC.Components
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.NoC
+namespace DataflowRewriter.Examples.NoC
 
 variable [P : NocParam]
 
@@ -95,31 +95,9 @@ def nbag_low : ExprLow String :=
 
 def nbag_lowT : Type := by
   precomputeTac [T| nbag_low, ε_nbag] by
-    simp only [nbag_low, drunfold]
+    dsimp [nbag_low, ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
     rw [ε_nbag_merge', ε_nbag_bag]
     simp [drunfold, seval, drcompute, drdecide]
-
-theorem inputGen_reverse {n : List _} :
-  (n.map inputGen).toAssocList.inverse = (n.map inputGen).toAssocList := by
-    sorry
-
-theorem inputGen_filterId_empty {n : List _} :
-  (n.map inputGen).toAssocList.filterId = .nil := by
-  induction n with
-  | nil => rfl
-  | cons =>
-    dsimp
-    rw (occs := [1, 2]) [inputGen]
-    rw [AssocList.filterId_cons_eq]; assumption
-
-theorem bijectivePortRenaming_id {n : List _} :
-  (n.map inputGen).toAssocList.bijectivePortRenaming = id := by
-    ext i
-    simp [AssocList.bijectivePortRenaming, inputGen_reverse, inputGen_filterId_empty]
-
-attribute [drcompute]
-  AssocList.mapVal
-  AssocList.mapVal_mapKey
 
 def_module nbag_lowM : StringModule nbag_lowT :=
   [e| nbag_low, ε_nbag]
@@ -142,7 +120,7 @@ def_module nbag_lowM : StringModule nbag_lowT :=
     unfold inputGen
     rw [AssocList.bijectivePortRenaming_same]
     dsimp [InternalPort.map, NatModule.stringify_output, NatModule.stringify_input]
-    repeat rw [bijectivePortRenaming_invert]
+    repeat rw [AssocList.bijectivePortRenaming_invert]
 
     simp -failIfUnchanged (disch := simpa) only [drcompute]
     dsimp
@@ -158,10 +136,9 @@ def_module nbag_lowM : StringModule nbag_lowT :=
       drcomponents,
       AssocList.mapVal,
       AssocList.mapVal_mapKey,
-      AssocList.bijectivePortRenaming,
+      -- AssocList.bijectivePortRenaming,
       AssocList.invertible,
     ]
-    skip
     conv =>
      pattern (occs := *) Module.connect'' _ _
      all_goals
@@ -315,4 +292,4 @@ theorem nbag_low_indistinguishable_φ :
 theorem nbag_low_correct : nbag_lowM ⊑ (nbag P.Data P.netsz) := by
   apply (Module.refines_φ_refines nbag_low_indistinguishable_φ nbag_low_initial_φ nbag_low_refines_ϕ)
 
-end DataflowRewriter.NoC
+end DataflowRewriter.Examples.NoC

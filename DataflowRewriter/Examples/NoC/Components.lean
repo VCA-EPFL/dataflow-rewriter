@@ -13,19 +13,16 @@ import DataflowRewriter.Component
 
 import DataflowRewriter.Examples.NoC.Basic
 
-namespace DataflowRewriter.NoC
+namespace DataflowRewriter.Examples.NoC
 
 variable [P : NocParam]
 
 -- Utils -----------------------------------------------------------------------
 
--- TODO: This should be somewhere else, this function is very useful for
--- defining List.range n |>.map (lift_f f) |>.toAssocList, a very common pattern
--- to design parametric design
--- But it should also be given a better name
+-- TODO: This should be somewhere else with a better name
 @[drcomponents]
-def lift_f {α : Type} (f : Nat → (Σ T : Type, α → T → α → Prop)) (n : Nat) : InternalPort Nat × (Σ T : Type, α → T → α → Prop) :=
-  ⟨↑n, f n⟩
+def lift_f {S : Type} (n : ℕ) (f : ℕ → (Σ T : Type, S → T → S → Prop)) : PortMap ℕ (Σ T : Type, (S → T → S → Prop)) :=
+  List.range n |>.map (λ i => ⟨↑i, f i⟩) |>.toAssocList
 
 -- Components ------------------------------------------------------------------
 -- Reference semantics for useful components
@@ -56,7 +53,7 @@ def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List P.Data 
     init_state := λ s => s = ⟨[], []⟩,
   }
 
-def nrouteT := List (P.Data × FlitHeader)
+def nrouteT := List Flit
 
 @[drcomponents]
 def mk_nroute_output_rule (rID : RouterID) : (Σ T : Type, nrouteT → T → nrouteT → Prop) :=
@@ -73,22 +70,22 @@ def mk_nroute_output_rule (rID : RouterID) : (Σ T : Type, nrouteT → T → nro
 def nroute' (name := "nroute") : NatModule (NatModule.Named name nrouteT) :=
   {
     inputs := [
-      (0, ⟨P.Data × FlitHeader,
+      (0, ⟨Flit,
         λ oldState v newState => newState = oldState.concat v⟩),
     ].toAssocList,
-    outputs := List.range P.netsz |>.map (lift_f mk_nroute_output_rule) |>.toAssocList
+    outputs := lift_f P.netsz mk_nroute_output_rule,
     init_state := λ s => s = [],
   }
 
 @[drcomponents]
-def mk_nbag_input_rule (S : Type) (_ : Nat) : (Σ T : Type, List S → T → List S → Prop) :=
-    ⟨ S, λ oldState v newState => newState = oldState.concat v ⟩
+def mk_nbag_input_rule (S : Type) (_ : ℕ) : (Σ T : Type, List S → T → List S → Prop) :=
+    ⟨S, λ oldState v newState => newState = oldState.concat v⟩
 
 -- Bag with `n` inputs
 @[drcomponents]
-def nbag' (T : Type) (n : Nat) (name := "nbag") : NatModule (NatModule.Named name (List T)) :=
+def nbag' (T : Type) (n : ℕ) (name := "nbag") : NatModule (NatModule.Named name (List T)) :=
   {
-    inputs := List.range n |>.map (lift_f (mk_nbag_input_rule T)) |>.toAssocList,
+    inputs := lift_f n (mk_nbag_input_rule T),
     outputs := [
       (↑0, ⟨ T, λ oldState v newState =>
         ∃ i, newState = oldState.remove i ∧ v = oldState.get i ⟩)
@@ -97,12 +94,12 @@ def nbag' (T : Type) (n : Nat) (name := "nbag") : NatModule (NatModule.Named nam
   }
 
 def nocT : Type :=
-  List (P.Data × FlitHeader)
+  List Flit
 
 @[drcomponents]
 def mk_noc_input_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
     ⟨
-      P.Data × FlitHeader,
+      Flit,
       λ oldState v newState => newState = oldState.concat v
     ⟩
 
@@ -115,12 +112,11 @@ def mk_noc_output_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → 
         (data, { dest := rID }) = oldState.get i
     ⟩
 
--- NOTE: This spec of a NoC also seems to be perfect for the spec of a router?
 @[drcomponents]
 def noc' (name := "noc") : NatModule (NatModule.Named name nocT) :=
   {
-    inputs := List.range P.netsz |>.map (lift_f mk_noc_input_rule) |>.toAssocList,
-    outputs := List.range P.netsz |>.map (lift_f mk_noc_output_rule) |>.toAssocList,
+    inputs := lift_f P.netsz mk_noc_input_rule,
+    outputs := lift_f P.netsz mk_noc_output_rule,
     init_state := λ s => s = [],
   }
 

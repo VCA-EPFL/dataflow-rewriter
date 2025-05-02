@@ -15,7 +15,7 @@ import DataflowRewriter.AssocList
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.NoC
+namespace DataflowRewriter.Examples.NoC
 
 -- TODO: This should be moved elsewhere at some point
 
@@ -154,3 +154,5 @@ theorem internalport_neq {ident1 ident2 : InstIdent String} {name1 name2 : Strin
     ({ inst := ident1, name := name1 }: InternalPort String)
   ≠ ({ inst := ident2, name := name2 }: InternalPort String)
     := by simpa [Hneq]
+
+end DataflowRewriter.Examples.NoC
