@@ -14,19 +14,19 @@ namespace DataflowRewriter.Examples.NoC
 
 -- This file implement a non-parameterized 2x2 Noc
 
-abbrev Data := ℕ
-abbrev FlitHeader := Nat -- TODO: Dest RouterID
-abbrev RouterID := Nat -- TODO: a Fin probably
-abbrev netsz := 4
--- TODO: Proper type? Enum ? Fin ?
-abbrev Dir := Nat
-abbrev DirLocal := 0
-abbrev DirWest  := 1
-abbrev DirEast  := 2
-abbrev DirNorth := 3
-abbrev DirSouth := 4
+@[simp] abbrev Data := ℕ
+@[simp] abbrev FlitHeader := Nat -- TODO: Dest RouterID
+@[simp] abbrev RouterID := Nat -- TODO: a Fin probably
+@[simp] abbrev netsz := 4
+-- TODO: Proper type? Enum ? Fin ?i
+@[simp] abbrev Dir := Nat
+@[simp] abbrev DirLocal := 0
+@[simp] abbrev DirWest  := 1
+@[simp] abbrev DirEast  := 2
+@[simp] abbrev DirNorth := 3
+@[simp] abbrev DirSouth := 4
 
-abbrev Flit := Data × FlitHeader
+@[simp] abbrev Flit := Data × FlitHeader
 
 -- Specification ---------------------------------------------------------------
 
@@ -235,6 +235,7 @@ axiom bijectivePortRenaming_invert' {α} [DecidableEq α] {p : AssocList α α} 
 
 attribute [-drcompute] AssocList.bijectivePortRenaming_invert
 
+set_option maxHeartbeats 1000000 in
 def_module noc_lowM : StringModule noc_lowT :=
   [e| noc_low, ε_noc]
   reduction_by
@@ -242,20 +243,27 @@ def_module noc_lowM : StringModule noc_lowT :=
     rw [rw_opaque (by simp -failIfUnchanged (disch := simpa) only [drcompute, toString, InternalPort.map]; rfl)]
     dsimp -failIfUnchanged [ ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry
           , ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
-
     dsimp only [toString, drcompute, List.range, List.map, List.range.loop]
     simp (disch := solve | simp | rfl | simpa) only [toString, drcompute, List.range, List.map, List.range.loop, drcomponents]
     dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts];
     simp (disch := solve | simp | rfl) only [toString, drcompute, List.range, List.map, List.range.loop, drcomponents]
     dsimp [Module.product, Module.liftL, Module.liftR]
+    simp (disch := solve | simp | rfl) only [toString, drcompute, List.range, List.map, List.range.loop, drcomponents]
     dsimp [Module.connect']
-    simp (disch := simp) only [drcompute]
+    simp (disch := solve | simp | rfl) only [toString, drcompute, List.range, List.map, List.range.loop, drcomponents]
     conv =>
       pattern (occs := *) Module.connect'' _ _
       all_goals
         rw [(Module.connect''_dep_rw (h := by conv => rhs; whnf)
                                      (h' := by conv => rhs; whnf))]
+    unfold Module.connect''
+    dsimp
     skip
+
+#check noc_lowM
+set_option pp.deepTerms true in
+set_option pp.maxSteps 1000000 in
+#print noc_lowM
 
 -- Proof of correctness --------------------------------------------------------
 
