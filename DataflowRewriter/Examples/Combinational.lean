@@ -19,11 +19,13 @@ namespace DataflowRewriter.CombModule
   { inputs := [ (0, ⟨ Bool, λ s tt s' => s.1 = none ∧ s'.1 = .some tt ∧ s'.2 = s.2 ⟩)
               , (1, ⟨ Bool, λ s tt s' => s.2 = none ∧ s'.2 = .some tt ∧ s'.1 = s.1 ⟩)].toAssocList,
     outputs := [(0, ⟨ Bool, λ s tt s' => ∃ a b, s.1 = .some a ∧ s.2 = .some b ∧ tt = ¬ (a ∧ b) ∧ s' = (.none, .none) ⟩)].toAssocList
+    init_state := λ s => s = default
   }
 
 @[drunfold] def not : NatModule (Option Bool) :=
   { inputs := [(0, ⟨ Bool, λ s tt s' => s = none ∧ s' = .some tt ⟩)].toAssocList,
     outputs := [(0, ⟨ Bool, λ s tt s' => ∃ a, s = .some a ∧ tt = ¬ a ∧ s' = .none ⟩)].toAssocList
+    init_state := λ s => s = default
   }
 
 attribute [drcompute] Batteries.AssocList.toList Function.uncurry Module.mapIdent List.toAssocList List.foldl Option.pure_def Option.bind_eq_bind Option.bind_some Module.renamePorts Batteries.AssocList.mapKey InternalPort.map toString Nat.repr Nat.toDigits Nat.toDigitsCore Nat.digitChar List.asString Option.bind Batteries.AssocList.mapVal Batteries.AssocList.eraseAll Batteries.AssocList.eraseP beq_self_eq_true Option.getD cond beq_self_eq_true  beq_iff_eq  InternalPort.mk.injEq  String.reduceEq  and_false  imp_self BEq.beq AssocList.bijectivePortRenaming AssocList.keysList AssocList.eraseAllP List.inter
