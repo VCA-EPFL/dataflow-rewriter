@@ -163,57 +163,45 @@ def noc_lowT : Type := by
     dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
     simp (disch := simpa) only [toString, drcompute]
 
+@[simp] theorem router_in_env_0 :
+  AssocList.find? "Router 0" ε_noc = .some ⟨_, router arbiterXY 0⟩ := rfl
+
+@[simp] theorem router_in_env_1 :
+  AssocList.find? "Router 1" ε_noc = .some ⟨_, router arbiterXY 1⟩ := rfl
+
+@[simp] theorem router_in_env_2 :
+  AssocList.find? "Router 2" ε_noc = .some ⟨_, router arbiterXY 2⟩ := rfl
+
+@[simp] theorem router_in_env_3 :
+  AssocList.find? "Router 3" ε_noc = .some ⟨_, router arbiterXY 3⟩ := rfl
+
+@[drcompute]
+axiom  bijectivePortRenaming_invert' {α} [DecidableEq α] {p : AssocList α α} {i : α}:
+  p.bijectivePortRenaming i = ((p.filterId.append p.inverse.filterId).find? i).getD i
+
+attribute [-drcompute] AssocList.bijectivePortRenaming_invert
+
 def_module noc_lowM : StringModule noc_lowT :=
   [e| noc_low, ε_noc]
   reduction_by
-    dsimp -failIfUnchanged [drunfold_defs, ExprHigh.extract, List.foldlM]
-    rw [rw_opaque (by simp -failIfUnchanged (disch := simpa) only [drcompute]; rfl)]
+    dsimp -failIfUnchanged [drunfold_defs, ExprHigh.extract, List.foldlM, drcomponents]
+    rw [rw_opaque (by simp -failIfUnchanged (disch := simpa) only [drcompute, toString, InternalPort.map]; rfl)]
     dsimp -failIfUnchanged [ ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry
           , ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
-    skip
-    rw [rw_opaque (by set_option trace.Meta.Tactic.simp.rewrite true in simp -implicitDefEqProofs -dsimp (disch := rfl) only [drcompute]; rfl)]
-    dsimp [drcomponents]
-    dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter];
-    simp (disch := simp) only [drcompute, ↓reduceIte]
+
+    dsimp only [toString, drcompute, List.range, List.map, List.range.loop]
+    simp (disch := solve | simp | rfl | simpa) only [toString, drcompute, List.range, List.map, List.range.loop, drcomponents]
+    dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts];
+    simp (disch := solve | simp | rfl) only [toString, drcompute, List.range, List.map, List.range.loop, drcomponents]
     dsimp [Module.product, Module.liftL, Module.liftR]
     dsimp [Module.connect']
     simp (disch := simp) only [drcompute]
     conv =>
       pattern (occs := *) Module.connect'' _ _
       all_goals
-        rw [(Module.connect''_dep_rw (h := by simp (disch := simpa) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp -failIfUnchanged)
-                                 (h' := by simp (disch := simpa) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp -failIfUnchanged))]
-
-      unfold Module.connect''
-      simp -failIfUnchanged only [drcompute]
-      dsimp -failIfUnchanged
-    dsimp -failIfUnchanged
-
-    -- dsimp [noc_low, ε_noc]
-    -- simp only [toString, String.reduceAppend]
-    -- dsimp [ExprLow.build_module_expr, ExprLow.build_module, ExprLow.build_module']
-    -- simp only [AssocList.find?]
-    -- dsimp
-    -- dsimp [drcomponents]
-    -- dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter];
-    -- simp (disch := simpa) only [drcompute]
-    -- dsimp [
-    --   -- List.range,
-    --   -- List.range.loop, List.map, AssocList.mapKey,
-    --   -- InternalPort.map,
-    --   -- AssocList.find?,
-    --   -- AssocList.eraseAll,
-    --   -- AssocList.eraseAllP,
-    --   -- AssocList.mapVal,
-    --   Module.renamePorts,
-    --   Module.product,
-    --   Module.connect',
-    --   Module.connect'',
-    --   List.range,
-    --   List.range.loop,
-    --   toString, String.reduceAppend, drcomponents]
-    -- simp (disch := simpa) only [drcompute]
-    -- skip
+        rw [(Module.connect''_dep_rw (h := by conv => rhs; whnf)
+                                     (h' := by conv => rhs; whnf))]
+    skip
 
 -- Proof of correctness --------------------------------------------------------
 

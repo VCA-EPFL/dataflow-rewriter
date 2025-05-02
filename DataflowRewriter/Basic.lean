@@ -48,6 +48,9 @@ open Lean Meta Simp
 def fromExpr? (e : Expr) : SimpM (Option Nat) :=
   getNatValue? e
 
+def fromExpr?' (e : Expr) : SimpM (Option (Array Char)) :=
+  getListLitOf? e getCharValue?
+
 /--
 Reduce `toString 5` to `"5"`
 -/
@@ -56,6 +59,30 @@ Reduce `toString 5` to `"5"`
   return .done <| .lit <| .strVal <| toString n
 
 dsimproc [simp, seval, drcompute] reduceToString (toString (_ : Nat)) := reduceToStringImp
+
+/--
+Reduce `toString 5` to `"5"`
+-/
+@[inline] def reduceNatReprImp (e : Expr) : SimpM Simp.DStep := do
+  let some n ← fromExpr? e.appArg! | return .continue
+  return .done <| .lit <| .strVal <| toString n
+
+dsimproc [simp, seval, drcompute] reduceNatRepr (Nat.repr _) := reduceNatReprImp
+
+/--
+Reduce `toString 5` to `"5"`
+-/
+@[inline] def reduceStringmkImp (e : Expr) : SimpM Simp.DStep := do
+  let some n ← fromExpr?' e.appArg! | return .continue
+  return .done <| .lit <| .strVal <| String.mk n.toList
+
+-- #print Char
+
+-- example : ∀ y : String -> Prop, y (String.mk ['a', 'b']) := by
+--   intros; reduce
+--   dsimp
+
+dsimproc [simp, seval, drcompute] reduceStringmk (String.mk _) := reduceStringmkImp
 
 end SimpProc
 

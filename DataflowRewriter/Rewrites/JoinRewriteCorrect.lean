@@ -136,18 +136,6 @@ def rhsModuleType : Type := by
     -- Reduce environment access
     simp only [find?_join1_data2, find?_join2_data2, find?_pure_data2]; dsimp
 
-theorem mapKey_cons {α β γ} {a b} {f : α → γ} {m : AssocList α β}:
-  (m.cons a b).mapKey f = (m.mapKey f).cons (f a) b := rfl
-
-theorem mapKey_nil {α β γ} {f : α → γ}:
-  (@Batteries.AssocList.nil α β).mapKey f = .nil := rfl
-
-theorem mapVal_cons {α β γ} {a b} {f : α → β → γ} {m : AssocList α β}:
-  (m.cons a b).mapVal f = (m.mapVal f).cons a (f a b) := rfl
-
-theorem mapVal_nil {α β γ} {f : α → β → γ}:
-  (@Batteries.AssocList.nil α β).mapVal f = .nil := rfl
-
 variable (T₁ T₂ T₃) in
 @[drunfold] def rhsModule : StringModule (rhsModuleType T₁ T₂ T₃) := by
   precomputeTac [e| (rewriteLhsRhs S₁ S₂ S₃).output_expr, @environmentRhs T₁ T₂ T₃ S₁ S₂ S₃ ] by

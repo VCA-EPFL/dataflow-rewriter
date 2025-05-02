@@ -454,7 +454,7 @@ theorem bijectivePortRenaming_same {α} {β} [DecidableEq α] (f : β → α) (l
     sorry
 
 @[drcompute]
-axiom bijectivePortRenaming_invert {α} [DecidableEq α] {p : AssocList α α} {i : α} (Hinv : p.invertible):
+axiom  bijectivePortRenaming_invert {α} [DecidableEq α] {p : AssocList α α} {i : α} (Hinv : p.invertible):
   p.bijectivePortRenaming i = ((p.filterId.append p.inverse.filterId).find? i).getD i
 
 @[simp]
@@ -515,5 +515,21 @@ theorem inverse_cons {α β} [DecidableEq α] {a b} {n : AssocList α β} :
 @[drcompute]
 theorem inverse_nil {α β} [DecidableEq α] :
   (.nil : AssocList α β).inverse = .nil := by rfl
+
+@[drcompute]
+theorem mapKey_cons {α β γ} {a b} {f : α → γ} {m : AssocList α β}:
+  (m.cons a b).mapKey f = (m.mapKey f).cons (f a) b := rfl
+
+@[drcompute]
+theorem mapKey_nil {α β γ} {f : α → γ}:
+  (@Batteries.AssocList.nil α β).mapKey f = .nil := rfl
+
+@[drcompute]
+theorem mapVal_cons {α β γ} {a b} {f : α → β → γ} {m : AssocList α β}:
+  (m.cons a b).mapVal f = (m.mapVal f).cons a (f a b) := rfl
+
+@[drcompute]
+theorem mapVal_nil {α β γ} {f : α → β → γ}:
+  (@Batteries.AssocList.nil α β).mapVal f = .nil := rfl
 
 end Batteries.AssocList
