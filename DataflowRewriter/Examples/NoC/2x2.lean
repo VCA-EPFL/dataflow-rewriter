@@ -4,6 +4,11 @@ import Qq
 
 import DataflowRewriter.Module
 import DataflowRewriter.Component
+import DataflowRewriter.ModuleReduction
+import DataflowRewriter.ExprLow
+import DataflowRewriter.ExprLowLemmas
+
+open Batteries (AssocList)
 
 namespace DataflowRewriter.Examples.NoC
 
@@ -64,18 +69,18 @@ def mk_router_output (arbiter : Arbiter) (rId : RouterID) (n : ℕ) : Σ T : Typ
   ⟨Flit, λ oldS out newS => oldS = out :: newS ∧ arbiter rId out.2 = n⟩
 
 @[drcomponents]
-def router (arbiter : Arbiter) (rId : RouterID) (name := "routerXY") : NatModule (NatModule.Named name nocT) :=
+def router' (arbiter : Arbiter) (rId : RouterID) (name := "routerXY") : NatModule (NatModule.Named name nocT) :=
   {
     inputs := lift_f 5 mk_router_input,
     outputs := lift_f 5 (mk_router_output arbiter rId),
     init_state := λ s => s = [],
   }
 
--- TODO: Return x coordinates in a 2x2 mesh
-def getX (rId : RouterID) := 0
+@[drcomponents] def router arbiter rId := (router' arbiter rId) |>.stringify
 
--- TODO: Return y coordinates in a 2x2 mesh
-def getY (rId : RouterID) := 0
+def getX (rId : RouterID) := rId.mod 2
+
+def getY (rId : RouterID) := rId.div 2
 
 def arbiterXY : Arbiter := λ src dst =>
   let src_x := getX src
@@ -94,13 +99,121 @@ def arbiterXY : Arbiter := λ src dst =>
     .some 4 -- South
   else
     .none
--- TODO, but we need a mapping from routerID to x and y position
 
 def routerXY := router arbiterXY
 
--- TODO: Create a NoC by creating 4 routers and connecting them
-def noc_low' : ExprLow String :=
-  sorry -- TODO
+def ε_noc : Env :=
+  [
+    (s!"Router 0", ⟨_, router arbiterXY 0⟩),
+    (s!"Router 1", ⟨_, router arbiterXY 1⟩),
+    (s!"Router 2", ⟨_, router arbiterXY 2⟩),
+    (s!"Router 3", ⟨_, router arbiterXY 3⟩),
+  ].toAssocList
+
+@[drunfold_defs]
+def noc_low : ExprLow String :=
+  let internal (rID : RouterID) :=
+    InstIdent.internal s!"Router {rID}"
+  let internal_out (rId : RouterID) (dir : Nat) : InternalPort String :=
+    { inst := internal rId, name := NatModule.stringify_output dir }
+  let internal_inp (rId : RouterID) (dir : Nat) : InternalPort String :=
+    { inst := internal rId, name := NatModule.stringify_input dir }
+  let router (rId : RouterID) : ExprLow String := ExprLow.base
+    {
+      -- 0 is a special case since it is a local port
+      input :=
+        ⟨NatModule.stringify_input 0, NatModule.stringify_input rId⟩ ::
+        List.map
+          (λ n => ⟨NatModule.stringify_input (n + 1), (internal_inp rId) (n + 1)⟩)
+          (List.range 4)
+        |>.toAssocList,
+      output :=
+        ⟨NatModule.stringify_output 0, NatModule.stringify_output rId⟩ ::
+        List.map
+          (λ n => ⟨NatModule.stringify_output (n + 1), (internal_out rId) (n + 1)⟩)
+          (List.range 4)
+        |>.toAssocList,
+    }
+    s!"Router {rId}"
+  let base :=
+    router 0 |>
+    ExprLow.product (router 1) |>
+    ExprLow.product (router 2) |>
+    ExprLow.product (router 3)
+  let mkconnection_bi (a b : RouterID) (portA portB : Nat) (base : ExprLow String) :=
+    ExprLow.connect
+      { output := internal_out a portA, input := internal_inp b portB } base
+    |>
+    ExprLow.connect
+      { output := internal_out b portB, input := internal_inp a portA }
+
+  let mkconnection_we (w e : RouterID) (base : ExprLow String) :=
+    mkconnection_bi w e 1 2 base
+  let mkconnection_ns (n s : RouterID) (base : ExprLow String) :=
+    mkconnection_bi n s 3 4 base
+  base
+  |> mkconnection_we 0 1
+  |> mkconnection_we 2 3
+  |> mkconnection_ns 0 2
+  |> mkconnection_ns 1 3
+
+def noc_lowT : Type := by
+  precomputeTac [T| noc_low, ε_noc] by
+    dsimp [drcomponents, ε_noc]
+    dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    simp (disch := simpa) only [toString, drcompute]
+
+def_module noc_lowM : StringModule noc_lowT :=
+  [e| noc_low, ε_noc]
+  reduction_by
+    dsimp -failIfUnchanged [drunfold_defs, ExprHigh.extract, List.foldlM]
+    rw [rw_opaque (by simp -failIfUnchanged (disch := simpa) only [drcompute]; rfl)]
+    dsimp -failIfUnchanged [ ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry
+          , ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    skip
+    rw [rw_opaque (by set_option trace.Meta.Tactic.simp.rewrite true in simp -implicitDefEqProofs -dsimp (disch := rfl) only [drcompute]; rfl)]
+    dsimp [drcomponents]
+    dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter];
+    simp (disch := simp) only [drcompute, ↓reduceIte]
+    dsimp [Module.product, Module.liftL, Module.liftR]
+    dsimp [Module.connect']
+    simp (disch := simp) only [drcompute]
+    conv =>
+      pattern (occs := *) Module.connect'' _ _
+      all_goals
+        rw [(Module.connect''_dep_rw (h := by simp (disch := simpa) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp -failIfUnchanged)
+                                 (h' := by simp (disch := simpa) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp -failIfUnchanged))]
+
+      unfold Module.connect''
+      simp -failIfUnchanged only [drcompute]
+      dsimp -failIfUnchanged
+    dsimp -failIfUnchanged
+
+    -- dsimp [noc_low, ε_noc]
+    -- simp only [toString, String.reduceAppend]
+    -- dsimp [ExprLow.build_module_expr, ExprLow.build_module, ExprLow.build_module']
+    -- simp only [AssocList.find?]
+    -- dsimp
+    -- dsimp [drcomponents]
+    -- dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter];
+    -- simp (disch := simpa) only [drcompute]
+    -- dsimp [
+    --   -- List.range,
+    --   -- List.range.loop, List.map, AssocList.mapKey,
+    --   -- InternalPort.map,
+    --   -- AssocList.find?,
+    --   -- AssocList.eraseAll,
+    --   -- AssocList.eraseAllP,
+    --   -- AssocList.mapVal,
+    --   Module.renamePorts,
+    --   Module.product,
+    --   Module.connect',
+    --   Module.connect'',
+    --   List.range,
+    --   List.range.loop,
+    --   toString, String.reduceAppend, drcomponents]
+    -- simp (disch := simpa) only [drcompute]
+    -- skip
 
 -- Proof of correctness --------------------------------------------------------
 
