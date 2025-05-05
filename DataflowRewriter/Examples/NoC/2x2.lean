@@ -155,14 +155,14 @@ def noc_low : ExprLow String :=
       input :=
         AssocList.cons (router_stringify_inp rId 0) (NatModule.stringify_input 0)
           (List.map
-            (λ n => ⟨router_stringify_inp rId n, router_inp rId n⟩)
-            (List.range 5)
+            (λ n => ⟨router_stringify_inp rId (n + 1), router_inp rId (n + 1)⟩)
+            (List.range 4)
           |>.toAssocList),
       output :=
         AssocList.cons (router_stringify_out rId 0) (NatModule.stringify_output 0)
           (List.map
-            (λ n => ⟨router_stringify_out rId n, router_out rId n⟩)
-            (List.range 5)
+            (λ n => ⟨router_stringify_out rId (n + 1), router_out rId (n + 1)⟩)
+            (List.range 4)
           |>.toAssocList),
     }
     s!"Router {rId}"
@@ -182,11 +182,11 @@ def noc_low : ExprLow String :=
   let mkhide : ExprLow String := ExprLow.base
     {
       input :=
-        List.range 7
+        List.range 8
         |>.map (λ n => ⟨NatModule.stringify_input n, hide_inp n⟩)
         |>.toAssocList,
       output :=
-        List.range 7
+        List.range 8
         |>.map (λ n => ⟨NatModule.stringify_output n, hide_out n⟩)
         |>.toAssocList,
     }
@@ -243,8 +243,6 @@ axiom bijectivePortRenaming_invert' {α} [DecidableEq α] {p : AssocList α α} 
 
 attribute [-drcompute] AssocList.bijectivePortRenaming_invert
 
-set_option maxHeartbeats 1000000 in
-set_option profiler true in
 def_module noc_lowM : StringModule noc_lowT :=
   [e| noc_low, ε_noc]
   reduction_by
@@ -256,21 +254,10 @@ def_module noc_lowM : StringModule noc_lowT :=
     dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts]
     dsimp [Module.product, Module.liftL, Module.liftR]
     dsimp [Module.connect']
-    -- conv => arg 1; arg 1; whnf
     simp (disch := solve | trivial | simp | rfl) only [drcompute]
-    conv =>
-      pattern (occs := *) Module.connect'' _ _
-      all_goals
-        rw [(Module.connect''_dep_rw (h := by conv => rhs; whnf)
-                                     (h' := by conv => rhs; whnf))]
     unfold Module.connect''
-    dsimp
+    simp (disch := solve | trivial | simp | rfl) only [drlogic, drcompute]
     skip
-
-#check noc_lowM
--- set_option pp.deepTerms true in
--- set_option pp.maxSteps 1000000 in
--- #print noc_lowM
 
 -- Proof of correctness --------------------------------------------------------
 
