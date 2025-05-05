@@ -25,7 +25,7 @@ theorem append_eq2 {α β} {a b : AssocList α β} :
     rw [ih]
     rfl
 
-private theorem eraseAllP_TR_go_eraseAll {α β} [DecidableEq α] (f : α → β → Bool) {m' m : AssocList α β} :
+private theorem eraseAllP_TR_go_eraseAll {α β} [DecidableEq α] {f : α → β → Bool} {m' m : AssocList α β} :
   m' ++ (m.eraseAllP f) = eraseAllP_TR.go f m' m := by
   induction m generalizing m' with
   | nil => simp [eraseAllP_TR.go, append_nil]
@@ -34,8 +34,7 @@ private theorem eraseAllP_TR_go_eraseAll {α β} [DecidableEq α] (f : α → β
     cases f k v <;> simp [*, cons_concat_append]
 
 @[simp] theorem eraseAllP_TR_eraseAll {α β} [DecidableEq α] (f : α → β → Bool) {m : AssocList α β} :
-  m.eraseAllP_TR f = m.eraseAllP f := by
-  have := @eraseAllP_TR_go_eraseAll α β _ f .nil m; symm_saturate; assumption
+  m.eraseAllP_TR f = m.eraseAllP f := @eraseAllP_TR_go_eraseAll _ _ _ f .nil m |>.symm
 
 theorem append_find? {α β} [DecidableEq α] (a b : AssocList α β) (i) :
   (a ++ b).find? i = a.find? i
