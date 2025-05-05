@@ -22,3 +22,5 @@ register_simp_attr drcomponents
 
 -- Common options for module reduction, which will be passed to all simp and dsimp calls.
 register_simp_attr drcommon
+
+register_simp_attr drnorm

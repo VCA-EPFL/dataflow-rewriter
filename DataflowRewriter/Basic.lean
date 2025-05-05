@@ -173,7 +173,7 @@ variable [DecidableEq Ident]
 Get an IO port using external IO ports, i.e. `InternalPort Ident` with the
 instance set to `top`.
 -/
-@[drunfold, drcompute] def getIO.{u₁, u₂} {S : Type u₁}
+@[drunfold] def getIO.{u₁, u₂} {S : Type u₁}
     (l : PortMap Ident (Σ T : Type u₂, (S → T → S → Prop)))
     (n : InternalPort Ident)
     : Σ T : Type u₂, (S → T → S → Prop) :=

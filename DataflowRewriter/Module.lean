@@ -135,7 +135,7 @@ precondition that the input and output type must match.
 -/
 @[drunfold] def connect' {S : Type _} (mod : Module Ident S) (o i : InternalPort Ident) : Module Ident S :=
   {
-    inputs := mod.inputs.eraseAll i ,
+    inputs := mod.inputs.eraseAll i,
     outputs :=  mod.outputs.eraseAll o,
     internals := connect'' (mod.outputs.getIO o).2 (mod.inputs.getIO i).2 :: mod.internals,
     init_state := mod.init_state,

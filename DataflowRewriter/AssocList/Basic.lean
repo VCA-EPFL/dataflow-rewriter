@@ -28,9 +28,24 @@ instance {α β} : Append (AssocList α β) := ⟨ append ⟩
   | nil         => nil
   | cons k v es => bif p k v then eraseAllP p es else cons k v (eraseAllP p es)
 
+def concat {α β} (a : α) (b : β) (m : AssocList α β) :=
+  m ++ (AssocList.nil.cons a b)
+
+@[specialize] def eraseAllP_TR {α β} (p : α → β → Bool) (m : AssocList α β) : AssocList α β :=
+  go .nil m
+  where
+    go (rst : AssocList α β)
+    | .nil => rst
+    | .cons k v xs =>
+      bif p k v then go rst xs else go (rst.concat k v) xs
+
+@[inline] def containsVal {α β} [BEq β] (a : β) (l : AssocList α β) : Bool := any (fun _ k => k == a) l
+
+@[inline] def eraseAllVal {α β} [BEq β] (a : β) (l : AssocList α β) : AssocList α β := eraseAllP (fun _ k => k == a) l
+
 /-- `O(n)`. Remove the first entry in the list with key equal to `a`. -/
 @[inline] def eraseAll {α β} [BEq α] (a : α) (l : AssocList α β) : AssocList α β :=
-  eraseAllP (fun k _ => k == a) l
+  eraseAllP_TR (fun k _ => k == a) l
 
 def keysList {α β} (map : AssocList α β) : List α :=
   map.toList.map (·.fst)
