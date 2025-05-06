@@ -44,10 +44,11 @@ attribute [drunfold_defs] List.foldlM
 attribute [drlogic]
   false_and and_false and_true and_self true_and
   exists_const exists_false
-  not_true_eq_false not_and_self
+  not_and_self
   Option.getD_none eq_mp_eq_cast
   imp_false imp_self
   forall_const
+  not_false_iff not_true
 
 section SimpProc
 

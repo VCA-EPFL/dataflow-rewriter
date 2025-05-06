@@ -223,42 +223,26 @@ def noc_lowT : Type := by
     dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
     simp (disch := simpa) only [toString, drcompute]
 
-@[simp] theorem hide_in_ε :
+@[drenv] theorem hide_in_ε :
   AssocList.find? "Hide Flit 8 8" ε_noc = .some ⟨_, hide Flit 8 8⟩ := rfl
 
-@[simp] theorem router_in_ε_0 :
+@[drenv] theorem router_in_ε_0 :
   AssocList.find? "Router 0" ε_noc = .some ⟨_, router arbiterXY 0⟩ := rfl
 
-@[simp] theorem router_in_ε_1 :
+@[drenv] theorem router_in_ε_1 :
   AssocList.find? "Router 1" ε_noc = .some ⟨_, router arbiterXY 1⟩ := rfl
 
-@[simp] theorem router_in_ε_2 :
+@[drenv] theorem router_in_ε_2 :
   AssocList.find? "Router 2" ε_noc = .some ⟨_, router arbiterXY 2⟩ := rfl
 
-@[simp] theorem router_in_ε_3 :
+@[drenv] theorem router_in_ε_3 :
   AssocList.find? "Router 3" ε_noc = .some ⟨_, router arbiterXY 3⟩ := rfl
-
-@[drcompute]
-axiom bijectivePortRenaming_invert' {α} [DecidableEq α] {p : AssocList α α} {i : α}:
-  p.bijectivePortRenaming i = ((p.filterId.append p.inverse.filterId).find? i).getD i
-
-attribute [-drcompute] AssocList.bijectivePortRenaming_invert
 
 def_module noc_lowM : StringModule noc_lowT :=
   [e| noc_low, ε_noc]
   reduction_by
-    dsimp -failIfUnchanged [drunfold_defs, ExprHigh.extract, List.foldlM]
-    dsimp [toString, drcompute, List.range, List.map, List.range.loop, NatModule.stringify_output, NatModule.stringify_input]
-    rw [rw_opaque (by dsimp [ ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry
-                            , ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module'])]
-    dsimp [toString, drcompute, List.range, List.map, List.range.loop, drcomponents]
-    dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts]
-    dsimp [Module.product, Module.liftL, Module.liftR]
-    dsimp [Module.connect']
-    simp (disch := solve | trivial | simp | rfl) only [drcompute]
-    unfold Module.connect''
-    simp (disch := solve | trivial | simp | rfl) only [drlogic, drcompute]
-    skip
+    dr_reduce_module
+    simp only [drlogic]
 
 -- Useful lemmas ---------------------------------------------------------------
 
@@ -273,20 +257,9 @@ theorem perm_in_perm_r {α} {l1 l2 : List α} {v} {H : l1.Perm l2} (Hin : v ∈ 
 
 -- Proof of correctness --------------------------------------------------------
 
-theorem noc_lowM_match : MatchInterface noc_lowM noc := by
-  apply MatchInterface_simpler <;> intros ident <;> dsimp [noc_lowM, drcomponents]
-  <;> rw [AssocList.mapKey_map_toAssocList, AssocList.mapVal_map_toAssocList]
-  <;> simp only [
-    drcompute, drcomponents, toString, List.range, List.range.loop
-  ]
-  · sorry
-  · sorry
-
-instance : MatchInterface noc_lowM noc where
-  input_types := noc_lowM_match.input_types
-  output_types := noc_lowM_match.output_types
-  inputs_present := noc_lowM_match.inputs_present
-  outputs_present := noc_lowM_match.outputs_present
+instance : MatchInterface noc_lowM noc  := by
+  dsimp [noc_lowM, noc]
+  solve_match_interface
 
 def φ (I : noc_lowT) (S : nocT) : Prop :=
   List.Perm S (I.1 |> I.2.1.append |> I.2.2.1.append |> I.2.2.2.1.append)
