@@ -100,9 +100,9 @@ variable (T₁ T₂ T₃) in
 def_module lhsModule : StringModule (lhsModuleType T₁ T₂ T₃) :=
   [e| (rewriteLhsRhs S₁ S₂ S₃).input_expr, @environmentLhs T₁ T₂ T₃ S₁ S₂ S₃ ]
 reduction_by
-  dsimp -failIfUnchanged [drunfold_defs, toString, reduceAssocListfind?, reduceListPartition]
-  dsimp -failIfUnchanged [reduceExprHighLower, reduceExprHighLowerProdTR, reduceExprHighLowerConnTR]
-  dsimp [ ExprHigh.uncurry, ExprLow.build_module_expr, ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module', toString]
+  dsimp [drunfold_defs, reduceAssocListfind?, reduceListPartition]
+  dsimp [reduceExprHighLower, reduceExprHighLowerProdTR, reduceExprHighLowerConnTR]
+  dsimp [ExprHigh.uncurry, ExprLow.build_module_expr, ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module', toString]
   rw [rw_opaque (by simp only [find?_pure_data2, find?_join2_data2, find?_join2_data, find?_join1_data, find?_join1_data2]; rfl)]
   dsimp
   dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, reduceAssocListfind?]
@@ -145,22 +145,8 @@ reduction_by
   dsimp [Module.liftL, Module.liftR, drcomponents]
 
 instance : MatchInterface (rhsModule T₁ T₂ T₃) (lhsModule T₁ T₂ T₃) := by
-  rw [MatchInterface_simpler_iff]
-  intros; dsimp [rhsModule, lhsModule]; and_intros
-  apply AssocList.find?_eq_contains
-  intro k heq; simp at heq
-  cases ‹_ ∨ _›; subst k; dsimp [reduceAssocListfind?]
-  cases ‹_ ∨ _›; subst k; dsimp [reduceAssocListfind?]
-  subst k; dsimp [reduceAssocListfind?]
-  intro k heq; simp at heq
-  cases ‹_ ∨ _›; subst k; dsimp [reduceAssocListfind?]
-  cases ‹_ ∨ _›; subst k; dsimp [reduceAssocListfind?]
-  subst k; dsimp [reduceAssocListfind?]
-  apply AssocList.find?_eq_contains
-  intro k heq; simp at heq
-  subst k; dsimp [reduceAssocListfind?]
-  intro k heq; simp at heq
-  subst k; dsimp [reduceAssocListfind?]
+  dsimp [rhsModule, lhsModule]
+  solve_match_interface
 
 @[reducible] def cast_first {β : Type _ → Type _} {a b : (Σ α, β α)} (h : a = b) : a.fst = b.fst := by
   subst_vars; rfl

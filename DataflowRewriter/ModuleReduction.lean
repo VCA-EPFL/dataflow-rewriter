@@ -342,3 +342,11 @@ elab mods:declModifiers "def_module " name:ident l:optDeclSig " := " t:term "red
 
 elab mods:declModifiers "def_module " name:ident l:optDeclSig " := " t:term : command => do
   elabCommand <|← `($mods:declModifiers def_module $name $l := $t reduction_by dr_reduce_module)
+
+macro "solve_match_interface" : tactic =>
+  `(tactic|
+    (rw [DataflowRewriter.MatchInterface_simpler_iff]
+     intros; and_intros
+     <;> (apply Batteries.AssocList.find?_eq_contains
+          <;> (intro k heq; replace heq := Batteries.AssocList.keysInMap heq; fin_cases heq <;> rfl)))
+  )
