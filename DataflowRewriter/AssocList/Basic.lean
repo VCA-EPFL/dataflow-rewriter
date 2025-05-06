@@ -29,7 +29,7 @@ instance {α β} : Append (AssocList α β) := ⟨ append ⟩
   | cons k v es => bif p k v then eraseAllP p es else cons k v (eraseAllP p es)
 
 def concat {α β} (a : α) (b : β) (m : AssocList α β) :=
-  m ++ (AssocList.nil.cons a b)
+  m ++ AssocList.nil.cons a b
 
 @[specialize] def eraseAllP_TR {α β} (p : α → β → Bool) (m : AssocList α β) : AssocList α β :=
   go .nil m
@@ -60,7 +60,7 @@ def disjoint_vals {α β γ} [DecidableEq γ] (a : AssocList α γ) (b : AssocLi
   a.valsList.inter b.valsList = []
 
 def filter {α β} (f : α → β → Bool) (l : AssocList α β) :=
-  l.foldl (λ c a b => if f a b then c.cons a b else c) (∅ : AssocList α β)
+  l.foldl (λ c a b => if f a b then c.concat a b else c) (∅ : AssocList α β)
 
 def mem {α β} [BEq α] (a : α) (b : β) (l : AssocList α β) : Prop :=
   l.find? a = some b

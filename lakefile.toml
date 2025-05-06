@@ -13,6 +13,7 @@ weak.linter.style.cdot = false
 weak.linter.style.dollarSyntax = false
 weak.linter.style.lambdaSyntax = false
 weak.aesop.warn.applyIff = false
+grind.warning = false
 
 [[require]]
 name = "leanses"
