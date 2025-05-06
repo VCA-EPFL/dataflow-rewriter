@@ -36,12 +36,12 @@ namespace DataflowRewriter.Examples.NoC
 def lift_f {S : Type} (n : ℕ) (f : ℕ → (Σ T : Type, S → T → S → Prop)) : PortMap ℕ (Σ T : Type, (S → T → S → Prop)) :=
   List.range n |>.map (λ i => ⟨↑i, f i⟩) |>.toAssocList
 
-def nocT : Type :=
+abbrev nocT : Type :=
   List Flit
 
 @[drcomponents]
 def mk_noc_input_rule (rId : RouterID) : Σ T : Type, nocT → T → nocT → Prop :=
-    ⟨Flit, λ oldState v newState => newState = oldState.concat v⟩
+    ⟨Flit, λ oldState v newState => newState = oldState ++ [v]⟩
 
 @[drcomponents]
 def mk_noc_output_rule (rId : RouterID) : Σ T : Type, nocT → T → nocT → Prop :=
@@ -65,11 +65,11 @@ def noc' (name := "noc") : NatModule (NatModule.Named name nocT) :=
 
 def Arbiter := (src : RouterID) → (dest : RouterID) → Option Dir
 
-def routerT := List Flit
+abbrev routerT := List Flit
 
 @[drcomponents]
 def mk_router_input (rId : ℕ) : Σ T : Type, routerT → T → routerT → Prop :=
-  ⟨Flit, λ oldS inp newS => newS = oldS.concat inp⟩
+  ⟨Flit, λ oldS inp newS => newS = oldS ++ [inp]⟩
 
 @[drcomponents]
 def mk_router_output (arbiter : Arbiter) (rId : RouterID) (n : ℕ) : Σ T : Type, routerT → T → routerT → Prop :=
@@ -246,8 +246,9 @@ def_module noc_lowM : StringModule noc_lowT :=
 
 -- Useful lemmas ---------------------------------------------------------------
 
-axiom perm_in_perm_l {α} {l1 l2 : List α} {v} {H : l1.Perm l2} (Hin : v ∈ l2 := by simp):
-  ∃ i : Fin l1.length, l1[i] = v
+theorem perm_in_perm_l {α} {l1 l2 : List α} {v} {H : l1.Perm l2} (Hin : v ∈ l2 := by simp):
+  ∃ i : Fin l1.length, l1[i] = v := by
+    sorry
 
 theorem perm_in_perm_r {α} {l1 l2 : List α} {v} {H : l1.Perm l2} (Hin : v ∈ l1 := by simpa) :
   ∃ i : Fin l2.length, l2[i] = v := by
@@ -255,11 +256,10 @@ theorem perm_in_perm_r {α} {l1 l2 : List α} {v} {H : l1.Perm l2} (Hin : v ∈ 
     · rw [List.perm_comm]
     · sorry
 
-theorem getX_getY_correct {rId dst : RouterID} :
-  getX rId = getX dst → getY rId = getY dst → dst = rId := by
-    intro H1 H2
-    dsimp [getX] at H1
-    dsimp [getY] at H2
+theorem getX_getY_correct {rId dst : RouterID} (Hx : getX rId = getX dst) (Hy : getY rId = getY dst) :
+   dst = rId := by
+    dsimp [getX] at Hx
+    dsimp [getY] at Hy
     sorry -- Annoying
 
 theorem arbiterXY_correct (rId dst : RouterID) :
@@ -272,6 +272,12 @@ theorem arbiterXY_correct (rId dst : RouterID) :
       simp only [Bool.and_eq_true, beq_iff_eq] at Heq
       obtain ⟨HeqX, HeqY⟩ := Heq
       apply getX_getY_correct HeqX HeqY
+
+theorem perm_append {α} {l l1 l2 l3 : List α} :
+  l1.Perm (l2 ++ l3) <-> (l1 ++ l).Perm (l2 ++ l ++ l3) := by
+    constructor <;> intros H
+    · sorry
+    · sorry
 
 -- Proof of correctness --------------------------------------------------------
 
@@ -310,13 +316,12 @@ theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
     <;> dsimp [noc_lowM, drcompute] at Hrule v ⊢
     <;> unfold φ at *
     <;> dsimp only [List.append_eq] at *
-    <;> exists (List.concat s v)
-    <;> exists (List.concat s v)
+    <;> exists (s ++ [v])
+    <;> exists (s ++ [v])
     <;> and_intros
     <;> try rfl
     all_goals dsimp [drcomponents]
     all_goals try constructor; done
-    all_goals simp only [List.concat_eq_append] at *
     · obtain ⟨Hrule1, Hrule2⟩ := Hrule
       rw [Hrule1, ←Hrule2]
       repeat rw [←List.append_assoc]
@@ -326,15 +331,25 @@ theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
       rw [←Hrule3, Hrule1, ←Hrule2]
       repeat rw [←List.append_assoc]
       repeat rw [←List.append_assoc] at H
-      sorry
-    · obtain ⟨⟨⟨Hrule1, Hrule2⟩, Hrule3⟩, Hrule4⟩ := Hrule
-      rw [Hrule1, ←Hrule2, ←Hrule3, ←Hrule4]
-      sorry
+      rwa [←perm_append]
     · obtain ⟨⟨⟨Hrule1, Hrule2⟩, Hrule3⟩, Hrule4⟩ := Hrule
       rw [Hrule1, ←Hrule2, ←Hrule3, ←Hrule4]
       repeat rw [←List.append_assoc]
       repeat rw [←List.append_assoc] at H
-      sorry
+      repeat rw [List.append_assoc]
+      repeat rw [List.append_assoc] at H
+      rw [←List.append_assoc]
+      rw [←List.append_assoc]
+      rw [←perm_append]
+      simpa [H]
+    · obtain ⟨⟨⟨Hrule1, Hrule2⟩, Hrule3⟩, Hrule4⟩ := Hrule
+      rw [Hrule1, ←Hrule2, ←Hrule3, ←Hrule4]
+      repeat rw [←List.append_assoc]
+      repeat rw [←List.append_assoc] at H
+      repeat rw [List.append_assoc]
+      repeat rw [List.append_assoc] at H
+      rw [←List.append_assoc]
+      rwa [←perm_append]
   · intros ident mid_i v Hrule
     case_transition Hcontains : (Module.outputs noc_lowM), ident,
      (PortMap.getIO_not_contained_false' Hrule)
@@ -355,24 +370,44 @@ theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
       dsimp [arbiterXY, getX, getY] at H2
       repeat rw [←List.append_assoc]
       repeat rw [←List.append_assoc] at H
-      sorry
+      obtain ⟨idx, Hidx⟩ := perm_in_perm_l (H := H) (v := v)
+      exists List.eraseIdx s idx
+      and_intros
+      · apply arbiterXY_correct at H2; rw [H2]
+      · exists idx; simpa [←Hidx]
+      · sorry
     · obtain ⟨⟨⟨H1, H2⟩, H3⟩, H4⟩ := Hrule
       rw [H1, H3, H4] at H
       dsimp [List.append_eq] at H ⊢
       repeat rw [←List.append_assoc]
       repeat rw [←List.append_assoc] at H
-      sorry
+      obtain ⟨idx, Hidx⟩ := perm_in_perm_l (H := H) (v := v)
+      exists List.eraseIdx s idx
+      and_intros
+      · apply arbiterXY_correct at H2; rw [H2]
+      · exists idx; simpa [←Hidx]
+      · sorry
     · obtain ⟨⟨⟨⟨H1, H2⟩, H3⟩, H4⟩, H5⟩ := Hrule
       rw [H1, H3, H4, H5] at H
       dsimp [List.append_eq] at H ⊢
       repeat rw [←List.append_assoc]
       repeat rw [←List.append_assoc] at H
-      sorry
+      obtain ⟨idx, Hidx⟩ := perm_in_perm_l (H := H) (v := v)
+      exists List.eraseIdx s idx
+      and_intros
+      · apply arbiterXY_correct at H2; rw [H2]
+      · exists idx; simpa [←Hidx]
+      · sorry
     · obtain ⟨⟨⟨⟨H1, H2⟩, H3⟩, H4⟩, H5⟩ := Hrule
       rw [H1, H3, H4] at H
       repeat rw [←List.append_assoc]
       repeat rw [←List.append_assoc] at H
-      sorry
+      obtain ⟨idx, Hidx⟩ := perm_in_perm_l (H := H) (v := v)
+      exists List.eraseIdx s idx
+      and_intros
+      · apply arbiterXY_correct at H2; rw [H2]
+      · exists idx; simpa [←Hidx]
+      · sorry
   · intros rule mid_i H1 H2
     simp only [noc_lowM, List.mem_cons, List.not_mem_nil] at H1
     simp only [or_false, or_self_left] at H1
@@ -395,12 +430,16 @@ theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
       rw [H1, H3, H4, H5] at H
       rw [H6, ←H7]
       dsimp at H ⊢
+      repeat rw [←List.append_assoc]
+      repeat rw [←List.append_assoc] at H
       -- ok
       sorry
     · obtain ⟨⟨⟨⟨H1, H2⟩, H3⟩, H4⟩, ⟨⟨H5, H6⟩, H7⟩, H8⟩ := H
       rw [H1, H3, H4] at H
       rw [H5, ←H6, ←H7, ←H8]
       dsimp at H ⊢
+      repeat rw [←List.append_assoc]
+      repeat rw [←List.append_assoc] at H
       -- ok
       sorry
     · obtain ⟨⟨⟨⟨⟨H1, H2⟩, H3⟩, H4⟩, H5⟩, ⟨H6, H7⟩, H8⟩ := H
@@ -448,7 +487,7 @@ theorem noc_low_ϕ_indistinguishable :
       rcases Hcontains with Hident | Hident | Hident | Hident
       <;> subst ident
       <;> dsimp only [noc_lowM, drcompute] at Hrule v ⊢
-      <;> exists s.concat v
+      <;> exists s ++ [v]
       <;> simpa
     · case_transition Hcontains : (Module.outputs noc_lowM), ident,
      (PortMap.getIO_not_contained_false' Hrule)
