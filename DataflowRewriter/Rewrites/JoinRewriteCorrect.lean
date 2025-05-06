@@ -49,7 +49,7 @@ def rewriteLhsRhs := rewrite.rewrite [S₁, S₂, S₃] |>.get rfl
 def environmentLhs : IdentMap String (TModule1 String) := lhs T₁ T₂ T₃ S₁ S₂ S₃ |>.snd
 def environmentRhs : IdentMap String (TModule1 String) := rhs T₁ T₂ T₃ S₁ S₂ S₃ |>.snd
 
-@[drcompute] theorem find?_join1_data : (Batteries.AssocList.find? ("join " ++ S₁ ++ " " ++ S₂) (@environmentLhs T₁ T₂ T₃ S₁ S₂ S₃)) = .some ⟨_, join T₁ T₂⟩ := by stop
+@[drenv] theorem find?_join1_data : (Batteries.AssocList.find? ("join " ++ S₁ ++ " " ++ S₂) (@environmentLhs T₁ T₂ T₃ S₁ S₂ S₃)) = .some ⟨_, join T₁ T₂⟩ := by stop
   dsimp [environmentLhs, lhs]
   have : ("join (" ++ S₁ ++ " × " ++ S₂ ++ ") " ++ S₃ == "join " ++ S₁ ++ " " ++ S₂) = false := by
     sorry
@@ -57,12 +57,12 @@ def environmentRhs : IdentMap String (TModule1 String) := rhs T₁ T₂ T₃ S�
   have : ("join " ++ S₁ ++ " " ++ S₂ == "join " ++ S₁ ++ " " ++ S₂) = true := by simp
   rw [Batteries.AssocList.find?.eq_2]; rw [this]
 
-@[drcompute] theorem find?_join2_data : (Batteries.AssocList.find? ("join (" ++ S₁ ++ " × " ++ S₂ ++ ") " ++ S₃) (@environmentLhs T₁ T₂ T₃ S₁ S₂ S₃)) = .some ⟨_, join (T₁ × T₂) T₃⟩ := by stop
+@[drenv] theorem find?_join2_data : (Batteries.AssocList.find? ("join (" ++ S₁ ++ " × " ++ S₂ ++ ") " ++ S₃) (@environmentLhs T₁ T₂ T₃ S₁ S₂ S₃)) = .some ⟨_, join (T₁ × T₂) T₃⟩ := by stop
   dsimp [environmentLhs, lhs]
   have : ("join (" ++ S₁ ++ " × " ++ S₂ ++ ") " ++ S₃ == "join (" ++ S₁ ++ " × " ++ S₂ ++ ") " ++ S₃) = true := by simp
   rw [Batteries.AssocList.find?.eq_2]; rw [this]
 
-@[drcompute] theorem find?_join1_data2 : (Batteries.AssocList.find? ("join " ++ S₂ ++ " " ++ S₃) (@environmentRhs T₁ T₂ T₃ S₁ S₂ S₃)) = .some ⟨_, join T₂ T₃⟩ := by stop
+@[drenv] theorem find?_join1_data2 : (Batteries.AssocList.find? ("join " ++ S₂ ++ " " ++ S₃) (@environmentRhs T₁ T₂ T₃ S₁ S₂ S₃)) = .some ⟨_, join T₂ T₃⟩ := by stop
   dsimp [environmentRhs, rhs]
   have : (("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")") == "join " ++ S₂ ++ " " ++ S₃) = false := by
     sorry
@@ -72,12 +72,12 @@ def environmentRhs : IdentMap String (TModule1 String) := rhs T₁ T₂ T₃ S�
   have : ("join " ++ S₂ ++ " " ++ S₃ == "join " ++ S₂ ++ " " ++ S₃) = true := by simp
   rw [Batteries.AssocList.find?.eq_2]; rw [this]
 
-@[drcompute] theorem find?_join2_data2 : (Batteries.AssocList.find? ("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")") (@environmentRhs T₁ T₂ T₃ S₁ S₂ S₃)) = .some ⟨_, join T₁ (T₂ × T₃)⟩ := by stop
+@[drenv] theorem find?_join2_data2 : (Batteries.AssocList.find? ("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")") (@environmentRhs T₁ T₂ T₃ S₁ S₂ S₃)) = .some ⟨_, join T₁ (T₂ × T₃)⟩ := by stop
   dsimp [environmentRhs, rhs]
   have : (("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")") == ("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")")) = true := by simp
   rw [Batteries.AssocList.find?.eq_2]; rw [this]
 
-@[drcompute] theorem find?_pure_data2 : (Batteries.AssocList.find? ("pure (" ++ S₁ ++ "×(" ++ S₂ ++ "×" ++ S₃ ++ ")) ((" ++ S₁ ++ "×" ++ S₂ ++ ")×" ++ S₃ ++ ")") (@environmentRhs T₁ T₂ T₃ S₁ S₂ S₃)) = .some ⟨_, pure λ ((a, b, c) : T₁ × (T₂ × T₃)) => ((a, b), c)⟩ := by stop
+@[drenv] theorem find?_pure_data2 : (Batteries.AssocList.find? ("pure (" ++ S₁ ++ "×(" ++ S₂ ++ "×" ++ S₃ ++ ")) ((" ++ S₁ ++ "×" ++ S₂ ++ ")×" ++ S₃ ++ ")") (@environmentRhs T₁ T₂ T₃ S₁ S₂ S₃)) = .some ⟨_, pure λ ((a, b, c) : T₁ × (T₂ × T₃)) => ((a, b), c)⟩ := by stop
   dsimp [environmentRhs, rhs]
   have : (("join " ++ S₁ ++ " (" ++ S₂ ++ " × " ++ S₃ ++ ")") == s!"pure ({S₁}×({S₂}×{S₃})) (({S₁}×{S₂})×{S₃})") = false := by sorry
   rw [Batteries.AssocList.find?.eq_2]; rw [this]; dsimp
@@ -99,21 +99,6 @@ def cast_module_type {α} {f : α → Type _} {s s' : Σ T, f T} (heq : s = s') 
 variable (T₁ T₂ T₃) in
 def_module lhsModule : StringModule (lhsModuleType T₁ T₂ T₃) :=
   [e| (rewriteLhsRhs S₁ S₂ S₃).input_expr, @environmentLhs T₁ T₂ T₃ S₁ S₂ S₃ ]
-reduction_by
-  dsimp [drunfold_defs, reduceAssocListfind?, reduceListPartition]
-  dsimp [reduceExprHighLower, reduceExprHighLowerProdTR, reduceExprHighLowerConnTR]
-  dsimp [ExprHigh.uncurry, ExprLow.build_module_expr, ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module', toString]
-  rw [rw_opaque (by simp only [find?_pure_data2, find?_join2_data2, find?_join2_data, find?_join1_data, find?_join1_data2]; rfl)]
-  dsimp
-  dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, reduceAssocListfind?]
-  simp (disch := decide) only [AssocList.bijectivePortRenaming_invert]
-  dsimp [Module.product]
-  dsimp only [reduceModuleconnect'2]
-  dsimp only [reduceEraseAll]
-  dsimp; dsimp [reduceAssocListfind?]
-
-  unfold Module.connect''
-  dsimp [Module.liftL, Module.liftR, drcomponents]
 
 variable (T₁ T₂ T₃) in
 def_module rhsModuleType : Type :=
@@ -128,21 +113,6 @@ reduction_by
 variable (T₁ T₂ T₃) in
 def_module rhsModule : StringModule (rhsModuleType T₁ T₂ T₃) :=
   [e| (rewriteLhsRhs S₁ S₂ S₃).output_expr, @environmentRhs T₁ T₂ T₃ S₁ S₂ S₃ ]
-reduction_by
-  dsimp -failIfUnchanged [drunfold_defs, toString, reduceAssocListfind?, reduceListPartition]
-  dsimp -failIfUnchanged [reduceExprHighLower, reduceExprHighLowerProdTR, reduceExprHighLowerConnTR]
-  dsimp [ ExprHigh.uncurry, ExprLow.build_module_expr, ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module', toString]
-  rw [rw_opaque (by simp only [find?_pure_data2, find?_join2_data2, find?_join2_data, find?_join1_data, find?_join1_data2]; rfl)]
-  dsimp
-  dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, reduceAssocListfind?]
-  simp (disch := decide) only [AssocList.bijectivePortRenaming_invert]
-  dsimp [Module.product]
-  dsimp only [reduceModuleconnect'2]
-  dsimp only [reduceEraseAll]
-  dsimp; dsimp [reduceAssocListfind?]
-
-  unfold Module.connect''
-  dsimp [Module.liftL, Module.liftR, drcomponents]
 
 instance : MatchInterface (rhsModule T₁ T₂ T₃) (lhsModule T₁ T₂ T₃) := by
   dsimp [rhsModule, lhsModule]

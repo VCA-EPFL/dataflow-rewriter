@@ -309,30 +309,21 @@ dsimproc [] reduceExprHighLower (ExprHigh.lower_TR _) := reduceAssocListfind?Imp
 dsimproc [] reduceExprHighLowerConnTR (ExprHigh.lower'_conn_TR _ _) := reduceAssocListfind?Imp
 dsimproc [] reduceExprHighLowerProdTR (ExprHigh.lower'_prod_TR _ _) := reduceAssocListfind?Imp
 
-end DataflowRewriter
-
 macro "dr_reduce_module" : tactic =>
-  return Lean.Unhygienic.run `(tactic|
-     (dsimp [drunfold_defs, ExprHigh.extract, List.foldlM]
-      rw [rw_opaque (by simp (disch := simpa) only [drcompute]; rfl)]
-      dsimp [ ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry
-            , ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
-      rw [rw_opaque (by simp (disch := simpa) only [ε, drcompute]; rfl)]
-      dsimp [drcomponents]
-      dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter]; simp (disch := simp) only [drcompute, ↓reduceIte]
-      dsimp [Module.product, Module.liftL, Module.liftR]
-      dsimp [Module.connect']
-      simp (disch := simp) only [drcompute]
-      conv =>
-        pattern (occs := *) Module.connect'' _ _
-        all_goals
-          rw [(Module.connect''_dep_rw (h := by simp (disch := simpa) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp -failIfUnchanged)
-                                   (h' := by simp (disch := simpa) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp -failIfUnchanged))]
+  `(tactic|
+       (dsimp -failIfUnchanged [drunfold_defs, toString, reduceAssocListfind?, reduceListPartition]
+        dsimp -failIfUnchanged [reduceExprHighLower, reduceExprHighLowerProdTR, reduceExprHighLowerConnTR]
+        dsimp [ ExprHigh.uncurry, ExprLow.build_module_expr, ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module', toString]
+        rw [rw_opaque (by simp only [drenv]; rfl)]; dsimp
+        dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, reduceAssocListfind?]
+        simp (disch := decide) only [AssocList.bijectivePortRenaming_invert]
+        dsimp [Module.product]
+        dsimp only [reduceModuleconnect'2]
+        dsimp only [reduceEraseAll]
+        dsimp; dsimp [reduceAssocListfind?]
 
         unfold Module.connect''
-        simp -failIfUnchanged only [drcompute]
-        dsimp -failIfUnchanged
-      dsimp -failIfUnchanged))
+        dsimp [Module.liftL, Module.liftR, drcomponents]))
 
 /--
 Define a module by reducing it beforehand.
@@ -345,8 +336,10 @@ elab mods:declModifiers "def_module " name:ident l:optDeclSig " := " t:term : co
 
 macro "solve_match_interface" : tactic =>
   `(tactic|
-    (rw [DataflowRewriter.MatchInterface_simpler_iff]
+    (rw [MatchInterface_simpler_iff]
      intros; and_intros
      <;> (apply Batteries.AssocList.find?_eq_contains
           <;> (intro k heq; replace heq := Batteries.AssocList.keysInMap heq; fin_cases heq <;> rfl)))
   )
+
+end DataflowRewriter

@@ -27,3 +27,6 @@ register_simp_attr drnorm
 
 -- Reduce logical proposition
 register_simp_attr drlogic
+
+-- Reduce the environment
+register_simp_attr drenv
