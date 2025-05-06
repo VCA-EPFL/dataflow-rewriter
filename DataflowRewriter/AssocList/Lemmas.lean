@@ -278,6 +278,18 @@ theorem append_find_right_disjoint {α β} [DecidableEq α] {a b : AssocList α 
 @[simp, drcompute] theorem find?_nil {α β} [DecidableEq α] {ident} :
   (nil : AssocList α β).find? ident = none := rfl
 
+@[deprecated find?_cons_eq (since := "2025-05-06")]
+theorem find?_gss : ∀ {α} [DecidableEq α] {β x v} {pm: AssocList α β},
+  (AssocList.find? x (AssocList.cons x v pm)) = .some v := find?_cons_eq
+
+@[deprecated find?_cons_neq (since := "2025-05-06")]
+theorem find?_gso : ∀ {α} [DecidableEq α] {β x' x v} {pm: AssocList α β},
+  x ≠ x' → AssocList.find? x' (AssocList.cons x v pm) = AssocList.find? x' pm := find?_cons_neq
+
+@[deprecated find?_nil (since := "2025-05-06")]
+theorem find?_ge : ∀ {α} [DecidableEq α] {β x},
+  AssocList.find? x (.nil : AssocList α β) = .none := find?_nil
+
 @[simp] theorem find?_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} ident (f : β → γ) :
   (a.find? ident).map f = (a.mapVal (λ _ => f)).find? ident := by
   induction a with
@@ -286,10 +298,6 @@ theorem append_find_right_disjoint {α β} [DecidableEq α] {a b : AssocList α 
     by_cases k = ident
     · subst k; simp
     · simp (disch := assumption) only [*, find?_cons_neq, mapVal]
-
--- theorem erase_equiv {α β} [DecidableEq α] {a b : AssocList α β} ident ident' :
---   a.find? ident = b.find? ident →
---   (a.erase ident').find? ident = (b.erase ident').find? ident
 
 @[simp] theorem find?_eraseAll_eq {α β} [DecidableEq α] (a : AssocList α β) i :
   (a.eraseAll i).find? i = none := by
@@ -484,17 +492,6 @@ theorem bijectivePortRenaming_invert {α} [DecidableEq α] {p : AssocList α α}
   p.invertible →
   p.bijectivePortRenaming = fun i => ((p.filterId.append p.inverse.filterId).find? i).getD i := by
   unfold AssocList.bijectivePortRenaming; simp +contextual
-
-@[simp]
-theorem find?_gss : ∀ {α} [DecidableEq α] {β x v} {pm: AssocList α β},
-  (AssocList.find? x (AssocList.cons x v pm)) = .some v := by simpa
-
-@[simp]
-theorem find?_gso : ∀ {α} [DecidableEq α] {β x' x v} {pm: AssocList α β},
-  x ≠ x' → AssocList.find? x' (AssocList.cons x v pm) = AssocList.find? x' pm := by simp_all
-
-@[simp] theorem find?_ge : ∀ {α} [DecidableEq α] {β x},
-  AssocList.find? x (.nil : AssocList α β) = .none := by simpa
 
 @[simp] axiom in_eraseAll_list {α β} {Ta : α} {elem : (α × β)} [DecidableEq α] (a : AssocList α β):
   elem ∈ (AssocList.eraseAllP (fun k x => decide (k = Ta)) a).toList -> elem ∈ a.toList
