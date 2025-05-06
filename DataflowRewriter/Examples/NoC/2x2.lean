@@ -8,6 +8,8 @@ import DataflowRewriter.ModuleReduction
 import DataflowRewriter.ExprLow
 import DataflowRewriter.ExprLowLemmas
 
+import DataflowRewriter.Examples.NoC.BasicLemmas
+
 open Batteries (AssocList)
 
 namespace DataflowRewriter.Examples.NoC
@@ -18,7 +20,7 @@ namespace DataflowRewriter.Examples.NoC
 @[simp] abbrev FlitHeader := Nat -- TODO: Dest RouterID
 @[simp] abbrev RouterID := Nat -- TODO: a Fin probably
 @[simp] abbrev netsz := 4
--- TODO: Proper type? Enum ? Fin ?i
+-- TODO: Proper type? Enum ? Fin ?
 @[simp] abbrev Dir := Nat
 @[simp] abbrev DirLocal := 0
 @[simp] abbrev DirWest  := 1
@@ -38,16 +40,15 @@ def nocT : Type :=
   List Flit
 
 @[drcomponents]
-def mk_noc_input_rule (rID : RouterID) : Σ T : Type, nocT → T → nocT → Prop :=
+def mk_noc_input_rule (rId : RouterID) : Σ T : Type, nocT → T → nocT → Prop :=
     ⟨Flit, λ oldState v newState => newState = oldState.concat v⟩
 
 @[drcomponents]
-def mk_noc_output_rule (rID : RouterID) : Σ T : Type, nocT → T → nocT → Prop :=
+def mk_noc_output_rule (rId : RouterID) : Σ T : Type, nocT → T → nocT → Prop :=
     ⟨
-      Data,
-      λ oldState data newState =>
-        ∃ i, newState = oldState.remove i ∧
-        (data, rID) = oldState.get i
+      Flit,
+      λ oldState out newState =>
+        out.2 = rId ∧ ∃ i, newState = oldState.remove i ∧ out = oldState.get i
     ⟩
 
 @[drcomponents]
@@ -153,13 +154,13 @@ def noc_low : ExprLow String :=
   let mkrouter (rId : RouterID) : ExprLow String := ExprLow.base
     {
       input :=
-        AssocList.cons (router_stringify_inp rId 0) (NatModule.stringify_input 0)
+        AssocList.cons (router_stringify_inp rId 0) (NatModule.stringify_input rId)
           (List.map
             (λ n => ⟨router_stringify_inp rId (n + 1), router_inp rId (n + 1)⟩)
             (List.range 4)
           |>.toAssocList),
       output :=
-        AssocList.cons (router_stringify_out rId 0) (NatModule.stringify_output 0)
+        AssocList.cons (router_stringify_out rId 0) (NatModule.stringify_output rId)
           (List.map
             (λ n => ⟨router_stringify_out rId (n + 1), router_out rId (n + 1)⟩)
             (List.range 4)
@@ -250,7 +251,7 @@ def_module noc_lowM : StringModule noc_lowT :=
     dsimp [toString, drcompute, List.range, List.map, List.range.loop, NatModule.stringify_output, NatModule.stringify_input]
     rw [rw_opaque (by dsimp [ ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry
                             , ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module'])]
-    dsimp [toString, drcompute, List.range, List.map, List.range.loop, NatModule.stringify_output, NatModule.stringify_input, drcomponents]
+    dsimp [toString, drcompute, List.range, List.map, List.range.loop, drcomponents]
     dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts]
     dsimp [Module.product, Module.liftL, Module.liftR]
     dsimp [Module.connect']
@@ -259,27 +260,236 @@ def_module noc_lowM : StringModule noc_lowT :=
     simp (disch := solve | trivial | simp | rfl) only [drlogic, drcompute]
     skip
 
+-- Useful lemmas ---------------------------------------------------------------
+
+axiom perm_in_perm_l {α} {l1 l2 : List α} {v} {H : l1.Perm l2} (Hin : v ∈ l2 := by simp):
+  ∃ i : Fin l1.length, l1[i] = v
+
+theorem perm_in_perm_r {α} {l1 l2 : List α} {v} {H : l1.Perm l2} (Hin : v ∈ l1 := by simpa) :
+  ∃ i : Fin l2.length, l2[i] = v := by
+    apply perm_in_perm_l
+    · rw [List.perm_comm]
+    · sorry
+
 -- Proof of correctness --------------------------------------------------------
 
+theorem noc_lowM_match : MatchInterface noc_lowM noc := by
+  apply MatchInterface_simpler <;> intros ident <;> dsimp [noc_lowM, drcomponents]
+  <;> rw [AssocList.mapKey_map_toAssocList, AssocList.mapVal_map_toAssocList]
+  <;> simp only [
+    drcompute, drcomponents, toString, List.range, List.range.loop
+  ]
+  · sorry
+  · sorry
+
 instance : MatchInterface noc_lowM noc where
-  input_types := by unfold noc_lowM; dsimp; sorry
-  output_types := by sorry
-  inputs_present := by sorry
-  outputs_present := by sorry
+  input_types := noc_lowM_match.input_types
+  output_types := noc_lowM_match.output_types
+  inputs_present := noc_lowM_match.inputs_present
+  outputs_present := noc_lowM_match.outputs_present
 
 def φ (I : noc_lowT) (S : nocT) : Prop :=
-  False
+  List.Perm S (I.1 |> I.2.1.append |> I.2.2.1.append |> I.2.2.2.1.append)
+
+theorem perm_in_perm_φ {I : noc_lowT} {S : nocT} {v} {Hφ : φ I S} :
+  v ∈ (I.1 |> I.2.1.append |> I.2.2.1.append |> I.2.2.2.1.append)
+  → ∃ i : Fin S.length, List.get S i = v := by
+    apply perm_in_perm_l; exact Hφ
 
 theorem noc_low_refines_initial :
   Module.refines_initial noc_lowM noc φ := by
-    sorry
+    intros i Hi
+    dsimp [noc_lowM] at Hi
+    exists []
+    simpa [φ, Hi, drcompute, drcomponents]
 
 theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
-  sorry
+  intros i s H
+  constructor
+  · intros ident mid_i v Hrule
+    case_transition Hcontains : (Module.inputs noc_lowM), ident,
+     (PortMap.getIO_not_contained_false' Hrule)
+    simp only [
+      noc_lowM,
+      AssocList.contains_eq, AssocList.toList,
+      List.any_cons, List.any_nil, Bool.or_false, Bool.or_eq_true, beq_iff_eq
+    ] at Hcontains
+    rcases Hcontains with H | H | H | H
+    <;> subst ident
+    <;> dsimp [noc_lowM, drcompute] at Hrule v ⊢
+    <;> unfold φ at *
+    <;> dsimp only [List.append_eq] at *
+    <;> exists (List.concat s v)
+    <;> exists (List.concat s v)
+    <;> and_intros
+    <;> try rfl
+    all_goals dsimp [drcomponents]
+    all_goals try constructor; done
+    all_goals simp only [List.concat_eq_append]
+    · obtain ⟨Hrule1, Hrule2⟩ := Hrule
+      rw [Hrule1, ←Hrule2]
+      repeat rw [←List.append_assoc]
+      repeat rw [←List.append_assoc] at H
+      rwa [List.perm_append_right_iff (l := [v])]
+    · obtain ⟨⟨Hrule1, Hrule2⟩, Hrule3⟩ := Hrule
+      rw [←Hrule3, Hrule1, ←Hrule2]
+      repeat rw [←List.append_assoc]
+      repeat rw [←List.append_assoc] at H
+      sorry
+    · obtain ⟨⟨⟨Hrule1, Hrule2⟩, Hrule3⟩, Hrule4⟩ := Hrule
+      rw [Hrule1, ←Hrule2, ←Hrule3, ←Hrule4]
+      sorry
+    · obtain ⟨⟨⟨Hrule1, Hrule2⟩, Hrule3⟩, Hrule4⟩ := Hrule
+      rw [Hrule1, ←Hrule2, ←Hrule3, ←Hrule4]
+      repeat rw [←List.append_assoc]
+      repeat rw [←List.append_assoc] at H
+      sorry
+  · intros ident mid_i v Hrule
+    case_transition Hcontains : (Module.outputs noc_lowM), ident,
+     (PortMap.getIO_not_contained_false' Hrule)
+    simp only [
+      noc_lowM,
+      AssocList.contains_eq, AssocList.toList,
+      List.any_cons, List.any_nil, Bool.or_false, Bool.or_eq_true, beq_iff_eq
+    ] at Hcontains
+    rcases Hcontains with H | H | H | H
+    <;> subst ident
+    <;> dsimp [noc_lowM, drcompute] at Hrule v ⊢
+    <;> unfold φ at *
+    <;> dsimp only [List.append_eq] at *
+    -- TODO: In all of these cases, we need to remove v from s, some part is
+    -- annoying to prove
+    · obtain ⟨⟨H1, H2⟩, H3⟩ := Hrule
+      rw [H1, H3] at H
+      dsimp [arbiterXY, getX, getY] at H2
+      repeat rw [←List.append_assoc]
+      repeat rw [←List.append_assoc] at H
+      sorry
+    · obtain ⟨⟨⟨H1, H2⟩, H3⟩, H4⟩ := Hrule
+      rw [H1, H3, H4] at H
+      dsimp [List.append_eq] at H ⊢
+      repeat rw [←List.append_assoc]
+      repeat rw [←List.append_assoc] at H
+      sorry
+    · obtain ⟨⟨⟨⟨H1, H2⟩, H3⟩, H4⟩, H5⟩ := Hrule
+      rw [H1, H3, H4, H5] at H
+      dsimp [List.append_eq] at H ⊢
+      repeat rw [←List.append_assoc]
+      repeat rw [←List.append_assoc] at H
+      sorry
+    · obtain ⟨⟨⟨⟨H1, H2⟩, H3⟩, H4⟩, H5⟩ := Hrule
+      rw [H1, H3, H4] at H
+      repeat rw [←List.append_assoc]
+      repeat rw [←List.append_assoc] at H
+      sorry
+  · intros rule mid_i H1 H2
+    simp only [noc_lowM, List.mem_cons, List.not_mem_nil] at H1
+    simp only [or_false, or_self_left] at H1
+    rcases H1 with H1 | H1 | H1 | H1 | H1 | H1 | H1 | H1 | H1
+    <;> subst rule
+    <;> dsimp [drcomponents]
+    <;> exists s
+    <;> constructor
+    <;> try (constructor; done)
+    all_goals unfold φ at *
+    all_goals obtain ⟨a, a1, a2, a3, b, a4, b1, H⟩ := H2
+    -- TODO: We need annoying permutations lemmas
+    · obtain ⟨⟨⟨H1, H2⟩, H3⟩, ⟨⟨H4, H5⟩, H6⟩, H7⟩ := H
+      rw [H4, ←H5, ←H6, ←H7,]
+      rw [H1, H3] at H
+      dsimp at H ⊢
+      -- ok
+      sorry
+    · obtain ⟨⟨⟨⟨⟨H1, H2⟩, H3⟩, H4⟩, H5⟩, H6, H7⟩ := H
+      rw [H1, H3, H4, H5] at H
+      rw [H6, ←H7]
+      dsimp at H ⊢
+      -- ok
+      sorry
+    · obtain ⟨⟨⟨⟨H1, H2⟩, H3⟩, H4⟩, ⟨⟨H5, H6⟩, H7⟩, H8⟩ := H
+      rw [H1, H3, H4] at H
+      rw [H5, ←H6, ←H7, ←H8]
+      dsimp at H ⊢
+      -- ok
+      sorry
+    · obtain ⟨⟨⟨⟨⟨H1, H2⟩, H3⟩, H4⟩, H5⟩, ⟨H6, H7⟩, H8⟩ := H
+      rw [H1, H3, H4, H5] at H
+      rw [H6, ←H7, ←H8]
+      dsimp at H ⊢
+      -- ok
+      sorry
+    · obtain ⟨⟨⟨H1, H2⟩, H3⟩, ⟨H4, H5⟩, H6⟩ := H
+      rw [H1, H3] at H
+      rw [H4, ←H5, ←H6]
+      dsimp at H ⊢
+      simpa
+    · obtain ⟨⟨⟨⟨H1, H2⟩, H3⟩, H4⟩, H5, H6⟩ := H
+      rw [H1, H3, H4] at H
+      rw [H5, ←H6]
+      dsimp at H ⊢
+      -- ok
+      sorry
+    · obtain ⟨⟨⟨⟨⟨H1, H2⟩, H3⟩, H4⟩, H5⟩, ⟨⟨H6, H7⟩, H8⟩, H9⟩ := H
+      rw [H1, H3, H4, H5] at H
+      rw [H6, ←H7, ←H8, ←H9]
+      dsimp at H ⊢
+      simpa
+    · obtain ⟨⟨⟨⟨⟨H1, H2⟩, H3⟩, H4⟩, H5⟩, ⟨⟨H6, H7⟩, H8⟩, H9⟩ := H
+      rw [H1, H3, H4, H5] at H
+      rw [H6, ←H7, ←H8, ←H9]
+      dsimp at H ⊢
+      -- ok
+      sorry
 
 theorem noc_low_ϕ_indistinguishable :
   ∀ i s, φ i s → Module.indistinguishable noc_lowM noc i s := by
-    sorry
+    intros i s H
+    constructor
+    <;> intros ident new_i v Hrule
+    <;> dsimp [drcomponents, noc_lowM, List.range, List.range.loop, toString] at *
+    · case_transition Hcontains : (Module.inputs noc_lowM), ident,
+     (PortMap.getIO_not_contained_false' Hrule)
+      simp only [
+        noc_lowM,
+        AssocList.contains_eq, AssocList.toList,
+        List.any_cons, List.any_nil, Bool.or_false, Bool.or_eq_true, beq_iff_eq
+      ] at Hcontains
+      rcases Hcontains with Hident | Hident | Hident | Hident
+      <;> subst ident
+      <;> simp only [noc_lowM, drcompute] at Hrule v ⊢
+      <;> exists s.concat v
+      <;> simpa
+    · case_transition Hcontains : (Module.outputs noc_lowM), ident,
+     (PortMap.getIO_not_contained_false' Hrule)
+      simp only [
+        noc_lowM,
+        AssocList.contains_eq, AssocList.toList,
+        List.any_cons, List.any_nil, Bool.or_false, Bool.or_eq_true, beq_iff_eq
+      ] at Hcontains
+      rcases Hcontains with Hident | Hident | Hident | Hident
+      <;> subst ident
+      <;> simp only [noc_lowM, drcompute] at Hrule v ⊢
+      <;> unfold φ at H
+      -- OK: we just need a lemma which says that:
+      -- v ∈ l.Perm → exists i such that l[i] = v,
+      -- the
+      · obtain ⟨⟨Hrule1, Hrule2⟩, Hrule3⟩ := Hrule
+        rw [Hrule1] at H
+        obtain ⟨i, Hi⟩ := perm_in_perm_l (H := H) (v := v)
+        exists List.eraseIdx s ↑i
+        and_intros
+        · dsimp [arbiterXY, getX, getY] at Hrule2
+          sorry
+        · exists i; rw [←Hi]; simpa
+      · obtain ⟨⟨⟨Hrule1, Hrule2⟩, Hrule3⟩, Hrule4⟩ := Hrule
+        rw [Hrule1] at H
+        obtain ⟨i, Hi⟩ := perm_in_perm_l (H := H) (v := v)
+        exists List.eraseIdx s ↑i
+        and_intros
+        · sorry
+        · exists i; rw [←Hi]; simpa
+      · sorry
+      · sorry
 
 theorem noc_low_correct : noc_lowM ⊑ noc := by
   apply (
