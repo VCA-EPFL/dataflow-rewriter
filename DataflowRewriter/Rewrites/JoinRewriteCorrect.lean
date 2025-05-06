@@ -38,9 +38,12 @@ abbrev Ident := Nat
 variable {T₁ T₂ T₃ : Type}
 variable (S₁ S₂ S₃ : String)
 
+@[drunfold_defs]
 def lhsNames := ((rewrite.rewrite [S₁, S₂, S₃]).get rfl).input_expr.build_module_names
+@[drunfold_defs]
 def rhsNames := ((rewrite.rewrite [S₁, S₂, S₃]).get rfl).output_expr.build_module_names
 
+@[drunfold_defs]
 def rewriteLhsRhs := rewrite.rewrite [S₁, S₂, S₃] |>.get rfl
 
 def environmentLhs : IdentMap String (TModule1 String) := lhs T₁ T₂ T₃ S₁ S₂ S₃ |>.snd
@@ -82,114 +85,82 @@ def environmentRhs : IdentMap String (TModule1 String) := rhs T₁ T₂ T₃ S�
   rw [Batteries.AssocList.find?.eq_2]; rw [this]
 
 variable (T₁ T₂ T₃) in
-def lhsModuleType : Type := by
-  precomputeTac [T| (rewriteLhsRhs S₁ S₂ S₃).input_expr, @environmentLhs T₁ T₂ T₃ S₁ S₂ S₃ ] by
-    -- ExprHigh reduction
-    dsimp [rewriteLhsRhs, rewrite, lhsLower, lhs_extract, lhs, ExprHigh.extract]
-    dsimp [List.foldlM]
-    simp (disch := simp) only [AssocList.find?_cons_eq, AssocList.find?_cons_neq]; dsimp
-    simp
-    -- Lowering reduction -> creates ExprLow
-    dsimp [ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry]
-    -- Unfold build_module
-    dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
-    -- Reduce environment access
-    simp only [find?_join1_data, find?_join2_data]; dsimp
+def_module lhsModuleType : Type :=
+  [T| (rewriteLhsRhs S₁ S₂ S₃).input_expr, @environmentLhs T₁ T₂ T₃ S₁ S₂ S₃ ]
+reduction_by
+  dsimp -failIfUnchanged [drunfold_defs, toString, reduceAssocListfind?, reduceListPartition]
+  dsimp -failIfUnchanged [reduceExprHighLower, reduceExprHighLowerProdTR, reduceExprHighLowerConnTR]
+  dsimp [ ExprHigh.uncurry, ExprLow.build_module_expr, ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module', toString]
+  simp only [find?_pure_data2, find?_join2_data2, find?_join2_data, find?_join1_data, find?_join1_data2]
+  dsimp
 
 def cast_module_type {α} {f : α → Type _} {s s' : Σ T, f T} (heq : s = s') : f s.1 = f s'.1 := by simp_all
 
 variable (T₁ T₂ T₃) in
-def_module lhsModule : StringModule (lhsModuleType T₁ T₂ T₃) := [e| (rewriteLhsRhs S₁ S₂ S₃).input_expr, @environmentLhs T₁ T₂ T₃ S₁ S₂ S₃ ]
+def_module lhsModule : StringModule (lhsModuleType T₁ T₂ T₃) :=
+  [e| (rewriteLhsRhs S₁ S₂ S₃).input_expr, @environmentLhs T₁ T₂ T₃ S₁ S₂ S₃ ]
 reduction_by
-  dsimp [ExprLow.build_module_expr, rewriteLhsRhs, rewrite, lhsLower, lhs_extract, lhs, ExprHigh.extract, List.foldlM]
-  rw [rw_opaque (by simp (disch := simp) only [drcompute, ↓reduceIte]; rfl)]
-  dsimp [ ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry
-        , ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
-  rw [rw_opaque (by simp (disch := simp) only [drcompute, ↓reduceIte]; rfl)]
-  dsimp [join, NatModule.join, NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_input, NatModule.stringify_output, toString]
-  dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter]; simp (disch := simp) only [drcompute, ↓reduceIte]
-  dsimp [Module.product, Module.liftL, Module.liftR]
-  dsimp [Module.connect']
-  simp (disch := simp) only [drcompute, ↓reduceIte]
-  conv =>
-    pattern (occs := *) Module.connect'' _ _
-    all_goals
-      rw [(Module.connect''_dep_rw (h := by simp (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp)
-                               (h' := by simp (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp))]
+  dsimp -failIfUnchanged [drunfold_defs, toString, reduceAssocListfind?, reduceListPartition]
+  dsimp -failIfUnchanged [reduceExprHighLower, reduceExprHighLowerProdTR, reduceExprHighLowerConnTR]
+  dsimp [ ExprHigh.uncurry, ExprLow.build_module_expr, ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module', toString]
+  rw [rw_opaque (by simp only [find?_pure_data2, find?_join2_data2, find?_join2_data, find?_join1_data, find?_join1_data2]; rfl)]
+  dsimp
+  dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, reduceAssocListfind?]
+  simp (disch := decide) only [AssocList.bijectivePortRenaming_invert]
+  dsimp [Module.product]
+  dsimp only [reduceModuleconnect'2]
+  dsimp only [reduceEraseAll]
+  dsimp; dsimp [reduceAssocListfind?]
+
   unfold Module.connect''
+  dsimp [Module.liftL, Module.liftR, drcomponents]
+
+variable (T₁ T₂ T₃) in
+def_module rhsModuleType : Type :=
+  [T| (rewriteLhsRhs S₁ S₂ S₃).output_expr, @environmentRhs T₁ T₂ T₃ S₁ S₂ S₃ ]
+reduction_by
+  dsimp -failIfUnchanged [drunfold_defs, toString, reduceAssocListfind?, reduceListPartition]
+  dsimp -failIfUnchanged [reduceExprHighLower, reduceExprHighLowerProdTR, reduceExprHighLowerConnTR]
+  dsimp [ ExprHigh.uncurry, ExprLow.build_module_expr, ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module', toString]
+  simp only [find?_pure_data2, find?_join2_data2, find?_join2_data, find?_join1_data, find?_join1_data2]
   dsimp
 
-#check (lhsModule T₁ T₂ T₃).internals
-
-set_option maxHeartbeats 0 in
 variable (T₁ T₂ T₃) in
-def rhsModuleType : Type := by
-  precomputeTac [T| (rewriteLhsRhs S₁ S₂ S₃).output_expr, @environmentRhs T₁ T₂ T₃ S₁ S₂ S₃ ] by
-    -- ExprHigh reduction
-    dsimp [rewriteLhsRhs, rewrite, rhsLower, rhs_extract, rhs, ExprHigh.extract, toString, List.foldlM]
-    simp (disch := simp) only [AssocList.find?_cons_eq, AssocList.find?_cons_neq]; dsimp
-    simp
-    -- Lowering reduction -> creates ExprLow
-    dsimp [ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry]
-    -- Unfold build_module
-    dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
-    -- Reduce environment access
-    simp only [find?_join1_data2, find?_join2_data2, find?_pure_data2]; dsimp
+def_module rhsModule : StringModule (rhsModuleType T₁ T₂ T₃) :=
+  [e| (rewriteLhsRhs S₁ S₂ S₃).output_expr, @environmentRhs T₁ T₂ T₃ S₁ S₂ S₃ ]
+reduction_by
+  dsimp -failIfUnchanged [drunfold_defs, toString, reduceAssocListfind?, reduceListPartition]
+  dsimp -failIfUnchanged [reduceExprHighLower, reduceExprHighLowerProdTR, reduceExprHighLowerConnTR]
+  dsimp [ ExprHigh.uncurry, ExprLow.build_module_expr, ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module', toString]
+  rw [rw_opaque (by simp only [find?_pure_data2, find?_join2_data2, find?_join2_data, find?_join1_data, find?_join1_data2]; rfl)]
+  dsimp
+  dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, reduceAssocListfind?]
+  simp (disch := decide) only [AssocList.bijectivePortRenaming_invert]
+  dsimp [Module.product]
+  dsimp only [reduceModuleconnect'2]
+  dsimp only [reduceEraseAll]
+  dsimp; dsimp [reduceAssocListfind?]
 
-variable (T₁ T₂ T₃) in
-@[drunfold] def rhsModule : StringModule (rhsModuleType T₁ T₂ T₃) := by
-  precomputeTac [e| (rewriteLhsRhs S₁ S₂ S₃).output_expr, @environmentRhs T₁ T₂ T₃ S₁ S₂ S₃ ] by
-    dsimp [ExprLow.build_module_expr, rewriteLhsRhs, rewrite, rhs_extract, rhsLower, rhs, ExprHigh.extract, List.foldlM, toString]
-    rw [rw_opaque (by simp (disch := simp) only [drcompute, ↓reduceIte]; rfl)]
-    dsimp [ ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry
-          , ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
-    rw [rw_opaque (by simp only [find?_join1_data2, find?_join2_data2, find?_pure_data2]; rfl)]
-    rw [rw_opaque (by simp (disch := simp) only [drcompute, ↓reduceIte]; rfl)]
-    dsimp [StringModule.pure, NatModule.pure, join, NatModule.join, NatModule.stringify, Module.mapIdent, InternalPort.map, NatModule.stringify_input, NatModule.stringify_output, toString]
-    dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, AssocList.bijectivePortRenaming, AssocList.invertible, AssocList.keysList, AssocList.inverse, AssocList.filterId, AssocList.filter, List.inter]; simp (disch := simp) only [drcompute, ↓reduceIte]
-    dsimp [Module.product, Module.liftL, Module.liftR]
-    dsimp [Module.connect']
-    simp (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil]
-    -- simp (disch := simp) only [drcompute, ↓reduceIte]
-    conv =>
-      pattern (occs := *) Module.connect'' _ _
-      all_goals
-        rw [(Module.connect''_dep_rw (h := by simp (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp)
-                                 (h' := by simp (disch := simp) only [AssocList.eraseAll_cons_neq,AssocList.eraseAll_cons_eq,AssocList.eraseAll_nil,PortMap.getIO,AssocList.find?_cons_eq,AssocList.find?_cons_neq]; dsimp))]
-    unfold Module.connect''
-    dsimp
+  unfold Module.connect''
+  dsimp [Module.liftL, Module.liftR, drcomponents]
 
-attribute [dmod] Batteries.AssocList.find? BEq.beq
-
-instance : MatchInterface (rhsModule T₁ T₂ T₃) (lhsModule T₁ T₂ T₃) where
-  input_types := by stop
-    intro ident;
-    by_cases h : (Batteries.AssocList.contains ↑ident (rhsModule n T).inputs)
-    · have h' := AssocList.keysInMap h; fin_cases h' <;> rfl
-    · have h' := AssocList.keysNotInMap h; dsimp [drunfold, AssocList.keysList] at h' ⊢
-      simp at h'; let ⟨ ha, hb, hc ⟩ := h'; clear h'
-      simp only [Batteries.AssocList.find?_eq, Batteries.AssocList.toList]
-      rcases ident with ⟨ i1, i2 ⟩;
-      repeat (rw [List.find?_cons_of_neg]; rotate_left; simp; intros; subst_vars; solve_by_elim)
-      rfl
-  output_types := by stop
-    intro ident;
-    by_cases h : (Batteries.AssocList.contains ↑ident (rhsModule n T).outputs)
-    · have h' := AssocList.keysInMap h; fin_cases h' <;> rfl
-    · have h' := AssocList.keysNotInMap h; dsimp [drunfold, AssocList.keysList] at h' ⊢
-      simp at h'
-      simp only [Batteries.AssocList.find?_eq, Batteries.AssocList.toList]
-      rcases ident with ⟨ i1, i2 ⟩;
-      repeat (rw [List.find?_cons_of_neg]; rotate_left; simp; intros; subst_vars; solve_by_elim)
-      rfl
-  inputs_present := by sorry
-  outputs_present := by sorry
-
--- #reduce rhsNames
--- #reduce rhsModuleType
-
--- #reduce lhsNames
--- #reduce lhsModuleType
+instance : MatchInterface (rhsModule T₁ T₂ T₃) (lhsModule T₁ T₂ T₃) := by
+  rw [MatchInterface_simpler_iff]
+  intros; dsimp [rhsModule, lhsModule]; and_intros
+  apply AssocList.find?_eq_contains
+  intro k heq; simp at heq
+  cases ‹_ ∨ _›; subst k; dsimp [reduceAssocListfind?]
+  cases ‹_ ∨ _›; subst k; dsimp [reduceAssocListfind?]
+  subst k; dsimp [reduceAssocListfind?]
+  intro k heq; simp at heq
+  cases ‹_ ∨ _›; subst k; dsimp [reduceAssocListfind?]
+  cases ‹_ ∨ _›; subst k; dsimp [reduceAssocListfind?]
+  subst k; dsimp [reduceAssocListfind?]
+  apply AssocList.find?_eq_contains
+  intro k heq; simp at heq
+  subst k; dsimp [reduceAssocListfind?]
+  intro k heq; simp at heq
+  subst k; dsimp [reduceAssocListfind?]
 
 @[reducible] def cast_first {β : Type _ → Type _} {a b : (Σ α, β α)} (h : a = b) : a.fst = b.fst := by
   subst_vars; rfl
@@ -205,8 +176,6 @@ theorem sigma_rw_simp {S T : Type _} {m m' : Σ (y : Type _), S → y → T → 
   constructor <;> (intros; subst h; assumption)
 
 inductive partially
-
-#reduce (lhsModule T₁ T₂ T₃)
 
 inductive partially_flushed: lhsModuleType T₁ T₂ T₃ -> Prop where
 | lhs: ∀ lower arb, partially_flushed ⟨lower, [], arb⟩
@@ -398,7 +367,6 @@ theorem append_iff {α} {a b c d : List α} : a.length = c.length → (a ++ b = 
       assumption
   . intro ⟨_, _⟩; subst_vars; rfl
 
-set_option maxHeartbeats 0 in
 theorem refines {T: Type _} [DecidableEq T]: rhsModule T₁ T₂ T₃ ⊑_{φ} lhsModule T₁ T₂ T₃ := by
   unfold Module.refines_φ
   intro init_i init_s Hφ
@@ -415,12 +383,12 @@ theorem refines {T: Type _} [DecidableEq T]: rhsModule T₁ T₂ T₃ ⊑_{φ} l
         <;> subst_vars <;> simp <;> rw [PortMap.rw_rule_execution] at a <;> simp at a
       . obtain ⟨⟨_, _⟩, ⟨_, _⟩, _⟩ := a
         subst_vars
-        have_hole heq : ((rhsModule T₁ T₂ T₃).inputs.getIO { inst := InstIdent.top, name := "i_0" }).fst = _ := by simp [drunfold]; rfl
+        have_hole heq : ((rhsModule T₁ T₂ T₃).inputs.getIO { inst := InstIdent.top, name := "i_0" }).fst = _ := by dsimp [reducePortMapgetIO]
         -- We construct the almost_mid_s manually
         use ⟨⟨sj2l, sj2r⟩, ⟨sj1l ++ [heq.mp s], sj1r⟩⟩
         apply And.intro
         . -- verify that the rule holds
-          rw [PortMap.rw_rule_execution (by simp[drunfold, lhsModule]; rfl)]
+          rw [PortMap.rw_rule_execution (by dsimp [reducePortMapgetIO])]
           simp
         . -- verify that the invariant holds when we flush the system
           obtain ⟨s', ⟨_, _⟩⟩ := something' ⟨⟨sj2l, sj2r⟩, sj1l ++ [heq.mp s], sj1r⟩ -- We flush the system to reach s'
@@ -446,7 +414,7 @@ theorem refines {T: Type _} [DecidableEq T]: rhsModule T₁ T₂ T₃ ⊑_{φ} l
         reduce at s
         use ⟨⟨sj2l, sj2r⟩, ⟨sj1l, sj1r ++ [s]⟩⟩
         apply And.intro
-        . rw [PortMap.rw_rule_execution (by simp[drunfold, lhsModule]; rfl)]; simp
+        . rw [PortMap.rw_rule_execution (by dsimp [reducePortMapgetIO])]; simp
         . obtain ⟨s', ⟨_, _⟩⟩ := something' ⟨⟨sj2l, sj2r⟩, sj1l, sj1r ++ [s]⟩
           use s'
           apply And.intro
@@ -470,7 +438,7 @@ theorem refines {T: Type _} [DecidableEq T]: rhsModule T₁ T₂ T₃ ⊑_{φ} l
         reduce at s
         use ⟨⟨sj2l, sj2r ++ [s]⟩, ⟨sj1l, sj1r⟩⟩
         apply And.intro
-        . rw [PortMap.rw_rule_execution (by simp[drunfold, lhsModule]; rfl)]; simp
+        . rw [PortMap.rw_rule_execution (by dsimp [reducePortMapgetIO])]; simp
         . obtain ⟨s', ⟨_, _⟩⟩ := something' ⟨⟨sj2l, sj2r ++ [s]⟩, sj1l, sj1r⟩
           use s'
           apply And.intro
@@ -583,7 +551,6 @@ theorem refines {T: Type _} [DecidableEq T]: rhsModule T₁ T₂ T₃ ⊑_{φ} l
         . apply s' init_i mid_i rule
           and_intros <;> assumption
       . assumption
-
 
 #print axioms refines
 

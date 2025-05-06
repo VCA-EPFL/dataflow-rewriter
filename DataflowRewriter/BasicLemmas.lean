@@ -56,7 +56,6 @@ theorem EqExt_getIO {S} {m m' : PortMap Ident ((T : Type) × (S → T → S → 
   ∀ i, m.getIO i = m'.getIO i := by
   unfold getIO AssocList.EqExt at *; intro hext i; rw [hext]
 
-
 @[simp]
 theorem cons_find? : ∀ {α} [HDEq : DecidableEq (InternalPort α)] β x v (pm: PortMap α β),
   AssocList.find? x (AssocList.cons x v pm) = v := by
@@ -69,22 +68,35 @@ theorem getIO_cons {Ident} [DecidableEq Ident] {S}
     unfold PortMap.getIO; simpa
 
 -- TODO: @[simp] ?
+theorem getIO_map' {S : Type _}
+  {i : Nat}
+  {f : Nat -> Σ T : Type _, (S → T → S → Prop)} {v}
+  {l : List Nat}
+  (Heq : f i = v)
+  (Hlt : i ∈ l)
+  (Hnodup : l.Nodup) :
+  PortMap.getIO (l.map (λ n => ⟨(↑n : InternalPort Nat), f n⟩)).toAssocList i = v := by
+  induction l with
+  | nil => contradiction
+  | cons hd tl ih =>
+    cases Hlt
+    · simp [*, getIO, AssocList.find?_cons_eq]
+    · unfold getIO at *
+      dsimp; rw [AssocList.find?_cons_neq]
+      apply ih <;> try assumption
+      cases Hnodup; assumption
+      cases Hnodup
+      rename_i h1 h2 h3
+      replace h3 := h3 _ h1; simp [*]
+
 theorem getIO_map {S : Type _}
   (i : Nat) (sz : Nat)
   (f : Nat -> Σ T : Type _, (S → T → S → Prop)) v
-  (Heq : f i = v) (Hlt : i < sz) :
-  PortMap.getIO
-    (List.range sz |>.map (λ n => ⟨(↑n : InternalPort Nat), f n⟩)).toAssocList
-    i
-  = v := by
-  -- TODO
-  -- The annoying part in this proof is the definition of List.range which is
-  -- actually in order, which means we cannot easily do an induction on size.
-  -- Since we are only using this function as a convenience and we don't actually
-  -- care about the order in this context, we could simply use another function
-  -- here, but it would take time to once again prove basic lemmas about this
-  -- new function, which might not be what we want
-    sorry
+  (l : List Nat)
+  (Heq : f i = v)
+  (Hlt : i < sz) :
+  PortMap.getIO (List.range sz |>.map (λ n => ⟨(↑n : InternalPort Nat), f n⟩)).toAssocList i = v := by
+  apply getIO_map' <;> try simp [*, List.nodup_range]
 
 theorem getIO_not_contained_false {Ident} [DecidableEq Ident] {S}
   {pm : PortMap Ident ((T : Type) × (S → T → S → Prop))} {x1 x2 x3 x4}:

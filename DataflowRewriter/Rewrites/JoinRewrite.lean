@@ -13,6 +13,7 @@ open StringModule
 
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := sorry
 
+@[drunfold_defs]
 def lhs (T₁ T₂ T₃ : Type) (S₁ S₂ S₃ : String) : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i_0 [type = "io"];
     i_1 [type = "io"];
@@ -31,12 +32,15 @@ def lhs (T₁ T₂ T₃ : Type) (S₁ S₂ S₃ : String) : ExprHigh String × I
     join2 -> o_out [from = "out1"];
   ]
 
+@[drunfold_defs]
 def lhs_extract S₁ S₂ S₃ := (lhs Unit Unit Unit S₁ S₂ S₃).fst.extract ["join1", "join2"] |>.get rfl
 
 theorem double_check_empty_snd S₁ S₂ S₃ : (lhs_extract S₁ S₂ S₃).snd = ExprHigh.mk ∅ ∅ := by rfl
 
-def lhsLower S₁ S₂ S₃ := (lhs_extract S₁ S₂ S₃).fst.lower.get rfl
+@[drunfold_defs]
+def lhsLower S₁ S₂ S₃ := (lhs_extract S₁ S₂ S₃).fst.lower_TR.get rfl
 
+@[drunfold_defs]
 def rhs (T₁ T₂ T₃ : Type) (S₁ S₂ S₃ : String) : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i_0 [type = "io"];
     i_1 [type = "io"];
@@ -58,12 +62,15 @@ def rhs (T₁ T₂ T₃ : Type) (S₁ S₂ S₃ : String) : ExprHigh String × I
     pure -> o_out [from = "out1"];
   ]
 
+@[drunfold_defs]
 def rhs_extract S₁ S₂ S₃ := (rhs Unit Unit Unit S₁ S₂ S₃).fst.extract ["pure", "join1", "join2"] |>.get rfl
 
 theorem double_check_empty_snd_rhs S₁ S₂ S₃ : (rhs_extract S₁ S₂ S₃).snd = ExprHigh.mk ∅ ∅ := by rfl
 
-def rhsLower S₁ S₂ S₃ := (rhs_extract S₁ S₂ S₃).fst.lower.get rfl
+@[drunfold_defs]
+def rhsLower S₁ S₂ S₃ := (rhs_extract S₁ S₂ S₃).fst.lower_TR.get rfl
 
+@[drunfold_defs]
 def rewrite : Rewrite String :=
   { abstractions := [],
     pattern := matcher,

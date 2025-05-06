@@ -172,9 +172,20 @@ def invert (g : ExprHigh Ident) : ExprHigh Ident :=
         .product (uncurry .base val.snd) expr) el
   e.connections.foldl (λ expr conn => .connect conn expr) prod_expr
 
+def lower'_prod_TR (e : IdentMap Ident (PortMapping Ident × Ident)) (el : ExprLow Ident) : ExprLow Ident :=
+  e.toList.foldl (λ expr val => .product (uncurry .base val.snd) expr) el
+
+def lower'_conn_TR (e : List (Connection Ident)) (el : ExprLow Ident) : ExprLow Ident :=
+  e.foldl (λ expr conn => .connect conn expr) el
+
 @[drunfold] def lower (e : ExprHigh Ident) : Option (ExprLow Ident) :=
   match e.modules.toList with
   | x :: xs => some <| {e with modules := xs.toAssocList}.lower' (uncurry .base x.snd)
+  | _ => none
+
+def lower_TR (e : ExprHigh Ident) : Option (ExprLow Ident) :=
+  match e.modules.toList with
+  | x :: xs => some <| lower'_conn_TR e.connections <| lower'_prod_TR xs.toAssocList (uncurry .base x.snd)
   | _ => none
 
 end ExprHigh

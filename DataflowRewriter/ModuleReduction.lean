@@ -9,6 +9,7 @@ import Lean
 import DataflowRewriter.Tactic
 import DataflowRewriter.Module
 import DataflowRewriter.AssocList
+import DataflowRewriter.ExprHighLemmas
 
 open Lean.Elab.Command
 
@@ -303,6 +304,10 @@ dsimproc [drcompute] reduceAssocListfind? (Batteries.AssocList.find? _ _) := red
 dsimproc [drcompute] reducePortMapgetIO (PortMap.getIO _ _) := reduceAssocListfind?Imp
 dsimproc [] reduceStringifyInput (NatModule.stringify_input _) := reduceAssocListfind?Imp
 dsimproc [] reduceEraseAll (Batteries.AssocList.eraseAll _ _) := reduceAssocListfind?Imp
+dsimproc [] reduceListPartition (Prod.fst (List.partition _ _)) := reduceAssocListfind?Imp
+dsimproc [] reduceExprHighLower (ExprHigh.lower_TR _) := reduceAssocListfind?Imp
+dsimproc [] reduceExprHighLowerConnTR (ExprHigh.lower'_conn_TR _ _) := reduceAssocListfind?Imp
+dsimproc [] reduceExprHighLowerProdTR (ExprHigh.lower'_prod_TR _ _) := reduceAssocListfind?Imp
 
 end DataflowRewriter
 

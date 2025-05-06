@@ -178,6 +178,18 @@ theorem contains_none {α β} [DecidableEq α] {m : AssocList α β} {ident} :
     simp at *; intros _; apply H
     subst_vars; assumption
 
+theorem find?_eq_contains {α β} [DecidableEq α] {x y : AssocList α β} {k} :
+  (∀ i, x.contains i → x.find? i = y.find? i) →
+  (∀ i, y.contains i → x.find? i = y.find? i) →
+  x.find? k = y.find? k := by
+  intro h1 h2
+  by_cases x.contains k
+  · solve_by_elim
+  · by_cases y.contains k
+    · solve_by_elim
+    · repeat1 rw [AssocList.contains_none]
+      all_goals assumption
+
 theorem find?_map_neq {α β γ} [DecidableEq β] k (f : α → β) (g : α → γ) {l : List α}
   (Hneq: ∀ x, x ∈ l → f x ≠ k):
   AssocList.find? k (List.map (λ x => ⟨f x, g x⟩) l).toAssocList = none := by
