@@ -67,7 +67,7 @@ def Arbiter := (src : RouterID) → (dest : RouterID) → Option Dir
 def routerT := List Flit
 
 @[drcomponents]
-def mk_router_input (_ : ℕ) : Σ T : Type, routerT → T → routerT → Prop :=
+def mk_router_input (rId : ℕ) : Σ T : Type, routerT → T → routerT → Prop :=
   ⟨Flit, λ oldS inp newS => newS = oldS.concat inp⟩
 
 @[drcomponents]
@@ -75,14 +75,35 @@ def mk_router_output (arbiter : Arbiter) (rId : RouterID) (n : ℕ) : Σ T : Typ
   ⟨Flit, λ oldS out newS => oldS = out :: newS ∧ arbiter rId out.2 = n⟩
 
 @[drcomponents]
-def router' (arbiter : Arbiter) (rId : RouterID) (name := "routerXY") : NatModule (NatModule.Named name nocT) :=
+def router' (arbiter : Arbiter) (rId : RouterID) (name := "router") : NatModule (NatModule.Named name nocT) :=
   {
     inputs := lift_f 5 mk_router_input,
     outputs := lift_f 5 (mk_router_output arbiter rId),
     init_state := λ s => s = [],
   }
 
-@[drcomponents] def router arbiter rId := (router' arbiter rId) |>.stringify
+@[drcomponents]
+def router_stringify_inp (rId : RouterID) (n : ℕ) :=
+  s!"Router {rId} in{n + 1}"
+
+@[drcomponents]
+def router_stringify_out (rId : RouterID) (n : ℕ) :=
+  s!"Router {rId} out{n + 1}"
+
+@[drcomponents]
+def router (arbiter : Arbiter) (rId : RouterID) (name := "router") : StringModule (NatModule.Named name nocT) :=
+  router' arbiter rId |>.mapIdent (router_stringify_inp rId) (router_stringify_out rId)
+
+-- Contrary to a `sink`, a `hide` never consume its i/o
+@[drcomponents]
+def hide' (T : Type _) (inp_sz out_sz : Nat) (name := "hide") : NatModule (NatModule.Named name Unit) :=
+  {
+    inputs := List.range inp_sz |>.map (λ n => ⟨n, ⟨T, λ _ _ _ => False⟩⟩) |>.toAssocList,
+    outputs := List.range out_sz |>.map (λ n => ⟨n, ⟨T, λ _ _ _ => False⟩⟩) |>.toAssocList,
+    init_state := λ _ => True,
+  }
+
+@[drcomponents] def hide T inp_sz out_sz := (hide' T inp_sz out_sz) |>.stringify
 
 def getX (rId : RouterID) := rId.mod 2
 
@@ -110,11 +131,11 @@ def routerXY := router arbiterXY
 
 def ε_noc : Env :=
   [
-    (s!"Sink Flit 8", ⟨_, StringModule.sink Flit 8⟩), -- Sink for unused i/o
-    (s!"Router 0",    ⟨_, router arbiterXY 0⟩),       -- Top left router
-    (s!"Router 1",    ⟨_, router arbiterXY 1⟩),       -- Top right router
-    (s!"Router 2",    ⟨_, router arbiterXY 2⟩),       -- Bot left router
-    (s!"Router 3",    ⟨_, router arbiterXY 3⟩),       -- Bot right router
+    (s!"Hide Flit 8 8", ⟨_, hide Flit 8 8⟩),      -- Hide unused i/o
+    (s!"Router 0",      ⟨_, router arbiterXY 0⟩), -- Top left router
+    (s!"Router 1",      ⟨_, router arbiterXY 1⟩), -- Top right router
+    (s!"Router 2",      ⟨_, router arbiterXY 2⟩), -- Bot left router
+    (s!"Router 3",      ⟨_, router arbiterXY 3⟩), -- Bot right router
   ].toAssocList
 
 @[drunfold_defs]
@@ -123,59 +144,61 @@ def noc_low : ExprLow String :=
   let router_internal (rId : RouterID) :=
     InstIdent.internal s!"Router {rId}"
 
-  let router_internal_out (rId : RouterID) (dir : Dir) : InternalPort String :=
+  let router_out (rId : RouterID) (dir : Dir) : InternalPort String :=
     { inst := router_internal rId, name := NatModule.stringify_output dir }
 
-  let router_internal_inp (rId : RouterID) (dir : Dir) : InternalPort String :=
+  let router_inp (rId : RouterID) (dir : Dir) : InternalPort String :=
     { inst := router_internal rId, name := NatModule.stringify_input dir }
 
   let mkrouter (rId : RouterID) : ExprLow String := ExprLow.base
     {
-      -- 0 is a special case (Local port)
       input :=
-        ⟨NatModule.stringify_input DirLocal, NatModule.stringify_input rId⟩ ::
-        List.map
-          (λ n => ⟨NatModule.stringify_input (n + 1), (router_internal_inp rId) (n + 1)⟩)
-          (List.range 4)
-        |>.toAssocList,
+        AssocList.cons (router_stringify_inp rId 0) (NatModule.stringify_input 0)
+          (List.map
+            (λ n => ⟨router_stringify_inp rId (n + 1), router_inp rId (n + 1)⟩)
+            (List.range 4)
+          |>.toAssocList),
       output :=
-        ⟨NatModule.stringify_output DirLocal, NatModule.stringify_output rId⟩ ::
-        List.map
-          (λ n => ⟨NatModule.stringify_output (n + 1), (router_internal_out rId) (n + 1)⟩)
-          (List.range 4)
-        |>.toAssocList,
+        AssocList.cons (router_stringify_out rId 0) (NatModule.stringify_output 0)
+          (List.map
+            (λ n => ⟨router_stringify_out rId (n + 1), router_out rId (n + 1)⟩)
+            (List.range 4)
+          |>.toAssocList),
     }
     s!"Router {rId}"
 
   -- Make a bidirectional connection between two routers
   let mkconn_bi (a b : RouterID) (portA portB : Nat) (base : ExprLow String) :=
-    ExprLow.connect
-      { output := router_internal_out a portA, input := router_internal_inp b portB } base
-    |>
-    ExprLow.connect
-      { output := router_internal_out b portB, input := router_internal_inp a portA }
+    base |>
+    ExprLow.connect { output := router_out a portA, input := router_inp b portB } |>
+    ExprLow.connect { output := router_out b portB, input := router_inp a portA }
 
-  let sink_internal_inp (sId : Nat) :=
-    { inst := InstIdent.internal "Sink", name := NatModule.stringify_input sId }
+  let hide_inp (sId : Nat) : InternalPort String :=
+    { inst := InstIdent.internal "Hide", name := NatModule.stringify_input sId }
 
-  -- We use sinks to discard unconnected ports of our routers
-  let mksink : ExprLow String := ExprLow.base
+  let hide_out (sId : Nat) : InternalPort String :=
+    { inst := InstIdent.internal "Hide", name := NatModule.stringify_output sId }
+
+  let mkhide : ExprLow String := ExprLow.base
     {
       input :=
-        List.range 7
-        |>.map (λ n => ⟨NatModule.stringify_input 0, sink_internal_inp n⟩)
+        List.range 8
+        |>.map (λ n => ⟨NatModule.stringify_input n, hide_inp n⟩)
         |>.toAssocList,
-      output := .nil,
+      output :=
+        List.range 8
+        |>.map (λ n => ⟨NatModule.stringify_output n, hide_out n⟩)
+        |>.toAssocList,
     }
-    s!"Sink Flit 8"
+    s!"Hide Flit 8 8"
 
-  -- Connect an output of a router to a sink
-  let mkconn_sink (rId : RouterID) (sId : Nat) (dir : Dir) (base : ExprLow String) :=
-    ExprLow.connect
-      { output := router_internal_out rId dir, input := sink_internal_inp sId }
-      base
+  -- Connect an output and input of a router in a direction to hide
+  let mkconn_hide (rId : RouterID) (sId : Nat) (dir : Dir) (base : ExprLow String) :=
+    base |>
+    ExprLow.connect { output := router_out rId dir, input := hide_inp sId } |>
+    ExprLow.connect { output := hide_out sId, input := router_inp rId dir }
 
-  mksink                          |>  -- Sink for unused i/o
+  mkhide                          |>  -- Hide unused i/o
   ExprLow.product (mkrouter 0)    |>  -- Top left router
   ExprLow.product (mkrouter 1)    |>  -- Top right router
   ExprLow.product (mkrouter 2)    |>  -- Bot left router
@@ -184,14 +207,14 @@ def noc_low : ExprLow String :=
   mkconn_bi 2 3 DirEast DirWest   |>
   mkconn_bi 0 2 DirSouth DirNorth |>
   mkconn_bi 1 3 DirSouth DirNorth |>
-  mkconn_sink 0 0 DirNorth        |>
-  mkconn_sink 0 1 DirWest         |>
-  mkconn_sink 1 2 DirNorth        |>
-  mkconn_sink 1 3 DirEast         |>
-  mkconn_sink 2 4 DirSouth        |>
-  mkconn_sink 2 5 DirWest         |>
-  mkconn_sink 3 6 DirSouth        |>
-  mkconn_sink 3 7 DirEast
+  mkconn_hide 0 0 DirNorth        |>
+  mkconn_hide 0 1 DirWest         |>
+  mkconn_hide 1 2 DirNorth        |>
+  mkconn_hide 1 3 DirEast         |>
+  mkconn_hide 2 4 DirSouth        |>
+  mkconn_hide 2 5 DirWest         |>
+  mkconn_hide 3 6 DirSouth        |>
+  mkconn_hide 3 7 DirEast
 
 def noc_lowT : Type := by
   precomputeTac [T| noc_low, ε_noc] by
@@ -199,8 +222,8 @@ def noc_lowT : Type := by
     dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
     simp (disch := simpa) only [toString, drcompute]
 
-@[simp] theorem sink_in_ε :
-  AssocList.find? "Sink Flit 8" ε_noc = .some ⟨_, StringModule.sink Flit 8⟩ := rfl
+@[simp] theorem hide_in_ε :
+  AssocList.find? "Hide Flit 8 8" ε_noc = .some ⟨_, hide Flit 8 8⟩ := rfl
 
 @[simp] theorem router_in_ε_0 :
   AssocList.find? "Router 0" ε_noc = .some ⟨_, router arbiterXY 0⟩ := rfl
@@ -220,8 +243,6 @@ axiom bijectivePortRenaming_invert' {α} [DecidableEq α] {p : AssocList α α} 
 
 attribute [-drcompute] AssocList.bijectivePortRenaming_invert
 
-set_option maxHeartbeats 1000000 in
-set_option profiler true in
 def_module noc_lowM : StringModule noc_lowT :=
   [e| noc_low, ε_noc]
   reduction_by
@@ -233,26 +254,15 @@ def_module noc_lowM : StringModule noc_lowT :=
     dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts]
     dsimp [Module.product, Module.liftL, Module.liftR]
     dsimp [Module.connect']
-    -- conv => arg 1; arg 1; whnf
     simp (disch := solve | trivial | simp | rfl) only [drcompute]
-    conv =>
-      pattern (occs := *) Module.connect'' _ _
-      all_goals
-        rw [(Module.connect''_dep_rw (h := by conv => rhs; whnf)
-                                     (h' := by conv => rhs; whnf))]
     unfold Module.connect''
-    dsimp
+    simp (disch := solve | trivial | simp | rfl) only [drlogic, drcompute]
     skip
-
-#check noc_lowM
--- set_option pp.deepTerms true in
--- set_option pp.maxSteps 1000000 in
--- #print noc_lowM
 
 -- Proof of correctness --------------------------------------------------------
 
 instance : MatchInterface noc_lowM noc where
-  input_types := by sorry
+  input_types := by unfold noc_lowM; dsimp; sorry
   output_types := by sorry
   inputs_present := by sorry
   outputs_present := by sorry

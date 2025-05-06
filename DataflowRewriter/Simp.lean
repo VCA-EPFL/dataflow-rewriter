@@ -24,3 +24,6 @@ register_simp_attr drcomponents
 register_simp_attr drcommon
 
 register_simp_attr drnorm
+
+-- Reduce logical proposition
+register_simp_attr drlogic
