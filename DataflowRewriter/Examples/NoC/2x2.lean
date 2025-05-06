@@ -255,6 +255,24 @@ theorem perm_in_perm_r {α} {l1 l2 : List α} {v} {H : l1.Perm l2} (Hin : v ∈ 
     · rw [List.perm_comm]
     · sorry
 
+theorem getX_getY_correct {rId dst : RouterID} :
+  getX rId = getX dst → getY rId = getY dst → dst = rId := by
+    intro H1 H2
+    dsimp [getX] at H1
+    dsimp [getY] at H2
+    sorry -- Annoying
+
+theorem arbiterXY_correct (rId dst : RouterID) :
+  arbiterXY rId dst = DirLocal → dst = rId := by
+    dsimp [arbiterXY]
+    cases Heq : (getX rId == getX dst && getY rId == getY dst)
+    · sorry -- Contradiction, a bit annoying
+    · dsimp
+      intros _
+      simp only [Bool.and_eq_true, beq_iff_eq] at Heq
+      obtain ⟨HeqX, HeqY⟩ := Heq
+      apply getX_getY_correct HeqX HeqY
+
 -- Proof of correctness --------------------------------------------------------
 
 instance : MatchInterface noc_lowM noc  := by
@@ -298,7 +316,7 @@ theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
     <;> try rfl
     all_goals dsimp [drcomponents]
     all_goals try constructor; done
-    all_goals simp only [List.concat_eq_append]
+    all_goals simp only [List.concat_eq_append] at *
     · obtain ⟨Hrule1, Hrule2⟩ := Hrule
       rw [Hrule1, ←Hrule2]
       repeat rw [←List.append_assoc]
@@ -365,7 +383,7 @@ theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
     <;> constructor
     <;> try (constructor; done)
     all_goals unfold φ at *
-    all_goals obtain ⟨a, a1, a2, a3, b, a4, b1, H⟩ := H2
+    all_goals obtain ⟨consumed_output, output, H⟩ := H2
     -- TODO: We need annoying permutations lemmas
     · obtain ⟨⟨⟨H1, H2⟩, H3⟩, ⟨⟨H4, H5⟩, H6⟩, H7⟩ := H
       rw [H4, ←H5, ←H6, ←H7,]
@@ -429,7 +447,7 @@ theorem noc_low_ϕ_indistinguishable :
       ] at Hcontains
       rcases Hcontains with Hident | Hident | Hident | Hident
       <;> subst ident
-      <;> simp only [noc_lowM, drcompute] at Hrule v ⊢
+      <;> dsimp only [noc_lowM, drcompute] at Hrule v ⊢
       <;> exists s.concat v
       <;> simpa
     · case_transition Hcontains : (Module.outputs noc_lowM), ident,
@@ -441,28 +459,36 @@ theorem noc_low_ϕ_indistinguishable :
       ] at Hcontains
       rcases Hcontains with Hident | Hident | Hident | Hident
       <;> subst ident
-      <;> simp only [noc_lowM, drcompute] at Hrule v ⊢
+      <;> dsimp only [noc_lowM, drcompute] at Hrule v ⊢
       <;> unfold φ at H
-      -- OK: we just need a lemma which says that:
-      -- v ∈ l.Perm → exists i such that l[i] = v,
-      -- the
       · obtain ⟨⟨Hrule1, Hrule2⟩, Hrule3⟩ := Hrule
         rw [Hrule1] at H
         obtain ⟨i, Hi⟩ := perm_in_perm_l (H := H) (v := v)
         exists List.eraseIdx s ↑i
         and_intros
-        · dsimp [arbiterXY, getX, getY] at Hrule2
-          sorry
+        · apply arbiterXY_correct at Hrule2; rw [Hrule2]
         · exists i; rw [←Hi]; simpa
       · obtain ⟨⟨⟨Hrule1, Hrule2⟩, Hrule3⟩, Hrule4⟩ := Hrule
         rw [Hrule1] at H
         obtain ⟨i, Hi⟩ := perm_in_perm_l (H := H) (v := v)
         exists List.eraseIdx s ↑i
         and_intros
-        · sorry
+        · apply arbiterXY_correct at Hrule2; rw [Hrule2]
         · exists i; rw [←Hi]; simpa
-      · sorry
-      · sorry
+      · obtain ⟨⟨⟨⟨Hrule1, Hrule2⟩, Hrule3⟩, Hrule4⟩, Hrule5⟩ := Hrule
+        rw [Hrule1] at H
+        obtain ⟨i, Hi⟩ := perm_in_perm_l (H := H) (v := v)
+        exists List.eraseIdx s ↑i
+        and_intros
+        · apply arbiterXY_correct at Hrule2; rw [Hrule2]
+        · exists i; rw [←Hi]; simpa
+      · obtain ⟨⟨⟨⟨Hrule1, Hrule2⟩, Hrule3⟩, Hrule4⟩, Hrule5⟩ := Hrule
+        rw [Hrule1] at H
+        obtain ⟨i, Hi⟩ := perm_in_perm_l (H := H) (v := v)
+        exists List.eraseIdx s ↑i
+        and_intros
+        · apply arbiterXY_correct at Hrule2; rw [Hrule2]
+        · exists i; rw [←Hi]; simpa
 
 theorem noc_low_correct : noc_lowM ⊑ noc := by
   apply (
