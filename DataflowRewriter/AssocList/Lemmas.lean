@@ -434,9 +434,9 @@ theorem mapKey_find? {α β γ} [DecidableEq α] [DecidableEq γ] {a : AssocList
 These are needed because ExprLow currently only checks equality and uniqueness against the map
 -/
 
-axiom filterId_wf {α} [DecidableEq α] (p : AssocList α α) : p.wf → p.filterId.wf
+-- axiom filterId_wf {α} [DecidableEq α] (p : AssocList α α) : p.wf → p.filterId.wf
 
-axiom filderId_Nodup {α} [DecidableEq α] (p : AssocList α α) : p.keysList.Nodup → p.filterId.keysList.Nodup
+-- axiom filderId_Nodup {α} [DecidableEq α] (p : AssocList α α) : p.keysList.Nodup → p.filterId.keysList.Nodup
 
 -- theorem filterId_EqExt {α} [DecidableEq α] (p : AssocList α α) := sorry
 
@@ -706,7 +706,31 @@ theorem filterId_correct2 {α} [DecidableEq α] {m : AssocList α α} {i v} :
       · rw [filterId_cons_neq, find?_cons_neq] <;> try assumption
         solve_by_elim
 
-axiom inverse_correct {α} [DecidableEq α] {m : AssocList α α} {i v} :
-  m.find? i = some v → m.inverse.find? v = some i
+theorem inverse_find?_in {α} [DecidableEq α] {m : AssocList α α} {i v} :
+  m.find? i = some v → v ∈ m.inverse.keysList := by
+  induction m generalizing i v with
+  | nil => grind [find?_nil]
+  | cons k v' xs ih =>
+    intro hfind
+    by_cases heq : k = i
+    · subst i; rw [find?_cons_eq] at hfind; cases hfind
+      simp [inverse_cons, keysList_cons]
+    · rw [find?_cons_neq] at hfind <;> try assumption
+      simp only [inverse_cons, keysList_cons]; right
+      apply ih; assumption
+
+theorem inverse_correct {α} [DecidableEq α] {m : AssocList α α} {i v} :
+  m.inverse.keysList.Nodup → m.find? i = some v → m.inverse.find? v = some i := by
+  induction m generalizing i v with
+  | nil => grind [find?_nil]
+  | cons k v' xs ih =>
+    simp only [inverse_cons, keysList_cons, List.nodup_cons]
+    intro ⟨heql, hnodup⟩ hfind
+    by_cases heq : k = i
+    · subst i; rw [find?_cons_eq] at hfind; cases hfind; rw [find?_cons_eq]
+    · rw [find?_cons_neq] at hfind <;> try assumption
+      by_cases heq' : v' = v
+      · grind [inverse_find?_in]
+      · rw [find?_cons_neq] <;> solve_by_elim
 
 end Batteries.AssocList
