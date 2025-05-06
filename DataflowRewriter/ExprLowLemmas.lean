@@ -266,15 +266,6 @@ theorem build_module_unfold_2 {r i} :
 
 -- def _root_.Sigma.map2 {α t} (pair : @Sigma α t) (f : ∀ {a}, t a → t a) : Sigma t := ⟨ _, f pair.snd ⟩
 
-axiom filterId_correct {α} [DecidableEq α] {m : AssocList α α} {i} :
-  m.find? i = some i → m.filterId.find? i = none
-
-axiom filterId_correct2 {α} [DecidableEq α] {m : AssocList α α} {i v} :
-  i ≠ v → m.find? i = some v → m.filterId.find? i = some v
-
-axiom inverse_correct {α} [DecidableEq α] {m : AssocList α α} {i v} :
-  m.find? i = some v → m.inverse.find? v = some i
-
 theorem mapKey_comm2 {α} {m : PortMap Ident α} {inst : PortMap Ident (InternalPort Ident)} {f i}:
   Function.Bijective f →
   (inst.mapVal fun _ => f).invertible →
