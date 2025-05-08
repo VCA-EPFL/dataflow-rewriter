@@ -215,6 +215,9 @@ theorem renamePorts_EqExt {S} (m : Module Ident S) (p p' : PortMapping Ident) :
 theorem sigma_cast {α} {f : α → Type _} {x y : Sigma f} (h : x = y) :
   f x.fst = f y.fst := by subst x; rfl
 
+theorem sigma_cast' {α} {f : α → Type _} {x y : Sigma f} (h : x = y) :
+  x.fst = y.fst := by subst x; rfl
+
 theorem sigma_rw {α} {f : α → Type _} {x y : Sigma f} (h : x = y) :
   x.snd = (sigma_cast h).mpr y.snd := by subst x; rfl
 
@@ -720,29 +723,71 @@ theorem indistinguishable_reflexive_ext {imod'} i_init (h : imod.EqExt imod') (m
     rw [PortMap.rw_rule_execution (PortMap.EqExt_getIO hr ident)] at *
     solve_by_elim
 
-axiom indistinguishable_transitive {J} (jmod : Module Ident J)
+theorem indistinguishable_transitive {J} (jmod : Module Ident J)
         [MatchInterface imod jmod] [MatchInterface jmod smod] :
   ∀ i_init j_init s_init,
     indistinguishable imod jmod i_init j_init →
     indistinguishable jmod smod j_init s_init →
-    indistinguishable imod smod i_init s_init--  := by
-  -- intro i_init j_init s_init Hind₁ Hind₂
-  -- rcases Hind₁ with ⟨ Hind₁_in, Hind₁_out ⟩
-  -- rcases Hind₂ with ⟨ Hind₂_in, Hind₂_out ⟩
-  -- stop constructor
-  -- · intro ident new_i v Hcont Hrule
+    indistinguishable imod smod i_init s_init := by
+  intro i_init j_init s_init ⟨ Hind₁_in, Hind₁_out ⟩ ⟨ Hind₂_in, Hind₂_out ⟩
+  constructor
+  · clear Hind₁_out Hind₂_out
+    intro ident new_i v hget
+    obtain ⟨new_i', hget'⟩ := Hind₁_in ident new_i v hget; clear Hind₁_in
+    obtain ⟨new_i'', hget''⟩ := Hind₂_in ident new_i' _ hget'; clear Hind₂_in
+    exists new_i''; simp_all
+  · clear Hind₁_in Hind₂_in
+    intro ident new_i v hget
+    obtain ⟨new_i', hget'⟩ := Hind₁_out ident new_i v hget; clear Hind₁_out
+    obtain ⟨new_i'', hget''⟩ := Hind₂_out ident new_i' _ hget'; clear Hind₂_out
+    exists new_i''; simp_all
 
-axiom indistinguishable_mapInputPorts
+theorem imod_eq_in {f} {ident} : (imod.mapInputPorts f).outputs.getIO ident = imod.outputs.getIO ident := rfl
+theorem smod_eq_in {f} {ident} : (smod.mapInputPorts f).outputs.getIO ident = smod.outputs.getIO ident := rfl
+theorem imod_eq_out {f} {ident} : (imod.mapOutputPorts f).inputs.getIO ident = imod.inputs.getIO ident := rfl
+theorem smod_eq_out {f} {ident} : (smod.mapOutputPorts f).inputs.getIO ident = smod.inputs.getIO ident := rfl
+
+omit mm in
+theorem indistinguishable_mapInputPorts
         [MatchInterface imod smod] {f i_init s_init} {h : Function.Bijective f} :
   have _ := MatchInterface_mapInputPorts (imod := imod) (smod := smod) h
   imod.indistinguishable smod i_init s_init →
-  (imod.mapInputPorts f).indistinguishable (smod.mapInputPorts f) i_init s_init
+  (imod.mapInputPorts f).indistinguishable (smod.mapInputPorts f) i_init s_init := by
+  intro hmatch ⟨hind₁, hind₂⟩
+  constructor
+  · intro ident new_i v hget; clear hind₂
+    have hbij := (Function.bijective_iff_existsUnique f).mp h ident
+    obtain ⟨ident', hun1, hun2⟩ := hbij; subst ident
+    have imod_eq : (imod.mapInputPorts f).inputs.getIO (f ident') = imod.inputs.getIO ident' := by
+      dsimp [mapInputPorts, PortMap.getIO]; rw [AssocList.mapKey_find?]; exact h.injective
+    have smod_eq : (smod.mapInputPorts f).inputs.getIO (f ident') = smod.inputs.getIO ident' := by
+      dsimp [mapInputPorts, PortMap.getIO]; rw [AssocList.mapKey_find?]; exact h.injective
+    obtain ⟨new_i', hget'⟩ := hind₁ ident' new_i ((sigma_cast' imod_eq).mp v) ((PortMap.rw_rule_execution imod_eq).mp hget)
+    exists new_i'; rw [PortMap.rw_rule_execution smod_eq]; simp_all
+  · intro ident new_i v hget; clear hind₁
+    dsimp [imod_eq_in, smod_eq_in] at v hget
+    solve_by_elim
 
-axiom indistinguishable_mapOutputPorts
+omit mm in
+theorem indistinguishable_mapOutputPorts
         [MatchInterface imod smod] {f i_init s_init} {h : Function.Bijective f} :
   have _ := MatchInterface_mapOutputPorts (imod := imod) (smod := smod) h
   imod.indistinguishable smod i_init s_init →
-  (imod.mapOutputPorts f).indistinguishable (smod.mapOutputPorts f) i_init s_init
+  (imod.mapOutputPorts f).indistinguishable (smod.mapOutputPorts f) i_init s_init := by
+  intro hmatch ⟨hind₁, hind₂⟩
+  constructor
+  · intro ident new_i v hget; clear hind₂
+    dsimp [imod_eq_out, smod_eq_out] at v hget
+    solve_by_elim
+  · intro ident new_i v hget; clear hind₁
+    have hbij := (Function.bijective_iff_existsUnique f).mp h ident
+    obtain ⟨ident', hun1, hun2⟩ := hbij; subst ident
+    have imod_eq : (imod.mapOutputPorts f).outputs.getIO (f ident') = imod.outputs.getIO ident' := by
+      dsimp [mapOutputPorts, PortMap.getIO]; rw [AssocList.mapKey_find?]; exact h.injective
+    have smod_eq : (smod.mapOutputPorts f).outputs.getIO (f ident') = smod.outputs.getIO ident' := by
+      dsimp [mapOutputPorts, PortMap.getIO]; rw [AssocList.mapKey_find?]; exact h.injective
+    obtain ⟨new_i', hget'⟩ := hind₂ ident' new_i ((sigma_cast' imod_eq).mp v) ((PortMap.rw_rule_execution imod_eq).mp hget)
+    exists new_i'; rw [PortMap.rw_rule_execution smod_eq]; simp_all
 
 def refines_φ (φ : I → S → Prop) :=
   ∀ (init_i : I) (init_s : S),
