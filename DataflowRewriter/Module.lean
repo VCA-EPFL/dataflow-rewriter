@@ -789,6 +789,125 @@ theorem indistinguishable_mapOutputPorts
     obtain ⟨new_i', hget'⟩ := hind₂ ident' new_i ((sigma_cast' imod_eq).mp v) ((PortMap.rw_rule_execution imod_eq).mp hget)
     exists new_i'; rw [PortMap.rw_rule_execution smod_eq]; simp_all
 
+theorem product_take_right_in {ident} {J} {imod₂ : Module Ident J}:
+  imod.inputs.find? ident = none →
+  (imod.product imod₂).inputs.getIO ident = liftR (imod₂.inputs.getIO ident) := by
+  intros;
+  dsimp [product, PortMap.getIO]
+  cases hinps₂ : imod₂.inputs.find? ident
+  · rw [AssocList.append_find_right] <;> simp only [AssocList.find?_mapVal, *]; dsimp [liftR]
+    congr; simp
+    rfl
+  · rw [AssocList.append_find_right] <;> simp only [AssocList.find?_mapVal, *]; dsimp [liftR]; rfl
+
+theorem product_take_right_out {ident} {J} {imod₂ : Module Ident J}:
+  imod.outputs.find? ident = none →
+  (imod.product imod₂).outputs.getIO ident = liftR (imod₂.outputs.getIO ident) := by
+  intros;
+  dsimp [product, PortMap.getIO]
+  cases hinps₂ : imod₂.outputs.find? ident
+  · rw [AssocList.append_find_right] <;> simp only [AssocList.find?_mapVal, *]; dsimp [liftR]
+    congr; simp
+    rfl
+  · rw [AssocList.append_find_right] <;> simp only [AssocList.find?_mapVal, *]; dsimp [liftR]; rfl
+
+theorem product_take_left_in {ident} {J} {imod₂ : Module Ident J} {v}:
+  imod.inputs.find? ident = some v →
+  (imod.product imod₂).inputs.getIO ident = liftL v := by
+  intros ha;
+  dsimp [product, PortMap.getIO]
+  rw [AssocList.append_find_left (by simp only [AssocList.find?_mapVal, ha]; rfl)]
+  rfl
+
+theorem product_take_left_out {ident} {J} {imod₂ : Module Ident J} {v}:
+  imod.outputs.find? ident = some v →
+  (imod.product imod₂).outputs.getIO ident = liftL v := by
+  intros ha;
+  dsimp [product, PortMap.getIO]
+  rw [AssocList.append_find_left (by simp only [AssocList.find?_mapVal, ha]; rfl)]
+  rfl
+
+theorem indistinguishability_product {J K} {i i₂ s s₂} {imod₂ : Module Ident J} {smod₂ : Module Ident K}
+  [MatchInterface imod smod]
+  [MatchInterface imod₂ smod₂] :
+  imod.indistinguishable smod i s →
+  imod₂.indistinguishable smod₂ i₂ s₂ →
+  (imod.product imod₂).indistinguishable (smod.product smod₂) (i, i₂) (s, s₂) := by
+  intro ⟨hindl₁, hindl₂⟩ ⟨hindr₁, hindr₂⟩
+  constructor
+  · intro ident new_i v hget
+    cases hinps : imod.inputs.find? ident
+    · have hinps₂ : smod.inputs.find? ident = none := by
+        obtain ⟨ml, mr⟩ := MatchInterface_simpler2 (ident := ident) ‹MatchInterface imod _›
+        simp only [AssocList.find?_mapVal, *, Option.map_eq_none_iff] at ml
+        symm at ml; dsimp at ml; rwa [Option.map_eq_none_iff] at ml
+      have hprod := product_take_right_in _ (imod₂ := imod₂) hinps
+      have hprod₂ := product_take_right_in _ (imod₂ := smod₂) hinps₂
+      rw [PortMap.rw_rule_execution hprod] at hget; dsimp [liftR] at hget
+      obtain ⟨hw, hh⟩ := hindr₁ _ _ _ hget.1
+      exists (s, hw)
+      rw [PortMap.rw_rule_execution hprod₂]; dsimp [liftR]
+      simp; convert hh; simp
+    · obtain ⟨ml, mr⟩ := MatchInterface_simpler2 (ident := ident) ‹MatchInterface imod _›; clear mr
+      simp only [AssocList.find?_mapVal, *] at ml; symm at ml; dsimp at ml
+      rename_i val; obtain ⟨T, val⟩ := val
+      rw [Option.map_eq_some_iff] at ml
+      obtain ⟨⟨T', val'⟩, hf, heq⟩ := ml
+      cases heq
+      have hp1 := product_take_left_in (imod₂ := imod₂) imod hinps
+      have hp2 := product_take_left_in (imod₂ := smod₂) smod hf
+      have_hole getIO1 : imod.inputs.getIO ident = _ := by
+        unfold PortMap.getIO; rewrite [hinps]; dsimp
+      have_hole getIO2 : smod.inputs.getIO ident = _ := by
+        unfold PortMap.getIO; rewrite [hf]; dsimp
+      have_hole cast1 : (imod.product imod₂).inputs.getIO ident = _ := by
+        rw [hp1,←getIO1]
+      have_hole cast2 : (smod.product smod₂).inputs.getIO ident = _ := by
+        rw [hp2,←getIO2]
+      rw [PortMap.rw_rule_execution cast1] at hget; dsimp [liftL] at hget
+      obtain ⟨new_i', hget'⟩ := hindl₁ _ _ _ hget.1
+      exists (new_i', s₂)
+      rw [PortMap.rw_rule_execution cast2]; dsimp [liftL]; and_intros <;> try rfl
+      convert hget'; simp
+  · intro ident new_i v hget
+    cases hinps : imod.outputs.find? ident
+    · have hinps₂ : smod.outputs.find? ident = none := by
+        obtain ⟨ml, mr⟩ := MatchInterface_simpler2 (ident := ident) ‹MatchInterface imod _›
+        simp only [AssocList.find?_mapVal, *, Option.map_eq_none_iff] at mr
+        symm at mr; dsimp at mr; rwa [Option.map_eq_none_iff] at mr
+      have hprod := product_take_right_out _ (imod₂ := imod₂) hinps
+      have hprod₂ := product_take_right_out _ (imod₂ := smod₂) hinps₂
+      rw [PortMap.rw_rule_execution hprod] at hget; dsimp [liftR] at hget
+      obtain ⟨hw, hh⟩ := hindr₂ _ _ _ hget.1
+      exists (s, hw)
+      rw [PortMap.rw_rule_execution hprod₂]; dsimp [liftR]
+      simp; convert hh; simp
+    · obtain ⟨ml, mr⟩ := MatchInterface_simpler2 (ident := ident) ‹MatchInterface imod _›; clear ml
+      simp only [AssocList.find?_mapVal, *] at mr; symm at mr; dsimp at mr
+      rename_i val; obtain ⟨T, val⟩ := val
+      rw [Option.map_eq_some_iff] at mr
+      obtain ⟨⟨T', val'⟩, hf, heq⟩ := mr
+      cases heq
+      have hp1 := product_take_left_out (imod₂ := imod₂) imod hinps
+      have hp2 := product_take_left_out (imod₂ := smod₂) smod hf
+      have_hole getIO1 : imod.outputs.getIO ident = _ := by
+        unfold PortMap.getIO; rewrite [hinps]; dsimp
+      have_hole getIO2 : smod.outputs.getIO ident = _ := by
+        unfold PortMap.getIO; rewrite [hf]; dsimp
+      have_hole cast1 : (imod.product imod₂).outputs.getIO ident = _ := by
+        rw [hp1,←getIO1]
+      have_hole cast2 : (smod.product smod₂).outputs.getIO ident = _ := by
+        rw [hp2,←getIO2]
+      rw [PortMap.rw_rule_execution cast1] at hget; dsimp [liftL] at hget
+      obtain ⟨new_i', hget'⟩ := hindl₂ _ _ _ hget.1
+      exists (new_i', s₂)
+      rw [PortMap.rw_rule_execution cast2]; dsimp [liftL]; and_intros <;> try rfl
+      convert hget'; simp
+
+axiom indistinguishability_connect {i s inp out} [MatchInterface imod smod] :
+  imod.indistinguishable smod i s →
+  (imod.connect' out inp).indistinguishable (smod.connect' out inp) i s
+
 def refines_φ (φ : I → S → Prop) :=
   ∀ (init_i : I) (init_s : S),
     φ init_i init_s →
@@ -1016,17 +1135,6 @@ theorem refines_transitive {J} (imod' : Module Ident J):
     exists s
     split_ands <;> try assumption
     exists i'
-
-axiom indistinguishability_product {J K} {i i₂ s s₂} {imod₂ : Module Ident J} {smod₂ : Module Ident K}
-  [MatchInterface imod smod]
-  [MatchInterface imod₂ smod₂] :
-  imod.indistinguishable smod i s →
-  imod₂.indistinguishable smod₂ i₂ s₂ →
-  (imod.product imod₂).indistinguishable (smod.product smod₂) (i, i₂) (s, s₂)
-
-axiom indistinguishability_connect {i s inp out} [MatchInterface imod smod] :
-  imod.indistinguishable smod i s →
-  (imod.connect' out inp).indistinguishable (smod.connect' out inp) i s
 
 -- theorem PortMap.rw_rule_execution' {S : Type _} {a b c : Σ (T : Type _), S → T → S → Prop} {s s'} {v : b.fst} (h : b.fst = a.fst) (h' : a = b) :
 --   a.snd s (h.mp v) s' ↔ b.snd s (h'.mp (h' ▸ v)) s' := by subst_vars; rfl
