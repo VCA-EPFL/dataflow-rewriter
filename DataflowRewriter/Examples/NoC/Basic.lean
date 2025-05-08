@@ -6,30 +6,32 @@ Authors: Yann Herklotz, Gurvan Debaussart
 
 namespace DataflowRewriter.Examples.NoC
 
--- TODO: Maybe a comment here to explain Yann's hack would be great since this
--- is also an Example file
 class NocParam where
-  Data : Type     -- Type of data transmitted over the NoC
+  Data  : Type     -- Type of data transmitted over the NoC
   DataS : String  -- String representation of Data
   netsz : Nat     -- Network Size (Number of router)
 
 variable [P : NocParam]
 
--- TODO: Unsure why this needs to be an abbrev, but it does not work when this
--- is def
-abbrev RouterID :=
-  -- FIXME: This could be a Fin T.netsz, should it ?
-  -- What is the expected behavior of a NoC in which the target is invalid?
-  -- Making this a Fin T.netsz makes the below design harder, since we cannot
-  -- range over Fin
-  Nat
+@[simp] abbrev RouterID := Nat
 
 structure FlitHeader : Type :=
-  dest : RouterID
+  dst : RouterID
 
 def FlitHeaderS : String :=
   s!"FlitHeader {P.netsz}"
 
-abbrev Flit := P.Data × FlitHeader
+@[simp] abbrev Flit := P.Data × FlitHeader
+
+@[simp] abbrev Dir      := Nat
+@[simp] abbrev DirLocal := 0
+@[simp] abbrev DirWest  := 1
+@[simp] abbrev DirEast  := 2
+@[simp] abbrev DirNorth := 3
+@[simp] abbrev DirSouth := 4
+
+-- If a packet is in router `src` and want to go to `dst`, which direction
+-- should it go to?
+def Arbiter := (src : RouterID) → (dst : RouterID) → Option Dir
 
 end DataflowRewriter.Examples.NoC

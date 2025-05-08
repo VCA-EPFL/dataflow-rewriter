@@ -24,9 +24,7 @@ variable [P : NocParam]
 def lift_f {S : Type} (n : ℕ) (f : ℕ → (Σ T : Type, S → T → S → Prop)) : PortMap ℕ (Σ T : Type, (S → T → S → Prop)) :=
   List.range n |>.map (λ i => ⟨↑i, f i⟩) |>.toAssocList
 
--- Components ------------------------------------------------------------------
--- Reference semantics for useful components
--- Implementation is provided in `ExprLow` and `ExprHigh` using base components
+-- Utils components ------------------------------------------------------------
 
 -- Branch with `n` outputs
 @[drcomponents]
@@ -47,11 +45,13 @@ def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List P.Data 
         ⟨P.Data,
           λ (oldDatas, oldRouterIDs) data (newDatas, newRouterIDs) =>
             data :: newDatas = oldDatas ∧
-            { dest := routerID } :: newRouterIDs = oldRouterIDs
+            { dst := routerID } :: newRouterIDs = oldRouterIDs
         ⟩)
       |>.toAssocList,
     init_state := λ s => s = ⟨[], []⟩,
   }
+
+@[drcomponents] def nbranch := nbranch' |>.stringify
 
 def nrouteT := List Flit
 
@@ -59,7 +59,7 @@ def nrouteT := List Flit
 def mk_nroute_output_rule (rID : RouterID) : (Σ T : Type, nrouteT → T → nrouteT → Prop) :=
   ⟨
     P.Data,
-    λ oldState data newState => oldState = (data, { dest := rID }) :: newState
+    λ oldState data newState => oldState = (data, { dst := rID }) :: newState
   ⟩
 
 -- NBranch with only one input
@@ -77,6 +77,8 @@ def nroute' (name := "nroute") : NatModule (NatModule.Named name nrouteT) :=
     init_state := λ s => s = [],
   }
 
+@[drcomponents] def nroute := nroute' |>.stringify
+
 @[drcomponents]
 def mk_nbag_input_rule (S : Type) (_ : ℕ) : (Σ T : Type, List S → T → List S → Prop) :=
     ⟨S, λ oldState v newState => newState = oldState.concat v⟩
@@ -92,6 +94,19 @@ def nbag' (T : Type) (n : ℕ) (name := "nbag") : NatModule (NatModule.Named nam
     ].toAssocList,
     init_state := λ s => s = [],
   }
+
+@[drcomponents] def nbag T n := nbag' T n |>.stringify
+
+-- Contrary to a `sink`, a `hide` never consume its i/o
+@[drcomponents]
+def hide' (T : Type _) (inp_sz out_sz : Nat) (name := "hide") : NatModule (NatModule.Named name Unit) :=
+  {
+    inputs := List.range inp_sz |>.map (λ n => ⟨n, ⟨T, λ _ _ _ => False⟩⟩) |>.toAssocList,
+    outputs := List.range out_sz |>.map (λ n => ⟨n, ⟨T, λ _ _ _ => False⟩⟩) |>.toAssocList,
+    init_state := λ _ => True,
+  }
+
+-- Network Components ----------------------------------------------------------
 
 def nocT : Type :=
   List Flit
@@ -109,7 +124,7 @@ def mk_noc_output_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → 
       P.Data,
       λ oldState data newState =>
         ∃ i, newState = oldState.remove i ∧
-        (data, { dest := rID }) = oldState.get i
+        (data, { dst := rID }) = oldState.get i
     ⟩
 
 @[drcomponents]
@@ -120,12 +135,22 @@ def noc' (name := "noc") : NatModule (NatModule.Named name nocT) :=
     init_state := λ s => s = [],
   }
 
--- Stringify -------------------------------------------------------------------
-
-@[drcomponents] def nbag T n := nbag' T n |>.stringify
-
-@[drcomponents] def nbranch := nbranch' |>.stringify
-
-@[drcomponents] def nroute := nroute' |>.stringify
-
 @[drcomponents] def noc := noc' |>.stringify
+
+abbrev routerT := List Flit
+
+@[drcomponents]
+def mk_router_input (rId : ℕ) : Σ T : Type, routerT → T → routerT → Prop :=
+  ⟨Flit, λ oldS inp newS => newS = oldS ++ [inp]⟩
+
+@[drcomponents]
+def mk_router_output (arbiter : Arbiter) (rId : RouterID) (n : ℕ) : Σ T : Type, routerT → T → routerT → Prop :=
+  ⟨Flit, λ oldS out newS => oldS = out :: newS ∧ arbiter rId out.2.dst = n⟩
+
+@[drcomponents]
+def router' (arbiter : Arbiter) (rId : RouterID) (name := "router") : NatModule (NatModule.Named name nocT) :=
+  {
+    inputs := lift_f 5 mk_router_input,
+    outputs := lift_f 5 (mk_router_output arbiter rId),
+    init_state := λ s => s = [],
+  }

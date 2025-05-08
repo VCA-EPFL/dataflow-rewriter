@@ -1,3 +1,8 @@
+/-
+Copyright (c) 2025 VCA Lab, EPFL. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Yann Herklotz, Gurvan Debaussart
+-/
 import Lean
 import Init.Data.BitVec.Lemmas
 import Qq
@@ -9,6 +14,7 @@ import DataflowRewriter.ExprLow
 import DataflowRewriter.ExprLowLemmas
 
 import DataflowRewriter.Examples.NoC.BasicLemmas
+import DataflowRewriter.Examples.NoC.Perm
 
 open Batteries (AssocList)
 
@@ -273,77 +279,15 @@ theorem arbiterXY_correct {rId dst : RouterID} :
       obtain ⟨HeqX, HeqY⟩ := Heq
       apply getX_getY_correct HeqX HeqY
 
+-- Lemmas for permutation using aesop ------------------------------------------
+
+@[simp] abbrev typeOf {α} (_ : α) := α
+
 theorem perm_eraseIdx {α} {v} {l l1 l2 : List α} {idx : Fin l.length} (Heq : l[idx] = v := by simpa):
   List.Perm l (l1 ++ [v] ++ l2) ↔ List.Perm (List.eraseIdx l idx) (l1 ++ l2) :=
   by sorry
 
 theorem append_cons {α} {v} {l : List α} : v :: l = [v] ++ l := by rfl
-
-@[simp] abbrev typeOf {α} (_ : α) := α
-
-theorem tmp_perm_r {α} {l₁ l₂ : List α} : ∀ l, l₁.Perm l₂ → (l ++ l₁).Perm (l ++ l₂) := by
-  intros l H
-  rwa [List.perm_append_left_iff]
-
-theorem tmp_perm_l {α} {l₁ l₂ : List α} : ∀ l, l₁.Perm l₂ → (l₁ ++ l).Perm (l₂ ++ l) := by
-  intros l H
-  rwa [List.perm_append_right_iff]
-
-theorem tmp_perm_assoc_r {α} {l₁ l₂ l₃ : List α} : l₁.Perm (l₂ ++ l₃) → l₁.Perm (l₃ ++ l₂)
-:= by sorry
-
-theorem tmp_perm_assoc_l {α} {l₁ l₂ l₃ : List α} : (l₁ ++ l₂).Perm l₃ → (l₂ ++ l₁).Perm l₃
-:= by sorry
-
-theorem tmp_perm_comm {α} {l₁ l₂ l₃ : List α} : l₁.Perm l₂ → l₂.Perm l₁
-:= by sorry
-
-theorem tmp_perm_append_left_iff {α} {l₁ l₂ : List α} : ∀ l, (l ++ l₁).Perm (l
-++ l₂) → l₁.Perm l₂ := by sorry
-
-theorem tmp_perm_append_right_iff {α} {l₁ l₂ : List α} : ∀ l, (l₁ ++ l).Perm (l₂ ++ l) → l₁.Perm l₂ := by sorry
-
-theorem tmp_perm_append_comm {α} {l l₁ l₂ : List α} : (l₁ ++ l₂).Perm l → (l₂ ++ l₁).Perm l := by sorry
-
-attribute [aesop safe apply]
-  tmp_perm_l
-  tmp_perm_r
-
-attribute [aesop safe forward]
-  tmp_perm_comm
-  tmp_perm_assoc_r
-  tmp_perm_assoc_l
-  tmp_perm_append_left_iff
-  tmp_perm_append_right_iff
-
-attribute [aesop unsafe 25%]
-  List.perm_append_right_iff  -- Probably never useful since already in forward / safe ?
-  List.perm_append_left_iff   -- Probably never useful since already in forward / safe ?
-  List.append_assoc           -- Probably also never useful since we have append_comm_assoc?
-  List.perm_append_comm
-  List.perm_append_comm_assoc
-
-attribute [aesop unsafe 10%]
-  List.perm_comm
-  tmp_perm_append_comm
-
-attribute [aesop unsafe 1%]
-  List.Perm.trans
-
-theorem perm_append {α} {l l1 l2 l3 : List α} :
-  l1.Perm (l2 ++ l3) <-> (l1 ++ l).Perm (l2 ++ l ++ l3) := by
-    apply Iff.intro
-    · intros a
-      apply List.Perm.trans (l₂ := l2 ++ l3 ++ l)
-      · aesop?
-      · aesop?
-    · intros a
-      rw [←List.perm_append_right_iff (l := l)]
-      aesop?
-
-theorem perm_append' : typeOf @perm_append := by
-  aesop?
-  repeat sorry
 
 -- Proof of correctness --------------------------------------------------------
 
@@ -395,13 +339,28 @@ theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
       rwa [List.perm_append_right_iff (l := [v])]
     · obtain ⟨Hrule1, Hrule2, Hrule3⟩ := Hrule
       rw [←Hrule3, Hrule1, ←Hrule2]
+      drperm
       repeat rw [←List.append_assoc] at *
       rwa [←perm_append]
     · obtain ⟨Hrule1, Hrule2, Hrule3, Hrule4⟩ := Hrule
       rw [Hrule1, ←Hrule2, ←Hrule3, ←Hrule4]
+      drperm
+      repeat rw [←List.append_assoc]
+      dsimp
+      apply tmp_perm_append_rot_r
+      apply tmp_perm_assoc_r
+      apply tmp_perm_append_rot_r
+      apply tmp_perm_append_rot_r
+      apply tmp_perm_append_rot_r
       aesop?
-        (erase List.Perm.trans, List.cons_append, List.singleton_append, List.cons_append_fun)
-        (config := { maxRuleApplicationDepth := 10 })
+        (rule_sets := [drcomm])
+        (config := {
+          maxRuleApplicationDepth := 50,
+          maxRuleApplications     := 400,
+          useSimpAll              := false,
+          enableSimp              := false,
+        })
+      -- aesop? (rule_sets := [drcomm, -default, -builtin])
       repeat rw [←List.append_assoc] at *
       repeat rw [List.append_assoc] at *
       rw [←List.append_assoc]
