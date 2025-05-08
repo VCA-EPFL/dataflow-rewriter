@@ -497,28 +497,58 @@ instance MatchInterface_connect {I S} {o i} {imod : Module Ident I} {smod : Modu
 --          [MatchInterface imod smod]
 --          : MatchInterface (imod.mapInputPorts i) (smod.connect' o i) := by sorry
 
-axiom MatchInterface_product {I J S T} {imod : Module Ident I} {tmod : Module Ident T}
-         {smod : Module Ident S} (jmod : Module Ident J) [MatchInterface imod tmod]
-         [MatchInterface smod jmod] :
-         MatchInterface (imod.product smod) (tmod.product jmod)
+theorem MatchInterface_product {I J S T} {imod : Module Ident I} {tmod : Module Ident T}
+         {smod : Module Ident S} (jmod : Module Ident J) [inst1 : MatchInterface imod tmod]
+         [inst2 : MatchInterface smod jmod] :
+         MatchInterface (imod.product smod) (tmod.product jmod) := by
+  simp only [MatchInterface_simpler_iff] at *
+  intro ident
+  specialize inst1 ident; specialize inst2 ident
+  obtain ⟨h1, h2⟩ := inst1; obtain ⟨h3, h4⟩ := inst2
+  and_intros
+  · replace h2 := h3; clear h4; clear h3
+    cases h : AssocList.find? ident imod.inputs
+      <;> cases h' : AssocList.find? ident smod.inputs
+      <;> simp only [AssocList.find?_mapVal, *] at *
+      <;> dsimp at *
+      <;> (symm at h1 h2; simp -failIfUnchanged only [Option.map_eq_none, Option.map_eq_some] at h1 h2)
+    . unfold Module.product; dsimp
+      repeat (rw [AssocList.append_find_right] <;> simp only [AssocList.find?_mapVal, *] <;> try rfl)
+    · rename_i v0; obtain ⟨v1, hfind, hf⟩ := h2; cases v0; cases v1; cases hf
+      unfold Module.product; dsimp
+      repeat (rw [AssocList.append_find_right] <;> simp only [AssocList.find?_mapVal, *] <;> try rfl)
+    · rename_i v0; obtain ⟨v1, hfind, hf⟩ := h1; cases v0; cases v1; cases hf
+      unfold Module.product; dsimp
+      repeat rw [AssocList.append_find_left] <;> try solve | (simp only [AssocList.find?_mapVal, *]; rfl)
+      rfl
+    · rename_i v0; obtain ⟨v1, hfind, hf⟩ := h1; cases v0; cases v1; cases hf
+      unfold Module.product; dsimp
+      repeat rw [AssocList.append_find_left] <;> try solve | (simp only [AssocList.find?_mapVal, *]; rfl)
+      rfl
+  · replace h1 := h2; replace h2 := h4; clear h4; clear h3
+    cases h : AssocList.find? ident imod.outputs
+      <;> cases h' : AssocList.find? ident smod.outputs
+      <;> simp only [AssocList.find?_mapVal, *] at *
+      <;> dsimp at *
+      <;> (symm at h1 h2; simp -failIfUnchanged only [Option.map_eq_none, Option.map_eq_some] at h1 h2)
+    . unfold Module.product; dsimp
+      repeat (rw [AssocList.append_find_right] <;> simp only [AssocList.find?_mapVal, *] <;> try rfl)
+    · rename_i v0; obtain ⟨v1, hfind, hf⟩ := h2; cases v0; cases v1; cases hf
+      unfold Module.product; dsimp
+      repeat (rw [AssocList.append_find_right] <;> simp only [AssocList.find?_mapVal, *] <;> try rfl)
+    · rename_i v0; obtain ⟨v1, hfind, hf⟩ := h1; cases v0; cases v1; cases hf
+      unfold Module.product; dsimp
+      repeat rw [AssocList.append_find_left] <;> try solve | (simp only [AssocList.find?_mapVal, *]; rfl)
+      rfl
+    · rename_i v0; obtain ⟨v1, hfind, hf⟩ := h1; cases v0; cases v1; cases hf
+      unfold Module.product; dsimp
+      repeat rw [AssocList.append_find_left] <;> try solve | (simp only [AssocList.find?_mapVal, *]; rfl)
+      rfl
 
 instance MatchInterface_product_instance {I J S T} {imod : Module Ident I} {tmod : Module Ident T}
          {smod : Module Ident S} (jmod : Module Ident J) [MatchInterface imod tmod]
          [MatchInterface smod jmod] :
          MatchInterface (imod.product smod) (tmod.product jmod) := by apply MatchInterface_product
-  -- input_types := by
-  --   rename_i inst1 inst2; intro ident; simp [Module.product]
-  --   rcases inst1 with ⟨ inst1_in, _ ⟩
-  --   rcases inst2 with ⟨ inst2_in, _ ⟩
-  --   specialize inst1_in ident; specialize inst2_in ident
-  --   by_cases h : ident ∈ imod.inputs.keysList
-  --   · unfold PortMap.getIO at *
-  --     apply Batteries.AssocList.keysList_find2 at h
-  --     rw [Option.isSome_iff_exists] at h; rcases h with ⟨ val, hfind ⟩
-  --     rw [Batteries.AssocList.append_find_left]
-  --     all_goals sorry
-  --   · sorry
-  -- output_types := sorry
 
 theorem match_interface_inputs_contains {I S} {imod : Module Ident I} {smod : Module Ident S}
   [MatchInterface imod smod] {k}:
@@ -534,15 +564,29 @@ theorem match_interface_outputs_contains {I S} {imod : Module Ident I} {smod : M
   simp only [←AssocList.contains_find?_isSome_iff]
   rw [b]
 
-axiom MatchInterface_mapInputPorts {I S} {imod : Module Ident I}
-         {smod : Module Ident S} [MatchInterface imod smod] {f} :
+theorem MatchInterface_mapInputPorts {I S} {imod : Module Ident I}
+         {smod : Module Ident S} [inst : MatchInterface imod smod] {f} :
          Function.Bijective f →
-         MatchInterface (imod.mapInputPorts f) (smod.mapInputPorts f)
+         MatchInterface (imod.mapInputPorts f) (smod.mapInputPorts f) := by
+  simp only [MatchInterface_simpler_iff] at *
+  intro hf ident
+  have hinj := hf.injective
+  have hbij := (Function.bijective_iff_existsUnique f).mp hf ident
+  obtain ⟨ha, hb1, hb2⟩ := hbij; subst ident
+  obtain ⟨h1, h2⟩ := inst ha; obtain ⟨h1', h2'⟩ := inst (f ha); clear inst
+  and_intros <;> (simp (disch := assumption) only [Module.mapInputPorts, AssocList.find?_mapVal, AssocList.mapKey_find?] at *; assumption)
 
-axiom MatchInterface_mapOutputPorts {I S} {imod : Module Ident I}
-         {smod : Module Ident S} [MatchInterface imod smod] {f} :
+theorem MatchInterface_mapOutputPorts {I S} {imod : Module Ident I}
+         {smod : Module Ident S} [inst : MatchInterface imod smod] {f} :
          Function.Bijective f →
-         MatchInterface (imod.mapOutputPorts f) (smod.mapOutputPorts f)
+         MatchInterface (imod.mapOutputPorts f) (smod.mapOutputPorts f) := by
+  simp only [MatchInterface_simpler_iff] at *
+  intro hf ident
+  have hinj := hf.injective
+  have hbij := (Function.bijective_iff_existsUnique f).mp hf ident
+  obtain ⟨ha, hb1, hb2⟩ := hbij; subst ident
+  obtain ⟨h1, h2⟩ := inst ha; obtain ⟨h1', h2'⟩ := inst (f ha); clear inst
+  and_intros <;> (simp (disch := assumption) only [Module.mapOutputPorts, AssocList.find?_mapVal, AssocList.mapKey_find?] at *; assumption)
 
 end Match
 
