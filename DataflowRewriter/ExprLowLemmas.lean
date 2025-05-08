@@ -129,6 +129,10 @@ def wf : ExprLow Ident → Bool := all (λ typ => ε.contains typ)
 @[drunfold]
 def locally_wf : ExprLow Ident → Bool := all' (λ f _ => f.input.invertible ∧ f.output.invertible)
 
+theorem locally_wf_product {e₁ e₂ : ExprLow Ident} :
+  (e₁.product e₂).locally_wf → e₁.locally_wf ∧ e₂.locally_wf := by
+  simp +contextual [locally_wf, all']
+
 /- For now we will ensure this structurally by filtering out keys that are not in the base module. -/
 def wf_mapping : ExprLow Ident → Bool
 | .base inst typ =>
@@ -521,32 +525,30 @@ theorem rename_build_module_eq {e e' : ExprLow Ident} {f g} (h : Function.Biject
       rename_i val
       specialize ih (by assumption) (by assumption) heq'
       symm at ih; dsimp [drunfold] at hfind; rw [Option.bind_eq_some] at hfind
-      obtain ⟨val', hfind', hst⟩ := hfind
-      stop
-      rw [Option.map_eq_some'] at ih; obtain ⟨m, hbuild1, hbuild2⟩ := ih
+      obtain ⟨val', hfind', hst⟩ := hfind; cases hst
+      rw [hfind'] at ih; rw [Option.map_eq_some'] at ih; obtain ⟨m, hbuild1, hbuild2⟩ := ih
+      dsimp [build_module']
       rw [hbuild1]; dsimp [Sigma.map];
-      unfold Sigma.map at hbuild2; rename_i val; cases val; cases m; dsimp at *
+      unfold Sigma.map at hbuild2; rename_i val; cases val'; cases m; dsimp at *
       cases hbuild2; congr 3
-      · rw [eraseAll_comm_inputs (Hinj := h.injective)]
-      · rw [eraseAll_comm_outputs (Hinj := h'.injective)]
-      · rw [find?_comm_outputs h'.injective, find?_comm_inputs h.injective]; rfl
+      · rewrite [eraseAll_comm_inputs (Hinj := h.injective)]; rfl
+      · rewrite [eraseAll_comm_outputs (Hinj := h'.injective)]; rfl
+      · rewrite [find?_comm_outputs h'.injective, find?_comm_inputs h.injective]; rfl
   | product e₁ e₂ ih₁ ih₂ =>
-    intro hwf_mapping
+    intro hwf_mapping hloc heq
     dsimp [wf_mapping] at hwf_mapping; simp at hwf_mapping
-    specialize ih₁ hwf_mapping.1
-    specialize ih₂ hwf_mapping.2
-    stop
-    dsimp [drunfold]
-    cases hfind : build_module' ε (mapPorts2 f g e₁) <;> cases hfind₂ : build_module' ε (mapPorts2 f g e₂)
-    · unfold mapPorts2 at hfind ih₁ ih₂ hfind₂; rw [hfind,hfind₂]; dsimp
-      rw [hfind] at ih₁; rw [hfind₂] at ih₂; symm at ih₁ ih₂; rw [Option.map_eq_none'] at ih₁ ih₂; rw [ih₁,ih₂]; rfl
-    · unfold mapPorts2 at hfind ih₁ ih₂ hfind₂; rw [hfind,hfind₂]; dsimp
-      rw [hfind] at ih₁; rw [hfind₂] at ih₂; symm at ih₁ ih₂; rw [Option.map_eq_none'] at ih₁; rw [ih₁]; rfl
-    · unfold mapPorts2 at hfind ih₁ ih₂ hfind₂; rw [hfind,hfind₂]; dsimp
-      rw [hfind] at ih₁; rw [hfind₂] at ih₂; symm at ih₁ ih₂; rw [Option.map_eq_none'] at ih₂; rw [ih₂]
-      rw [Option.map_eq_some'] at ih₁; obtain ⟨a, h1, h2⟩ := ih₁
-      rw [h1]; rfl
-    · unfold mapPorts2 at hfind ih₁ ih₂ hfind₂; rw [hfind,hfind₂]; dsimp
+    obtain ⟨e'₁, e'₂, h1, h2, h3⟩ := mapPorts2_unfold_product heq; subst_vars
+    specialize ih₁ hwf_mapping.1 (locally_wf_product hloc).1 h1
+    specialize ih₂ hwf_mapping.2 (locally_wf_product hloc).2 h2
+    cases hfind : build_module' ε e'₁ <;> cases hfind₂ : build_module' ε e'₂
+    · rw [hfind] at ih₁; rw [hfind₂] at ih₂; symm at ih₁ ih₂; rw [Option.map_eq_none'] at ih₁ ih₂
+      dsimp [build_module']; rw [ih₁]; rw [hfind]; rfl
+    · rw [hfind] at ih₁; symm at ih₁; rw [Option.map_eq_none'] at ih₁
+      dsimp [build_module']; rw [ih₁]; rw [hfind]; rfl
+    · rw [hfind] at ih₁; rw [hfind₂] at ih₂; symm at ih₁ ih₂; rw [Option.map_eq_none'] at ih₂
+      rw [Option.map_eq_some'] at ih₁; obtain ⟨a, ih₁, hf⟩ := ih₁
+      dsimp [build_module']; rw [hfind, hfind₂, ih₁, ih₂]; rfl
+    · dsimp [build_module']; rw [hfind,hfind₂]; dsimp
       rw [hfind] at ih₁; rw [hfind₂] at ih₂; symm at ih₁ ih₂;
       rw [Option.map_eq_some'] at ih₁ ih₂
       obtain ⟨m₁, ih1₁, ih2₁⟩ := ih₁
@@ -555,9 +557,7 @@ theorem rename_build_module_eq {e e' : ExprLow Ident} {f g} (h : Function.Biject
       unfold Sigma.map at ih2₁ ih2₂ ⊢; dsimp at *
       rename_i val val1; cases val; cases val1
       cases ih2₁; cases ih2₂
-      dsimp; congr 3
-      · simp [mapPorts2_mapKey_inputs,AssocList.mapVal_mapKey,AssocList.mapVal_mapKey,AssocList.mapKey_append]
-      · simp [mapPorts2_mapKey_outputs,AssocList.mapVal_mapKey,AssocList.mapVal_mapKey,AssocList.mapKey_append]
+      dsimp [Module.product]; congr 3 <;> simp [Module.mapInputPorts, mapPorts2_mapKey_outputs, mapPorts2_mapKey_inputs,AssocList.mapVal_mapKey,AssocList.mapVal_mapKey,AssocList.mapKey_append]
 
 theorem refines_mapPorts2_1 {e e' f g} :
   Function.Bijective f → Function.Bijective g → e.wf_mapping ε →

@@ -380,8 +380,8 @@ theorem eraseAll_not_contains {α β} [DecidableEq α] (a : AssocList α β) (i 
 
 @[drcompute]
 theorem eraseAll_append {α β} [DecidableEq α] {l1 l2 : AssocList α β} {i}:
-  AssocList.eraseAll i (l1.append l2) =
-  (AssocList.eraseAll i l1).append (AssocList.eraseAll i l2) := by
+  AssocList.eraseAll i (l1 ++ l2) =
+  AssocList.eraseAll i l1 ++ AssocList.eraseAll i l2 := by
     induction l1 <;> simp [eraseAll, append]
     rename_i k _ _ _
     cases k == i <;> simp [eraseAllP_TR_eraseAll, eraseAll] at * <;> simpa [append, eraseAll]
@@ -520,6 +520,14 @@ axiom in_eraseAll_noDup {α β γ δ} {l : List ((α × β) × γ × δ)} (Ta : 
 
 @[simp] axiom in_eraseAll_map_comm {α β} (Ta : α) [DecidableEq α] (a : AssocList α β):
   (a.toList).Nodup -> ((AssocList.eraseAllP (fun k x => decide (k = Ta)) a).toList).Nodup
+
+theorem eraseAll_comm {α β} [DecidableEq α] {a b : α} {m : AssocList α β}:
+  (m.eraseAll a).eraseAll b = (m.eraseAll b).eraseAll a := by
+  induction m with
+  | nil => rfl
+  | cons k v xs ih =>
+    by_cases heq1 : k = a <;> by_cases heq2 : k = b <;> subst_vars
+      <;> simp (disch := assumption) only [eraseAll_cons_eq, *, eraseAll_cons_neq]
 
 theorem find?_append {α β} [DecidableEq α] {l1 l2 : AssocList α β} {k}:
   find? k (l1 ++ l2) = match find? k l1 with
