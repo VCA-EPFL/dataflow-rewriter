@@ -827,6 +827,7 @@ theorem product_take_left_out {ident} {J} {imod₂ : Module Ident J} {v}:
   rw [AssocList.append_find_left (by simp only [AssocList.find?_mapVal, ha]; rfl)]
   rfl
 
+omit mm in
 theorem indistinguishability_product {J K} {i i₂ s s₂} {imod₂ : Module Ident J} {smod₂ : Module Ident K}
   [MatchInterface imod smod]
   [MatchInterface imod₂ smod₂] :
