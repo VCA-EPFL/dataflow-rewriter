@@ -47,7 +47,7 @@ def lhs (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap String
 
     c_i -> condFork [to="in1"];
     d_i -> branch [to="in1"];
-    condFork -> branch [from="out2", to="in2"];
+    condFork -> branch [from="out1", to="in2"];
     condFork -> init [from="out2", to="in1"];
 
     branch -> o_br_t [from = "out1"];
@@ -68,7 +68,7 @@ def lhs' (T T' : Type) (Tₛ T'ₛ : String) : ExprHigh String × IdentMap Strin
 
     c_i -> condFork [to="in1"];
     d_i -> branch [to="in1"];
-    condFork -> branch [from="out2", to="in2"];
+    condFork -> branch [from="out1", to="in2"];
     condFork -> init [from="out2", to="in1"];
 
     branch -> o_br_t [from = "out1"];
