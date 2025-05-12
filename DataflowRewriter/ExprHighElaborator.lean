@@ -17,24 +17,25 @@ declare_syntax_cat dot_stmnt
 declare_syntax_cat dot_attr_list
 declare_syntax_cat dot_attr
 
-syntax str : dot_value
-syntax num : dot_value
-syntax ident : dot_value
-syntax (name := dot_value_term) "$(" term ")" : dot_value
-syntax "from" : dot_value
+scoped syntax str : dot_value
+scoped syntax num : dot_value
+scoped syntax ident : dot_value
+scoped syntax (name := dot_value_term) "$(" term ")" : dot_value
+scoped syntax "from" : dot_value
+scoped syntax "to" : dot_value
 
-syntax dot_value " = " dot_value : dot_attr
-syntax (dot_attr),* : dot_attr_list
+scoped syntax dot_value " = " dot_value : dot_attr
+scoped syntax (dot_attr),* : dot_attr_list
 
-syntax ident (" [" dot_attr_list "]")? : dot_stmnt
-syntax ident " -> " ident (" [" dot_attr_list "]")? : dot_stmnt
+scoped syntax ident (" [" dot_attr_list "]")? : dot_stmnt
+scoped syntax ident " -> " ident (" [" dot_attr_list "]")? : dot_stmnt
 
 syntax dot_stmnt_list := (dot_stmnt "; ")*
 
 syntax dot_input_list := ("(" ident ", " num ")"),*
 
-syntax (name := dot_graph) "[graph| " dot_stmnt_list " ]" : term
-syntax (name := dot_graphEnv) "[graphEnv| " dot_stmnt_list " ]" : term
+scoped syntax (name := dot_graph) "[graph| " dot_stmnt_list " ]" : term
+scoped syntax (name := dot_graphEnv) "[graphEnv| " dot_stmnt_list " ]" : term
 
 open Lean.Meta Lean.Elab Term Lean.Syntax
 
@@ -44,8 +45,13 @@ def isFrom : Syntax -> Bool
 | _ => false
 
 open Lean in
+def isTo : Syntax -> Bool
+| `(dot_value| to) => true
+| _ => false
+
+open Lean in
 def checkName (n : Name) (s : Syntax) : Bool :=
-  s[0].getId = n ∨ (isFrom s ∧ n = `from)
+  s[0].getId = n ∨ (isFrom s ∧ n = `from) ∨ (isTo s ∧ n = `to)
 
 open Lean in
 def findStx (n : Name) (stx : Array Syntax) : Option Nat := do
