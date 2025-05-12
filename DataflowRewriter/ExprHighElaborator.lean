@@ -51,7 +51,7 @@ def isTo : Syntax -> Bool
 
 open Lean in
 def checkName (n : Name) (s : Syntax) : Bool :=
-  s[0].getId = n ∨ (isFrom s ∧ n = `from) ∨ (isTo s ∧ n = `to)
+  s[0].getId == n || (isFrom s && n == `from) || (isTo s && n == `to)
 
 open Lean in
 def findStx (n : Name) (stx : Array Syntax) : Option Nat := do
