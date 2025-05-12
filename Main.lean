@@ -188,7 +188,7 @@ def rewriteGraphAbs (parsed : CmdArgs) (g : ExprHigh String) (st : List RewriteI
 
   let (g, st) ← runRewriter parsed st (LoopRewrite2.rewrite.run "loop_rw_" g)
 
-  IO.println s!"TYPEEEE: {pmap}"
+  -- IO.println s!"TYPEEEE: {pmap}"
   let newConcr' : Concretisation String := ⟨concr.1, typ⟩
   let (g, st) ← runRewriter parsed st <| newConcr'.run "concr2_" g
 
@@ -217,7 +217,7 @@ def main (args : List String) : IO Unit := do
   if !parsed.parseOnly then
     let (g', _, st') ← rewriteGraphAbs parsed rewrittenExprHigh st
     rewrittenExprHigh := g'; st := st'
-  IO.println (repr (rewrittenExprHigh.modules.toList.map Prod.fst))
+  -- IO.println (repr (rewrittenExprHigh.modules.toList.map Prod.fst))
   let some l :=
     if parsed.noDynamaticDot then pure (toString rewrittenExprHigh)
     else dynamaticString rewrittenExprHigh ((renameAssocAll assoc st rewrittenExprHigh))
