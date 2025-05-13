@@ -95,13 +95,14 @@ def nbag_low : ExprLow String :=
 
 def nbag_lowT : Type := by
   precomputeTac [T| nbag_low, ε_nbag] by
-    dsimp [nbag_low, ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
-    rw [ε_nbag_merge', ε_nbag_bag]
-    simp [drunfold, seval, drcompute, drdecide]
+    dsimp [nbag_low, ε_nbag]
+    dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    simp (disch := simpa) only [toString, drcompute]
 
 def_module nbag_lowM : StringModule nbag_lowT :=
   [e| nbag_low, ε_nbag]
   reduction_by
+--     dr_reduce_module
     dsimp -failIfUnchanged [drunfold_defs, reduceAssocListfind?, reduceListPartition]
     dsimp -failIfUnchanged [reduceExprHighLower, reduceExprHighLowerProdTR, reduceExprHighLowerConnTR]
     dsimp [ ExprHigh.uncurry, ExprLow.build_module_expr, ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']

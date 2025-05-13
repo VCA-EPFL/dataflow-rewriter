@@ -32,6 +32,6 @@ def FlitHeaderS : String :=
 
 -- If a packet is in router `src` and want to go to `dst`, which direction
 -- should it go to?
-def Arbiter := (src : RouterID) → (dst : RouterID) → Option Dir
+@[simp] abbrev Arbiter := (src dst : RouterID) → Option Dir
 
 end DataflowRewriter.Examples.NoC

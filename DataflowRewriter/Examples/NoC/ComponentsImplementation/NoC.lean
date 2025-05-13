@@ -8,18 +8,11 @@ import Lean
 import Init.Data.BitVec.Lemmas
 import Qq
 
-import DataflowRewriter.Simp
 import DataflowRewriter.Module
+import DataflowRewriter.Component
+import DataflowRewriter.ModuleReduction
 import DataflowRewriter.ExprLow
 import DataflowRewriter.ExprLowLemmas
-import DataflowRewriter.ExprHigh
-import DataflowRewriter.ExprHighLemmas
-import DataflowRewriter.Component
-import DataflowRewriter.KernelRefl
-import DataflowRewriter.Reduce
-import DataflowRewriter.List
-import DataflowRewriter.Tactic
-import DataflowRewriter.AssocList
 
 import DataflowRewriter.Examples.NoC.Basic
 import DataflowRewriter.Examples.NoC.BasicLemmas
@@ -39,16 +32,18 @@ def ε_noc : Env :=
     (s!"NRoute {P.DataS} {P.netsz}", ⟨_, nbranch⟩),
   ].toAssocList
 
+@[drenv]
 theorem ε_noc_nroute :
   ε_noc.find? s!"NRoute {P.DataS} {P.netsz}" = .some ⟨_, nroute⟩ := by
     sorry
 
+@[drenv]
 theorem ε_noc_nbag :
   ε_noc.find? s!"NBag {P.DataS} × {FlitHeaderS} {P.netsz}"
   = .some ⟨_, nbag (P.Data × FlitHeader) P.netsz⟩ := by
     sorry
 
-def noc_low' : ExprLow String :=
+def noc_low : ExprLow String :=
   let nbag : ExprLow String := ExprLow.base
     {
       input := List.range P.netsz |>.map (λ i => ⟨
@@ -81,80 +76,16 @@ def noc_low' : ExprLow String :=
   (ExprLow.product nroute nbag)
 
 def noc_lowT : Type := by
-  precomputeTac [T| noc_low', ε_noc] by
-    simp [drunfold, seval, drdecide, -AssocList.find?_eq]
-    rw [ε_noc_nbag, ε_noc_nroute]
-    simp [drunfold, seval, drcompute, drdecide, nrouteT]
+  precomputeTac [T| noc_low, ε_noc] by
+    dsimp [noc_low, ε_noc]
+    dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    simp (disch := simpa) only [toString, drcompute]
 
-def noc_lowM : StringModule noc_lowT := by
-  precomputeTac [e| noc_low', ε_noc] by
-    simp [drunfold, seval, drdecide, -AssocList.find?_eq]
-    rw [ε_noc_nbag, ε_noc_nroute]
-    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq]
-    conv =>
-      pattern (occs := *) Module.connect'' _ _
-      all_goals
-        rw [(Module.connect''_dep_rw (h := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl)
-                                     (h' := by simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?]; rfl))]; rfl
-    simp [drunfold,seval,drcompute,drdecide,-AssocList.find?_eq,Batteries.AssocList.find?,AssocList.filter,-Prod.exists]
-    unfold Module.connect''
-    dsimp
-    unfold lift_f
-    simp? [
-      drunfold,
-      Module.liftR,
-      Module.liftL,
-      AssocList.mapVal_map_toAssocList,
-      AssocList.mapKey_map_toAssocList,
-      AssocList.mapKey_mapKey,
-      AssocList.mapVal_mapKey,
-      AssocList.eraseAll_append,
-      AssocList.eraseAll_map_neq,
-      AssocList.eraseAll_nil,
-      AssocList.append_nil,
-      AssocList.find?_append,
-      AssocList.find?_map_neq,
-      AssocList.bijectivePortRenaming_same,
-      -AssocList.find?_eq,
-      InternalPort.map,
-      stringify_output_neq,
-      stringify_input_neq,
-      internalport_neq
-    ]
-    -- TODO: Make this not ugly and actually portable
-    conv =>
-      pattern (occs := *) And _ _
-      all_goals congr
-      rfl
-      rfl
-      rfl
-      rfl
-      rw [PortMap.rw_rule_execution
-        (h := by simp [
-          Module.liftR,
-          Module.liftL,
-          AssocList.mapVal_map_toAssocList,
-          AssocList.mapKey_map_toAssocList,
-          AssocList.mapKey_mapKey,
-          AssocList.mapVal_mapKey,
-          AssocList.eraseAll_append,
-          AssocList.eraseAll_map_neq,
-          AssocList.eraseAll_nil,
-          AssocList.append_nil,
-          AssocList.find?_append,
-          AssocList.find?_map_neq,
-          AssocList.bijectivePortRenaming_same,
-          -AssocList.find?_eq,
-          InternalPort.map,
-          stringify_output_neq,
-          stringify_input_neq,
-          internalport_neq,
-        ]
-        <;> rfl)
-      ]
-      dsimp
-      all_goals rfl
-    skip
+def_module noc_lowM : StringModule noc_lowT :=
+  [e| noc_low, ε_noc]
+  reduction_by
+    dr_reduce_module
+    simp only [drlogic]
 
 -- Utilities which does not belong here (TODO: Move elsewhere) -----------------
 

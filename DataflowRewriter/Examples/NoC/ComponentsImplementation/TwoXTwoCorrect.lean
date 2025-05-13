@@ -19,11 +19,9 @@ import DataflowRewriter.Examples.NoC.ComponentsImplementation.TwoXTwo
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.Examples.NoC
+namespace DataflowRewriter.Examples.NoC.TwoXTwo
 
 -- Useful lemmas ---------------------------------------------------------------
-
-def tmp {α} := @List.Perm.trans α
 
 theorem perm_in_perm_l {α} {l1 l2 : List α} {v} {H : l1.Perm l2} (Hin : v ∈ l2 := by simp):
   ∃ i : Fin l1.length, l1[i] = v := by
@@ -54,17 +52,15 @@ theorem arbiterXY_correct {rId dst : RouterID} :
 
 -- Lemmas for permutation using aesop ------------------------------------------
 
-@[simp] abbrev typeOf {α} (_ : α) := α
-
-theorem perm_eraseIdx {α} {v} {l l1 l2 : List α} {idx : Fin l.length} (Heq : l[idx] = v := by simpa):
-  List.Perm l (l1 ++ [v] ++ l2) ↔ List.Perm (List.eraseIdx l idx) (l1 ++ l2) :=
+theorem perm_eraseIdx {α} {v} {l l1 l2 : List α} {idx : Fin l.length} (Heq : l[idx] = v := by simpa) :
+  List.Perm l ([v] ++ l1 ++ l2) ↔ List.Perm (List.eraseIdx l idx) (l1 ++ l2) :=
   by sorry
 
 theorem append_cons {α} {v} {l : List α} : v :: l = [v] ++ l := by rfl
 
 -- Proof of correctness --------------------------------------------------------
 
-instance : MatchInterface noc_lowM noc  := by
+instance : MatchInterface noc_lowM noc := by
   dsimp [noc_lowM, noc]
   solve_match_interface
 
@@ -112,44 +108,31 @@ theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
       rwa [List.perm_append_right_iff (l := [v])]
     · obtain ⟨Hrule1, Hrule2, Hrule3⟩ := Hrule
       rw [←Hrule3, Hrule1, ←Hrule2]
-      drperm
-      repeat rw [←List.append_assoc] at *
-      rwa [←perm_append]
+      dr_perm_put_in_front [v]
+      apply List.Perm.append_left
+      dr_perm_put_in_front i.1
+      dr_perm_put_in_front i.2.1
+      dr_perm_put_in_front i.2.2.1
+      dr_perm_put_in_front i.2.2.2.1
+      assumption
     · obtain ⟨Hrule1, Hrule2, Hrule3, Hrule4⟩ := Hrule
       rw [Hrule1, ←Hrule2, ←Hrule3, ←Hrule4]
-      drperm
-      repeat rw [←List.append_assoc]
-      dsimp
-      apply tmp_perm_append_rot_r
-      apply tmp_perm_assoc_r
-      apply tmp_perm_append_rot_r
-      apply tmp_perm_append_rot_r
-      apply tmp_perm_append_rot_r
-      aesop?
-        (rule_sets := [drcomm])
-        (config := {
-          maxRuleApplicationDepth := 50,
-          maxRuleApplications     := 400,
-          useSimpAll              := false,
-          enableSimp              := false,
-        })
-      -- aesop? (rule_sets := [drcomm, -default, -builtin])
-      repeat rw [←List.append_assoc] at *
-      repeat rw [List.append_assoc] at *
-      rw [←List.append_assoc]
-      rw [←List.append_assoc]
-      rw [←perm_append]
-      simpa [H]
+      dr_perm_put_in_front [v]
+      apply List.Perm.append_left
+      dr_perm_put_in_front i.1
+      dr_perm_put_in_front i.2.1
+      dr_perm_put_in_front i.2.2.1
+      dr_perm_put_in_front i.2.2.2.1
+      assumption
     · obtain ⟨Hrule1, Hrule2, Hrule3, Hrule4⟩ := Hrule
       rw [Hrule1, ←Hrule2, ←Hrule3, ←Hrule4]
-      aesop? (erase List.Perm.trans, List.cons_append, List.singleton_append, List.cons_append_fun)
-      apply List.cons_append
-      repeat rw [←List.append_assoc]
-      repeat rw [←List.append_assoc] at H
-      repeat rw [List.append_assoc]
-      repeat rw [List.append_assoc] at H
-      rw [←List.append_assoc]
-      rwa [←perm_append]
+      dr_perm_put_in_front [v]
+      apply List.Perm.append_left
+      dr_perm_put_in_front i.1
+      dr_perm_put_in_front i.2.1
+      dr_perm_put_in_front i.2.2.1
+      dr_perm_put_in_front i.2.2.2.1
+      assumption
   · intros ident mid_i v Hrule
     case_transition Hcontains : (Module.outputs noc_lowM), ident,
      (PortMap.getIO_not_contained_false' Hrule)
@@ -177,7 +160,8 @@ theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
       and_intros
       · rw [arbiterXY_correct H2]
       · exists idx; simpa [←Hidx]
-      · rwa [←perm_eraseIdx (v := v) (idx := idx)]
+      · rw [←perm_eraseIdx (v := v) (idx := idx)]
+        sorry
     · obtain ⟨H1, H2, H3, H4⟩ := Hrule
       rw [H1, H3, H4] at H
       dsimp [List.append_eq] at H ⊢
@@ -347,4 +331,4 @@ theorem noc_low_correct : noc_lowM ⊑ noc := by
       noc_low_refines_φ
   )
 
-end DataflowRewriter.Examples.NoC
+end DataflowRewriter.Examples.NoC.TwoXTwo

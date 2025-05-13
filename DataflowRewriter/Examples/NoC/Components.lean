@@ -53,7 +53,7 @@ def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List P.Data 
 
 @[drcomponents] def nbranch := nbranch' |>.stringify
 
-def nrouteT := List Flit
+@[simp] abbrev nrouteT := List Flit
 
 @[drcomponents]
 def mk_nroute_output_rule (rID : RouterID) : (Σ T : Type, nrouteT → T → nrouteT → Prop) :=
@@ -106,25 +106,26 @@ def hide' (T : Type _) (inp_sz out_sz : Nat) (name := "hide") : NatModule (NatMo
     init_state := λ _ => True,
   }
 
+@[drcomponents] def hide T inp_sz out_sz := hide' T inp_sz out_sz |>.stringify
+
 -- Network Components ----------------------------------------------------------
 
-def nocT : Type :=
+@[simp] abbrev nocT : Type :=
   List Flit
 
 @[drcomponents]
-def mk_noc_input_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
+def mk_noc_input_rule (rId : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
     ⟨
       Flit,
-      λ oldState v newState => newState = oldState.concat v
+      λ oldState v newState => newState = oldState ++ [v]
     ⟩
 
 @[drcomponents]
-def mk_noc_output_rule (rID : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
+def mk_noc_output_rule (rId : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
     ⟨
-      P.Data,
-      λ oldState data newState =>
-        ∃ i, newState = oldState.remove i ∧
-        (data, { dst := rID }) = oldState.get i
+      Flit,
+      λ oldState v newState =>
+        v.2.dst = rId ∧ ∃ i, newState = oldState.remove i ∧ v = oldState.get i
     ⟩
 
 @[drcomponents]
@@ -137,7 +138,7 @@ def noc' (name := "noc") : NatModule (NatModule.Named name nocT) :=
 
 @[drcomponents] def noc := noc' |>.stringify
 
-abbrev routerT := List Flit
+@[simp] abbrev routerT := List Flit
 
 @[drcomponents]
 def mk_router_input (rId : ℕ) : Σ T : Type, routerT → T → routerT → Prop :=
@@ -154,3 +155,15 @@ def router' (arbiter : Arbiter) (rId : RouterID) (name := "router") : NatModule 
     outputs := lift_f 5 (mk_router_output arbiter rId),
     init_state := λ s => s = [],
   }
+
+@[drcomponents]
+def router_stringify_inp (rId : RouterID) (n : ℕ) :=
+  s!"Router {rId} in{n + 1}"
+
+@[drcomponents]
+def router_stringify_out (rId : RouterID) (n : ℕ) :=
+  s!"Router {rId} out{n + 1}"
+
+@[drcomponents]
+def router (arbiter : Arbiter) (rId : RouterID) (name := "router") : StringModule (NatModule.Named name nocT) :=
+  router' arbiter rId |>.mapIdent (router_stringify_inp rId) (router_stringify_out rId)
