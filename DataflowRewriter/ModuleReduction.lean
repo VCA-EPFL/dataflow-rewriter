@@ -153,13 +153,7 @@ def renamePorts' {S : Type _} (m : Module Ident S) (p : PortMapping Ident) : Mod
            outputs := renameAssocList' m.outputs p.output
   }
 
-theorem sigma_cast {α} {f : α → Type _} {x y : Sigma f} (h : x = y) :
-  f x.fst = f y.fst := by subst x; rfl
-
 def SigmaSnd {a b} := @Sigma.snd a b
-
-theorem sigma_rw {α} {f : α → Type _} {x y : Sigma f} (h : x = y) :
-  x.snd = (sigma_cast h).mpr (SigmaSnd y) := by subst x; rfl
 
 @[drnorm] theorem renamePorts_getIO_inputs_neq {S : Type _} {m m' : Module Ident S} {i p} :
   ¬ p.input.containsVal i →

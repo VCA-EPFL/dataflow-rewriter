@@ -5,6 +5,7 @@ Authors: Yann Herklotz, Gurvan Debaussart
 -/
 import Lean
 import DataflowRewriter.Basic
+import Qq
 
 open Lean Meta Elab
 
@@ -130,29 +131,55 @@ theorem perm_append {α} {l l1 l2 l3 : List α} :
 
 -- Proper tactic ---------------------------------------------------------------
 
-elab "dr_perm_simp " l:term : tactic => Tactic.withMainContext do
-  let goalType ← Lean.Elab.Tactic.getMainTarget
+theorem swap_l {α} (l₁ l₂ l : List α) : (l₂ ++ l₁).Perm l → (l₁ ++ l₂).Perm l
+:= by sorry
+
+theorem swap_r {α} (l₁ l₂ l : List α) : l.Perm (l₂ ++ l₁) → l.Perm (l₁ ++ l₂)
+:= by sorry
+
+open Qq
+
+def put_front_l (T : Q(Type)) (fuel : Nat) (l ll : Q(List $T)) := Tactic.withMainContext do
+  match fuel with
+  | n + 1 =>
+      Lean.logInfo m!"fuel = {n} with l = {l} and l' = {ll}"
+      match ll with
+      | ~q($l₁ ++ _) =>
+          if l₁ == l then Lean.logInfo "left ok, done"
+          else
+            Lean.logInfo "yes"
+            Tactic.evalTactic (←`(tactic| apply swap_l))
+            Tactic.evalTactic (←`(tactic| ac_nf0))
+            -- TODO: Probably l' need to be updated?
+            put_front_l T n l ll
+      | _ => Lean.logInfo m!"no, ll = {ll}"
+  | 0 => Tactic.evalTactic (←`(tactic| skip))
+
+elab "dr_perm_put_in_front " l:term : tactic => Tactic.withMainContext do
+  Tactic.evalTactic (←`(tactic| ac_nf0))
+  let goalType : Q(Prop) ← Lean.Elab.Tactic.getMainTarget
   match goalType with
-  | .app (.app (.app (.const `List.Perm _) T) l₁) l₂ =>
-    let tmp ← mkFreshExprMVar l₁
-    Lean.logInfo f!"T:  {T}"
-    Lean.logInfo f!"l₁: {l₁}"
-    Lean.logInfo f!"l₂: {l₂}"
-    let l ← Lean.Elab.Tactic.elabTerm l none -- TODO: Expected type: List T
-    Lean.logInfo f!"l: {l}"
-    -- TODO: We now have the two lists l₁ and l₂
-    -- 1: Assert that l is of type List T ?
-    -- 2: Put both l₁ and l₂ into normal form, while preserving the fact they
-    -- are permutations of one another
-    -- 3: If l is contained in both l₁ and l₂, remove it
+    -- TODO: Do we need Tactic.withMainContext here ?
+  | ~q(@List.Perm $T $ll $lr) => Tactic.withMainContext do
+    let l ← Tactic.elabTermEnsuringType l q(List $T) -- same as (←mkAppM ``List #[T])
+    let T ← instantiateMVars T
+    let ll : Q(List $T) ← instantiateMVars ll
+    let lr : Q(List $T) ← instantiateMVars lr
+    let l : Q(List $T) ← instantiateMVars l
+    Lean.logInfo m!"T:  {T}"
+    Lean.logInfo m!"ll: {ll}"
+    Lean.logInfo m!"lr: {lr}"
+    Lean.logInfo m!"l: {l}"
+    put_front_l T 10 l ll
+    -- put_front_r T 10 l lr
   | _ => throwError s!"Goal is not a permutation"
 
 theorem perm_append' : typeOf @perm_append := by
     dsimp
     intros α l l1 l2 l3
-    apply Iff.intro <;> intros H
+    apply Iff.intro <;> intros H <;>
     skip
-    · dr_perm_simp l
+    · ac_nf0
+      dr_perm_put_in_front l
       sorry
-    · dr_perm_simp l
-      sorry
+    · sorry
