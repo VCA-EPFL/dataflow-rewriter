@@ -323,6 +323,36 @@ theorem append_iff {α} {a b c d : List α} : a.length = c.length → (a ++ b = 
       assumption
   . intro ⟨_, _⟩; subst_vars; rfl
 
+-- example {T1 T2 T3} : ∀ s : lhsModuleType T1 T2 T3, (∀ r s', r ∈ (lhsModule T1 T2 T3).internals → ¬ r s s') →
+example {T1 T2 T3} : ∀ s : lhsModuleType T1 T2 T3, (¬ ∃ s' r, r ∈ (lhsModule T1 T2 T3).internals ∧ r s s') → (∀ r ∈ (lhsModule T1 T2 T3).internals, ∀ s', ¬ r s s') := by
+  intro s H r hr s' hrss
+  apply H
+  exists s', r
+
+example {T1 T2 T3} : ∀ s : lhsModuleType T1 T2 T3, (∀ r ∈ (lhsModule T1 T2 T3).internals, ∀ s', ¬ r s s') → partially_flushed s := by
+  intro ⟨s1, s2, s3⟩ hr; dsimp [lhsModuleType, lhsModule] at *
+  specialize hr _ (by simp; rfl)
+  cases s2 <;> cases s3 <;> try constructor
+  exfalso
+  apply hr ⟨⟨_, _⟩, ⟨_, _⟩⟩
+  iterate 6 (apply Exists.intro _)
+  and_intros <;> dsimp
+
+-- lhsModule is spec is trivial, because you just do the same steps as lhsModule'
+-- lhsModule' being spec is not trivial
+-- rhsModule' ⊑ lshModule' could be interesting, not sure if easier.
+def lhsModule' : StringModule (lhsModuleType T₁ T₂ T₃) :=
+  {
+    inputs := (lhsModule T₁ T₂ T₃).inputs.mapVal (λ k v =>
+        ⟨v.1, fun s ret s'' =>
+          ∃ (s' : lhsModuleType T₁ T₂ T₃), v.2 s ret s'
+            ∧ existSR (lhsModule T₁ T₂ T₃).internals s' s''                -- Allow rule executions
+            ∧ (∀ r ∈ (lhsModule T₁ T₂ T₃).internals, ∀ s_n, ¬ r s'' s_n)⟩  -- Ensure they are terminal
+      ),
+    outputs := (lhsModule T₁ T₂ T₃).outputs,
+    init_state := fun _ => True,
+  }
+
 theorem refines {T: Type _} [DecidableEq T]: rhsModule T₁ T₂ T₃ ⊑_{φ} lhsModule T₁ T₂ T₃ := by
   unfold Module.refines_φ
   intro init_i init_s Hφ
