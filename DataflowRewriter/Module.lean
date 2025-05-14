@@ -35,9 +35,14 @@ inductive existSR {S : Type _} (rules : List (S → S → Prop)) : S → S → P
     existSR rules init final
 
 /--
-`Module` definition, which is our definition of circuit semantics.  It can have
-inputs and outputs, which are maps from `Ident` to transition rules accept or
-return a value.
+`Module` definition, which is our definition of circuit semantics.  It can have inputs and outputs, which are maps from
+`Ident` to transition rules accept or return a value.
+
+One might think to merge inputs and outputs into a single field, because they essentially have the same form.  In most
+cases, they are symmetric too, so this would make proofs much simpler.  However, they are actually asymmetric in the
+definition of refinement, where inputs can be followed by internal steps, but outputs cannot.  This makes it possible to
+connect an output to an input, because it is guaranteed that there won't be any intermediate internal steps that have to
+be executed in between the output rule and input rule execution.
 -/
 structure Module (Ident S : Type _) where
   inputs : PortMap Ident (Σ T : Type, (S → T → S → Prop))
