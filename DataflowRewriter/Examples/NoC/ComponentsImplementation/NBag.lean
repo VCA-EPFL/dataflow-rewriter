@@ -102,21 +102,32 @@ def nbag_lowT : Type := by
 def_module nbag_lowM : StringModule nbag_lowT :=
   [e| nbag_low, ε_nbag]
   reduction_by
---     dr_reduce_module
+    -- dr_reduce_module
     dsimp -failIfUnchanged [drunfold_defs, reduceAssocListfind?, reduceListPartition]
     dsimp -failIfUnchanged [reduceExprHighLower, reduceExprHighLowerProdTR, reduceExprHighLowerConnTR]
-    dsimp [ ExprHigh.uncurry, ExprLow.build_module_expr, ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    dsimp [ExprHigh.uncurry, ExprLow.build_module_expr, ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
     rw [rw_opaque (by simp only [drenv]; rfl)]; dsimp -failIfUnchanged
 
     dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, reduceAssocListfind?]
     simp (disch := decide) only [AssocList.bijectivePortRenaming_invert]
     dsimp [Module.product]
     dsimp only [reduceModuleconnect'2]
-    dsimp only [reduceEraseAll]
-    dsimp; dsimp [reduceAssocListfind?]
+
+    dsimp [drcomponents]
+    simp only [AssocList.mapVal_mapKey, AssocList.mapVal_map_toAssocList, AssocList.mapKey_map_toAssocList]
+    simp only [drcompute]
 
     unfold Module.connect''
     simp only [drcompute, drcomponents]
     dsimp [Module.liftL, Module.liftR]
+    rw [AssocList.eraseAll_map_neq]
+    unfold inputGen
+    rw [AssocList.bijectivePortRenaming_same]
+    dsimp
+    rw [
+      AssocList.eraseAll_cons_neq,
+      AssocList.eraseAll_cons_eq,
+      AssocList.eraseAll_nil
+    ]
 
 end DataflowRewriter.Examples.NoC

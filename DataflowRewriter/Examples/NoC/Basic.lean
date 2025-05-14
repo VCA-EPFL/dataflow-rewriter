@@ -7,7 +7,7 @@ Authors: Yann Herklotz, Gurvan Debaussart
 namespace DataflowRewriter.Examples.NoC
 
 class NocParam where
-  Data  : Type     -- Type of data transmitted over the NoC
+  Data  : Type    -- Type of data transmitted over the NoC
   DataS : String  -- String representation of Data
   netsz : Nat     -- Network Size (Number of router)
 

@@ -52,8 +52,13 @@ instance : MatchInterface nbag_lowM (nbag P.Data P.netsz) where
   inputs_present := by
     intros ident
     unfold nbag_lowM nbag nbag'
-    simp [NatModule.stringify, Module.mapIdent]
-    apply isSome_same_list
+    dsimp [drcomponents]
+    rw [AssocList.mapKey_map_toAssocList]
+    dsimp [drcomponents]
+    simp only [
+      AssocList.find?_eq, List.toList_toAssocList, List.find?_map,
+      Option.map_map, Option.isSome_map, List.concat_eq_append
+    ]
     constructor <;> intros H <;> obtain ⟨x, _, _⟩ := H <;> exists x <;> simpa
   outputs_present := by
     intros ident;
@@ -83,7 +88,8 @@ theorem nbag_low_refines_ϕ : nbag_lowM ⊑_{φ} (nbag P.Data P.netsz) := by
     unfold nbag nbag'
     dsimp [NatModule.stringify, Module.mapIdent]
     exists (mid_i.1 ++ mid_i.2); exists (mid_i.1 ++ mid_i.2); split_ands
-    · rw [PortMap.rw_rule_execution
+    · dsimp [drcomponents]
+      rw [PortMap.rw_rule_execution
         (h := by rw [AssocList.mapKey_map_toAssocList])
       ]
       rw [PortMap.rw_rule_execution
@@ -142,7 +148,14 @@ theorem nbag_low_indistinguishable_φ :
       ] at Hrule ⊢
       dsimp at Hrule v
       simpa [lift_f, mk_nbag_input_rule, Hrule]
-      · sorry
+      · intros x1 x2 H
+        simp only [toString] at H
+        injection H
+        rename_i Hxrepr
+        -- Why is repeat not working here
+        rw [String.append_empty] at Hxrepr
+        rw [String.append_empty] at Hxrepr
+        sorry
     · case_transition Hcontains : (Module.outputs nbag_lowM), ident,
         (PortMap.getIO_not_contained_false' Hrule)
       simp [nbag_lowM] at Hcontains
