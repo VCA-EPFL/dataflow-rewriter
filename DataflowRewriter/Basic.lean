@@ -190,10 +190,7 @@ instance set to `top`.
 
 end PortMap
 
-structure PortMapping (Ident) where
-  input : PortMap Ident (InternalPort Ident)
-  output : PortMap Ident (InternalPort Ident)
-deriving Repr, Inhabited, DecidableEq
+abbrev PortMapping Ident := PortMap Ident (InternalPort Ident)
 
 instance (Ident) [Repr Ident] : ToString (InternalPort Ident) where
   toString i := repr i |>.pretty
@@ -205,95 +202,52 @@ namespace PortMapping
 
 variable {Ident}
 
-instance : EmptyCollection (PortMapping Ident) := ⟨⟨∅, ∅⟩⟩
-
-def append (a b : PortMapping Ident) :=
-  PortMapping.mk (a.input ++ b.input) (a.output ++ b.output)
-
-instance : Append (PortMapping Ident) := ⟨append⟩
-
-@[simp, drcompute] theorem empty_append {α} (as : PortMapping α) : ∅ ++ as = as := rfl
-@[simp, drcompute] theorem append_elements {α} (a b c d : PortMap α (InternalPort α)) : PortMapping.mk a b ++ ⟨c, d⟩ = ⟨a ++ c, b ++ d⟩ := rfl
-@[simp, drcompute] theorem lift_append {α} (as bs : PortMapping α) : as.append bs = as ++ bs := rfl
-
-def filter (f : InternalPort Ident → InternalPort Ident → Bool) (a : PortMapping Ident) :=
-  PortMapping.mk (a.input.filter f) (a.output.filter f)
-
 def ofPortMapping [DecidableEq Ident] (p : PortMapping Ident) : Option Ident :=
-  match p.input with
+  match p with
   | .cons ⟨.top, _⟩ ⟨.internal i, _⟩ _ =>
-    if p.input.all (λ | ⟨.top, a⟩, ⟨.internal i', b⟩ => a = b && i = i'
+    if p.all (λ | ⟨.top, a⟩, ⟨.internal i', b⟩ => a = b && i = i'
                       | _, _ => false)
-       && p.output.all (λ | ⟨.top, a⟩, ⟨.internal i', b⟩ => a = b && i = i'
-                          | _, _ => false)
     then some i
     else none
   | _ => none
 
-def map {α β} (f : α → β) : PortMapping α → PortMapping β
-| ⟨ a, b ⟩ => ⟨a.mapKey (λ k => k.map f) |>.mapVal (λ _ v => v.map f)
-              , b.mapKey (λ k => k.map f ) |>.mapVal (λ _ v => v.map f)⟩
-
-def mapPairs (f : InternalPort Ident → InternalPort Ident → InternalPort Ident) : PortMapping Ident → PortMapping Ident
-| ⟨ a, b ⟩ => ⟨a.mapVal f, b.mapVal f⟩
-
-def inverse (p : PortMapping Ident) :=
-  {p with input := p.input.inverse, output := p.output.inverse}
-
-variable [DecidableEq Ident]
-
-def filterId (p : PortMapping Ident) : PortMapping Ident :=
-  ⟨p.input.filterId, p.output.filterId⟩
-
-def EqExt (a b : PortMapping Ident) : Prop :=
-  a.input.EqExt b.input ∧ a.output.EqExt b.output
-
-def wf (a : PortMapping Ident) : Prop := a.input.wf ∧ a.output.wf
+@[deprecated AssocList.mapVal (since := "2025-05-14")]
+def mapPairs (f : InternalPort Ident → InternalPort Ident → InternalPort Ident) : PortMapping Ident → PortMapping Ident := AssocList.mapVal f
 
 end PortMapping
 
-structure Interface (Ident) where
-  input : List (InternalPort Ident)
-  output : List (InternalPort Ident)
-deriving Repr
+abbrev Interface Ident := List (InternalPort Ident)
 
 namespace Interface
 
 variable {Ident}
 
-def allInst (f : InstIdent Ident → Bool) (i : Interface Ident) : Bool :=
-  i.input.all (·.inst |> f) && i.output.all (·.inst |> f)
+def allInst (f : InstIdent Ident → Bool) (i : Interface Ident) : Bool := i.all (·.inst |> f)
 
 def isBaseModule (i : Interface Ident) : Bool := i.allInst (·.isTop)
 
-def toIdentityPortMapping (i : Interface Ident) : PortMapping Ident :=
-  ⟨(i.input.map (λ a => (a, a))).toAssocList,
-   (i.output.map (λ a => (a, a))).toAssocList⟩
+def toIdentityPortMapping (i : Interface Ident) : PortMapping Ident := (i.map (λ a => (a, a))).toAssocList
 
 /--
 Need to be careful with the renaming now.
 -/
 def toIdentityPortMapping' (i : Interface String) : PortMapping String :=
-  ⟨(i.input.map (λ a => (⟨.top, s!"SPECIAL_{a.name}"⟩, a))).toAssocList,
-   (i.output.map (λ a => (⟨.top, s!"SPECIAL_{a.name}"⟩, a))).toAssocList⟩
+  (i.map (λ a => (⟨.top, s!"SPECIAL_{a.name}"⟩, a))).toAssocList
 
 def toIdentityPortMapping'' (ident : Ident) (i : Interface Ident) : PortMapping Ident :=
-  ⟨(i.input.map (λ a => (⟨.internal ident, a.name⟩, a))).toAssocList,
-   (i.output.map (λ a => (⟨.internal ident, a.name⟩, a))).toAssocList⟩
+  (i.map (λ a => (⟨.internal ident, a.name⟩, a))).toAssocList
 
 def toPortMapping (i : Interface Ident) (ident : Ident) : PortMapping Ident :=
   if i.isBaseModule
-  then ⟨(i.input.map (λ a => (a, InternalPort.mk (.internal ident) a.name))).toAssocList,
-        (i.output.map (λ a => (a, InternalPort.mk (.internal ident) a.name))).toAssocList⟩
+  then (i.map (λ a => (a, InternalPort.mk (.internal ident) a.name))).toAssocList
   else i.toIdentityPortMapping
 
 end Interface
 
-def PortMapping.toInterface {Ident} (p : PortMapping Ident) : Interface Ident :=
-  ⟨p.input.keysList, p.output.keysList⟩
+def PortMapping.toInterface {Ident} (p : PortMapping Ident) : Interface Ident := p.keysList
 
 def PortMapping.toInterface' {Ident} (p : PortMapping Ident) : Interface Ident :=
-  ⟨p.input.toList.map Prod.snd, p.output.toList.map Prod.snd⟩
+  p.toList.map Prod.snd
 
 theorem reverse_cases {α} l : l = [] ∨ ∃ (l' : List α) (a : α), l = l'.concat a := by
   induction l
