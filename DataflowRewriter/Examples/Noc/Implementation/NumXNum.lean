@@ -20,40 +20,14 @@ open Batteries (AssocList)
 namespace DataflowRewriter.Examples.Noc.TwoXTwo
 
 variable [P : NocParam]
-variable [MP : MeshParam]
 
 -- Implementation --------------------------------------------------------------
 
-def getX (rId : RouterID) : Nat := rId.mod MP.len
-
-def getY (rId : RouterID) : Nat := rId.div MP.len
-
-def rIdOfXY (X Y : Nat) :=
-  Y * MP.len + X
-
-def arbiterXY : Arbiter := λ src dst =>
-  let src_x := getX src
-  let src_y := getY src
-  let dst_x := getX dst
-  let dst_y := getY dst
-  if src_x == dst_x && src_y == dst_y then
-    .some DirLocal
-  else if src_x < dst_x then
-    .some DirWest
-  else if dst_x < src_x then
-    .some DirEast
-  else if src_y < dst_y then
-    .some DirNorth
-  else if dst_y < src_y then
-    .some DirSouth
-  else
-    .none
-
-@[simp] def routerXY := router arbiterXY
+@[simp] def routerXY := router arbiter_xy
 
 def hideC : Nat :=
   -- One len for each side (top, bot, left, right)
-  (MP.len * 4)
+  (P.len * 4)
 
 def ε_noc : Env :=
   [
@@ -67,7 +41,7 @@ def ε_noc : Env :=
   AssocList.find? "Hide {hideC hideC} " ε_noc = .some ⟨_, hide Flit hideC hideC⟩ :=
   sorry
 
-@[drenv] theorem router_in_ε_n (n : Nat) (Hok : n < P.netsz) :
+@[drenv] theorem router_in_ε_n (n : RouterID) (Hok : n < P.netsz) :
   AssocList.find? "Router {n}" ε_noc = .some ⟨_, routerXY n⟩ :=
     sorry
 
@@ -112,10 +86,10 @@ def noc_low : ExprLow String :=
     List.foldl (λ acc x =>
       List.foldl (λ acc y =>
         acc |>
-        mkconn_bi (rIdOfXY x y) (rIdOfXY (x + 1) y) DirEast DirWest |>
-        mkconn_bi (rIdOfXY x y) (rIdOfXY x (y + 1)) DirSouth DirNorth
-      ) acc (List.range (MP.len - 1)))
-    base (List.range (MP.len - 1))
+        mkconn_bi (rid_of_xy x y) (rid_of_xy (x + 1) y) DirEast DirWest |>
+        mkconn_bi (rid_of_xy x y) (rid_of_xy x (y + 1)) DirSouth DirNorth
+      ) acc (List.range (P.len - 1)))
+    base (List.range (P.len - 1))
 
   let hide_inp (sId : Nat) : InternalPort String :=
     { inst := InstIdent.internal "Hide", name := NatModule.stringify_input sId }
@@ -137,7 +111,7 @@ def noc_low : ExprLow String :=
     s!"Hide Flit {hideC} {hideC}"
 
   -- Connect an output and input of a router in a direction to hide
-  let mkconn_hide (rId : RouterID) (sId : Nat) (dir : Dir) (base : ExprLow String) :=
+  let mkconn_hide (sId : Nat) (rId : RouterID) (dir : Dir) (base : ExprLow String) :=
     base |>
     ExprLow.connect { output := router_out rId dir, input := hide_inp sId } |>
     ExprLow.connect { output := hide_out sId, input := router_inp rId dir }
@@ -145,11 +119,11 @@ def noc_low : ExprLow String :=
   let mkconns_hide (base : ExprLow String) :=
     List.foldl (λ acc i =>
       acc |>
-      mkconn_hide (rIdOfXY 0 i)             (i * 4 + 0) DirWest |>
-      mkconn_hide (rIdOfXY i 0)             (i * 4 + 1) DirNorth |>
-      mkconn_hide (rIdOfXY (MP.len - 1) i)  (i * 4 + 2) DirEast |>
-      mkconn_hide (rIdOfXY i (MP.len - 1))  (i * 4 + 3) DirSouth
-    ) base (List.range MP.len)
+      mkconn_hide (i * 4 + 0) (rid_of_xy 0 i) DirWest |>
+      mkconn_hide (i * 4 + 1) (rid_of_xy i 0) DirNorth |>
+      mkconn_hide (i * 4 + 2) (rid_of_xy (P.len - 1) i) DirEast |>
+      mkconn_hide (i * 4 + 3) (rid_of_xy i (P.len - 1)) DirSouth
+    ) base (List.range P.len)
 
   mkhide |>
   mkrouters |>
@@ -160,8 +134,8 @@ def noc_lowT : Type := by
   precomputeTac [T| noc_low, ε_noc] by
     dsimp [drunfold_defs, drcomponents]
     dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
-    unfold ExprLow.build_module'
     simp (disch := simpa) only [toString, drcompute, drenv]
+    unfold ExprLow.build_module'
     -- List.fold ...
 
 def_module noc_lowM : StringModule noc_lowT :=
