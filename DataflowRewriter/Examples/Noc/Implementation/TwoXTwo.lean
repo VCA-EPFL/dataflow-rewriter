@@ -25,56 +25,36 @@ scoped instance TwoXTwoP : NocParam where
   Data  := ℕ
   DataS := "Nat"
   netsz := 4
+  len   := 2
+  HLen  := by simpa
 
 -- Implementation --------------------------------------------------------------
 
-def getX (rId : RouterID) := rId.mod 2
-
-def getY (rId : RouterID) := rId.div 2
-
-def arbiterXY : Arbiter := λ src dst =>
-  let src_x := getX src
-  let src_y := getY src
-  let dst_x := getX dst
-  let dst_y := getY dst
-  if src_x == dst_x && src_y == dst_y then
-    .some DirLocal
-  else if src_x < dst_x then
-    .some DirWest
-  else if dst_x < src_x then
-    .some DirEast
-  else if src_y < dst_y then
-    .some DirNorth
-  else if dst_y < src_y then
-    .some DirSouth
-  else
-    .none
-
-@[simp] def routerXY := router arbiterXY
+@[simp] def router_xy := router arbiter_xy
 
 def ε_noc : Env :=
   [
     (s!"Hide Flit 8 8", ⟨_, hide Flit 8 8⟩),      -- Hide unused i/o
-    (s!"Router 0",      ⟨_, router arbiterXY 0⟩), -- Top left router
-    (s!"Router 1",      ⟨_, router arbiterXY 1⟩), -- Top right router
-    (s!"Router 2",      ⟨_, router arbiterXY 2⟩), -- Bot left router
-    (s!"Router 3",      ⟨_, router arbiterXY 3⟩), -- Bot right router
+    (s!"Router 0",      ⟨_, router arbiter_xy 0⟩), -- Top left router
+    (s!"Router 1",      ⟨_, router arbiter_xy 1⟩), -- Top right router
+    (s!"Router 2",      ⟨_, router arbiter_xy 2⟩), -- Bot left router
+    (s!"Router 3",      ⟨_, router arbiter_xy 3⟩), -- Bot right router
   ].toAssocList
 
 @[drenv] theorem hide_in_ε :
   AssocList.find? "Hide Flit 8 8" ε_noc = .some ⟨_, hide Flit 8 8⟩ := rfl
 
 @[drenv] theorem router_in_ε_0 :
-  AssocList.find? "Router 0" ε_noc = .some ⟨_, routerXY 0⟩ := rfl
+  AssocList.find? "Router 0" ε_noc = .some ⟨_, router_xy 0⟩ := rfl
 
 @[drenv] theorem router_in_ε_1 :
-  AssocList.find? "Router 1" ε_noc = .some ⟨_, routerXY 1⟩ := rfl
+  AssocList.find? "Router 1" ε_noc = .some ⟨_, router_xy 1⟩ := rfl
 
 @[drenv] theorem router_in_ε_2 :
-  AssocList.find? "Router 2" ε_noc = .some ⟨_, routerXY 2⟩ := rfl
+  AssocList.find? "Router 2" ε_noc = .some ⟨_, router_xy 2⟩ := rfl
 
 @[drenv] theorem router_in_ε_3 :
-  AssocList.find? "Router 3" ε_noc = .some ⟨_, routerXY 3⟩ := rfl
+  AssocList.find? "Router 3" ε_noc = .some ⟨_, router_xy 3⟩ := rfl
 
 @[drunfold_defs]
 def noc_low : ExprLow String :=

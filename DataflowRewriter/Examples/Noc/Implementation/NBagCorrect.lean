@@ -23,7 +23,7 @@ import DataflowRewriter.ModuleReduction
 import DataflowRewriter.Examples.Noc.Basic
 import DataflowRewriter.Examples.Noc.BasicLemmas
 import DataflowRewriter.Examples.Noc.Components
-import DataflowRewriter.Examples.Noc.ComponentsImplementation.NBag
+import DataflowRewriter.Examples.Noc.Implementation.NBag
 
 open Batteries (AssocList)
 

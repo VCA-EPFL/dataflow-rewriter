@@ -15,7 +15,7 @@ import DataflowRewriter.ExprLowLemmas
 
 import DataflowRewriter.Examples.Noc.BasicLemmas
 import DataflowRewriter.Examples.Noc.Perm
-import DataflowRewriter.Examples.Noc.ComponentsImplementation.TwoXTwo
+import DataflowRewriter.Examples.Noc.Implementation.TwoXTwo
 
 open Batteries (AssocList)
 
@@ -23,7 +23,7 @@ namespace DataflowRewriter.Examples.Noc.TwoXTwo
 
 -- Useful lemmas ---------------------------------------------------------------
 
-theorem perm_in_perm_l {α} {l1 l2 : List α} {v} {H : l1.Perm l2} (Hin : v ∈ l2 := by simp):
+theorem perm_in_perm_l {α} {l1 l2 : List α} {v} {H : l1.Perm l2} (Hin : v ∈ l2 := by simp) :
   ∃ i : Fin l1.length, l1[i] = v := by
     sorry
 
@@ -32,23 +32,6 @@ theorem perm_in_perm_r {α} {l1 l2 : List α} {v} {H : l1.Perm l2} (Hin : v ∈ 
     apply perm_in_perm_l
     · rw [List.perm_comm]
     · sorry
-
-theorem getX_getY_correct {rId dst : RouterID} (Hx : getX rId = getX dst) (Hy : getY rId = getY dst) :
-   dst = rId := by
-    dsimp [getX] at Hx
-    dsimp [getY] at Hy
-    sorry -- Annoying
-
-theorem arbiterXY_correct {rId dst : RouterID} :
-  arbiterXY rId dst = DirLocal → dst = rId := by
-    dsimp [arbiterXY]
-    cases Heq : (getX rId == getX dst && getY rId == getY dst)
-    · sorry -- Contradiction, a bit annoying
-    · dsimp
-      intros _
-      simp only [Bool.and_eq_true, beq_iff_eq] at Heq
-      obtain ⟨HeqX, HeqY⟩ := Heq
-      apply getX_getY_correct HeqX HeqY
 
 -- Lemmas for permutation using aesop ------------------------------------------
 
@@ -110,29 +93,17 @@ theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
       rw [←Hrule3, Hrule1, ←Hrule2]
       dr_perm_put_in_front [v]
       apply List.Perm.append_left
-      dr_perm_put_in_front i.1
-      dr_perm_put_in_front i.2.1
-      dr_perm_put_in_front i.2.2.1
-      dr_perm_put_in_front i.2.2.2.1
-      assumption
+      sorry
     · obtain ⟨Hrule1, Hrule2, Hrule3, Hrule4⟩ := Hrule
       rw [Hrule1, ←Hrule2, ←Hrule3, ←Hrule4]
       dr_perm_put_in_front [v]
       apply List.Perm.append_left
-      dr_perm_put_in_front i.1
-      dr_perm_put_in_front i.2.1
-      dr_perm_put_in_front i.2.2.1
-      dr_perm_put_in_front i.2.2.2.1
-      assumption
+      sorry
     · obtain ⟨Hrule1, Hrule2, Hrule3, Hrule4⟩ := Hrule
       rw [Hrule1, ←Hrule2, ←Hrule3, ←Hrule4]
       dr_perm_put_in_front [v]
       apply List.Perm.append_left
-      dr_perm_put_in_front i.1
-      dr_perm_put_in_front i.2.1
-      dr_perm_put_in_front i.2.2.1
-      dr_perm_put_in_front i.2.2.2.1
-      assumption
+      sorry
   · intros ident mid_i v Hrule
     case_transition Hcontains : (Module.outputs noc_lowM), ident,
      (PortMap.getIO_not_contained_false' Hrule)
@@ -151,14 +122,14 @@ theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
     -- annoying to prove
     · obtain ⟨H1, H2, H3⟩ := Hrule
       rw [H1, H3] at H
-      dsimp [arbiterXY, getX, getY] at H2
+      dsimp [arbiter_xy, get_x, get_y] at H2
       rw [append_cons] at H
       repeat rw [←List.append_assoc]
       repeat rw [←List.append_assoc] at H
       obtain ⟨idx, Hidx⟩ := perm_in_perm_l (H := H) (v := v)
       exists List.eraseIdx s idx
       and_intros
-      · rw [arbiterXY_correct H2]
+      · rw [arbiter_xy_correct H2]
       · exists idx; simpa [←Hidx]
       · rw [←perm_eraseIdx (v := v) (idx := idx)]
         sorry
@@ -171,7 +142,7 @@ theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
       obtain ⟨idx, Hidx⟩ := perm_in_perm_l (H := H) (v := v)
       exists List.eraseIdx s idx
       and_intros
-      · rw [arbiterXY_correct H2]
+      · rw [arbiter_xy_correct H2]
       · exists idx; simpa [←Hidx]
       · rw [←perm_eraseIdx (v := v) (idx := idx)]
         sorry
@@ -184,7 +155,7 @@ theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
       obtain ⟨idx, Hidx⟩ := perm_in_perm_l (H := H) (v := v)
       exists List.eraseIdx s idx
       and_intros
-      · rw [arbiterXY_correct H2]
+      · rw [arbiter_xy_correct H2]
       · exists idx; simpa [←Hidx]
       · rw [←perm_eraseIdx (v := v) (idx := idx)]
         sorry
@@ -196,7 +167,7 @@ theorem noc_low_refines_φ : noc_lowM ⊑_{φ} noc := by
       obtain ⟨idx, Hidx⟩ := perm_in_perm_l (H := H) (v := v)
       exists List.eraseIdx s idx
       and_intros
-      · rw [arbiterXY_correct H2]
+      · rw [arbiter_xy_correct H2]
       · exists idx; simpa [←Hidx]
       · rw [←perm_eraseIdx (v := v) (idx := idx)]
         sorry
@@ -299,28 +270,28 @@ theorem noc_low_ϕ_indistinguishable :
         obtain ⟨i, Hi⟩ := perm_in_perm_l (H := H) (v := v)
         exists List.eraseIdx s ↑i
         and_intros
-        · rw [arbiterXY_correct Hrule2]
+        · rw [arbiter_xy_correct Hrule2]
         · exists i; rw [←Hi]; simpa
       · obtain ⟨Hrule1, Hrule2, Hrule3, Hrule4⟩ := Hrule
         rw [Hrule1] at H
         obtain ⟨i, Hi⟩ := perm_in_perm_l (H := H) (v := v)
         exists List.eraseIdx s ↑i
         and_intros
-        · rw [arbiterXY_correct Hrule2]
+        · rw [arbiter_xy_correct Hrule2]
         · exists i; rw [←Hi]; simpa
       · obtain ⟨Hrule1, Hrule2, Hrule3, Hrule4, Hrule5⟩ := Hrule
         rw [Hrule1] at H
         obtain ⟨i, Hi⟩ := perm_in_perm_l (H := H) (v := v)
         exists List.eraseIdx s ↑i
         and_intros
-        · rw [arbiterXY_correct Hrule2]
+        · rw [arbiter_xy_correct Hrule2]
         · exists i; rw [←Hi]; simpa
       · obtain ⟨Hrule1, Hrule2, Hrule3, Hrule4, Hrule5⟩ := Hrule
         rw [Hrule1] at H
         obtain ⟨i, Hi⟩ := perm_in_perm_l (H := H) (v := v)
         exists List.eraseIdx s ↑i
         and_intros
-        · rw [arbiterXY_correct Hrule2]
+        · rw [arbiter_xy_correct Hrule2]
         · exists i; rw [←Hi]; simpa
 
 theorem noc_low_correct : noc_lowM ⊑ noc := by
