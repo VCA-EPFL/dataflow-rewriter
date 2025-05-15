@@ -369,7 +369,7 @@ theorem eraseAll_not_contains {α β} [DecidableEq α] (a : AssocList α β) (i 
     · exfalso; apply H
       simp; left; simp at Heq; assumption
 
-theorem eraseAll_not_contains2 {α β} [DecidableEq α] {a : AssocList α β} {i : α}basi :
+theorem eraseAll_not_contains2 {α β} [DecidableEq α] {a : AssocList α β} {i : α} :
   ¬ (a.eraseAll i).contains i := by
   rw [← contains_find?_iff]; intro ⟨x, h⟩
   rw [find?_eraseAll_eq] at h; contradiction
