@@ -26,6 +26,9 @@ def empty : ExprLow String :=
 def nempty (n : Nat) : ExprLow String :=
   nproduct n empty (λ _ => empty)
 
+def expected (n : Nat) : Type :=
+  List.foldl (λ acc i => acc × Unit) Unit (List.range n)
+
 def nemptyT (n : Nat) : Type := by
   precomputeTac [T| nempty n, ε] by
     dsimp [drunfold_defs, drcomponents]
