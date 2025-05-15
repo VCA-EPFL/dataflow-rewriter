@@ -146,6 +146,19 @@ def wf_mapping : ExprLow Ident → Bool
 | .product e₁ e₂ => e₁.wf_mapping ∧ e₂.wf_mapping
 | .connect _ e => e.wf_mapping
 
+theorem wf_mapping_implies_wf {e} :
+  wf_mapping ε e → wf ε e := by stop
+  induction e with
+  | base map typ =>
+    intro hwf
+    dsimp [wf, wf_mapping, all] at *
+    split at hwf <;> try contradiction
+    solve_by_elim [AssocList.contains_some3]
+  | connect c e ih =>
+    intro hwf
+    dsimp [wf, wf_mapping, all] at *
+
+
 variable {ε}
 
 theorem wf_builds_module {e} : wf ε e → (e.build_module' ε).isSome := by
