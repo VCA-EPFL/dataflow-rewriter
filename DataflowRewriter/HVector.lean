@@ -6,17 +6,16 @@ This file was extracted from the lean-mlir project:
 -/
 
 import Batteries.Tactic.Basic
-import Mathlib.Tactic.TypeStar
-
+import Lean.Elab.Term
 
 /-- An heterogeneous vector -/
-inductive HVector {α : Type*} (f : α → Type*) : List α → Type _
+inductive HVector {α : Type _} (f : α → Type _) : List α → Type _
   | nil : HVector f []
   | cons {as} {a : α} : (f a) → HVector f as → HVector f (a :: as)
 
 namespace HVector
 
-variable {α} {A B : α → Type*} {as : List α}
+variable {α} {A B : α → Type _} {as : List α}
 
 /-
   # Definitions
@@ -42,12 +41,12 @@ def map (f : ∀ (a : α), A a → B a) :
   | t::_, .cons a as  => .cons (f t a) (map f as)
 
 /-- An alternative to `map` which also maps a function over the index list -/
-def map' {β} {A : α → Type*} {B : β → Type*} (f' : α → β) (f : ∀ (a : α), A a → B (f' a)) :
+def map' {β} {A : α → Type _} {B : β → Type _} (f' : α → β) (f : ∀ (a : α), A a → B (f' a)) :
     ∀ {l : List α}, HVector A l → HVector B (l.map f')
   | [],   .nil        => .nil
   | t::_, .cons a as  => .cons (f t a) (map' f' f as)
 
-def foldl {B : Type*} (f : ∀ (a : α), B → A a → B) :
+def foldl {B : Type _} (f : ∀ (a : α), B → A a → B) :
     ∀ {l : List α}, B → HVector A l → B
   | [],   b, .nil       => b
   | t::_, b, .cons a as => foldl f (f t b a) as
@@ -76,7 +75,7 @@ abbrev getN (x : HVector A as) (i : Nat) (hi : i < as.length := by hvector_get_e
     A (as.get ⟨i, hi⟩) :=
   x.get ⟨i, hi⟩
 
-def ToTupleType (A : α → Type*) : List α → Type _
+def ToTupleType (A : α → Type _) : List α → Type _
   | [] => PUnit
   | [a] => A a
   | a :: as => A a × (ToTupleType A as)
@@ -119,12 +118,12 @@ end Repr
   # Theorems
 -/
 
-theorem map_map {A B C : α → Type*} {l : List α} (t : HVector A l)
+theorem map_map {A B C : α → Type _} {l : List α} (t : HVector A l)
     (f : ∀ a, A a → B a) (g : ∀ a, B a → C a) :
     (t.map f).map g = t.map (fun a v => g a (f a v)) := by
   induction t <;> simp_all [map]
 
-theorem eq_of_type_eq_nil {A : α → Type*} {l : List α}
+theorem eq_of_type_eq_nil {A : α → Type _} {l : List α}
     {t₁ t₂ : HVector A l} (h : l = []) : t₁ = t₂ := by
   cases h; cases t₁; cases t₂; rfl
 syntax "[" withoutPosition(term,*) "]ₕ"  : term

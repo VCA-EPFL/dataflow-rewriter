@@ -7,7 +7,6 @@ Authors: Yann Herklotz
 import DataflowRewriter.Rewriter
 import DataflowRewriter.TypeExpr
 
-
 open Batteries (AssocList)
 
 namespace DataflowRewriter

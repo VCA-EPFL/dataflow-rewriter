@@ -7,8 +7,6 @@ Authors: Yann Herklotz
 import Lean
 import Qq
 
-import DataflowRewriter.Reduce
-
 import Batteries
 
 namespace DataflowRewriter
@@ -50,14 +48,14 @@ syntax (name := specializeAll) "specializeAll " term : tactic
         return ()
   | _ => throwUnsupportedSyntax
 
-elab "precompute " t:term : tactic => Tactic.withMainContext do
-  let expr ← Term.elabTerm t none
-  Term.synthesizeSyntheticMVarsUsingDefault
-  let expr ← Lean.instantiateMVars expr
-  let expr ←
-    -- withTransparency .all <|
-      reallyReduce (skipArgs := false) (skipTypes := false) expr
-  (← Tactic.getMainGoal).assign expr
+-- elab "precompute " t:term : tactic => Tactic.withMainContext do
+--   let expr ← Term.elabTerm t none
+--   Term.synthesizeSyntheticMVarsUsingDefault
+--   let expr ← Lean.instantiateMVars expr
+--   let expr ←
+--     -- withTransparency .all <|
+--       reallyReduce (skipArgs := false) (skipTypes := false) expr
+--   (← Tactic.getMainGoal).assign expr
 
 /--
 Opaque definition used to lift any type into a `Prop`, so that it can be used as

@@ -4,11 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Module
+import DataflowRewriter.ModuleLemmas
 import DataflowRewriter.ExprLow
 import DataflowRewriter.Environment
 import Mathlib.Tactic
-import Mathlib.Logic.Function.Basic
 
 open Batteries (AssocList)
 
@@ -146,8 +145,22 @@ def wf_mapping : ExprLow Ident → Bool
 | .product e₁ e₂ => e₁.wf_mapping ∧ e₂.wf_mapping
 | .connect _ e => e.wf_mapping
 
+def well_formed : ExprLow Ident → Bool
+| .base inst typ =>
+  match ε.find? typ with
+  | .some mod =>
+    inst.input.keysList.Perm mod.2.inputs.keysList
+    ∧ inst.output.keysList.Perm mod.2.outputs.keysList
+    ∧ inst.input.keysList.Nodup
+    ∧ inst.output.keysList.Nodup
+    ∧ inst.input.invertible
+    ∧ inst.output.invertible
+  | .none => false
+| .product e₁ e₂ => e₁.well_formed ∧ e₂.well_formed
+| .connect _ e => e.well_formed
+
 theorem wf_mapping_implies_wf {e} :
-  wf_mapping ε e → wf ε e := by stop
+  wf_mapping ε e → wf ε e := by
   induction e with
   | base map typ =>
     intro hwf
@@ -157,7 +170,49 @@ theorem wf_mapping_implies_wf {e} :
   | connect c e ih =>
     intro hwf
     dsimp [wf, wf_mapping, all] at *
+    solve_by_elim
+  | product e₁ e₂ ihe₁ ihe₂ =>
+    intro hwf
+    dsimp [wf, wf_mapping, all] at *
+    grind
 
+theorem well_formed_implies_wf_mapping {e} :
+  well_formed ε e → wf_mapping ε e := by
+  induction e with
+  | base map typ =>
+    intro hwf
+    dsimp [wf, wf_mapping, all, well_formed] at *
+    split at hwf <;> try contradiction
+    simp_all
+  | connect c e ih =>
+    intro hwf
+    dsimp [wf, wf_mapping, all, well_formed] at *
+    solve_by_elim
+  | product e₁ e₂ ihe₁ ihe₂ =>
+    intro hwf
+    dsimp [wf, wf_mapping, all, well_formed] at *
+    grind
+
+theorem well_formed_implies_wf {e} :
+  well_formed ε e → wf ε e := by
+  intros; solve_by_elim [wf_mapping_implies_wf, well_formed_implies_wf_mapping]
+
+theorem well_formed_implies_wf_locally {e} :
+  well_formed ε e → locally_wf e := by
+  induction e with
+  | base map typ =>
+    intro hwf
+    dsimp [wf, wf_mapping, all, well_formed, locally_wf, all'] at *
+    split at hwf <;> try contradiction
+    simp_all
+  | connect c e ih =>
+    intro hwf
+    dsimp [wf, wf_mapping, all, well_formed] at *
+    solve_by_elim
+  | product e₁ e₂ ihe₁ ihe₂ =>
+    intro hwf
+    dsimp [wf, wf_mapping, all, well_formed, locally_wf, all'] at *
+    grind
 
 variable {ε}
 
@@ -181,10 +236,25 @@ theorem wf_builds_module {e} : wf ε e → (e.build_module' ε).isSome := by
     cases ihe₁; cases ihe₂
     simp only [*]; rfl
 
-axiom wf_modify_expression {e : ExprLow Ident} {i i'}:
+theorem wf_modify_expression {e : ExprLow Ident} {i i'}:
   (ε.find? i').isSome →
   e.wf ε →
-  (e.modify i i').wf ε
+  (e.modify i i').wf ε := by
+  induction e with
+  | base inst typ =>
+    intro hsome hwf
+    dsimp [modify]; split <;> try assumption
+    dsimp [wf, all]
+    solve_by_elim [AssocList.contains_some2]
+  | connect con e ihe =>
+    intro hsome hwf
+    dsimp [modify, wf, all]
+    solve_by_elim
+  | product e₁ e₂ he₁ he₂ =>
+    intro hsome hwf
+    dsimp [modify, wf, all] at *
+    simp only [Bool.and_eq_true] at *
+    grind
 
 theorem build_base_in_env {T inst i mod} :
   ε.find? i = some ⟨ T, mod ⟩ →
@@ -668,8 +738,8 @@ theorem check_eq_symm {iexpr iexpr' : ExprLow Ident} :
   induction iexpr generalizing iexpr' <;> unfold check_eq <;> cases iexpr' <;> intro heq
   any_goals contradiction
   · simp_all; and_intros <;> (apply AssocList.EqExt.symm; simp only [*])
-  · aesop
-  · aesop
+  · grind
+  · grind
 
 axiom check_eq_wf {iexpr iexpr' : ExprLow Ident} :
   iexpr.check_eq iexpr' →
@@ -702,11 +772,11 @@ theorem check_eq_refines {iexpr iexpr'} :
     cases iexpr' <;> try contradiction
     rename_i e₁' e₂'
     apply refines_product
-    any_goals (unfold wf all at hwf hwf'; unfold wf; aesop)
-    apply ih₁; dsimp [check_eq] at heq; aesop
-    unfold wf all at hwf hwf'; unfold wf; aesop
-    apply ih₂; dsimp [check_eq] at heq; aesop
-    unfold wf all at hwf hwf'; unfold wf; aesop
+    any_goals (unfold wf all at hwf hwf'; unfold wf; grind)
+    apply ih₁; dsimp [check_eq] at heq; grind
+    unfold wf all at hwf hwf'; unfold wf; grind
+    apply ih₂; dsimp [check_eq] at heq; grind
+    unfold wf all at hwf hwf'; unfold wf; grind
   | connect c e ih =>
     intro iexpr' heq hwf
     have hwf' := check_eq_wf _ ‹_› ‹_›
@@ -765,7 +835,7 @@ theorem abstract_refines {iexpr expr_pat i} :
       specialize ihe₁ hwf1; specialize ihe₂ hwf2
       rw [h]; dsimp; rw [build_module_unfold_1 hfind]; dsimp
       apply Module.refines_transitive (imod' := (build_module ε expr_pat).snd)
-      · apply check_eq_refines; assumption; unfold wf all; aesop
+      · apply check_eq_refines; assumption; unfold wf all; grind
       · rw [Module.renamePorts_empty]; apply Module.refines_reflexive
     · unfold abstract at ihe₁ ihe₂
       have : wf ε (e₁.replace expr_pat (base ∅ i)) := by
@@ -788,7 +858,7 @@ theorem abstract_refines {iexpr expr_pat i} :
       specialize ih hwf
       rw [h]; dsimp; rw [build_module_unfold_1 hfind]; dsimp
       apply Module.refines_transitive (imod' := (build_module ε expr_pat).snd)
-      · apply check_eq_refines; assumption; unfold wf all; aesop
+      · apply check_eq_refines; assumption; unfold wf all; grind
       · rw [Module.renamePorts_empty]; apply Module.refines_reflexive
     · have : wf ε (connect c (e.replace expr_pat (base ∅ i))) := by
         simp [wf, all]
@@ -847,7 +917,7 @@ theorem abstract_refines2 {iexpr expr_pat i} :
       apply Module.refines_transitive (imod' := (build_module ε expr_pat).snd)
       · rw [Module.renamePorts_empty]; apply Module.refines_reflexive
       · apply check_eq_refines; apply check_eq_symm; assumption
-        apply check_eq_wf; assumption; unfold wf all; aesop
+        apply check_eq_wf; assumption; unfold wf all; grind
     · unfold abstract at ihe₁ ihe₂
       have : wf ε (e₁.replace expr_pat (base ∅ i)) := by
         apply wf_abstract; simp_all [wf, all]
@@ -871,7 +941,7 @@ theorem abstract_refines2 {iexpr expr_pat i} :
       apply Module.refines_transitive (imod' := (build_module ε expr_pat).snd)
       · rw [Module.renamePorts_empty]; apply Module.refines_reflexive
       · apply check_eq_refines; apply check_eq_symm; assumption
-        apply check_eq_wf; assumption; unfold wf all; aesop
+        apply check_eq_wf; assumption; unfold wf all; grind
     · have : wf ε (connect c (e.replace expr_pat (base ∅ i))) := by
         simp [wf, all]
         convert_to wf ε (e.replace expr_pat (base ∅ i));
@@ -932,7 +1002,7 @@ axiom wf_comm_connection'_ {e e' : ExprLow Ident} {conn}:
   e'.wf ε
 
 axiom refines_comm_base_ {iexpr e' inst typ} :
-    iexpr.wf ε → comm_base_ inst typ iexpr = .some e' → [e| e', ε ] ⊑ ([e| iexpr, ε ])
+  iexpr.wf ε → comm_base_ inst typ iexpr = .some e' → [e| e', ε ] ⊑ ([e| iexpr, ε ])
 
 axiom wf_comm_base_ {e e' : ExprLow Ident} {inst typ}:
   e.comm_base_ inst typ = .some e' →

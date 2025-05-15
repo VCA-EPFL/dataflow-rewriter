@@ -5,6 +5,7 @@ Authors: Yann Herklotz, Gurvan Debaussart
 -/
 import Lean
 import DataflowRewriter.Basic
+import DataflowRewriter.Aesop
 import Qq
 
 open Lean Meta Elab

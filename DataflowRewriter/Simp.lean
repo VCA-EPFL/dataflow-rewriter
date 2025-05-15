@@ -1,11 +1,10 @@
 /-
-Copyright (c) 2024 VCA Lab, EPFL. All rights reserved.
+Copyright (c) 2024, 2025 VCA Lab, EPFL. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
 import Lean
-import Aesop
 
 register_simp_attr dmod
 register_simp_attr drunfold
@@ -31,6 +30,3 @@ register_simp_attr drlogic
 
 -- Reduce the environment
 register_simp_attr drenv
-
--- Solve goals of permutations
-declare_aesop_rule_sets [drperm]
