@@ -39,22 +39,30 @@ theorem rule_contains {S} {a : PortMap Ident (Σ T, S → T → S → Prop)} {id
   · rw [← AssocList.contains_find?_iff]
     exact Exists.intro _ h
 
-theorem getIO_none {S} (m : PortMap Ident ((T : Type) × (S → T → S → Prop)))
+theorem getIO_none {S} (m : PortMap Ident ((T : Type _) × (S → T → S → Prop)))
         (ident : InternalPort Ident) :
   m.find? ident = none ->
   m.getIO ident = ⟨ PUnit, λ _ _ _ => False ⟩ := by
   intros H; simp only [PortMap.getIO, H]; simp
 
-theorem getIO_some {S} (m : PortMap Ident ((T : Type) × (S → T → S → Prop)))
+theorem getIO_some {S} (m : PortMap Ident ((T : Type _) × (S → T → S → Prop)))
         (ident : InternalPort Ident) t :
   m.find? ident = some t ->
   m.getIO ident = t := by
   intros H; simp only [PortMap.getIO, H]; simp
 
-theorem EqExt_getIO {S} {m m' : PortMap Ident ((T : Type) × (S → T → S → Prop))} :
+theorem EqExt_getIO {S} {m m' : PortMap Ident ((T : Type _) × (S → T → S → Prop))} :
   m.EqExt m' →
   ∀ i, m.getIO i = m'.getIO i := by
   unfold getIO AssocList.EqExt at *; intro hext i; rw [hext]
+
+theorem getIO_eraseAll_eq {S} {m : PortMap Ident ((T : Type _) × (S → T → S → Prop))} {i} :
+  PortMap.getIO (AssocList.eraseAll i m) i = ⟨PUnit, fun x x x => False⟩ := by
+  dsimp [PortMap.getIO]; rw [AssocList.find?_eraseAll_eq]; rfl
+
+theorem getIO_eraseAll_neq {S} {m : PortMap Ident ((T : Type _) × (S → T → S → Prop))} {i j} :
+  i ≠ j → PortMap.getIO (AssocList.eraseAll j m) i = PortMap.getIO m i := by
+  intro h; dsimp [PortMap.getIO]; rw [AssocList.find?_eraseAll_neq] <;> trivial
 
 @[simp]
 theorem cons_find? : ∀ {α} [HDEq : DecidableEq (InternalPort α)] β x v (pm: PortMap α β),

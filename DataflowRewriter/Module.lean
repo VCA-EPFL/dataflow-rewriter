@@ -910,9 +910,32 @@ theorem indistinguishability_product {J K} {i i₂ s s₂} {imod₂ : Module Ide
       rw [PortMap.rw_rule_execution cast2]; dsimp [liftL]; and_intros <;> try rfl
       convert hget'; simp
 
-axiom indistinguishability_connect {i s inp out} [MatchInterface imod smod] :
+omit mm in
+theorem indistinguishability_connect {i s inp out} [MatchInterface imod smod] :
   imod.indistinguishable smod i s →
-  (imod.connect' out inp).indistinguishable (smod.connect' out inp) i s
+  (imod.connect' out inp).indistinguishable (smod.connect' out inp) i s := by
+  intro ⟨hindl₁, hindl₂⟩
+  constructor
+  · intro ident new_i v conn
+    dsimp [connect'] at *
+    by_cases heq : ident = inp
+    · subst_vars
+      have hFalse := PortMap.getIO_not_contained_false conn AssocList.eraseAll_not_contains2
+      contradiction
+    · rw [PortMap.rw_rule_execution (by rw [PortMap.getIO_eraseAll_neq]; assumption)] at conn
+      obtain ⟨new_s, hindl₁⟩ := hindl₁ _ _ _ conn
+      exists new_s; rw [PortMap.rw_rule_execution (by rw [PortMap.getIO_eraseAll_neq]; assumption)]
+      convert hindl₁; simp
+  · intro ident new_i v conn
+    dsimp [connect'] at *
+    by_cases heq : ident = out
+    · subst_vars
+      have hFalse := PortMap.getIO_not_contained_false conn AssocList.eraseAll_not_contains2
+      contradiction
+    · rw [PortMap.rw_rule_execution (by rw [PortMap.getIO_eraseAll_neq]; assumption)] at conn
+      obtain ⟨new_s, hindl₂⟩ := hindl₂ _ _ _ conn
+      exists new_s; rw [PortMap.rw_rule_execution (by rw [PortMap.getIO_eraseAll_neq]; assumption)]
+      convert hindl₂; simp
 
 def refines_φ (φ : I → S → Prop) :=
   ∀ (init_i : I) (init_s : S),

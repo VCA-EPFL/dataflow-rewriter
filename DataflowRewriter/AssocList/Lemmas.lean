@@ -369,6 +369,11 @@ theorem eraseAll_not_contains {α β} [DecidableEq α] (a : AssocList α β) (i 
     · exfalso; apply H
       simp; left; simp at Heq; assumption
 
+theorem eraseAll_not_contains2 {α β} [DecidableEq α] {a : AssocList α β} {i : α}basi :
+  ¬ (a.eraseAll i).contains i := by
+  rw [← contains_find?_iff]; intro ⟨x, h⟩
+  rw [find?_eraseAll_eq] at h; contradiction
+
 @[simp, drcompute] theorem eraseAll_map_neq {α β γ} [DecidableEq α] [DecidableEq β]
     (f : α → β) (g : α → γ) (l : List α) (k : β) (Hneq : ∀ x, f x ≠ k) :
     (List.map (λ x => (f x, g x)) l).toAssocList.eraseAll k =
