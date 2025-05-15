@@ -13,17 +13,17 @@ import DataflowRewriter.List
 import DataflowRewriter.Tactic
 import DataflowRewriter.AssocList
 
-import DataflowRewriter.Examples.NoC.Basic
-import DataflowRewriter.Examples.NoC.BasicLemmas
-import DataflowRewriter.Examples.NoC.Components
+import DataflowRewriter.Examples.Noc.Basic
+import DataflowRewriter.Examples.Noc.BasicLemmas
+import DataflowRewriter.Examples.Noc.Components
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.Examples.NoC
+namespace DataflowRewriter.Examples.Noc
 
 variable [P : NocParam]
 
--- Basic properties of the NoC component ---------------------------------------
+-- Basic properties of the Noc component ---------------------------------------
 
 theorem noc_inpT (i : RouterID) (Hlt : i < P.netsz) :
   (noc.inputs.getIO (NatModule.stringify_input i)).1 = (P.Data × FlitHeader) :=

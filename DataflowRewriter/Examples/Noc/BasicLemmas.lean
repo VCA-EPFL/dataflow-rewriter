@@ -15,7 +15,7 @@ import DataflowRewriter.AssocList
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.Examples.NoC
+namespace DataflowRewriter.Examples.Noc
 
 -- TODO: This should be moved elsewhere at some point
 
@@ -146,17 +146,18 @@ theorem getIO_map_ident {Ident} [DecidableEq Ident] {S : Type _}
     -- FIXME: Induction on List.range is still problematic
     sorry
 
-theorem getIO_map_ident_match_1 {Ident} [DecidableEq Ident] {S1 S2 : Type _}
-  {ident : InternalPort Ident} {sz : Nat}
-  {f : Nat → InternalPort Ident}
-  {g1 : Nat -> Σ T : Type _, (S1 → T → S1 → Prop)}
-  {g2 : Nat -> Σ T : Type _, (S2 → T → S2 → Prop)}
+theorem getIO_map_ident_match_1 {α Ident} [DecidableEq Ident] {S1 S2 : Type _}
+  {ident : InternalPort Ident}
+  {f : α → InternalPort Ident}
+  {g1 : α -> Σ T : Type _, (S1 → T → S1 → Prop)}
+  {g2 : α -> Σ T : Type _, (S2 → T → S2 → Prop)}
+  {l : List α}
   (Heq : ∀ n, (g1 n).1 = (g2 n).1):
-  (PortMap.getIO (List.map (λ n => ⟨f n, g1 n⟩) (List.range sz)).toAssocList ident).fst =
-  (PortMap.getIO (List.map (λ n => ⟨f n, g2 n⟩) (List.range sz)).toAssocList ident).fst :=
+  (PortMap.getIO (List.map (λ n => ⟨f n, g1 n⟩) l).toAssocList ident).fst =
+  (PortMap.getIO (List.map (λ n => ⟨f n, g2 n⟩) l).toAssocList ident).fst :=
   by
     -- FIXME: Induction on List.range is still problematic
     sorry
 
 
-end DataflowRewriter.Examples.NoC
+end DataflowRewriter.Examples.Noc

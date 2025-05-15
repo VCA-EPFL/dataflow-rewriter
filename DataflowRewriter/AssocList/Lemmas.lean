@@ -386,6 +386,18 @@ theorem eraseAll_append {α β} [DecidableEq α] {l1 l2 : AssocList α β} {i}:
     rename_i k _ _ _
     cases k == i <;> simp [eraseAllP_TR_eraseAll, eraseAll] at * <;> simpa [append, eraseAll]
 
+@[simp, drcompute] theorem eraseAll_concat_eq {α β} [DecidableEq α] {a : AssocList α β} {ident val} :
+  ((a.concat ident val).eraseAll ident) = a.eraseAll ident := by
+    dsimp [AssocList.concat]
+    rw [eraseAll_append, eraseAll_cons_eq, eraseAll_nil, append_nil]
+
+@[simp, drcompute] theorem eraseAll_concat_neq {α β} [DecidableEq α] {a : AssocList α β} {ident ident' val} :
+  ident' ≠ ident →
+  ((a.concat ident' val).eraseAll ident) = (a.eraseAll ident).concat ident' val := by
+    intros Hneq
+    dsimp [AssocList.concat]
+    rw [eraseAll_append, eraseAll_cons_neq Hneq, eraseAll_nil]
+
 @[simp] theorem any_map {α β} {f : α → β} {l : List α} {p : β → Bool} : (l.map f).any p = l.any (p ∘ f) := by
   induction l <;> simp
 

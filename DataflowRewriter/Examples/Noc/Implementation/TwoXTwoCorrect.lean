@@ -13,13 +13,13 @@ import DataflowRewriter.ModuleReduction
 import DataflowRewriter.ExprLow
 import DataflowRewriter.ExprLowLemmas
 
-import DataflowRewriter.Examples.NoC.BasicLemmas
-import DataflowRewriter.Examples.NoC.Perm
-import DataflowRewriter.Examples.NoC.ComponentsImplementation.TwoXTwo
+import DataflowRewriter.Examples.Noc.BasicLemmas
+import DataflowRewriter.Examples.Noc.Perm
+import DataflowRewriter.Examples.Noc.ComponentsImplementation.TwoXTwo
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.Examples.NoC.TwoXTwo
+namespace DataflowRewriter.Examples.Noc.TwoXTwo
 
 -- Useful lemmas ---------------------------------------------------------------
 
@@ -65,7 +65,7 @@ instance : MatchInterface noc_lowM noc := by
   solve_match_interface
 
 def φ (I : noc_lowT) (S : nocT) : Prop :=
-  List.Perm S (I.1 |> I.2.1.append |> I.2.2.1.append |> I.2.2.2.1.append)
+  S.Perm (I.1 |> I.2.1.append |> I.2.2.1.append |> I.2.2.2.1.append)
 
 theorem perm_in_perm_φ {I : noc_lowT} {S : nocT} {v} {Hφ : φ I S} :
   v ∈ (I.1 |> I.2.1.append |> I.2.2.1.append |> I.2.2.2.1.append)
@@ -331,4 +331,4 @@ theorem noc_low_correct : noc_lowM ⊑ noc := by
       noc_low_refines_φ
   )
 
-end DataflowRewriter.Examples.NoC.TwoXTwo
+end DataflowRewriter.Examples.Noc.TwoXTwo

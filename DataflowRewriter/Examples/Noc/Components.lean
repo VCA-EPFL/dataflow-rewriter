@@ -11,9 +11,9 @@ import Qq
 import DataflowRewriter.Module
 import DataflowRewriter.Component
 
-import DataflowRewriter.Examples.NoC.Basic
+import DataflowRewriter.Examples.Noc.Basic
 
-namespace DataflowRewriter.Examples.NoC
+namespace DataflowRewriter.Examples.Noc
 
 variable [P : NocParam]
 
@@ -57,10 +57,7 @@ def nbranch' (name := "nbranch") : NatModule (NatModule.Named name (List P.Data 
 
 @[drcomponents]
 def mk_nroute_output_rule (rID : RouterID) : (Σ T : Type, nrouteT → T → nrouteT → Prop) :=
-  ⟨
-    P.Data,
-    λ oldState data newState => oldState = (data, { dst := rID }) :: newState
-  ⟩
+  ⟨Flit, λ oldS v newS => v.2.dst = rID ∧ oldS = v :: newS⟩
 
 -- NBranch with only one input
 -- TODO: This should be generalized as a `router`, which take one input
@@ -71,7 +68,7 @@ def nroute' (name := "nroute") : NatModule (NatModule.Named name nrouteT) :=
   {
     inputs := [
       (0, ⟨Flit,
-        λ oldState v newState => newState = oldState.concat v⟩),
+        λ oldS v newS => newS = oldS.concat v⟩),
     ].toAssocList,
     outputs := lift_f P.netsz mk_nroute_output_rule,
     init_state := λ s => s = [],
@@ -81,7 +78,7 @@ def nroute' (name := "nroute") : NatModule (NatModule.Named name nrouteT) :=
 
 @[drcomponents]
 def mk_nbag_input_rule (S : Type) (_ : ℕ) : (Σ T : Type, List S → T → List S → Prop) :=
-    ⟨S, λ oldState v newState => newState = oldState.concat v⟩
+    ⟨S, λ oldS v newS => newS = oldS.concat v⟩
 
 -- Bag with `n` inputs
 @[drcomponents]
@@ -89,8 +86,8 @@ def nbag' (T : Type) (n : ℕ) (name := "nbag") : NatModule (NatModule.Named nam
   {
     inputs := lift_f n (mk_nbag_input_rule T),
     outputs := [
-      (↑0, ⟨ T, λ oldState v newState =>
-        ∃ i, newState = oldState.remove i ∧ v = oldState.get i ⟩)
+      (↑0, ⟨ T, λ oldS v newS =>
+        ∃ i, newS = oldS.remove i ∧ v = oldS.get i ⟩)
     ].toAssocList,
     init_state := λ s => s = [],
   }
@@ -117,15 +114,15 @@ def hide' (T : Type _) (inp_sz out_sz : Nat) (name := "hide") : NatModule (NatMo
 def mk_noc_input_rule (rId : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
     ⟨
       Flit,
-      λ oldState v newState => newState = oldState ++ [v]
+      λ oldS v newS => newS = oldS ++ [v]
     ⟩
 
 @[drcomponents]
 def mk_noc_output_rule (rId : RouterID) : (Σ T : Type, nocT → T → nocT → Prop) :=
     ⟨
       Flit,
-      λ oldState v newState =>
-        v.2.dst = rId ∧ ∃ i, newState = oldState.remove i ∧ v = oldState.get i
+      λ oldS v newS =>
+        v.2.dst = rId ∧ ∃ i, newS = oldS.remove i ∧ v = oldS.get i
     ⟩
 
 @[drcomponents]

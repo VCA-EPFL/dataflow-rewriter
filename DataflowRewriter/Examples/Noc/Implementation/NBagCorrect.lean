@@ -20,14 +20,14 @@ import DataflowRewriter.Tactic
 import DataflowRewriter.AssocList
 import DataflowRewriter.ModuleReduction
 
-import DataflowRewriter.Examples.NoC.Basic
-import DataflowRewriter.Examples.NoC.BasicLemmas
-import DataflowRewriter.Examples.NoC.Components
-import DataflowRewriter.Examples.NoC.ComponentsImplementation.NBag
+import DataflowRewriter.Examples.Noc.Basic
+import DataflowRewriter.Examples.Noc.BasicLemmas
+import DataflowRewriter.Examples.Noc.Components
+import DataflowRewriter.Examples.Noc.ComponentsImplementation.NBag
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.Examples.NoC
+namespace DataflowRewriter.Examples.Noc
 
 variable [P : NocParam]
 
@@ -175,4 +175,4 @@ theorem nbag_low_correct : nbag_lowM ⊑ (nbag P.Data P.netsz) := by
 
 variable [P : NocParam]
 
-end DataflowRewriter.Examples.NoC
+end DataflowRewriter.Examples.Noc

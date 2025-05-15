@@ -4,29 +4,18 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz, Gurvan Debaussart
 -/
 
-import Lean
-import Init.Data.BitVec.Lemmas
-import Qq
-
-import DataflowRewriter.Simp
-import DataflowRewriter.Module
+import DataflowRewriter.Component
 import DataflowRewriter.ExprLow
 import DataflowRewriter.ExprLowLemmas
-import DataflowRewriter.Component
-import DataflowRewriter.KernelRefl
-import DataflowRewriter.Reduce
-import DataflowRewriter.List
-import DataflowRewriter.Tactic
-import DataflowRewriter.AssocList
+import DataflowRewriter.Module
 import DataflowRewriter.ModuleReduction
 
-import DataflowRewriter.Examples.NoC.Basic
-import DataflowRewriter.Examples.NoC.BasicLemmas
-import DataflowRewriter.Examples.NoC.Components
+import DataflowRewriter.Examples.Noc.Basic
+import DataflowRewriter.Examples.Noc.Components
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.Examples.NoC
+namespace DataflowRewriter.Examples.Noc
 
 variable [P : NocParam]
 
@@ -130,4 +119,4 @@ def_module nbag_lowM : StringModule nbag_lowT :=
       AssocList.eraseAll_nil
     ]
 
-end DataflowRewriter.Examples.NoC
+end DataflowRewriter.Examples.Noc

@@ -3,9 +3,6 @@ Copyright (c) 2025 VCA Lab, EPFL. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz, Gurvan Debaussart
 -/
-import Lean
-import Init.Data.BitVec.Lemmas
-import Qq
 
 import DataflowRewriter.Module
 import DataflowRewriter.Component
@@ -13,14 +10,14 @@ import DataflowRewriter.ModuleReduction
 import DataflowRewriter.ExprLow
 import DataflowRewriter.ExprLowLemmas
 
-import DataflowRewriter.Examples.NoC.Basic
-import DataflowRewriter.Examples.NoC.Components
-import DataflowRewriter.Examples.NoC.BasicLemmas
-import DataflowRewriter.Examples.NoC.Perm
+import DataflowRewriter.Examples.Noc.Basic
+import DataflowRewriter.Examples.Noc.Components
+import DataflowRewriter.Examples.Noc.BasicLemmas
+import DataflowRewriter.Examples.Noc.Perm
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.Examples.NoC.TwoXTwo
+namespace DataflowRewriter.Examples.Noc.TwoXTwo
 
 -- This file implement a non-parameterized 2x2 Noc
 
@@ -53,7 +50,7 @@ def arbiterXY : Arbiter := λ src dst =>
   else
     .none
 
-def routerXY := router arbiterXY
+@[simp] def routerXY := router arbiterXY
 
 def ε_noc : Env :=
   [
@@ -68,16 +65,16 @@ def ε_noc : Env :=
   AssocList.find? "Hide Flit 8 8" ε_noc = .some ⟨_, hide Flit 8 8⟩ := rfl
 
 @[drenv] theorem router_in_ε_0 :
-  AssocList.find? "Router 0" ε_noc = .some ⟨_, router arbiterXY 0⟩ := rfl
+  AssocList.find? "Router 0" ε_noc = .some ⟨_, routerXY 0⟩ := rfl
 
 @[drenv] theorem router_in_ε_1 :
-  AssocList.find? "Router 1" ε_noc = .some ⟨_, router arbiterXY 1⟩ := rfl
+  AssocList.find? "Router 1" ε_noc = .some ⟨_, routerXY 1⟩ := rfl
 
 @[drenv] theorem router_in_ε_2 :
-  AssocList.find? "Router 2" ε_noc = .some ⟨_, router arbiterXY 2⟩ := rfl
+  AssocList.find? "Router 2" ε_noc = .some ⟨_, routerXY 2⟩ := rfl
 
 @[drenv] theorem router_in_ε_3 :
-  AssocList.find? "Router 3" ε_noc = .some ⟨_, router arbiterXY 3⟩ := rfl
+  AssocList.find? "Router 3" ε_noc = .some ⟨_, routerXY 3⟩ := rfl
 
 @[drunfold_defs]
 def noc_low : ExprLow String :=
@@ -158,7 +155,7 @@ def noc_low : ExprLow String :=
 
 def noc_lowT : Type := by
   precomputeTac [T| noc_low, ε_noc] by
-    dsimp [noc_low, ε_noc]
+    dsimp [drunfold_defs, drcomponents]
     dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
     simp (disch := simpa) only [toString, drcompute]
 
@@ -168,4 +165,4 @@ def_module noc_lowM : StringModule noc_lowT :=
     dr_reduce_module
     simp only [drlogic]
 
-end DataflowRewriter.Examples.NoC.TwoXTwo
+end DataflowRewriter.Examples.Noc.TwoXTwo
