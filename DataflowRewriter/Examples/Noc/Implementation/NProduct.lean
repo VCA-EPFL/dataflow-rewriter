@@ -47,28 +47,9 @@ theorem cast_module_type {I T T' : Type _} (heq : T = T') : Module I T = Module 
 def liftNL {S} (n : Nat) (m : Module String S) : Module String (PList S n) :=
   match n with
   | 0 => m
-  | n+1 => (cast_module_type plist_concat).mp (liftNL n m).liftLM
+  | n + 1 => (cast_module_type plist_concat).mp (liftNL n m).liftLM
 
-theorem foldl_acc_build_module {l : List Nat} {e e' eb eb'} :
-  (ExprLow.build_module' ε e) = .some eb →
-  (ExprLow.build_module' ε e') = .some eb' →
-  ExprLow.build_module ε (List.foldl (λ acc i => acc.product e) e' l)
-  = List.foldl (λ acc i => ⟨ _, Module.product acc.2 (ExprLow.build_module ε e).2 ⟩) (ExprLow.build_module ε e') l := by
-  induction l generalizing e' eb' with
-  | nil => intros; rfl
-  | cons x xs ih =>
-    intro heb1 heb2
-    dsimp; rw [ih]
-    rotate_left 2
-    dsimp [ExprLow.build_module']; rw [heb1, heb2]; dsimp
-    rotate_left 1; assumption
-    congr
-    conv => lhs; dsimp [ExprLow.build_module, ExprLow.build_module']; rw [heb1, heb2]; dsimp
-    unfold ExprLow.build_module
-    congr
-    all_goals solve | rw [heb2]; rfl | rw [heb1]; rfl
-
-theorem foldl_acc_build_module' {α} {ε} {acc accb} {l : List α} {f : α → ExprLow String}:
+theorem foldl_acc_build_module {α} {ε} {acc accb} {l : List α} {f : α → ExprLow String}:
   (∀ i, i ∈ l → ∃ b, (ExprLow.build_module' ε (f i)) = .some b) →
   (ExprLow.build_module' ε acc) = .some accb →
   ExprLow.build_module ε (List.foldl (λ acc i => acc.product (f i)) acc l)
@@ -91,41 +72,41 @@ theorem foldl_acc_build_module' {α} {ε} {acc accb} {l : List α} {f : α → E
     congr
     all_goals solve | rw [haccb]; rfl | rw [heb]; rfl
 
+-- TODO: good name
+def dproduct {Ident} (a b : TModule1 Ident) : TModule1 Ident :=
+  ⟨a.1 × b.1, Module.product a.2 b.2⟩
+
+theorem dproduct_1 {Ident} (a b : TModule1 Ident) :
+  (dproduct a b).1 = (a.1 × b.1) := by rfl
+
+theorem foldl_acc_plist {Ident α} (acc : TModule1 Ident) (l : List α) (f : α → TModule1 Ident):
+  ((List.foldl (λ acc i => ⟨acc.1 × (f i).1, Module.product acc.2 (f i).2⟩) acc l) : TModule1 Ident).1
+  = (List.foldl (λ acc i => acc × (f i).1) acc.1 l) := by
+    induction l generalizing acc with
+    | nil => rfl
+    | cons x xs ih =>
+      dsimp
+      conv =>
+        pattern (Sigma.fst _ × Sigma.fst _)
+        rw [←dproduct_1]
+      rw [←ih (acc := dproduct acc (f x))]
+      rfl
+
 def nemptyT (n : Nat) : Type := by
   precomputeTac [T| nempty n, ε] by
     dsimp [drunfold_defs, drcomponents]
     dsimp [ExprLow.build_module_type]
-    rw [foldl_acc_build_module'
-      (ε := ε)
-      (f := λ _ => ExprLow.base { input := .nil, output := .nil } "Empty")
-      (l := List.range n)
-      (acc := ExprLow.base { input := .nil, output := .nil } "Empty")
-    ]
+    rw [foldl_acc_build_module]
+    rotate_left 1
+    intros i Hi
     dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
     rw [empty_in_ε]
     simp (disch := simpa) only [toString, drcompute]
-    -- TODO: Very ugly, not reducing well
-    simp only [
-      Module.renamePorts,
-      Module.mapPorts2,
-      Module.mapInputPorts,
-      drcompute,
-      StringModule.empty,
-      NatModule.empty,
-      drcompute,
-      drcomponents,
-      Module.mapOutputPorts
-    ]
-    -- TODO: Remaining goal can just be skipped with the Opaque bug
-    -- · intros i Hi
-    --   exists ?_
-    --   rotate_left 1
-    --   dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
-    --   rw [empty_in_ε]
-    --   simp (disch := simpa) only [toString, drcompute]
-    --   sorry -- rfl not working?
-    --   sorry -- weird
-    -- · dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
-    --   rw [empty_in_ε]
-    --   simp (disch := simpa) only [toString, drcompute]
-    --   rfl
+    apply Exists.intro _; rfl
+    dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    simp only [drenv]
+    dsimp
+    rw [foldl_acc_plist]
+    dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    simp only [drenv, drcompute]
+    rw [←PList]
