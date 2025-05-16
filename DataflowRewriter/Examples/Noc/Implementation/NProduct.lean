@@ -32,22 +32,18 @@ def expected (n : Nat) : Type :=
 #reduce (types := true) List.foldl (λ acc i => acc × Unit) Unit (List.range 2)
 #reduce (types := true) List.foldl (λ acc i => acc × Unit) Unit (List.range 3)
 
-def PList (S : Type _) (n : Nat) : Type _ :=
+def PList.{u} (S : Type _) (n : Nat) : Type u :=
   List.foldl (λ acc i => acc × S) S (List.range n)
 
-theorem plist_concat.{u} {S : Type u} {n} :
+theorem plist_cons.{u} {S : Type u} {n} :
   (PList.{u} S n × S) = PList.{u} S (n + 1) := by sorry
-
--- False
--- theorem plist_cons.{u} {S : Type u} {n} :
---   (PList.{u} S n) = PList.{u} S (n + 1) := by sorry
 
 theorem cast_module_type {I T T' : Type _} (heq : T = T') : Module I T = Module I T' := by subst T; rfl
 
 def liftNL {S} (n : Nat) (m : Module String S) : Module String (PList S n) :=
   match n with
   | 0 => m
-  | n + 1 => (cast_module_type plist_concat).mp (liftNL n m).liftLM
+  | n + 1 => (cast_module_type plist_cons).mp (liftNL n m).liftLM
 
 theorem foldl_acc_build_module {α} {ε} {acc accb} {l : List α} {f : α → ExprLow String}:
   (∀ i, i ∈ l → ∃ b, (ExprLow.build_module' ε (f i)) = .some b) →

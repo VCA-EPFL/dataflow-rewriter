@@ -1253,5 +1253,28 @@ axiom refines_subset {e e' : ExprLow Ident} (ε' : IdentMap Ident (Σ T : Type, 
 
 end Refinement
 
+theorem build_module_foldl {α} {ε} {acc accb} {l : List α} {f : α → ExprLow String}:
+  (∀ i, i ∈ l → ∃ b, (ExprLow.build_module' ε (f i)) = .some b) →
+  (ExprLow.build_module' ε acc) = .some accb →
+  ExprLow.build_module ε (List.foldl (λ acc i => acc.product (f i)) acc l)
+  = List.foldl (λ acc i => ⟨_, Module.product acc.2 (ExprLow.build_module ε (f i)).2⟩) (ExprLow.build_module ε acc) l := by
+  induction l generalizing acc accb with
+  | nil => intros; rfl
+  | cons x xs ih =>
+    intro hfb haccb
+    have Hxin: x ∈ x :: xs := by simpa
+    obtain ⟨eb, heb⟩ := hfb x Hxin
+    dsimp; rw [ih]
+    rotate_left 2
+    dsimp [ExprLow.build_module']; rw [heb, haccb]; dsimp
+    rotate_left 1; intros i Hi
+    apply hfb
+    right; assumption
+    congr
+    conv => lhs; dsimp [ExprLow.build_module, ExprLow.build_module']; rw [heb, haccb]; dsimp
+    unfold ExprLow.build_module
+    congr
+    all_goals solve | rw [haccb]; rfl | rw [heb]; rfl
+
 end ExprLow
 end DataflowRewriter

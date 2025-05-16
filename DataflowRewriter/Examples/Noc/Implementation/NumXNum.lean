@@ -17,13 +17,13 @@ import DataflowRewriter.Examples.Noc.Perm
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.Examples.Noc.TwoXTwo
+namespace DataflowRewriter.Examples.Noc.NumXNum
 
 variable [P : NocParam]
 
 -- Implementation --------------------------------------------------------------
 
-@[simp] def routerXY := router arbiter_xy
+@[simp, drcomponents] def routerXY := router arbiter_xy
 
 def hideC : Nat :=
   -- One len for each side (top, bot, left, right)
@@ -37,13 +37,119 @@ def ε_noc : Env :=
   ++
   (List.map (λ i => (s!"Router {i}", ⟨_, routerXY i⟩)) (List.range P.netsz)).toAssocList
 
-@[drenv] theorem hide_in_ε :
-  AssocList.find? "Hide {hideC hideC} " ε_noc = .some ⟨_, hide Flit hideC hideC⟩ :=
-  sorry
-
-@[drenv] theorem router_in_ε_n (n : RouterID) (Hok : n < P.netsz) :
-  AssocList.find? "Router {n}" ε_noc = .some ⟨_, routerXY n⟩ :=
+@[drenv]
+theorem hide_in_ε_noc :
+  AssocList.find? s!"Hide Flit {hideC} {hideC}" ε_noc = .some ⟨_, hide Flit hideC hideC⟩ :=
     sorry
+
+-- TODO: False without Hok
+@[drenv]
+theorem router_in_ε_noc (n : RouterID) : -- (Hok : n < P.netsz) :
+  AssocList.find? s!"Router {n}" ε_noc = .some ⟨_, routerXY n⟩ :=
+    sorry
+
+-- Mesh ------------------------------------------------------------------------
+
+@[drunfold_defs]
+def mesh : ExprLow String :=
+  let router_internal (rId : RouterID) :=
+    InstIdent.internal s!"Router {rId}"
+
+  let router_out (rId : RouterID) (dir : Dir) : InternalPort String :=
+    { inst := router_internal rId, name := NatModule.stringify_output dir }
+
+  let router_inp (rId : RouterID) (dir : Dir) : InternalPort String :=
+    { inst := router_internal rId, name := NatModule.stringify_input dir }
+
+  let mkrouter (rId : RouterID) : ExprLow String := ExprLow.base
+    {
+      input :=
+        AssocList.cons (router_stringify_inp rId 0) (NatModule.stringify_input rId)
+          (List.map
+            (λ n => ⟨router_stringify_inp rId (n + 1), router_inp rId (n + 1)⟩)
+            (List.range 4)
+          |>.toAssocList),
+      output :=
+        AssocList.cons (router_stringify_out rId 0) (NatModule.stringify_output rId)
+          (List.map
+            (λ n => ⟨router_stringify_out rId (n + 1), router_out rId (n + 1)⟩)
+            (List.range 4)
+          |>.toAssocList),
+    }
+    s!"Router {rId}"
+
+  let mkrouters (base : ExprLow String) : ExprLow String :=
+    List.foldl (λ acc i => ExprLow.product acc (mkrouter i)) base (List.range P.netsz)
+
+  let hide_inp (sId : Nat) : InternalPort String :=
+    { inst := InstIdent.internal "Hide", name := NatModule.stringify_input sId }
+
+  let hide_out (sId : Nat) : InternalPort String :=
+    { inst := InstIdent.internal "Hide", name := NatModule.stringify_output sId }
+
+  let mkhide : ExprLow String := ExprLow.base
+    {
+      input :=
+        List.range hideC
+        |>.map (λ n => ⟨NatModule.stringify_input n, hide_inp n⟩)
+        |>.toAssocList,
+      output :=
+        List.range hideC
+        |>.map (λ n => ⟨NatModule.stringify_output n, hide_out n⟩)
+        |>.toAssocList,
+    }
+    s!"Hide Flit {hideC} {hideC}"
+
+  mkhide |>
+  mkrouters
+
+def meshT : Type := by
+  precomputeTac [T| mesh, ε_noc] by
+    dsimp [drunfold_defs, drcomponents]
+    dsimp [ExprLow.build_module_type]
+    rw [ExprLow.build_module_foldl]
+    rw [Module.foldl_acc_plist]
+    dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    simp only [drenv, drcompute]
+
+def_module meshM : StringModule meshT := [e| mesh, ε_noc]
+  reduction_by
+    dsimp -failIfUnchanged [drunfold_defs, reduceAssocListfind?, reduceListPartition]
+    dsimp -failIfUnchanged [reduceExprHighLower, reduceExprHighLowerProdTR, reduceExprHighLowerConnTR]
+    dsimp [ExprHigh.uncurry, ExprLow.build_module_expr, ExprLow.build_module_type]
+    rw [ExprLow.build_module_foldl]
+    dsimp [ExprLow.build_module, ExprLow.build_module']
+    rw [rw_opaque (by simp only [drenv]; rfl)]
+    -- TODO: Not in the simp onyl [drenv] for some reason?
+    -- Probably a dependent type issue
+    rw [rw_opaque (by
+      conv =>
+        pattern List.foldl _ _
+        arg 1
+        pattern (⟨_, _⟩: TModule1 String)
+        rw [router_in_ε_noc]
+    )]
+    dsimp [drcomponents]
+    dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, reduceAssocListfind?]
+    dsimp [Module.product]
+    rw [rw_opaque (by
+      conv =>
+        pattern List.foldl _ _
+        arg 1
+        pattern (⟨_, _⟩: TModule1 String)
+        simp only [drcompute, drcomponents]
+        dsimp [Module.liftR, Module.liftL]
+        -- TODO: Fix the following
+        -- dsimp [List.range, List.range.loop]
+        -- pattern AssocList.bijectivePortRenaming _ _
+        -- simp [toString]
+        -- simp (disch := decide) only [AssocList.bijectivePortRenaming_invert]
+    )]
+    -- TODO: We just need to simplify bijectivePortRenaming here and above
+    -- We can probably have a thing similar to type where we move the fold
+    -- inside of the inputs, outputs, internals and init_state
+
+-- NoC: Connected Mesh ---------------------------------------------------------
 
 @[drunfold_defs]
 def noc_low : ExprLow String :=
@@ -133,13 +239,12 @@ def noc_low : ExprLow String :=
 def noc_lowT : Type := by
   precomputeTac [T| noc_low, ε_noc] by
     dsimp [drunfold_defs, drcomponents]
-    dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    dsimp [ExprLow.build_module_type]
     simp (disch := simpa) only [toString, drcompute, drenv]
     unfold ExprLow.build_module'
     -- List.fold ...
 
-def_module noc_lowM : StringModule noc_lowT :=
-  [e| noc_low, ε_noc]
+def_module noc_lowM : StringModule noc_lowT := [e| noc_low, ε_noc]
   reduction_by
     dsimp -failIfUnchanged [drunfold_defs, reduceAssocListfind?, reduceListPartition]
     dsimp -failIfUnchanged [reduceExprHighLower, reduceExprHighLowerProdTR, reduceExprHighLowerConnTR]
@@ -150,5 +255,4 @@ def_module noc_lowM : StringModule noc_lowT :=
     -- dr_reduce_module
     -- simp only [drlogic]
 
-end DataflowRewriter.Examples.Noc.TwoXTwo
-
+end DataflowRewriter.Examples.Noc.NumXNum

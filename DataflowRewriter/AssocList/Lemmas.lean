@@ -457,6 +457,11 @@ theorem mapKey_mapKey {α β γ σ} {f : α → β} {g : β → γ} {m : AssocLi
     induction m <;> simpa
 
 @[drcompute]
+theorem mapVal_mapVal {α β γ σ} {f : α → σ → β} {g : α → β → γ} {m : AssocList α σ}:
+  (m.mapVal f).mapVal g = m.mapVal (λ k v => g k (f k v)) := by
+    induction m <;> simpa
+
+@[drcompute]
 theorem mapKey_append {α β γ} {f : α → γ} {m n : AssocList α β}:
   m.mapKey f ++ n.mapKey f = (m ++ n).mapKey f := by
   induction m <;> simpa
