@@ -51,8 +51,8 @@ def liftNL {S} (n : Nat) (m : Module String S) : Module String (PList S n) :=
 theorem foldl_acc_build_module {l : List Nat} {e e' eb eb'} :
   (ExprLow.build_module' ε e) = .some eb →
   (ExprLow.build_module' ε e') = .some eb' →
-  ExprLow.build_module ε (List.foldl (fun acc i => acc.product e) e' l)
-  = List.foldl (fun acc i => ⟨ _, Module.product acc.2 (ExprLow.build_module ε e).2 ⟩) (ExprLow.build_module ε e') l := by
+  ExprLow.build_module ε (List.foldl (λ acc i => acc.product e) e' l)
+  = List.foldl (λ acc i => ⟨ _, Module.product acc.2 (ExprLow.build_module ε e).2 ⟩) (ExprLow.build_module ε e') l := by
   induction l generalizing e' eb' with
   | nil => intros; rfl
   | cons x xs ih =>
@@ -67,7 +67,64 @@ theorem foldl_acc_build_module {l : List Nat} {e e' eb eb'} :
     congr
     all_goals solve | rw [heb2]; rfl | rw [heb1]; rfl
 
+theorem foldl_acc_build_module' {α} {ε} {acc accb} {l : List α} {f : α → ExprLow String}:
+  (∀ i, i ∈ l → ∃ b, (ExprLow.build_module' ε (f i)) = .some b) →
+  (ExprLow.build_module' ε acc) = .some accb →
+  ExprLow.build_module ε (List.foldl (λ acc i => acc.product (f i)) acc l)
+  = List.foldl (λ acc i => ⟨_, Module.product acc.2 (ExprLow.build_module ε (f i)).2⟩) (ExprLow.build_module ε acc) l := by
+  induction l generalizing acc accb with
+  | nil => intros; rfl
+  | cons x xs ih =>
+    intro hfb haccb
+    have Hxin: x ∈ x :: xs := by simpa
+    obtain ⟨eb, heb⟩ := hfb x Hxin
+    dsimp; rw [ih]
+    rotate_left 2
+    dsimp [ExprLow.build_module']; rw [heb, haccb]; dsimp
+    rotate_left 1; intros i Hi
+    apply hfb
+    right; assumption
+    congr
+    conv => lhs; dsimp [ExprLow.build_module, ExprLow.build_module']; rw [heb, haccb]; dsimp
+    unfold ExprLow.build_module
+    congr
+    all_goals solve | rw [haccb]; rfl | rw [heb]; rfl
+
 def nemptyT (n : Nat) : Type := by
   precomputeTac [T| nempty n, ε] by
     dsimp [drunfold_defs, drcomponents]
+    dsimp [ExprLow.build_module_type]
+    rw [foldl_acc_build_module'
+      (ε := ε)
+      (f := λ _ => ExprLow.base { input := .nil, output := .nil } "Empty")
+      (l := List.range n)
+      (acc := ExprLow.base { input := .nil, output := .nil } "Empty")
+    ]
     dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    rw [empty_in_ε]
+    simp (disch := simpa) only [toString, drcompute]
+    -- TODO: Very ugly, not reducing well
+    simp only [
+      Module.renamePorts,
+      Module.mapPorts2,
+      Module.mapInputPorts,
+      drcompute,
+      StringModule.empty,
+      NatModule.empty,
+      drcompute,
+      drcomponents,
+      Module.mapOutputPorts
+    ]
+    -- TODO: Remaining goal can just be skipped with the Opaque bug
+    -- · intros i Hi
+    --   exists ?_
+    --   rotate_left 1
+    --   dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    --   rw [empty_in_ε]
+    --   simp (disch := simpa) only [toString, drcompute]
+    --   sorry -- rfl not working?
+    --   sorry -- weird
+    -- · dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
+    --   rw [empty_in_ε]
+    --   simp (disch := simpa) only [toString, drcompute]
+    --   rfl
