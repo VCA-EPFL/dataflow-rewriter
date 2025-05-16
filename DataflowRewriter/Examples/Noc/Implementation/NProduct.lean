@@ -38,8 +38,9 @@ def PList (S : Type _) (n : Nat) : Type _ :=
 theorem plist_concat.{u} {S : Type u} {n} :
   (PList.{u} S n × S) = PList.{u} S (n + 1) := by sorry
 
-theorem plist_cons.{u} {S : Type u} {n} :
-  (PList.{u} S n) = PList.{u} S (n + 1) := by sorry
+-- False
+-- theorem plist_cons.{u} {S : Type u} {n} :
+--   (PList.{u} S n) = PList.{u} S (n + 1) := by sorry
 
 theorem cast_module_type {I T T' : Type _} (heq : T = T') : Module I T = Module I T' := by subst T; rfl
 
