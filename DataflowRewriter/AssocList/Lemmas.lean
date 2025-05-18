@@ -241,8 +241,11 @@ theorem notkeysList_find2 {α β} [DecidableEq α] {m : AssocList α β} {ident}
     skip; intros; unfold Not; intros; apply h; subst_vars; assumption
   intro; apply this; unfold Not; intros; simp_all [keysList]
 
-theorem keysList_cons {α β} [DecidableEq α] {xs : AssocList α β} {k v} :
+theorem keysList_cons {α β} {xs : AssocList α β} {k v} :
   (cons k v xs).keysList = k :: xs.keysList := by rfl
+
+theorem valsList_cons {α β} {xs : AssocList α β} {k v} :
+  (cons k v xs).valsList = v :: xs.valsList := by rfl
 
 theorem append_find_right_disjoint {α β} [DecidableEq α] {a b : AssocList α β} {i x} :
   a.disjoint_keys b →
@@ -537,12 +540,12 @@ theorem filterId_nil {α} [DecidableEq α] :
   (.nil : AssocList α α).filterId = .nil := by rfl
 
 @[drcompute]
-theorem inverse_cons {α β} [DecidableEq α] {a b} {n : AssocList α β} :
+theorem inverse_cons {α β} {a b} {n : AssocList α β} :
   (n.cons a b).inverse = n.inverse.cons b a := by
   induction n generalizing a b <;> solve | rfl | simpa [inverse, H]
 
 @[drcompute]
-theorem inverse_nil {α β} [DecidableEq α] :
+theorem inverse_nil {α β} :
   (.nil : AssocList α β).inverse = .nil := by rfl
 
 @[drcompute]
@@ -679,7 +682,20 @@ theorem filterId_correct2 {α} [DecidableEq α] {m : AssocList α α} {i v} :
       · rw [filterId_cons_neq, find?_cons_neq] <;> try assumption
         solve_by_elim
 
-theorem inverse_find?_in {α} [DecidableEq α] {m : AssocList α α} {i v} :
+theorem filterId_correct3 {α} [DecidableEq α] {m : AssocList α α} {i y} :
+  m.keysList.Nodup → m.filterId.find? i = some y → m.find? i = some y ∧ i ≠ y := by
+  intro hnod hfilter
+  cases hc : m.find? i
+  · exfalso; have := filterId_correct_none hc; grind
+  · rename_i y'
+    by_cases heq : i = y'
+    · subst y'
+      have := filterId_correct ‹_› hc
+      grind
+    · have := filterId_correct2 ‹_› hc
+      rw [this] at hfilter; cases hfilter; simp [*]
+
+theorem inverse_find?_in {α β} [DecidableEq α] [DecidableEq β] {m : AssocList α β} {i v} :
   m.find? i = some v → v ∈ m.inverse.keysList := by
   induction m generalizing i v with
   | nil => grind [find?_nil]
@@ -692,7 +708,7 @@ theorem inverse_find?_in {α} [DecidableEq α] {m : AssocList α α} {i v} :
       simp only [inverse_cons, keysList_cons]; right
       apply ih; assumption
 
-theorem inverse_correct {α} [DecidableEq α] {m : AssocList α α} {i v} :
+theorem inverse_correct {α β} [DecidableEq α] [DecidableEq β] {m : AssocList α β} {i v} :
   m.inverse.keysList.Nodup → m.find? i = some v → m.inverse.find? v = some i := by
   induction m generalizing i v with
   | nil => grind [find?_nil]
@@ -705,5 +721,374 @@ theorem inverse_correct {α} [DecidableEq α] {m : AssocList α α} {i v} :
       by_cases heq' : v' = v
       · grind [inverse_find?_in]
       · rw [find?_cons_neq] <;> solve_by_elim
+
+theorem inverse_idempotent {α β} {m : AssocList α β} :
+  m = m.inverse.inverse := by
+  induction m <;> grind [inverse_cons, inverse_nil]
+
+theorem inverse_correct2 {α β} [DecidableEq α] [DecidableEq β] {m : AssocList α β} {i v} :
+  m.keysList.Nodup → m.inverse.find? i = some v → m.find? v = some i := by
+  have hinv := inverse_correct (m := m.inverse) (i := i) (v := v)
+  simp only [← inverse_idempotent] at *; assumption
+
+theorem EqExt_contains {α β} [DecidableEq α] {m1 m2 : AssocList α β} {i} :
+  m1.EqExt m2 → m1.contains i → m2.contains i := by
+  intro heq hcont
+  unfold EqExt at *
+  rw [←contains_find?_iff] at hcont
+  obtain ⟨x, hfind⟩ := hcont
+  rw [heq] at hfind
+  rw [←contains_find?_iff]; solve_by_elim
+
+theorem beq_ooo_ext_1_l {α β} [DecidableEq α] [DecidableEq β] {a b : AssocList α β} :
+  a.EqExt b → a.beq_left_ooo b := by
+  unfold beq_left_ooo EqExt
+  intro heq
+  simp only [List.all_eq_true, beq_iff_eq]; intro v hkey
+  solve_by_elim
+
+theorem beq_ooo_ext_1_r {α β} [DecidableEq α] [DecidableEq β] {a b : AssocList α β} :
+  a.EqExt b → b.beq_left_ooo a := by
+  unfold beq_left_ooo EqExt
+  intro heq
+  simp only [List.all_eq_true, beq_iff_eq]; intro v hkey
+  symm; solve_by_elim
+
+theorem beq_ooo_ext_1 {α β} [DecidableEq α] [DecidableEq β] {a b : AssocList α β} :
+  a.EqExt b → a.beq_ooo b := by
+  intro heq; unfold beq_ooo
+  simp only [Bool.decide_and, Bool.decide_eq_true, Bool.and_eq_true]; solve_by_elim [beq_ooo_ext_1_l, beq_ooo_ext_1_r]
+
+theorem beq_ooo_ext_2 {α β} [DecidableEq α] [DecidableEq β] {a b : AssocList α β} :
+  a.beq_ooo b → a.EqExt b := by
+  unfold beq_ooo EqExt; intro hbeq i
+  simp only [Bool.decide_and, Bool.decide_eq_true, Bool.and_eq_true] at hbeq
+  obtain ⟨hl, hr⟩ := hbeq
+  unfold beq_left_ooo at *; simp only [List.all_eq_true, beq_iff_eq] at *
+  cases h1 : find? i a <;> cases h2 : find? i b <;> try rfl
+  · specialize hr i (by apply keysList_find; rw [h2]; rfl); grind
+  · specialize hl i (by apply keysList_find; rw [h1]; rfl); grind
+  · specialize hr i (by apply keysList_find; rw [h2]; rfl); grind
+
+theorem beq_ooo_ext  {α β} [DecidableEq α] [DecidableEq β] {a b : AssocList α β} :
+  a.EqExt b ↔ a.beq_ooo b := by solve_by_elim [beq_ooo_ext_1, beq_ooo_ext_2]
+
+def DecidableEqExt {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) : Decidable (EqExt a b) :=
+  if h : a.beq_ooo b
+  then isTrue (beq_ooo_ext.mpr h)
+  else isFalse (fun _ => by apply h; rw [← beq_ooo_ext]; assumption)
+
+instance {α β} [DecidableEq α] [DecidableEq β] : DecidableRel (@EqExt α β _) := DecidableEqExt
+
+theorem EqExt_nil {α β} [DecidableEq α] {p : AssocList α β} :
+  nil.EqExt p → p = nil := by
+  induction p with
+  | nil => intros; rfl
+  | cons k v xs ih =>
+    intro h; exfalso
+    dsimp [EqExt] at *
+    specialize h k
+    grind [find?_cons_eq]
+
+theorem EqExt_cons1 {α β} [DecidableEq α] {p' xs : AssocList α β} {k v} :
+  (cons k v xs).EqExt p' → p'.find? k = some v := by
+  intro hcons
+  unfold EqExt at *
+  specialize hcons k; rw [find?_cons_eq] at hcons; symm; assumption
+
+theorem EqExt_eraseAll {α β} [DecidableEq α] {p' p : AssocList α β} k :
+  p.EqExt p' → (p.eraseAll k).EqExt (p'.eraseAll k) := by
+  unfold EqExt; intro heq i
+  by_cases h : i = k
+  · subst_vars; simp only [find?_eraseAll_eq]
+  · simp (disch := assumption) only [find?_eraseAll_neq, heq]
+
+theorem EqExt_cons2 {α β} [DecidableEq α] {p' xs : AssocList α β} {k v} :
+  (cons k v xs).EqExt p' → (xs.eraseAll k).EqExt (p'.eraseAll k) := by
+  intro h
+  rw [show eraseAll k xs = eraseAll k (cons k v xs) by rw [eraseAll_cons_eq]]
+  apply EqExt_eraseAll; assumption
+
+theorem inverse_keysList {α β} {p : AssocList α β} :
+  p.inverse.keysList = p.valsList := by
+  induction p with
+  | nil => rfl
+  | cons k v xs ih =>
+    simp only [inverse_cons, keysList_cons, valsList_cons, ih]
+
+theorem filterId_contains {α} [DecidableEq α] {p : AssocList α α} {x} :
+  p.filterId.contains x → p.contains x := by
+  induction p generalizing x with
+  | nil => intros; contradiction
+  | cons k v xs ih =>
+    intro hcont
+    by_cases heq : v = k
+    · subst k; rw [filterId_cons_eq] at hcont
+      by_cases heq' : v = x
+      · subst x; simp
+      · simp only [← contains_find?_isSome_iff] at *
+        rw [find?_cons_neq] <;> solve_by_elim
+    · rw [filterId_cons_neq] at hcont <;> try assumption
+      by_cases heq : k = x
+      · subst k; simp
+      · simp only [← contains_find?_isSome_iff] at *
+        simp (disch := assumption) only [find?_cons_neq] at *
+        solve_by_elim
+
+theorem filterId_Nodup {α} [DecidableEq α] {p : AssocList α α} :
+  p.keysList.Nodup → p.filterId.keysList.Nodup := by
+  induction p with
+  | nil => intros; simp [filterId_nil, keysList]
+  | cons k v xs ih =>
+    simp only [keysList_cons]; simp; intro hkl hnodup
+    by_cases heq : v = k
+    · subst k; rw [filterId_cons_eq]; solve_by_elim
+    · rw [filterId_cons_neq] <;> try assumption
+      rw [keysList_cons]; simp; and_intros <;> try solve_by_elim
+      simp only [← keysList_contains_iff] at *
+      intro hcont; apply hkl; clear hkl
+      solve_by_elim [filterId_contains]
+
+theorem filterId_EqExt {α} [DecidableEq α] {p p' : AssocList α α} :
+  p.EqExt p' → p.wf → p'.wf → p.filterId.EqExt p'.filterId := by
+  unfold EqExt; intro heq hwf1 hwf2 k
+  cases h : find? k p <;> (have h' := h; rw [heq] at h')
+  · simp (disch := assumption) only [filterId_correct_none]
+  · rename_i v
+    by_cases heq : k = v
+    · subst v
+      unfold wf at *; simp (disch := assumption) only [filterId_correct]
+    · simp (disch := assumption) only [filterId_correct2]
+
+theorem EqExt_inverse {α β} [DecidableEq α] [DecidableEq β] {p p' : AssocList α β} :
+  p.EqExt p' → p.wf → p'.wf → p.inverse.keysList.Nodup → p'.inverse.keysList.Nodup → p.inverse.EqExt p'.inverse := by
+  unfold EqExt
+  intro heq hwf1 hwf2 hwf3 hwf4 k
+  cases h : find? k p.inverse <;> symm <;> cases h' : find? k p'.inverse <;> try rfl
+  · have hcorr := inverse_correct2 ‹_› h'
+    rw [←heq] at hcorr
+    have hcorr' := inverse_correct ‹_› hcorr
+    grind
+  · have hcorr := inverse_correct2 ‹_› h
+    rw [heq] at hcorr
+    have hcorr' := inverse_correct ‹_› hcorr
+    grind
+  · have hcorr := inverse_correct2 ‹_› h
+    rw [heq] at hcorr
+    have hcorr' := inverse_correct ‹_› hcorr
+    grind
+
+theorem EqExt_append {α β} [DecidableEq α] {p1 p2 p1' p2' : AssocList α β} :
+  p1.EqExt p1' →
+  p2.EqExt p2' →
+  (p1 ++ p2).EqExt (p1' ++ p2') := by
+  unfold EqExt at *; intro h1 h2 k
+  specialize h1 k; specialize h2 k
+  cases h : find? k p1
+  · cases h' : find? k p2
+    all_goals
+      repeat rw [append_find_right] <;> try assumption
+      rwa [← h1]
+  · repeat rw [append_find_left] <;> try assumption
+    rwa [← h1]
+
+theorem toList_erase_eraseAll {α β} [DecidableEq α] [DecidableEq β] {p : AssocList α β} {k v}:
+  p.keysList.Nodup →
+  p.find? k = .some v →
+  p.toList.erase (k, v) = (p.eraseAll k).toList := by
+  induction p generalizing k v with
+  | nil => intros; rfl
+  | cons k' v' xs ih =>
+    intro hnodup hfind
+    dsimp
+    by_cases heq : k' = k
+    · subst k'; rw [find?_cons_eq] at hfind; cases hfind;
+      simp only [List.erase, BEq.rfl, eraseAll_cons_eq]
+      rw [eraseAll_not_contains]
+      intro hcont
+      simp [keysList_cons] at hnodup
+      apply hnodup.left
+      rw [←keysList_contains_iff]; assumption
+    · simp only [List.erase]
+      have heq : ((k', v') == (k, v)) = false := by simp [*]
+      rw [heq]; dsimp
+      rw [eraseAll_cons_neq] <;> try assumption
+      dsimp; congr
+      apply ih
+      · simp [keysList_cons] at hnodup; apply hnodup.right
+      · rw [find?_cons_neq] at hfind <;> assumption
+
+theorem eraseAll_Nodup {α β} [DecidableEq α] {p : AssocList α β} {k} :
+  p.keysList.Nodup → (eraseAll k p).keysList.Nodup := by
+  induction p generalizing k with
+  | nil => intros; simp [keysList]
+  | cons k' v xs ih =>
+    intro hnodup
+    simp [keysList_cons] at hnodup
+    by_cases heq : k' = k
+    · grind [eraseAll_cons_eq]
+    · rw [eraseAll_cons_neq] <;> try assumption
+      simp [keysList_cons]
+      and_intros
+      intro hin
+      apply hnodup.left
+      simp only [←keysList_contains_iff] at *
+      apply contains_eraseAll; assumption
+      grind
+
+theorem find?_in_toList {α β} [DecidableEq α] [DecidableEq β] {p : AssocList α β} {k v} :
+  find? k p = some v → (k, v) ∈ p.toList := by
+  induction p generalizing k v with
+  | nil => simp
+  | cons k' v' xs ih =>
+    intro hfind
+    by_cases h : k' = k
+    · subst k'; rw [find?_cons_eq] at hfind; cases hfind; simp
+    · rw [find?_cons_neq] at hfind <;> try assumption
+      simp [h]; right
+      solve_by_elim
+
+theorem EqExt_Perm {α β} [DecidableEq α] [DecidableEq β] {p p' : AssocList α β} :
+  p.EqExt p' → p.wf → p'.wf → p.toList.Perm p'.toList := by
+  induction p generalizing p' with
+  | nil => intros; have h' := EqExt_nil ‹_›; subst_vars; trivial
+  | cons k v xs ih =>
+    intro heq hwf1 hwf2
+    unfold EqExt wf at *; simp only [keysList_cons, List.nodup_cons] at hwf1
+    obtain ⟨hwf1, hwf1'⟩ := hwf1
+    simp only [toList]
+    rw [List.cons_perm_iff_perm_erase]
+    and_intros
+    · specialize heq k; rw [find?_cons_eq] at heq; symm at heq
+      apply find?_in_toList; assumption
+    · rw [toList_erase_eraseAll] <;> try assumption
+      · apply ih <;> try assumption
+        · intro k'
+          by_cases heqk : k' = k
+          · subst k'; rw [find?_eraseAll_eq]
+            rw [←keysList_contains_iff] at hwf1
+            rw [←contains_find?_isSome_iff] at hwf1
+            simp_all [-AssocList.find?_eq]
+          · rw [find?_eraseAll_neq] <;> try assumption
+            rw [←heq]; rw [find?_cons_neq]; symm; assumption
+        · apply eraseAll_Nodup; assumption
+      · rw [← heq]; rw [find?_cons_eq]
+
+theorem valsList_Nodup {α β} [DecidableEq α] [DecidableEq β] {p p' : AssocList α β} :
+  p.EqExt p' → p.wf → p'.wf → p.valsList.Nodup → p'.valsList.Nodup
+ := by
+  intro heq hwf1 hwf2 hvallist
+  have hperm := EqExt_Perm heq hwf1 hwf2
+  unfold valsList at *
+  have hperm' := List.Perm.map (fun x => x.snd) hperm
+  apply List.Nodup.perm <;> assumption
+
+theorem EqExt_invertible {α} [DecidableEq α] {p p' : AssocList α α} :
+  p.EqExt p' → p.wf → p'.wf → p.invertible → p'.invertible := by
+  intro heq hwf1 hwf2 hinv
+  unfold invertible at *; simp only [List.empty_eq, Bool.decide_and, Bool.and_eq_true,
+    decide_eq_true_eq] at *
+  obtain ⟨hinv1, hinv2, hinv3⟩ := hinv
+  and_intros
+  · simp [List.inter] at *
+    intro k hk
+    simp only [← keysList_contains_iff, ← contains_find?_iff] at *
+    intro hcont
+    obtain ⟨v1, hk⟩ := hk
+    obtain ⟨v2, hcont⟩ := hcont
+    unfold EqExt at *
+    have hk' := hk
+    have heq' := filterId_EqExt heq ‹_› ‹_›
+    rw [←heq'] at hk'
+    have hinv1' := hinv1 k ⟨_, hk'⟩
+    apply hinv1'
+    simp only [inverse_keysList] at *
+    have hinv4 := valsList_Nodup heq hwf1 hwf2 hinv3
+    simp only [←inverse_keysList] at *
+    exists v2; rw [←hcont]
+    apply filterId_EqExt <;> try assumption
+    apply EqExt_inverse <;> assumption
+  · assumption
+  · simp only [inverse_keysList] at *
+    apply valsList_Nodup <;> assumption
+
+private theorem EqExt_invertible_iff' {α} [DecidableEq α] {p p' : AssocList α α} :
+  p.EqExt p' → p.wf → p'.wf → (p.invertible ↔ p'.invertible) := by
+  intro heq hwf1 hwf2
+  constructor
+  · intros; apply EqExt_invertible <;> assumption
+  · replace heq := heq.symm
+    intros; apply EqExt_invertible <;> assumption
+
+theorem EqExt_invertible_iff {α} [DecidableEq α] {p p' : AssocList α α} :
+  p.EqExt p' → p.wf → p'.wf → p.invertible = p'.invertible := by
+    intro heq hwf1 hwf2
+    cases h : p.invertible <;> symm
+    · rw [← Bool.not_eq_true] at *
+      intro h'; apply h
+      replace heq := heq.symm; apply EqExt_invertible <;> assumption
+    · apply EqExt_invertible <;> assumption
+
+/- With the length argument this should be true, and we can easily check length in practice. -/
+theorem bijectivePortRenaming_EqExt {α} [DecidableEq α] (p p' : AssocList α α) :
+  p.EqExt p' → p.wf → p'.wf → bijectivePortRenaming p = bijectivePortRenaming p' := by
+  intro heq hwf1 hwf2
+  unfold bijectivePortRenaming
+  rw [EqExt_invertible_iff heq] <;> try assumption
+  cases h' : p'.invertible <;> dsimp
+  ext i; congr 1
+  apply EqExt_append
+  · apply filterId_EqExt <;> try assumption
+  · have h'' := h'
+    have heq' := heq.symm
+    rw [EqExt_invertible_iff (p := p') (p' := p)] at h'' <;> try assumption
+    unfold invertible at *
+    simp only [List.empty_eq, Bool.decide_and, Bool.and_eq_true, decide_eq_true_eq] at h' h''
+    obtain ⟨h1, h2, h3⟩ := h'
+    obtain ⟨h1', h2', h3'⟩ := h''
+    apply filterId_EqExt <;> try assumption
+    apply EqExt_inverse <;> assumption
+
+theorem filterId_inverse_comm {α} [DecidableEq α] {p : AssocList α α} :
+  p.filterId.inverse = p.inverse.filterId := by
+  induction p with
+  | nil => rfl
+  | cons k v xs ih =>
+    by_cases heq : v = k
+    · subst k; simp only [filterId_cons_eq, inverse_cons]; assumption
+    · have : v ≠ k := by assumption
+      have := this.symm
+      simp (disch := assumption) only [filterId_cons_neq, inverse_cons, *]
+
+theorem invertibleMap {α} [DecidableEq α] {p : AssocList α α} {a b} :
+  invertible p →
+  (p.filterId ++ p.inverse.filterId).find? a = some b → (p.filterId ++ p.inverse.filterId).find? b = some a := by
+  intro hinvertible
+  unfold invertible at *
+  simp only [List.empty_eq, Bool.decide_and, Bool.and_eq_true, decide_eq_true_eq] at hinvertible
+  obtain ⟨h1, h2, h3⟩ := hinvertible
+  intro hfind
+  cases h : p.filterId.find? a
+  · rw [append_find_right] at hfind <;> try assumption
+    obtain ⟨hl, hr⟩ := filterId_correct3 ‹_› hfind
+    have h' := inverse_correct2 ‹_› hl
+    have h'' := filterId_correct2 hr.symm h'
+    rw [append_find_left]; assumption
+  · rename_i v;
+    rw [append_find_left h] at hfind
+    cases hfind
+    simp [List.inter] at h1
+    have h := inverse_find?_in h
+    simp only [filterId_inverse_comm] at *
+    cases hc : p.filterId.find? b
+    · rw [append_find_right] <;> try assumption
+      rw [← filterId_inverse_comm]
+      apply inverse_correct <;> try assumption
+      rw [filterId_inverse_comm]
+      solve_by_elim [filterId_Nodup]
+    · exfalso; apply h1
+      rotate_left 1; assumption
+      rw [← keysList_contains_iff, ← contains_find?_iff]
+      constructor; assumption
 
 end Batteries.AssocList

@@ -741,9 +741,30 @@ theorem check_eq_symm {iexpr iexpr' : ExprLow Ident} :
   · grind
   · grind
 
-axiom check_eq_wf {iexpr iexpr' : ExprLow Ident} :
+theorem check_eq_wf {iexpr iexpr' : ExprLow Ident} :
   iexpr.check_eq iexpr' →
-  iexpr.wf ε → iexpr'.wf ε
+  iexpr.wf ε → iexpr'.wf ε := by
+  induction iexpr generalizing iexpr' with
+  | base typ inst =>
+    intro ih wf
+    cases iexpr' <;> try grind [ExprLow.check_eq]
+    simp only [check_eq, Bool.decide_and, Bool.and_eq_true, decide_eq_true_eq] at ih
+    dsimp [ExprLow.wf, all] at *
+    cases ih; subst_vars; assumption
+  | product e₁ e₂ he₁ he₂ =>
+    intro ih wf
+    cases iexpr' <;> try grind [ExprLow.check_eq]
+    dsimp [ExprLow.check_eq] at ih
+    dsimp [ExprLow.wf, all] at *; simp only [Bool.and_eq_true] at wf ⊢
+    simp only [Bool.decide_and, Bool.decide_eq_true, Bool.and_eq_true] at ih
+    cases ih; cases wf; and_intros <;> solve_by_elim
+  | connect c e he =>
+    intro ih wf
+    cases iexpr' <;> try grind [ExprLow.check_eq]
+    dsimp [ExprLow.check_eq] at ih
+    dsimp [ExprLow.wf, all] at *
+    simp only [Bool.decide_and, Bool.decide_eq_true, Bool.and_eq_true] at ih
+    cases ih; and_intros <;> solve_by_elim
 
 theorem check_eq_refines {iexpr iexpr'} :
   iexpr.check_eq iexpr' → iexpr.wf ε →

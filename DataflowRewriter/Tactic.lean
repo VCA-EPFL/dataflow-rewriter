@@ -90,7 +90,6 @@ def evalTacticOnExpr (tac : Syntax) (e : Expr) : TacticM Expr := do
   | ~q(Opaque $e) => return e
   | _ => throwError "Not in correct form"
 
-open Qq in
 elab "precomputeTac " t:term " by " tac:tacticSeq : tactic => Tactic.withMainContext do
   let expr ← Term.elabTerm t none
   Term.synthesizeSyntheticMVarsUsingDefault
@@ -102,6 +101,33 @@ elab "precomputeTac " t:term " by " tac:tacticSeq : tactic => Tactic.withMainCon
     | logError "No mvar returned"
   let r := (← l.getDecl).type.getArg!' 1
   (← getMainGoal).assign r
+
+def generateMVarEq (expr : Expr) : TermElabM (MVarId × Expr) := do
+  let exprType ← inferType expr
+  let lhs ← Lean.Meta.mkFreshExprMVar (userName := `reduced) (kind := .natural) exprType
+  return (lhs.mvarId!, ← mkEq lhs expr)
+
+elab "precomputeTacEq " t:term " by " tac:tacticSeq : tactic => Tactic.withMainContext do
+  let expr ← Term.elabTerm t none
+  Term.synthesizeSyntheticMVarsUsingDefault
+  let expr ← Lean.instantiateMVars expr
+  let (m', eq) ← generateMVarEq expr
+  let target ← getMainTarget
+  unless ← isDefEq target eq do logWarning m!"Goal not an equality {target}"
+  evalTactic tac
+  -- evalTactic (← `(tactic| rfl))
+
+elab "rfl_assign" : tactic => do Tactic.withMainContext <| withAssignableSyntheticOpaque <| evalTactic (← `(tactic| rfl))
+
+def r := by
+  precomputeTacEq 3 by
+    rewrite [show Eq.{1} 3 (2 + 1) by trivial]
+    rfl
+
+  -- let m ← mkFreshExprMVar opaqueExpr
+  -- let [l] ← evalTacticAt tac m.mvarId!
+  --   | throwError "No mvar returned or goals outstanding"
+  -- return (← l.getDecl).type
 
 theorem rw_opaque {f : Type _ → Type _} {s s' : Σ T, f T} (heq : s = s') : @Opaque (f s.fst) s.snd ↔ @Opaque (f s'.fst) s'.snd := by
   subst s; rfl
