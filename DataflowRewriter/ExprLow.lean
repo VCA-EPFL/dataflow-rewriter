@@ -6,6 +6,7 @@ Authors: Yann Herklotz
 
 import DataflowRewriter.Simp
 import DataflowRewriter.Basic
+import DataflowRewriter.AssocList
 
 namespace DataflowRewriter
 
