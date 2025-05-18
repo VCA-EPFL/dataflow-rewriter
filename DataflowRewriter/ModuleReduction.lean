@@ -11,7 +11,9 @@ import DataflowRewriter.Module
 import DataflowRewriter.AssocList
 import DataflowRewriter.ExprHighLemmas
 
+open Lean.Elab
 open Lean.Elab.Command
+open Lean.Elab.Term
 
 open Batteries (AssocList)
 
@@ -327,6 +329,16 @@ elab mods:declModifiers "def_module " name:ident l:optDeclSig " := " t:term "red
 
 elab mods:declModifiers "def_module " name:ident l:optDeclSig " := " t:term : command => do
   elabCommand <|← `($mods:declModifiers def_module $name $l := $t reduction_by dr_reduce_module)
+
+/--
+Define a module by reducing it beforehand.
+-/
+elab mods:declModifiers "defmodule " name:ident binders:bracketedBinder* " := " t:term "reduction_by " tac:tacticSeq : command => do
+  -- let mvar ← Lean.Meta.mkFreshExprMVar
+  elabCommand <|← `($mods:declModifiers def $name:ident $binders:bracketedBinder* := by precomputeTacEq $t by $tac)
+
+elab mods:declModifiers "defmodule " name:ident binders:bracketedBinder* " := " t:term : command => do
+  elabCommand <|← `($mods:declModifiers def_module $name $binders:bracketedBinder* := $t reduction_by dr_reduce_module)
 
 macro "solve_match_interface" : tactic =>
   `(tactic|

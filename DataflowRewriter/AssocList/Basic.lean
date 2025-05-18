@@ -70,12 +70,7 @@ def inverse {α β} : AssocList α β → AssocList β α
 | .cons a b xs => xs.inverse |>.cons b a
 
 def beq_left_ooo {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) : Bool :=
-  match a with
-  | .cons k v a' =>
-    match b.find? k with
-    | some v' => v = v' ∧ beq_left_ooo a' b
-    | none => false
-  | .nil => true
+  a.keysList.all (λ k => a.find? k == b.find? k)
 
 def beq_ooo {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) : Bool :=
   beq_left_ooo a b ∧ beq_left_ooo b a
@@ -98,15 +93,6 @@ theorem EqExt.trans {α β} [DecidableEq α] {a b c : AssocList α β} : a.EqExt
 instance AssocListExtSetoid {α β} [DecidableEq α] : Setoid (AssocList α β) :=
   ⟨EqExt, ⟨EqExt.refl, EqExt.symm, EqExt.trans⟩⟩
 
-axiom beq_ooo_ext {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) :
-  a.EqExt b ↔ a.beq_ooo b
-
-def DecidableEqExt {α β} [DecidableEq α] [DecidableEq β] (a b : AssocList α β) : Decidable (EqExt a b) :=
-  if h : a.beq_ooo b then isTrue ((beq_ooo_ext a b).mpr h)
-  else isFalse (fun h' => by apply h; rw [← beq_ooo_ext]; assumption)
-
-instance {α β} [DecidableEq α] [DecidableEq β] : DecidableRel (@EqExt α β _) := DecidableEqExt
-
 def wf {α β} (a : AssocList α β) : Prop := a.keysList.Nodup
 
 def invertible {α} [DecidableEq α] (p : AssocList α α) : Bool :=
@@ -117,16 +103,5 @@ def bijectivePortRenaming {α} [DecidableEq α] (p : AssocList α α) (i: α) : 
     let map := p.filterId.append p.inverse.filterId
     map.find? i |>.getD i
   else i
-
-/- With the length argument this should be true, and we can easily check length in practice. -/
-axiom bijectivePortRenaming_EqExt {α} [DecidableEq α] (p p' : AssocList α α) :
-  p.EqExt p' → p.wf → p'.wf → bijectivePortRenaming p = bijectivePortRenaming p'
-  -- intro Heq Hwf Hwf'; ext i
-  -- simp [bijectivePortRenaming]
-  -- sorry
-
-axiom invertibleMap {α} [DecidableEq α] {p : AssocList α α} {a b} :
-  invertible p →
-  (p.filterId ++ p.inverse.filterId).find? a = some b → (p.filterId ++ p.inverse.filterId).find? b = some a
 
 end Batteries.AssocList
