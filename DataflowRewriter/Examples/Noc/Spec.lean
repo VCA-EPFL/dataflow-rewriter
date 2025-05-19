@@ -29,7 +29,7 @@ def mk_spec_bag_output_rule (n : Noc) (rid : n.RouterID) : RelIO (spec_bagT n) :
     ⟨
       n.Flit,
       λ oldS v newS =>
-        v.2.dst = rid ∧ ∃ i, newS = oldS.remove i ∧ v = oldS.get i
+        v.2.dst = rid ∧ ∃ i : Fin oldS.length, newS = oldS.remove i ∧ v = oldS.get i
     ⟩
 
 -- Specification of a noc as a bag, all flit are sent unordered

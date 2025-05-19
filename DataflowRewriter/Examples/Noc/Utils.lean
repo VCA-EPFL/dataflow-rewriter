@@ -54,3 +54,16 @@ theorem RelIO_mapVal {α β} {n : Nat} {f : Fin n → α} {g : α → β} :
 
 def RelInt.liftFinf {S : Type} (n : Nat) (f : Fin n → List (RelInt S)) : List (RelInt S) :=
   fin_range n |>.map f |>.flatten
+
+-- Some stuff about permutations -----------------------------------------------
+
+theorem vec_set_perm {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
+  v.toList.flatten.Perm l →
+  (v.set idx (v[idx] ++ [elt])).toList.flatten.Perm (l ++ [elt]) := by
+    sorry
+
+theorem vec_set_perm_in {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
+  (v.set idx (elt :: v[idx])).toList.flatten.Perm l →
+  ∃ idx' : Fin (List.length l), l[idx'] = elt := by
+    sorry
+

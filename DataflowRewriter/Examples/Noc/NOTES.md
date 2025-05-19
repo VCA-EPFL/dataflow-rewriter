@@ -22,6 +22,9 @@
   of rewriting by having us say that, when we allow having different spec for a
   router in our spec, if a router implements another, than we preserve
   implementation of spec in the noc?
+- There is some hope that we can have definition such as `ArbiterCorrect` inside
+  the Noc definition which would allow us to guarantee that Noc are correct by
+  constructions
 
 ## Possible topologies
 
