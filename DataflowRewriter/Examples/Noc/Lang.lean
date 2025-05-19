@@ -25,15 +25,12 @@ abbrev Neigh' (netsz : Netsz') : Type :=
   RouterID' netsz → List (RouterID' netsz)
 
 abbrev Dir' (netsz : Netsz') (neigh : Neigh' netsz) (src : RouterID' netsz) : Type :=
+  -- Number of neighbors + 1 for the local output / input
   Fin (List.length (neigh src) + 1)
 
 def DirLocal' {netsz neigh src} : Dir' netsz neigh src :=
   Fin.mk 0 (by simpa)
 
--- Note:
---  This definition force determinism, and cannot create routing algorithm
---  which depends on the incoming direction of a Flit.
---  A more general definition could use a FlitHeader directly instead of a `dir`
 abbrev Route' (netsz : Netsz') (neigh : Neigh' netsz) : Type :=
   (src dst : RouterID' netsz) → Dir' netsz neigh src
 
@@ -44,7 +41,6 @@ structure Noc where
   netsz : Netsz'
   neigh : Neigh' netsz
   route : Route' netsz neigh
-  -- Type of data transfered over the Noc
   Data  : Type
 
 abbrev Noc.RouterID (n : Noc) : Type :=
@@ -76,19 +72,13 @@ abbrev Noc.nocT (n : Noc) : Type :=
 
 -- Building --------------------------------------------------------------------
 
--- Note:
--- The current definition of input_rel and output_rel means that router
--- keep the absolute order in which they receive Flits, the strongest possible
--- requirement for a Router. We would later like to also have the possibility to
--- weaken this.
-
 @[drcomponents]
 def Noc.input_rel (n : Noc) (rid : n.RouterID) (val : n.Flit) (old_s new_s : n.nocT) : Prop :=
   new_s = old_s.set rid (old_s[rid] ++ [val])
 
 @[drcomponents]
 def Noc.output_rel (n : Noc) (rid : n.RouterID) (dir : n.Dir rid) (val : n.Flit) (old_s new_s : n.nocT) : Prop :=
-    old_s = new_s.set rid (val :: new_s[rid]) ∧ dir = n.route rid val.2.dst
+  old_s = new_s.set rid (val :: new_s[rid]) ∧ dir = n.route rid val.2.dst
 
 @[drcomponents]
 def Noc.mk_router_input (n : Noc) (rid : n.RouterID) : RelIO n.nocT :=
