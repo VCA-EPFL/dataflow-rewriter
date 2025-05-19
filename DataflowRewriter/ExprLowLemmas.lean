@@ -1007,15 +1007,13 @@ theorem replacement {iexpr e_new e_pat} :
     · simp at h; rw [h]
       apply refines_connect <;> solve_by_elim [wf_modify_expression,wf_replace]
 
--- #print axioms replacement
-
-axiom findInput_iff_contains {e T m i o} :
+axiom findInput_iff_contains {e T m i} :
   build_module' ε e = some ⟨T, m⟩ →
-  findInput i e = m.inputs.contains o
+  findInput i e = m.inputs.contains i
 
-axiom findOutput_iff_contains {e T m i o} :
+axiom findOutput_iff_contains {e T m o} :
   build_module' ε e = some ⟨T, m⟩ →
-  findOutput i e = m.outputs.contains o
+  findOutput o e = m.outputs.contains o
 
 axiom wf_comm_connection'_ {e e' : ExprLow Ident} {conn}:
   e.comm_connection'_ conn = .some e' →
