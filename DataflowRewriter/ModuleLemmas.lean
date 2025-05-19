@@ -351,8 +351,9 @@ structure comp_refines (φ : I → S → Prop) (init_i : I) (init_s : S) : Prop 
   outputs :
     ∀ ident mid_i v,
       (imod.outputs.getIO ident).2 init_i v mid_i →
-      ∃ mid_s,
-        (smod.outputs.getIO ident).2 init_s ((mm.output_types ident).mp v) mid_s
+      ∃ almost_mid_s mid_s,
+        existSR smod.internals init_s almost_mid_s
+        ∧ (smod.outputs.getIO ident).2 almost_mid_s ((mm.output_types ident).mp v) mid_s
         ∧ φ mid_i mid_s
   internals :
     ∀ rule mid_i,
@@ -599,7 +600,7 @@ theorem refines_φ_reflexive : imod ⊑_{Eq} imod := by
   · intro ident mid_i v hrule
     refine ⟨ mid_i, mid_i, hrule, existSR.done _, rfl ⟩
   · intro ident mid_i v hrule
-    refine ⟨ mid_i, hrule, rfl ⟩
+    refine ⟨ init_s, mid_i, existSR.done _, hrule, rfl ⟩
   · intro ident mid_i hcont hrule
     refine ⟨ mid_i, ?_, rfl ⟩
     constructor <;> try assumption
@@ -615,7 +616,7 @@ theorem refines_φ_reflexive_ext imod' (h : imod.EqExt imod') (mm := MatchInterf
     refine ⟨ mid_i, mid_i, hrule, existSR.done _, rfl ⟩
   · intro ident mid_i v hrule
     rw [PortMap.rw_rule_execution (PortMap.EqExt_getIO Hr ident)] at *
-    refine ⟨ mid_i, hrule, rfl ⟩
+    refine ⟨ init_s, mid_i, existSR.done _, hrule, rfl ⟩
   · intro ident mid_i hcont hrule
     have : ident ∈ imod'.internals := by
       simp_all only [List.Perm.mem_iff Hint]
@@ -648,20 +649,19 @@ theorem refines_φ_transitive {J} (smod' : Module Ident J) {φ₁ φ₂}
   [MatchInterface smod' smod]:
     imod ⊑_{φ₁} smod' →
     smod' ⊑_{φ₂} smod →
-    imod ⊑_{fun a b => ∃ c, φ₁ a c ∧ φ₂ c b} smod := by
+    imod ⊑_{fun a b => ∃ c c', φ₁ a c ∧ φ₂ c' b ∧ existSR smod'.internals c c'} smod := by
   intros h1 h2
-  intro init_i init_s HR
-  rcases HR with ⟨ init_j, Hφ₁, Hφ₂ ⟩
-  rcases h1 _ _ Hφ₁ with ⟨ h1inp, h1out, h1int ⟩
-  rcases h2 _ _ Hφ₂ with ⟨ h2inp, h2out, h2int ⟩
+  intro init_i init_s ⟨ init_j, init_j', Hφ₁, Hφ₂, Hexists ⟩
+  obtain ⟨ h1inp, h1out, h1int ⟩ := h1 _ _ Hφ₁
+  obtain ⟨ h2inp, h2out, h2int ⟩ := h2 _ _ Hφ₂
   constructor
   · clear h1out h1int h2out h2int
     intro ident mid_i v Hrule
     specialize h1inp _ _ _ Hrule
-    rcases h1inp with ⟨ mid_mid_j, mid_j, hrule₁, hexists₁, hphi₁ ⟩
+    obtain ⟨ mid_mid_j, mid_j, hrule₁, hexists₁, hphi₁ ⟩ := h1inp
     specialize h2inp _ _ _ hrule₁
-    rcases h2inp with ⟨ mid_mid_s, mid_s, hrule₂, hexists₂, hphi₂ ⟩
-    rcases refines_φ_multistep _ _ _ h2 _ _ hphi₂ _ hexists₁ with ⟨ mid_s₃, hexists₃, hphi₃ ⟩
+    obtain ⟨ mid_mid_s, mid_s, hrule₂, hexists₂, hphi₂ ⟩ := h2inp
+    obtain ⟨ mid_s₃, hexists₃, hphi₃ ⟩ := refines_φ_multistep _ _ _ h2 _ _ hphi₂ _ hexists₁
     refine ⟨ ?_, mid_s₃, ?inp.and1, ?inp.and2, mid_j, ?_, ?_ ⟩
     case and1 => convert hrule₂; simp
     case and2 => solve_by_elim [existSR_transitive]
@@ -669,9 +669,10 @@ theorem refines_φ_transitive {J} (smod' : Module Ident J) {φ₁ φ₂}
   · clear h1inp h1int h2inp h2int
     intro ident mid_i v Hrule
     specialize h1out _ _ _ Hrule
-    rcases h1out with ⟨ mid_j, hrule₁, hphi₁ ⟩
+    obtain ⟨ mid_mid_j, mid_j, hexists₁, hrule₁, hphi₁ ⟩ := h1out
+    -- obtain ⟨ mid_s₃, hexists₃, hphi₃ ⟩ := refines_φ_multistep _ _ _ h1 _ _ hphi₁ _ hexists₁
     specialize h2out _ _ _ hrule₁
-    rcases h2out with ⟨ mid_s, hrule₂, hphi₂ ⟩;
+    obtain ⟨ mid_mid_s, mid_s, hexists₂, hrule₂, hphi₂ ⟩ := h2out
     exists mid_s; and_intros; convert hrule₂; simp; grind
     -- rcases refines_φ_multistep _ _ _ h2 _ _ hphi₂ _ hexists₁ with ⟨ mid_s₃, hexists₃, hphi₃ ⟩
     -- refine ⟨ ?_, mid_s₃, ?out.and1, ?out.and2, mid_j, ?_, ?_ ⟩
