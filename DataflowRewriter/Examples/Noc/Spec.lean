@@ -38,8 +38,17 @@ def spec_bag (n : Noc) (name := "spec_bag") : NatModule (NatModule.Named name (s
     init_state := λ s => s = [],
   }
 
-instance (n : Noc) : MatchInterface n.build (spec_bag n) where
-  inputs_present := by sorry
-  outputs_present := by sorry
-  input_types := by sorry
-  output_types := by sorry
+instance (n : Noc) : MatchInterface n.build (spec_bag n) := by
+  apply MatchInterface_simpler
+  · dsimp [Noc.build, drcomponents]
+    simp only [RelIO_mapVal]
+    dsimp [Noc.mk_router_input, mk_spec_bag_input_rule]
+    sorry
+  · dsimp [Noc.build, drcomponents]
+    simp only [RelIO_mapVal]
+    dsimp [Noc.mk_router_output, mk_spec_bag_output_rule]
+    sorry
+
+instance (n : Noc) : MatchInterface (spec_bag n) n.build := by
+  apply MatchInterface_symmetric
+  sorry

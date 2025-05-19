@@ -8,6 +8,8 @@ import DataflowRewriter.Examples.Noc.Lang
 import DataflowRewriter.Examples.Noc.Torus
 import DataflowRewriter.Examples.Noc.Spec
 
+open Batteries (AssocList)
+
 namespace DataflowRewriter.Noc.DirectedTorus
 
 variable (dt : DirectedTorus)
@@ -27,29 +29,68 @@ theorem dt_refines_initial :
   Module.refines_initial (dt_mod dt Data) (spec dt Data) (φ dt Data) := by
     dsimp [drcomponents, Module.refines_initial]
     intros i s
+    subst i
     exists []
     and_intros
     · rfl
-    · sorry
+    · unfold φ; induction (dt_noc dt Data).netsz <;> simpa
 
 theorem dt_refines_φ : (dt_mod dt Data) ⊑_{φ dt Data} (spec dt Data) := by
   intros i s H
   constructor
-  <;> dsimp [drcomponents]
   · intros ident mid_i v Hrule
-    sorry
+    case_transition Hcontains : (Module.inputs (dt_mod dt Data)), ident,
+     (PortMap.getIO_not_contained_false' Hrule)
+    dsimp [drcomponents] at v Hrule Hcontains ⊢
+    obtain ⟨idx, Heq⟩ := RelIO.liftFinf_in Hcontains
+    subst ident
+    have_hole Hv : typeOf v = _ := by
+      unfold typeOf
+      rewrite [RelIO.liftFinf_get, Noc.mk_router_input]
+      dsimp
+    have_hole Htmp : typeOf Hrule = _ := by
+      unfold typeOf
+      rfl
+    unfold Noc.mk_router_input Noc.input_rel mk_spec_bag_input_rule at *
+    exists s.concat (Hv.mp v)
+    exists s.concat (Hv.mp v)
+    and_intros
+    · -- rw [RelIO.liftFinf_get]
+      sorry
+    · constructor
+    · unfold φ at *
+      sorry
   · intros ident mid_i v Hrule
+    case_transition Hcontains : (Module.outputs (dt_mod dt Data)), ident,
+     (PortMap.getIO_not_contained_false' Hrule)
+    dsimp [drcomponents] at v Hrule Hcontains ⊢
+    unfold mk_spec_bag_output_rule
+    dsimp
     sorry
   · intros rule mid_i Hrule _
     exists s
     and_intros
     · constructor
     · unfold φ at *
+      dsimp [drcomponents] at Hrule
+      -- rw [RelInt.liftFinf_in]
       sorry
 
 theorem dt_ϕ_indistinguishable :
   ∀ i s, φ dt Data i s → Module.indistinguishable (dt_mod dt Data) (spec dt Data) i s := by
-    sorry
+    intros i s Hφ
+    constructor
+    <;> intros ident new_i v Hrule
+    · case_transition Hcontains : (Module.inputs (dt_mod dt Data)), ident,
+       (PortMap.getIO_not_contained_false' Hrule)
+      obtain ⟨i, Hi⟩ := RelIO.liftFinf_in Hcontains
+      subst ident
+      sorry
+    · case_transition Hcontains : (Module.outputs (dt_mod dt Data)), ident,
+       (PortMap.getIO_not_contained_false' Hrule)
+      obtain ⟨i, Hi⟩ := RelIO.liftFinf_in Hcontains
+      subst ident
+      sorry
 
 theorem dt_correct : (dt_mod dt Data) ⊑ (spec dt Data) := by
   apply (
