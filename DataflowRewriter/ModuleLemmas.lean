@@ -644,21 +644,42 @@ theorem refines_φ_multistep :
     exists s_mid'
     all_goals solve_by_elim [existSR_transitive]
 
+theorem existsSR_mid {φ} (H : imod ⊑_{φ} smod) init_i init_s:
+    φ init_i init_s →
+    ∀ mid_i,
+      existSR imod.internals init_i mid_i →
+      ∃ mid_s, existSR smod.internals init_s mid_s ∧ φ mid_i mid_s := by
+  intros Hφ mid_i Hsteps
+  induction Hsteps generalizing init_s
+  · exists init_s
+    and_intros
+    · constructor
+    · assumption
+  · rename_i init mid final rule HruleIn Hrule H1 H2
+    obtain ⟨ _, _, hint ⟩ := H _ _ Hφ
+    specialize hint rule _ HruleIn Hrule
+    obtain ⟨ mid_s, Hmid_s1, Hmid_s2 ⟩ := hint
+    obtain ⟨ mid_s', Hmid_s'1, Hmid_s'2 ⟩ := H2 mid_s Hmid_s2
+    exists mid_s'
+    and_intros <;> try simpa
+    apply existSR_transitive _ _ _ _ Hmid_s1 Hmid_s'1
+
 theorem refines_φ_transitive {J} (smod' : Module Ident J) {φ₁ φ₂}
   [MatchInterface imod smod']
   [MatchInterface smod' smod]:
     imod ⊑_{φ₁} smod' →
     smod' ⊑_{φ₂} smod →
-    imod ⊑_{fun a b => ∃ c c', φ₁ a c ∧ φ₂ c' b ∧ existSR smod'.internals c c'} smod := by
+    imod ⊑_{λ a b => ∃ c, φ₁ a c ∧ φ₂ c b} smod := by
   intros h1 h2
-  intro init_i init_s ⟨ init_j, init_j', Hφ₁, Hφ₂, Hexists ⟩
+  intro init_i init_s ⟨ init_j, Hφ₁, Hφ₂ ⟩
   obtain ⟨ h1inp, h1out, h1int ⟩ := h1 _ _ Hφ₁
   obtain ⟨ h2inp, h2out, h2int ⟩ := h2 _ _ Hφ₂
   constructor
-  · clear h1out h1int h2out h2int
+  · clear h1out h2out h1int h2int
     intro ident mid_i v Hrule
     specialize h1inp _ _ _ Hrule
     obtain ⟨ mid_mid_j, mid_j, hrule₁, hexists₁, hphi₁ ⟩ := h1inp
+    obtain Htmp := existsSR_mid _ _ h2 init_j init_s
     specialize h2inp _ _ _ hrule₁
     obtain ⟨ mid_mid_s, mid_s, hrule₂, hexists₂, hphi₂ ⟩ := h2inp
     obtain ⟨ mid_s₃, hexists₃, hphi₃ ⟩ := refines_φ_multistep _ _ _ h2 _ _ hphi₂ _ hexists₁
@@ -666,19 +687,20 @@ theorem refines_φ_transitive {J} (smod' : Module Ident J) {φ₁ φ₂}
     case and1 => convert hrule₂; simp
     case and2 => solve_by_elim [existSR_transitive]
     all_goals assumption
-  · clear h1inp h1int h2inp h2int
+  · clear h1inp h2inp h1int h2int h2out
     intro ident mid_i v Hrule
     specialize h1out _ _ _ Hrule
     obtain ⟨ mid_mid_j, mid_j, hexists₁, hrule₁, hphi₁ ⟩ := h1out
-    -- obtain ⟨ mid_s₃, hexists₃, hphi₃ ⟩ := refines_φ_multistep _ _ _ h1 _ _ hphi₁ _ hexists₁
+    obtain ⟨ almost_mid_s, Halmost1, Halmost2 ⟩ := existsSR_mid _ _ h2 init_j init_s Hφ₂ _ hexists₁
+    obtain ⟨ h2inp, h2out, h2int ⟩ := h2 _ _ Halmost2
     specialize h2out _ _ _ hrule₁
     obtain ⟨ mid_mid_s, mid_s, hexists₂, hrule₂, hphi₂ ⟩ := h2out
-    exists mid_s; and_intros; convert hrule₂; simp; grind
-    -- rcases refines_φ_multistep _ _ _ h2 _ _ hphi₂ _ hexists₁ with ⟨ mid_s₃, hexists₃, hphi₃ ⟩
-    -- refine ⟨ ?_, mid_s₃, ?out.and1, ?out.and2, mid_j, ?_, ?_ ⟩
-    -- case and1 => convert hrule₂; simp
-    -- case and2 => solve_by_elim [existSR_transitive]
-    -- all_goals assumption
+    apply Exists.intro mid_mid_s
+    apply Exists.intro mid_s
+    and_intros
+    · apply existSR_transitive _ _ _ _ Halmost1 hexists₂
+    · simp at hrule₂; simpa
+    · exists mid_j
   · clear h1inp h1out h2inp h2out
     intro rule mid_i ruleIn Hrule
     specialize h1int rule mid_i ruleIn Hrule
