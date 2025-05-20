@@ -94,12 +94,9 @@ def Noc.mk_router_output (n : Noc) (rid : n.RouterID) (dir : n.Dir rid) : RelIO 
 @[drcomponents]
 def Noc.mk_router_conn (n : Noc) (rid : n.RouterID) : List (RelInt n.nocT) :=
   (n.neigh rid).mapFinIdx (λ dir rid' Hdir =>
-    λ old_s new_s => ∃ val,
-      -- TODO: This is wrong as is because output_rel and input_rel both
-      -- contains something absolute: We are asserting that all elements are
-      -- unchanged appart from one thing, which means this is false
-      n.output_rel rid (Fin.mk (dir + 1) (by simpa)) val old_s new_s ∧
-      n.input_rel rid' val old_s new_s)
+    λ old_s new_s => ∃ val mid_s,
+      n.output_rel rid (Fin.mk (dir + 1) (by simpa)) val old_s mid_s ∧
+      n.input_rel rid' val mid_s new_s)
 
 @[drcomponents]
 def Noc.build (n : Noc) : Module Nat (Vector n.routerT n.netsz) :=

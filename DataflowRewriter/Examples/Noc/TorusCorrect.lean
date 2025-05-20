@@ -93,7 +93,8 @@ theorem refines_φ : (mod dt Data) ⊑_{φ dt Data} (spec dt Data) := by
         obtain H := route_xy_correct dt Data (by unfold noc; rw [Hrule2])
         simpa [H]
       · exists idx'; dsimp at Hidx'; simpa [Hidx']
-    · sorry -- TODO: Annoying proof of permutation
+    · -- TODO: Annoying proof of permutation, seems true
+      sorry
   · intros rule mid_i HruleIn Hrule
     exists s
     and_intros
@@ -104,14 +105,15 @@ theorem refines_φ : (mod dt Data) ⊑_{φ dt Data} (spec dt Data) := by
       unfold Noc.mk_router_conn at Hij
       rw [mapFinIdx_get] at Hij
       subst rule
-      -- dsimp [drcomponents] at Hrule
-      obtain ⟨val, Hval1, Hval2⟩ := Hrule
-      dsimp [drcomponents] at Hval1 Hval2
-      obtain ⟨Hval11, Hval12⟩ := Hval1
-      -- subst i
-      -- rw [Hval3]
-      -- dsimp
-      sorry -- TODO
+      dsimp [drcomponents] at Hrule
+      obtain ⟨val, i', ⟨Hval1, Hval2⟩, Hval3⟩ := Hrule
+      subst i
+      subst mid_i
+      apply List.Perm.symm
+      apply List.Perm.trans
+      · apply List.Perm.symm; exact H
+      · -- TODO: Annoying proof of permutation, seems true
+        sorry
 
 theorem ϕ_indistinguishable :
   ∀ i s, φ dt Data i s → Module.indistinguishable (mod dt Data) (spec dt Data) i s := by
