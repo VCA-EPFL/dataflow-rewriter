@@ -1007,9 +1007,40 @@ theorem replacement {iexpr e_new e_pat} :
     · simp at h; rw [h]
       apply refines_connect <;> solve_by_elim [wf_modify_expression,wf_replace]
 
-axiom findInput_iff_contains {e T m i} :
+theorem findInput_iff_contains {e T m i} :
+  e.wf_mapping ε →
   build_module' ε e = some ⟨T, m⟩ →
-  findInput i e = m.inputs.contains i
+  findInput i e = m.inputs.contains i := by
+  induction e generalizing T m i with
+  | base inst typ =>
+    intro hwf hbuild; dsimp [build_module'] at hbuild
+    dsimp [wf_mapping] at hwf; split at hwf <;> try grind
+    rename_i mod h
+    rw [h] at hbuild; dsimp at hbuild; cases hbuild
+    -- unfold findInput
+    -- rename_i v
+    simp only [Bool.decide_and, Bool.and_eq_true, decide_eq_true_eq] at hwf
+    rcases hwf with ⟨hwf1, hwf2, hwf3, hwf4⟩
+    -- dsimp [findInput]
+    by_cases h : findInput i (base inst typ) <;> symm
+    · rw [h]
+      dsimp [findInput] at *
+      simp only [AssocList.any_eq, List.any_eq_true, decide_eq_true_eq, Prod.exists,
+        exists_eq_right] at h
+      rcases h with ⟨k, h'⟩
+      have : inst.input.find? k = some i := by sorry
+      sorry
+    · have h' := h; simp only [Bool.not_eq_true] at h'; rw [h']; clear h'; unfold findInput at h
+      simp only [AssocList.any_eq, List.any_eq_true, decide_eq_true_eq,
+        Prod.exists, exists_eq_right, not_exists] at h
+      -- Annoying but probably true
+      sorry
+  | product e₁ e₂ he₁ he₂ =>
+    intro wf hbuild
+    sorry
+  | connect c e =>
+    intro wf hbuild
+    sorry
 
 axiom findOutput_iff_contains {e T m o} :
   build_module' ε e = some ⟨T, m⟩ →
