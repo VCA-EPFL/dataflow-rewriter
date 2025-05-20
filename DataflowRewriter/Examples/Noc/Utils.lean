@@ -19,6 +19,13 @@ def fin_range (sz : Nat) : List (Fin sz) :=
   List.replicate sz 0
   |>.mapFinIdx (λ i _ h => Fin.mk i (by rwa [List.length_replicate] at h))
 
+theorem mapFinIdx_length {α β} (l : List α) (f : (i : Nat) → α → (h : i < l.length) → β) :
+  (List.mapFinIdx l f).length = l.length := by sorry
+
+theorem mapFinIdx_get {α β} (l : List α) (f : (i : Nat) → α → (h : i < l.length) → β) (i : Fin (List.mapFinIdx l f).length):
+  (List.mapFinIdx l f).get i = f i l[i] (by sorry) := by
+    sorry
+
 -- RelIO -----------------------------------------------------------------------
 
 @[simp] abbrev RelIO (S : Type) := Σ T : Type, S → T → S → Prop
@@ -55,6 +62,10 @@ theorem RelIO_mapVal {α β} {n : Nat} {f : Fin n → α} {g : α → β} :
 def RelInt.liftFinf {S : Type} (n : Nat) (f : Fin n → List (RelInt S)) : List (RelInt S) :=
   fin_range n |>.map f |>.flatten
 
+theorem RelInt.liftFinf_in {S} {rule : RelInt S} {n : Nat} {f : Fin n → List (RelInt S)}:
+  rule ∈ (RelInt.liftFinf n f)
+  → ∃ (i : Fin n) (j : Fin (List.length (f i))), rule = (f i).get j := by sorry
+
 -- Some stuff about permutations -----------------------------------------------
 
 theorem vec_set_perm {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
@@ -66,4 +77,3 @@ theorem vec_set_perm_in {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l
   (v.set idx (elt :: v[idx])).toList.flatten.Perm l →
   ∃ idx' : Fin (List.length l), l[idx'] = elt := by
     sorry
-

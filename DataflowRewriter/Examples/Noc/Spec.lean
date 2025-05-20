@@ -17,15 +17,15 @@ namespace DataflowRewriter.Noc
 -- Bag -------------------------------------------------------------------------
 -- Weakest possible specification, where order is not preserved by the Noc
 
-abbrev spec_bagT (n : Noc) : Type :=
+abbrev Noc.spec_bagT (n : Noc) : Type :=
   List n.Flit
 
 @[drcomponents]
-def mk_spec_bag_input_rule (n : Noc) (rid : n.RouterID) : RelIO (spec_bagT n) :=
+def Noc.mk_spec_bag_input_rule (n : Noc) (rid : n.RouterID) : RelIO (n.spec_bagT) :=
     ⟨n.Flit, λ old_s v new_s => new_s = old_s ++ [v]⟩
 
 @[drcomponents]
-def mk_spec_bag_output_rule (n : Noc) (rid : n.RouterID) : RelIO (spec_bagT n) :=
+def Noc.mk_spec_bag_output_rule (n : Noc) (rid : n.RouterID) : RelIO (spec_bagT n) :=
     ⟨
       n.Flit,
       λ oldS v newS =>
@@ -34,72 +34,30 @@ def mk_spec_bag_output_rule (n : Noc) (rid : n.RouterID) : RelIO (spec_bagT n) :
 
 -- Specification of a noc as a bag, all flit are sent unordered
 @[drcomponents]
-def spec_bag (n : Noc) (name := "spec_bag") : NatModule (NatModule.Named name (spec_bagT n)) :=
+def Noc.spec_bag (n : Noc) (name := "spec_bag") : NatModule (NatModule.Named name (spec_bagT n)) :=
   {
-    inputs := RelIO.liftFinf n.netsz (mk_spec_bag_input_rule n),
-    outputs := RelIO.liftFinf n.netsz (mk_spec_bag_output_rule n),
+    inputs := RelIO.liftFinf n.netsz n.mk_spec_bag_input_rule,
+    outputs := RelIO.liftFinf n.netsz n.mk_spec_bag_output_rule,
     init_state := λ s => s = [],
   }
 
-instance (n : Noc) : MatchInterface n.build (spec_bag n) := by
+instance (n : Noc) : MatchInterface n.build n.spec_bag := by
   apply MatchInterface_simpler
   · dsimp [Noc.build, drcomponents]
     simp only [RelIO_mapVal]
-    dsimp [Noc.mk_router_input, mk_spec_bag_input_rule]
+    dsimp [Noc.mk_router_input, Noc.mk_spec_bag_input_rule]
     intros ident
     simpa [Batteries.AssocList.find?_eq]
   · dsimp [Noc.build, drcomponents]
     simp only [RelIO_mapVal]
-    dsimp [Noc.mk_router_output, mk_spec_bag_output_rule]
+    dsimp [Noc.mk_router_output, Noc.mk_spec_bag_output_rule]
     intros ident
     simpa [Batteries.AssocList.find?_eq]
 
-instance (n : Noc) : MatchInterface (spec_bag n) n.build := by
+instance (n : Noc) : MatchInterface n.spec_bag n.build := by
   apply MatchInterface_symmetric
   -- TODO: How can I use the definition right above?
   sorry
 
 -- Multi-Queue -----------------------------------------------------------------
--- Flit are sent ordered per channel
--- FIXME: The current definition is wrong and is instead the absolute ordering
--- definition
-
-abbrev spec_mqueueT (n : Noc) : Type :=
-  Vector (List n.Flit) n.netsz
-
-@[drcomponents]
-def mk_spec_mqueue_input_rule (n : Noc) (rid : n.RouterID) : RelIO (spec_mqueueT n) :=
-    ⟨n.Flit, λ old_s v new_s => new_s[rid] = old_s[rid] ++ [v]⟩
-
-@[drcomponents]
-def mk_spec_mqueue_output_rule (n : Noc) (rid : n.RouterID) : RelIO (spec_mqueueT n) :=
-    ⟨
-      n.Flit,
-      λ oldS v newS => v.2.dst = rid ∧ newS = oldS.set rid (v :: oldS[rid])
-    ⟩
-
-@[drcomponents]
-def spec_mqueue (n : Noc) (name := "spec_mqueue") : NatModule (NatModule.Named name (spec_mqueueT n)) :=
-  {
-    inputs := RelIO.liftFinf n.netsz (mk_spec_mqueue_input_rule n),
-    outputs := RelIO.liftFinf n.netsz (mk_spec_mqueue_output_rule n),
-    init_state := λ s => s = Vector.replicate n.netsz [],
-  }
-
-instance (n : Noc) : MatchInterface n.build (spec_bag n) := by
-  apply MatchInterface_simpler
-  · dsimp [Noc.build, drcomponents]
-    simp only [RelIO_mapVal]
-    dsimp [Noc.mk_router_input, mk_spec_bag_input_rule]
-    intros ident
-    simpa [Batteries.AssocList.find?_eq]
-  · dsimp [Noc.build, drcomponents]
-    simp only [RelIO_mapVal]
-    dsimp [Noc.mk_router_output, mk_spec_bag_output_rule]
-    intros ident
-    simpa [Batteries.AssocList.find?_eq]
-
-instance (n : Noc) : MatchInterface (spec_bag n) n.build := by
-  apply MatchInterface_symmetric
-  -- TODO: How can I use the definition right above?
-  sorry
+-- TODO: Flit are sent ordered per channel

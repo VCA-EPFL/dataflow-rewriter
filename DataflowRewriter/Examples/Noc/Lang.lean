@@ -34,8 +34,8 @@ def DirLocal' {netsz neigh src} : Dir' netsz neigh src :=
 abbrev Route' (netsz : Netsz') (neigh : Neigh' netsz) : Type :=
   (src dst : RouterID' netsz) → Dir' netsz neigh src
 
-def Route_correct {netsz neigh} (route : Route' netsz neigh) : Prop :=
-  ∀ src dst, route src dst = DirLocal' → src = dst
+def Route_correct' {netsz neigh} (route : Route' netsz neigh) : Prop :=
+  ∀ {src dst}, route src dst = DirLocal' → src = dst
 
 structure Noc where
   netsz : Netsz'
@@ -57,6 +57,9 @@ abbrev Noc.DirLocal (n : Noc) {src} :=
 
 abbrev Noc.Route (n : Noc) : Type :=
   Route' n.netsz n.neigh
+
+abbrev Noc.Route_correct (n : Noc) : Prop :=
+  Route_correct' n.route
 
 structure Noc.FlitHeader (n : Noc) : Type :=
   dst : n.RouterID
@@ -92,6 +95,9 @@ def Noc.mk_router_output (n : Noc) (rid : n.RouterID) (dir : n.Dir rid) : RelIO 
 def Noc.mk_router_conn (n : Noc) (rid : n.RouterID) : List (RelInt n.nocT) :=
   (n.neigh rid).mapFinIdx (λ dir rid' Hdir =>
     λ old_s new_s => ∃ val,
+      -- TODO: This is wrong as is because output_rel and input_rel both
+      -- contains something absolute: We are asserting that all elements are
+      -- unchanged appart from one thing, which means this is false
       n.output_rel rid (Fin.mk (dir + 1) (by simpa)) val old_s new_s ∧
       n.input_rel rid' val old_s new_s)
 

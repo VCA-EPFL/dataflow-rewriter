@@ -17,8 +17,21 @@ variable (Data : Type)
 
 def noc := dt.xy_to_noc Data
 abbrev mod := (noc dt Data).build
-abbrev spec := spec_bag (noc dt Data)
-abbrev specT := spec_bagT (noc dt Data)
+abbrev spec := (noc dt Data).spec_bag
+abbrev specT := (noc dt Data).spec_bagT
+
+theorem route_xy_correct : Noc.Route_correct (noc dt Data) := by
+  intros src dst
+  dsimp [noc, DirectedTorus.xy_to_noc, DirectedTorus.route_xy]
+  intros H
+  cases Hx: (dt.get_x src != dt.get_x dst)
+  <;> cases Hy: (dt.get_y src != dt.get_y dst)
+  <;> simp [Hx, Hy] at H
+  <;> simp at Hx Hy
+  · sorry -- TODO: annoying arithmetic
+  · simp [DirLocal', DirectedTorus.DirY] at H
+  · simp [DirLocal'] at H
+  · simp [DirLocal'] at H
 
 namespace ImplementationInSpec
 
@@ -51,7 +64,7 @@ theorem refines_φ : (mod dt Data) ⊑_{φ dt Data} (spec dt Data) := by
     rw [PortMap.rw_rule_execution RelIO.liftFinf_get] at Hrule
     dsimp [Noc.mk_router_input, Noc.input_rel] at Hrule
     subst mid_i
-    unfold Noc.mk_router_input Noc.input_rel mk_spec_bag_input_rule at *
+    unfold Noc.mk_router_input Noc.input_rel Noc.mk_spec_bag_input_rule at *
     exists s.concat (Hv.mp v)
     exists s.concat (Hv.mp v)
     and_intros
@@ -76,16 +89,28 @@ theorem refines_φ : (mod dt Data) ⊑_{φ dt Data} (spec dt Data) := by
     · rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
       dsimp only [drcomponents]
       and_intros
-      · sorry -- TODO: Arbiter_correct
+      · unfold noc Noc.DirLocal at Hrule2
+        obtain H := route_xy_correct dt Data (by unfold noc; rw [Hrule2])
+        simpa [H]
       · exists idx'; dsimp at Hidx'; simpa [Hidx']
     · sorry -- TODO: Annoying proof of permutation
-  · intros rule mid_i Hrule _
+  · intros rule mid_i HruleIn Hrule
     exists s
     and_intros
     · constructor
     · unfold φ at *
-      dsimp [drcomponents] at Hrule
-      -- rw [RelInt.liftFinf_in]
+      dsimp [drcomponents] at HruleIn
+      obtain ⟨idx1, idx2, Hij⟩ := RelInt.liftFinf_in HruleIn
+      unfold Noc.mk_router_conn at Hij
+      rw [mapFinIdx_get] at Hij
+      subst rule
+      -- dsimp [drcomponents] at Hrule
+      obtain ⟨val, Hval1, Hval2⟩ := Hrule
+      dsimp [drcomponents] at Hval1 Hval2
+      obtain ⟨Hval11, Hval12⟩ := Hval1
+      -- subst i
+      -- rw [Hval3]
+      -- dsimp
       sorry -- TODO
 
 theorem ϕ_indistinguishable :
@@ -125,7 +150,9 @@ theorem ϕ_indistinguishable :
       rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
       dsimp [drcomponents]
       and_intros
-      · sorry -- TODO: Arbiter_correct
+      · unfold noc Noc.DirLocal at Hrule2
+        obtain H := route_xy_correct dt Data (by unfold noc; rw [Hrule2])
+        simpa [H]
       · exists idx'; dsimp at Hidx'; simpa [Hidx']
 
 theorem correct : (mod dt Data) ⊑ (spec dt Data) := by
@@ -140,21 +167,25 @@ end ImplementationInSpec
 
 namespace SpecInImplementation
 
-def φ (I : spec_bagT (noc dt Data)) (S : (noc dt Data).nocT) : Prop :=
+def φ (I : (noc dt Data).spec_bagT) (S : (noc dt Data).nocT) : Prop :=
   -- TODO: Wrong, probably
+  -- I think the φ might just be that any messages is in the target router,
+  -- ready to be extracted with an output rule
+  -- This only work because we are in an unbounded spec, meaning we can get all
+  -- message to destination always.
+  -- This gets more complicated when we are working with bounded arrays, but we
+  -- are not there yet
   S.toList.flatten.Perm I
 
--- TODO: MatchInterface but it should be symetric
-
 theorem refines_initial :
-  Module.refines_initial (spec_bag (noc dt Data)) (mod dt Data) (φ dt Data) := by
+  Module.refines_initial ((noc dt Data).spec_bag) (mod dt Data) (φ dt Data) := by
     sorry
 
-theorem refines_φ : (spec_bag (noc dt Data)) ⊑_{φ dt Data} (mod dt Data) := by
+theorem refines_φ : ((noc dt Data).spec_bag) ⊑_{φ dt Data} (mod dt Data) := by
   intros i s Hφ
   constructor
   · intros ident mid_i v Hrule
-    case_transition Hcontains : (Module.inputs (spec_bag (noc dt Data))), ident,
+    case_transition Hcontains : (Module.inputs ((noc dt Data).spec_bag)), ident,
       (PortMap.getIO_not_contained_false' Hrule)
     dsimp [drcomponents] at *
     obtain ⟨idx, Hidx⟩ := RelIO.liftFinf_in Hcontains
@@ -171,7 +202,7 @@ theorem refines_φ : (spec_bag (noc dt Data)) ⊑_{φ dt Data} (mod dt Data) := 
     · apply existSR.done
     · sorry
   · intros ident mid_i v Hrule
-    case_transition Hcontains : (Module.outputs (spec_bag (noc dt Data))), ident,
+    case_transition Hcontains : (Module.outputs ((noc dt Data).spec_bag)), ident,
       (PortMap.getIO_not_contained_false' Hrule)
     dsimp [drcomponents] at *
     obtain ⟨rid, Hrid⟩ := RelIO.liftFinf_in Hcontains
