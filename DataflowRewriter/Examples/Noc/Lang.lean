@@ -32,10 +32,10 @@ def DirLocal' {netsz neigh src} : Dir' netsz neigh src :=
   Fin.mk 0 (by simpa)
 
 abbrev Route' (netsz : Netsz') (neigh : Neigh' netsz) : Type :=
-  (src dst : RouterID' netsz) → Dir' netsz neigh src
+  (cur dst : RouterID' netsz) → Dir' netsz neigh cur
 
 def Route_correct' {netsz neigh} (route : Route' netsz neigh) : Prop :=
-  ∀ {src dst}, route src dst = DirLocal' → src = dst
+  ∀ {cur dst}, route cur dst = DirLocal' → cur = dst
 
 structure Noc where
   netsz : Netsz'

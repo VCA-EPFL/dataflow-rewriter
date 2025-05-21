@@ -68,7 +68,7 @@ theorem RelInt.liftFinf_in {S} {rule : RelInt S} {n : Nat} {f : Fin n → List (
 
 -- Some stuff about permutations -----------------------------------------------
 
-theorem vec_set_perm {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
+theorem vec_set_concat_perm {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
   v.toList.flatten.Perm l →
   (v.set idx (v[idx] ++ [elt])).toList.flatten.Perm (l ++ [elt]) := by
     sorry
@@ -77,3 +77,12 @@ theorem vec_set_perm_in {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l
   (v.set idx (elt :: v[idx])).toList.flatten.Perm l →
   ∃ idx' : Fin (List.length l), l[idx'] = elt := by
     sorry
+
+theorem vec_set_cons_perm {α} {n : Nat} {v : Vector (List α) n} {idx1 idx2 : Fin n} {elt : α} :
+  (Vector.set v idx1 (elt :: v[idx1])).toList.flatten.Perm
+  (Vector.set v idx2 (v[idx2] ++ [elt])).toList.flatten := by sorry
+
+theorem vec_set_cons_remove_perm {α} {n : Nat} {v : Vector (List α) n} {idx1 : Fin n} {l} {idx2 : Fin (List.length l)} {elt : α} :
+  l[idx2] = elt →
+  (v.set idx1 (elt :: v[idx1])).toList.flatten.Perm l →
+  v.toList.flatten.Perm (l.remove idx2) := by sorry

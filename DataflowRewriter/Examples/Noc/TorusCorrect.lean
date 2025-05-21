@@ -26,8 +26,8 @@ theorem route_xy_correct : Noc.Route_correct (noc dt Data) := by
   intros H
   cases Hx: (dt.get_x src != dt.get_x dst)
   <;> cases Hy: (dt.get_y src != dt.get_y dst)
-  <;> simp [Hx, Hy] at H
-  <;> simp at Hx Hy
+  <;> simp only [Hx, Hy] at H
+  <;> simp only [bne_eq_false_iff_eq, bne_iff_ne, ne_eq] at Hx Hy
   · sorry -- TODO: annoying arithmetic
   · simp [DirLocal', DirectedTorus.DirY] at H
   · simp [DirLocal'] at H
@@ -36,6 +36,7 @@ theorem route_xy_correct : Noc.Route_correct (noc dt Data) := by
 namespace ImplementationInSpec
 
 def φ (I : (noc dt Data).nocT) (S : specT dt Data) : Prop :=
+  -- This φ could be even weaker in a general sense, by just having an inclusion
   I.toList.flatten.Perm S
 
 theorem refines_initial :
@@ -69,9 +70,9 @@ theorem refines_φ : (mod dt Data) ⊑_{φ dt Data} (spec dt Data) := by
     exists s.concat (Hv.mp v)
     and_intros
     · rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
-      simp
+      simpa
     · constructor
-    · rw [List.concat_eq_append]; apply vec_set_perm H
+    · rw [List.concat_eq_append]; apply vec_set_concat_perm H
   · intros ident mid_i v Hrule
     case_transition Hcontains : (Module.outputs (mod dt Data)), ident,
      (PortMap.getIO_not_contained_false' Hrule)
@@ -93,8 +94,7 @@ theorem refines_φ : (mod dt Data) ⊑_{φ dt Data} (spec dt Data) := by
         obtain H := route_xy_correct dt Data (by unfold noc; rw [Hrule2])
         simpa [H]
       · exists idx'; dsimp at Hidx'; simpa [Hidx']
-    · -- TODO: Annoying proof of permutation, seems true
-      sorry
+    · apply vec_set_cons_remove_perm Hidx' H
   · intros rule mid_i HruleIn Hrule
     exists s
     and_intros
@@ -112,8 +112,7 @@ theorem refines_φ : (mod dt Data) ⊑_{φ dt Data} (spec dt Data) := by
       apply List.Perm.symm
       apply List.Perm.trans
       · apply List.Perm.symm; exact H
-      · -- TODO: Annoying proof of permutation, seems true
-        sorry
+      · apply vec_set_cons_perm
 
 theorem ϕ_indistinguishable :
   ∀ i s, φ dt Data i s → Module.indistinguishable (mod dt Data) (spec dt Data) i s := by
@@ -169,6 +168,12 @@ end ImplementationInSpec
 
 namespace SpecInImplementation
 
+-- TODO: It could be interesting to try inductive φ here
+-- FIXME: This may be actually wrong, because nocT is not a bag:
+-- It is a queue.
+-- This may be a case for heterogeneous vector because on top of a state, we
+-- might want to have bag routers and stuff like this
+
 def φ (I : (noc dt Data).spec_bagT) (S : (noc dt Data).nocT) : Prop :=
   -- TODO: Wrong, probably
   -- I think the φ might just be that any messages is in the target router,
@@ -177,6 +182,7 @@ def φ (I : (noc dt Data).spec_bagT) (S : (noc dt Data).nocT) : Prop :=
   -- message to destination always.
   -- This gets more complicated when we are working with bounded arrays, but we
   -- are not there yet
+  -- ∀ flit ∈ I, True
   S.toList.flatten.Perm I
 
 theorem refines_initial :
@@ -202,7 +208,9 @@ theorem refines_φ : ((noc dt Data).spec_bag) ⊑_{φ dt Data} (mod dt Data) := 
     · rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
       dsimp [drcomponents]
     · apply existSR.done
-    · sorry
+    · simp only [cast_cast]
+      apply vec_set_concat_perm (v := s)
+      assumption
   · intros ident mid_i v Hrule
     case_transition Hcontains : (Module.outputs ((noc dt Data).spec_bag)), ident,
       (PortMap.getIO_not_contained_false' Hrule)
