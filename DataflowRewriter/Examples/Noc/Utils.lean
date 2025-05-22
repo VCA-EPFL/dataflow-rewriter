@@ -78,6 +78,30 @@ theorem vec_set_perm_in {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l
   ∃ idx' : Fin (List.length l), l[idx'] = elt := by
     sorry
 
+theorem vec_set_in {α} {n : Nat} (v : Vector (List α) n) (idx : Fin n) (elt : α) :
+  elt ∈ (Vector.set v idx (elt :: v[idx]))[idx] := by sorry
+
+theorem vec_set_in_flatten {α} {n : Nat} (v : Vector (List α) n) (idx : Fin n) (elt : α) :
+  elt ∈ (Vector.set v idx (elt :: v[idx])).toList.flatten := by sorry
+
+theorem vec_set_subset {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
+  (v.set idx (elt :: v[idx])).toList.flatten ⊆ l →
+  ∃ idx' : Fin (List.length l), l[idx'] = elt := by
+    intros H
+    specialize H (vec_set_in_flatten v idx elt)
+    rw [List.mem_iff_get] at H
+    obtain ⟨n, Hn⟩ := H
+    exists n
+
+theorem vec_set_subset' {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
+  (v.set idx (elt :: v[idx]))[idx] ⊆ l →
+  ∃ idx' : Fin (List.length l), l[idx'] = elt := by
+    intros H
+    specialize H (vec_set_in v idx elt)
+    rw [List.mem_iff_get] at H
+    obtain ⟨n, Hn⟩ := H
+    exists n
+
 theorem vec_set_cons_perm {α} {n : Nat} {v : Vector (List α) n} {idx1 idx2 : Fin n} {elt : α} :
   (Vector.set v idx1 (elt :: v[idx1])).toList.flatten.Perm
   (Vector.set v idx2 (v[idx2] ++ [elt])).toList.flatten := by sorry
@@ -86,3 +110,4 @@ theorem vec_set_cons_remove_perm {α} {n : Nat} {v : Vector (List α) n} {idx1 :
   l[idx2] = elt →
   (v.set idx1 (elt :: v[idx1])).toList.flatten.Perm l →
   v.toList.flatten.Perm (l.remove idx2) := by sorry
+

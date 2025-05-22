@@ -41,9 +41,11 @@ def DirectedTorus.get_rid (d : DirectedTorus) (x : d.pos_x) (y : d.pos_y) : d.Ro
   Fin.mk (y * d.size_x + x) (by sorry)
 
 def DirectedTorus.get_neigh_x (d : DirectedTorus) (x : d.pos_x) : d.pos_x :=
+  -- TODO
   Fin.mk ((x.toNat + 1) % d.size_x) (by sorry)
 
 def DirectedTorus.get_neigh_y (d : DirectedTorus) (y : d.pos_y) : d.pos_y :=
+  -- TODO
   Fin.mk ((y.toNat + 1) % d.size_y) (by sorry)
 
 def DirectedTorus.neigh (d : DirectedTorus) : d.Neigh :=
@@ -86,10 +88,3 @@ def DirectedTorus.xy_to_noc (d : DirectedTorus) (Data : Type) : Noc :=
     route := d.route_xy,
     Data  := Data,
   }
-
-def tmp : DirectedTorus :=
-  { size_x := 3, size_y := 3 }
-
-def tmp_noc := tmp.xy_to_noc Nat
-
-def tmp_mod := tmp_noc.build

@@ -8,6 +8,7 @@ import DataflowRewriter.Module
 import DataflowRewriter.ModuleLemmas
 import DataflowRewriter.Component
 import DataflowRewriter.Examples.Noc.Lang
+import DataflowRewriter.Examples.Noc.BuildModule
 
 set_option autoImplicit false
 set_option linter.all false
@@ -41,20 +42,13 @@ def Noc.spec_bag (n : Noc) (name := "spec_bag") : NatModule (NatModule.Named nam
     init_state := λ s => s = [],
   }
 
-instance (n : Noc) : MatchInterface n.build n.spec_bag := by
+instance (n : Noc) : MatchInterface n.build_module n.spec_bag := by
   apply MatchInterface_simpler
-  · dsimp [Noc.build, drcomponents]
-    simp only [RelIO_mapVal]
-    dsimp only [drcomponents]
-    intros ident
-    simpa [Batteries.AssocList.find?_eq]
-  · dsimp [Noc.build, drcomponents]
-    simp only [RelIO_mapVal]
-    dsimp only [drcomponents]
-    intros ident
-    simpa [Batteries.AssocList.find?_eq]
+  <;> simp only [drcomponents, RelIO_mapVal]
+  <;> intros _
+  <;> exact True.intro
 
-instance (n : Noc) : MatchInterface n.spec_bag n.build := by
+instance (n : Noc) : MatchInterface n.spec_bag n.build_module := by
   apply MatchInterface_symmetric
   exact inferInstance
 
@@ -92,25 +86,18 @@ def Noc.spec_mqueue (n : Noc) (name := "spec_mqueue") : NatModule (NatModule.Nam
     init_state := λ s => s = Vector.replicate (n.netsz * n.netsz) [],
   }
 
-instance (n : Noc) : MatchInterface n.build n.spec_mqueue := by
+instance (n : Noc) : MatchInterface n.build_module n.spec_mqueue := by
   apply MatchInterface_simpler
-  · dsimp [Noc.build, drcomponents]
-    simp only [RelIO_mapVal]
-    dsimp only [drcomponents]
-    intros ident
-    simpa [Batteries.AssocList.find?_eq]
-  · dsimp [Noc.build, drcomponents]
-    simp only [RelIO_mapVal]
-    dsimp only [drcomponents]
-    intros ident
-    simpa [Batteries.AssocList.find?_eq]
+  <;> simp only [drcomponents, RelIO_mapVal]
+  <;> intros _
+  <;> exact True.intro
 
-instance (n : Noc) : MatchInterface n.spec_mqueue n.build := by
+instance (n : Noc) : MatchInterface n.spec_mqueue n.build_module := by
   apply MatchInterface_symmetric
   exact inferInstance
 
 instance (n : Noc) : MatchInterface n.spec_mqueue n.spec_bag := by
-  apply MatchInterface_transitive n.build
+  apply MatchInterface_transitive n.build_module
   repeat exact inferInstance
 
 section MQueueInBag
@@ -139,7 +126,7 @@ theorem refines_φ : n.spec_mqueue ⊑_{φ n} n.spec_bag := by
     case_transition Hcontains : (Module.inputs n.spec_mqueue), ident,
       (PortMap.getIO_not_contained_false' Hrule)
     dsimp [drcomponents] at *
-    obtain ⟨idx, Hidx⟩ := RelIO.liftFinf_in Hcontains
+    obtain ⟨src, Hsrc⟩ := RelIO.liftFinf_in Hcontains
     subst ident
     rw [PortMap.rw_rule_execution RelIO.liftFinf_get] at Hrule
     dsimp [drcomponents] at Hrule
@@ -153,18 +140,31 @@ theorem refines_φ : n.spec_mqueue ⊑_{φ n} n.spec_bag := by
     · rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
       simpa [drcomponents]
     · constructor
-    · intros src dst
+    · intros src' dst'
       dsimp
       intros v' Hv'
       subst mid_i
       unfold φ at Hφ
-      specialize Hφ src dst
+      specialize Hφ src' dst'
       dsimp at Hφ
-      -- TODO: We need to do a case analysis: Which vector does v belong to in
-      -- Hv'? If it is the set one, then we are done and can specialize Hφ,
-      -- otherwise we are directly done in Hv'
-      -- rw [Vector.getElem_set_self] at Hv'
-      sorry
+      by_cases Heq : (↑src' * n.netsz + ↑dst') = (↑src * n.netsz + ↑(Hv.mp v).snd.dst)
+      · simp only [
+          Heq, typeOf, eq_mp_eq_cast, Vector.getElem_set_self, List.mem_append,
+          List.mem_cons, List.not_mem_nil, or_false
+        ] at Hv'
+        simp only [Heq, typeOf, eq_mp_eq_cast] at Hφ
+        cases Hv'
+        · rename_i Hin;
+          simp only [
+            List.concat_eq_append, List.mem_append, List.mem_cons,
+            List.not_mem_nil, or_false
+          ]
+          left; exact Hφ Hin
+        · rename_i Heq; simp [Heq]
+      · -- TODO: We have to say that getting an element of a vector in another
+        -- position of where it has been modified is just like accessing the vector
+        -- directly
+        sorry
   · intros ident mid_i v Hrule
     case_transition Hcontains : (Module.outputs n.spec_mqueue), ident,
       (PortMap.getIO_not_contained_false' Hrule)
@@ -183,7 +183,11 @@ theorem refines_φ : n.spec_mqueue ⊑_{φ n} n.spec_bag := by
     dsimp [drcomponents]
     and_intros
     · simpa [Hrule1]
-    · -- TODO: Annoying but true
+    · rw [Hrule2] at Hφ
+      specialize Hφ src (Hv.mp v).2.dst
+      dsimp at Hφ
+      -- FIXME: Not working for some reasons :(
+      -- obtain ⟨idx', Hidx'⟩ := vec_set_subset' Hφ
       sorry
     · intros src dst
       dsimp
@@ -232,8 +236,12 @@ theorem ϕ_indistinguishable :
       dsimp [drcomponents]
       and_intros
       · simpa [Hrule1]
-      · sorry -- TODO: Annoying but true
-      · sorry -- TODO: Solving variable ?
+      · specialize Hφ src (Hv.mp v).2.dst
+        dsimp at Hφ
+        -- FIXME: Not working for some reasons :(
+        -- obtain ⟨idx', Hidx'⟩ := vec_set_subset' Hφ
+        sorry -- TODO: Annoying but true
+      · sorry -- TODO: Solving variable
 
 theorem correct : n.spec_mqueue ⊑ n.spec_bag := by
   apply (

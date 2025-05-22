@@ -5,6 +5,7 @@ Authors: Yann Herklotz, Gurvan Debaussart
 -/
 
 import DataflowRewriter.Examples.Noc.Lang
+import DataflowRewriter.Examples.Noc.BuildModule
 import DataflowRewriter.Examples.Noc.Torus
 import DataflowRewriter.Examples.Noc.Spec
 
@@ -16,7 +17,7 @@ variable (dt : DirectedTorus)
 variable (Data : Type)
 
 def noc := dt.xy_to_noc Data
-abbrev mod := (noc dt Data).build
+abbrev mod := (noc dt Data).build_module
 abbrev spec := (noc dt Data).spec_bag
 abbrev specT := (noc dt Data).spec_bagT
 
@@ -165,84 +166,3 @@ theorem correct : (mod dt Data) ⊑ (spec dt Data) := by
   )
 
 end ImplementationInSpec
-
-namespace SpecInImplementation
-
--- TODO: It could be interesting to try inductive φ here
--- FIXME: This may be actually wrong, because nocT is not a bag:
--- It is a queue.
--- This may be a case for heterogeneous vector because on top of a state, we
--- might want to have bag routers and stuff like this
-
-def φ (I : (noc dt Data).spec_bagT) (S : (noc dt Data).nocT) : Prop :=
-  -- TODO: Wrong, probably
-  -- I think the φ might just be that any messages is in the target router,
-  -- ready to be extracted with an output rule
-  -- This only work because we are in an unbounded spec, meaning we can get all
-  -- message to destination always.
-  -- This gets more complicated when we are working with bounded arrays, but we
-  -- are not there yet
-  -- ∀ flit ∈ I, True
-  S.toList.flatten.Perm I
-
-theorem refines_initial :
-  Module.refines_initial ((noc dt Data).spec_bag) (mod dt Data) (φ dt Data) := by
-    sorry
-
-theorem refines_φ : ((noc dt Data).spec_bag) ⊑_{φ dt Data} (mod dt Data) := by
-  intros i s Hφ
-  constructor
-  · intros ident mid_i v Hrule
-    case_transition Hcontains : (Module.inputs ((noc dt Data).spec_bag)), ident,
-      (PortMap.getIO_not_contained_false' Hrule)
-    dsimp [drcomponents] at *
-    obtain ⟨idx, Hidx⟩ := RelIO.liftFinf_in Hcontains
-    subst ident
-    rw [PortMap.rw_rule_execution RelIO.liftFinf_get] at Hrule
-    dsimp [drcomponents] at Hrule
-    subst mid_i
-    skip
-    apply Exists.intro _
-    apply Exists.intro _
-    and_intros
-    · rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
-      dsimp [drcomponents]
-    · apply existSR.done
-    · simp only [cast_cast]
-      apply vec_set_concat_perm (v := s)
-      assumption
-  · intros ident mid_i v Hrule
-    case_transition Hcontains : (Module.outputs ((noc dt Data).spec_bag)), ident,
-      (PortMap.getIO_not_contained_false' Hrule)
-    dsimp [drcomponents] at *
-    obtain ⟨rid, Hrid⟩ := RelIO.liftFinf_in Hcontains
-    subst ident
-    rw [PortMap.rw_rule_execution RelIO.liftFinf_get] at Hrule
-    dsimp [drcomponents] at Hrule
-    obtain ⟨Hrule1, idx, Hidx1, Hidx2⟩ := Hrule
-    subst mid_i
-    skip
-    apply Exists.intro _
-    and_intros
-    · rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
-      dsimp [drcomponents]
-      and_intros
-      · sorry
-      · sorry
-      · sorry
-    · sorry
-  · sorry
-
-theorem ϕ_indistinguishable :
-  ∀ i s, φ dt Data i s → Module.indistinguishable (spec dt Data) (mod dt Data) i s := by
-    sorry
-
-theorem correct : (spec dt Data) ⊑ (mod dt Data) := by
-  apply (
-    Module.refines_φ_refines
-      (ϕ_indistinguishable dt Data)
-      (refines_initial dt Data)
-      (refines_φ dt Data)
-  )
-
-end SpecInImplementation
