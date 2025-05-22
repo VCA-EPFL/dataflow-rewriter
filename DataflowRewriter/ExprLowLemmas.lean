@@ -8,6 +8,7 @@ import DataflowRewriter.ModuleLemmas
 import DataflowRewriter.ExprLow
 import DataflowRewriter.Environment
 import Mathlib.Tactic
+import Mathlib.Data.QPF.Univariate.Basic
 
 open Batteries (AssocList)
 
@@ -1103,7 +1104,7 @@ theorem refines_comm_connection'_ {iexpr e' conn} :
         apply Module.refines_reflexive_ext
         apply Module.comm_conn_product_EqExt
         · rw [←findOutput_iff_contains] <;> solve_by_elim [hfi.2.1]
-        · rw [←findInput_iff_contains] <;> solve_by_elim [hfi.1]
+        · stop rw [←findInput_iff_contains] <;> solve_by_elim [hfi.1]
     · simp at hcomm; obtain ⟨e'', hcomm, hconn⟩ := hcomm; subst e'
       apply ExprLow.refines_connect <;> solve_by_elim [wf_comm_connection'_]
 
@@ -1152,7 +1153,7 @@ theorem refines_comm_connection'_2 {iexpr e' conn} :
         apply Module.EqExt.symm
         apply Module.comm_conn_product_EqExt
         · rw [←findOutput_iff_contains] <;> solve_by_elim [hfi.2.1]
-        · rw [←findInput_iff_contains] <;> solve_by_elim [hfi.1]
+        · stop rw [←findInput_iff_contains] <;> solve_by_elim [hfi.1]
     · simp at hcomm; obtain ⟨e'', hcomm, hconn⟩ := hcomm; subst e'
       apply ExprLow.refines_connect <;> solve_by_elim [wf_comm_connection'_]
 
