@@ -10,8 +10,8 @@ import DataflowRewriter.Examples.Noc.Lang
 namespace DataflowRewriter.Noc.DirectedTorus
 
 structure DirectedTorus where
-  size_x : Nat
-  size_y : Nat
+  size_x  : Nat
+  size_y  : Nat
 
 abbrev DirectedTorus.pos_x (d : DirectedTorus) : Type :=
   Fin d.size_x
@@ -63,11 +63,8 @@ def DirectedTorus.Dir (d : DirectedTorus) :=
 def DirectedTorus.DirLocal (d : DirectedTorus) {src} : d.Dir src :=
   Fin.mk 0 (by simpa)
 
-def DirectedTorus.Route (d : DirectedTorus) :=
-  Route' d.netsz d.neigh
-
 theorem DirectedTorus.neigh_uniform (d : DirectedTorus) (src : d.RouterID) :
-  (d.neigh src).length = 2 := by  simpa [DirectedTorus.neigh]
+  (d.neigh src).length = 2 := by simpa [DirectedTorus.neigh]
 
 abbrev DirectedTorus.DirX (d : DirectedTorus) {src} : d.Dir src :=
   Fin.mk 1 (by simpa [DirectedTorus.neigh_uniform])
@@ -75,16 +72,67 @@ abbrev DirectedTorus.DirX (d : DirectedTorus) {src} : d.Dir src :=
 abbrev DirectedTorus.DirY (d : DirectedTorus) {src} : d.Dir src :=
   Fin.mk 2 (by simpa [DirectedTorus.neigh_uniform])
 
-def DirectedTorus.route_xy (d : DirectedTorus) : d.Route :=
-  λ src dst =>
-    if d.get_x src != d.get_x dst then d.DirX
-    else if d.get_y src != d.get_y dst then d.DirY
-    else d.DirLocal
+abbrev DirectedTorus.MkHead (d : DirectedTorus) (Data : Type) (FlitHeader : Type) :=
+  MkHead' d.netsz Data FlitHeader
 
-def DirectedTorus.xy_to_noc (d : DirectedTorus) (Data : Type) : Noc :=
+-- DirectedTorus, Absolute Header and xy routing -------------------------------
+
+def DirectedTorus.AbsoluteHeader (d : DirectedTorus) : Type :=
+  d.RouterID
+
+def DirectedTorus.AbsoluteFlit (d : DirectedTorus) (Data : Type) : Type :=
+  Data × d.AbsoluteHeader
+
+def DirectedTorus.AbsoluteRoute (d : DirectedTorus) (Data : Type) : Type :=
+  Route' d.netsz d.neigh (d.AbsoluteFlit Data)
+
+def DirectedTorus.absolute_route_xy (d : DirectedTorus) (Data : Type) : d.AbsoluteRoute Data :=
+  λ cur flit =>
+    if d.get_x cur != d.get_x flit.2 then (d.DirX, flit)
+    else if d.get_y cur != d.get_y flit.2 then (d.DirY, flit)
+    else (d.DirLocal, flit)
+
+def DirectedTorus.absolute_xy_to_noc (d : DirectedTorus) (Data : Type) : Noc :=
   {
-    netsz := d.netsz,
-    neigh := d.neigh,
-    route := d.route_xy,
-    Data  := Data,
+    netsz       := d.netsz,
+    neigh       := d.neigh,
+    FlitHeader  := d.AbsoluteHeader
+    route       := d.absolute_route_xy Data,
+    mkhead      := λ _ dst _ => dst,
+    Data        := Data,
+  }
+
+-- DirectedTorus, Relative Header and xy routing -------------------------------
+
+structure DirectedTorus.RelativeHeader (d : DirectedTorus) where
+  diff_x : Nat
+  diff_y : Nat
+
+def DirectedTorus.RelativeFlit (d : DirectedTorus) (Data : Type _) : Type _ :=
+  Data × d.RelativeHeader
+
+def DirectedTorus.RelativeRoute (d : DirectedTorus) (Data : Type _) : Type _ :=
+  Route' d.netsz d.neigh (d.RelativeFlit Data)
+
+def DirectedTorus.relative_route_xy (d : DirectedTorus) (Data : Type) : d.RelativeRoute Data :=
+  λ cur flit =>
+    if 0 < flit.2.diff_x then (d.DirX, flit)
+    else if 0 < flit.2.diff_y then (d.DirY, flit)
+    else (d.DirLocal, flit)
+
+def DirectedTorus.relative_mkhead (d : DirectedTorus) (Data : Type) : d.MkHead Data d.RelativeHeader :=
+  λ cur dst data =>
+    {
+      diff_x := d.get_x cur - d.get_x dst,
+      diff_y := d.get_y cur - d.get_y dst,
+    }
+
+def DirectedTorus.relative_xy_to_noc (d : DirectedTorus) (Data : Type) : Noc :=
+  {
+    netsz       := d.netsz,
+    neigh       := d.neigh,
+    FlitHeader  := d.RelativeHeader
+    route       := d.relative_route_xy Data,
+    mkhead      := d.relative_mkhead Data,
+    Data        := Data,
   }

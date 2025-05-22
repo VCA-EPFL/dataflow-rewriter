@@ -14,21 +14,36 @@ set_option linter.all false
 
 namespace DataflowRewriter.Noc
 
+abbrev Noc.routerT (n : Noc) :=
+  List n.Flit
+
+abbrev Noc.nocT (n : Noc) : Type :=
+  Vector n.routerT n.netsz
+
 @[drcomponents]
 def Noc.input_rel (n : Noc) (rid : n.RouterID) (val : n.Flit) (old_s new_s : n.nocT) : Prop :=
   new_s = old_s.set rid (old_s[rid] ++ [val])
 
 @[drcomponents]
 def Noc.output_rel (n : Noc) (rid : n.RouterID) (dir : n.Dir rid) (val : n.Flit) (old_s new_s : n.nocT) : Prop :=
-  old_s = new_s.set rid (val :: new_s[rid]) ∧ dir = n.route rid val.2.dst
+    let (dir', flit') := n.route rid val
+    dir = dir' ∧ old_s = new_s.set rid (flit' :: new_s[rid])
 
 @[drcomponents]
 def Noc.mk_router_input (n : Noc) (rid : n.RouterID) : RelIO n.nocT :=
-  ⟨n.Flit, λ old_s inp new_s => n.input_rel rid inp old_s new_s⟩
+  ⟨
+    n.Data × n.RouterID,
+    λ old_s inp new_s =>
+      n.input_rel rid (inp.1, (n.mkhead rid inp.2 inp.1)) old_s new_s
+  ⟩
 
 @[drcomponents]
 def Noc.mk_router_output (n : Noc) (rid : n.RouterID) (dir : n.Dir rid) : RelIO n.nocT :=
-  ⟨n.Flit, λ old_s out new_s => n.output_rel rid dir out old_s new_s⟩
+  ⟨
+    n.Data,
+    λ old_s out new_s => ∃ head,
+      n.output_rel rid dir (out, head) old_s new_s
+  ⟩
 
 @[drcomponents]
 def Noc.mk_router_conn (n : Noc) (rid : n.RouterID) : List (RelInt n.nocT) :=

@@ -16,29 +16,28 @@ namespace DataflowRewriter.Noc.DirectedTorus
 variable (dt : DirectedTorus)
 variable (Data : Type)
 
-def noc := dt.xy_to_noc Data
+def noc := dt.absolute_xy_to_noc Data
 abbrev mod := (noc dt Data).build_module
 abbrev spec := (noc dt Data).spec_bag
 abbrev specT := (noc dt Data).spec_bagT
-
-theorem route_xy_correct : Noc.Route_correct (noc dt Data) := by
-  intros src dst
-  dsimp [noc, DirectedTorus.xy_to_noc, DirectedTorus.route_xy]
-  intros H
-  cases Hx: (dt.get_x src != dt.get_x dst)
-  <;> cases Hy: (dt.get_y src != dt.get_y dst)
-  <;> simp only [Hx, Hy] at H
-  <;> simp only [bne_eq_false_iff_eq, bne_iff_ne, ne_eq] at Hx Hy
-  · sorry -- TODO: annoying arithmetic
-  · simp [DirLocal', DirectedTorus.DirY] at H
-  · simp [DirLocal'] at H
-  · simp [DirLocal'] at H
+--
+-- theorem route_xy_correct : Noc.Route_correct (noc dt Data) := by
+--   intros src dst
+--   dsimp [noc, DirectedTorus.xy_to_noc, DirectedTorus.route_xy]
+--   intros H
+--   cases Hx: (dt.get_x src != dt.get_x dst)
+--   <;> cases Hy: (dt.get_y src != dt.get_y dst)
+--   <;> simp only [Hx, Hy] at H
+--   <;> simp only [bne_eq_false_iff_eq, bne_iff_ne, ne_eq] at Hx Hy
+--   · sorry -- TODO: annoying arithmetic
+--   · simp [DirLocal', DirectedTorus.DirY] at H
+--   · simp [DirLocal'] at H
+--   · simp [DirLocal'] at H
 
 namespace ImplementationInSpec
 
 def φ (I : (noc dt Data).nocT) (S : specT dt Data) : Prop :=
-  -- This φ could be even weaker in a general sense, by just having an inclusion
-  I.toList.flatten.Perm S
+  I.toList.flatten ⊆ S
 
 theorem refines_initial :
   Module.refines_initial (mod dt Data) (spec dt Data) (φ dt Data) := by
@@ -73,7 +72,7 @@ theorem refines_φ : (mod dt Data) ⊑_{φ dt Data} (spec dt Data) := by
     · rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
       simpa
     · constructor
-    · rw [List.concat_eq_append]; apply vec_set_concat_perm H
+    · sorry -- rw [List.concat_eq_append]; apply vec_set_concat_perm H
   · intros ident mid_i v Hrule
     case_transition Hcontains : (Module.outputs (mod dt Data)), ident,
      (PortMap.getIO_not_contained_false' Hrule)
@@ -82,20 +81,21 @@ theorem refines_φ : (mod dt Data) ⊑_{φ dt Data} (spec dt Data) := by
     subst ident
     rw [PortMap.rw_rule_execution RelIO.liftFinf_get] at Hrule
     dsimp at Hrule
-    obtain ⟨Hrule1, Hrule2⟩ := Hrule
+    obtain ⟨head, Hrule1, Hrule2⟩ := Hrule
     subst i
     unfold φ at H
-    obtain ⟨idx', Hidx'⟩ := vec_set_perm_in H
-    exists s.remove idx'
-    and_intros
-    · rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
-      dsimp only [drcomponents]
-      and_intros
-      · unfold noc Noc.DirLocal at Hrule2
-        obtain H := route_xy_correct dt Data (by unfold noc; rw [Hrule2])
-        simpa [H]
-      · exists idx'; dsimp at Hidx'; simpa [Hidx']
-    · apply vec_set_cons_remove_perm Hidx' H
+    sorry
+    -- obtain ⟨idx', Hidx'⟩ := vec_set_perm_in H
+    -- exists s.remove idx'
+    -- and_intros
+    -- · rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
+    --   dsimp only [drcomponents]
+    --   and_intros
+    --   · unfold noc Noc.DirLocal at Hrule2
+    --     obtain H := route_xy_correct dt Data (by unfold noc; rw [Hrule2])
+    --     simpa [H]
+    --   · exists idx'; dsimp at Hidx'; simpa [Hidx']
+    -- · apply vec_set_cons_remove_perm Hidx' H
   · intros rule mid_i HruleIn Hrule
     exists s
     and_intros
@@ -110,10 +110,11 @@ theorem refines_φ : (mod dt Data) ⊑_{φ dt Data} (spec dt Data) := by
       obtain ⟨val, i', ⟨Hval1, Hval2⟩, Hval3⟩ := Hrule
       subst i
       subst mid_i
-      apply List.Perm.symm
-      apply List.Perm.trans
-      · apply List.Perm.symm; exact H
-      · apply vec_set_cons_perm
+      sorry
+      -- apply List.Perm.symm
+      -- apply List.Perm.trans
+      -- · apply List.Perm.symm; exact H
+      -- · apply vec_set_cons_perm
 
 theorem ϕ_indistinguishable :
   ∀ i s, φ dt Data i s → Module.indistinguishable (mod dt Data) (spec dt Data) i s := by
@@ -145,17 +146,21 @@ theorem ϕ_indistinguishable :
         unfold typeOf
         rewrite [RelIO.liftFinf_get]
         dsimp
-      obtain ⟨Hrule1, Hrule2⟩ := Hrule
+      obtain ⟨head, Hrule1, Hrule2⟩ := Hrule
       subst i
-      obtain ⟨idx', Hidx'⟩ := vec_set_perm_in Hφ
-      exists s.remove idx'
-      rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
-      dsimp [drcomponents]
-      and_intros
-      · unfold noc Noc.DirLocal at Hrule2
-        obtain H := route_xy_correct dt Data (by unfold noc; rw [Hrule2])
-        simpa [H]
-      · exists idx'; dsimp at Hidx'; simpa [Hidx']
+      sorry
+      -- obtain ⟨idx', Hidx'⟩ := vec_set_perm_in Hφ
+      -- exists s.remove idx'
+      -- rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
+      -- dsimp [drcomponents]
+      -- and_intros
+      -- -- · sorry
+      -- -- unfold noc Noc.DirLocal at Hrule2
+      -- --   obtain H := route_xy_correct dt Data (by unfold noc; rw [Hrule2])
+      -- --   simpa [H]
+      -- · exists idx'; dsimp at Hidx'; and_intros
+      --   · rfl
+      --   · simp [Hidx']; sorry
 
 theorem correct : (mod dt Data) ⊑ (spec dt Data) := by
   apply (

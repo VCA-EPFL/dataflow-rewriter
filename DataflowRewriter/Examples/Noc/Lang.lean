@@ -24,24 +24,29 @@ abbrev RouterID' (netsz : Netsz') : Type :=
 abbrev Neigh' (netsz : Netsz') : Type :=
   RouterID' netsz → List (RouterID' netsz)
 
+-- Number of neighbors + 1 for the local output / input
 abbrev Dir' (netsz : Netsz') (neigh : Neigh' netsz) (src : RouterID' netsz) : Type :=
-  -- Number of neighbors + 1 for the local output / input
   Fin (List.length (neigh src) + 1)
 
 def DirLocal' {netsz neigh src} : Dir' netsz neigh src :=
   Fin.mk 0 (by simpa)
 
-abbrev Route' (netsz : Netsz') (neigh : Neigh' netsz) : Type :=
-  (cur dst : RouterID' netsz) → Dir' netsz neigh cur
+abbrev Flit' (Data : Type) (FlitHeader : Type) : Type :=
+  Data × FlitHeader
 
-def Route_correct' {netsz neigh} (route : Route' netsz neigh) : Prop :=
-  ∀ {cur dst}, route cur dst = DirLocal' → cur = dst
+abbrev Route' (netsz : Netsz') (neigh : Neigh' netsz) (Flit : Type) : Type :=
+  (cur : RouterID' netsz) → (flit : Flit) → (Dir' netsz neigh cur × Flit)
+
+abbrev MkHead' (netsz : Netsz') (Data : Type) (FlitHeader : Type) : Type :=
+  (cur dst : RouterID' netsz) → (data : Data) → FlitHeader
 
 structure Noc where
-  netsz : Netsz'
-  neigh : Neigh' netsz
-  route : Route' netsz neigh
-  Data  : Type
+  netsz       : Netsz'
+  neigh       : Neigh' netsz
+  Data        : Type
+  FlitHeader  : Type
+  mkhead      : MkHead' netsz Data FlitHeader
+  route       : Route' netsz neigh (Flit' Data FlitHeader)
 
 abbrev Noc.RouterID (n : Noc) : Type :=
   RouterID' n.netsz
@@ -56,19 +61,10 @@ abbrev Noc.DirLocal (n : Noc) {src} :=
   @DirLocal' n.netsz n.neigh src
 
 abbrev Noc.Route (n : Noc) : Type :=
-  Route' n.netsz n.neigh
+  Route' n.netsz n.neigh n.FlitHeader
 
-abbrev Noc.Route_correct (n : Noc) : Prop :=
-  Route_correct' n.route
-
-structure Noc.FlitHeader (n : Noc) : Type :=
-  dst : n.RouterID
+abbrev Noc.MkHead (n : Noc) : Type :=
+  MkHead' n.netsz n.Data n.FlitHeader
 
 abbrev Noc.Flit (n : Noc) :=
-  n.Data × n.FlitHeader
-
-abbrev Noc.routerT (n : Noc) :=
-  List n.Flit
-
-abbrev Noc.nocT (n : Noc) : Type :=
-  Vector n.routerT n.netsz
+  Flit' n.Data n.FlitHeader

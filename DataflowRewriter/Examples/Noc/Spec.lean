@@ -19,18 +19,18 @@ namespace DataflowRewriter.Noc
 -- Weakest possible specification, where order is not preserved by the Noc
 
 abbrev Noc.spec_bagT (n : Noc) : Type :=
-  List n.Flit
+  List (n.Data × n.RouterID)
 
 @[drcomponents]
 def Noc.mk_spec_bag_input_rule (n : Noc) (rid : n.RouterID) : RelIO (n.spec_bagT) :=
-  ⟨n.Flit, λ old_s v new_s => new_s = old_s ++ [v]⟩
+  ⟨n.Data × n.RouterID, λ old_s v new_s => new_s = old_s ++ [v]⟩
 
 @[drcomponents]
 def Noc.mk_spec_bag_output_rule (n : Noc) (rid : n.RouterID) : RelIO (spec_bagT n) :=
   ⟨
-    n.Flit,
+    n.Data,
     λ oldS v newS =>
-      v.2.dst = rid ∧ ∃ i : Fin oldS.length, newS = oldS.remove i ∧ v = oldS.get i
+      ∃ i : Fin oldS.length, newS = oldS.remove i ∧ (v, rid) = oldS.get i
   ⟩
 
 -- Specification of a noc as a bag, all flit are sent unordered
@@ -56,26 +56,25 @@ instance (n : Noc) : MatchInterface n.spec_bag n.build_module := by
 -- Flit are sent ordered per channel (one per each input/output pair)
 
 abbrev Noc.spec_mqueueT (n : Noc) : Type :=
-  Vector (List n.Flit) (n.netsz * n.netsz)
+  Vector n.spec_bagT (n.netsz * n.netsz)
 
 abbrev Noc.spec_mqueue_idx (n : Noc) (src dst : n.RouterID) : Fin (n.netsz * n.netsz) :=
   Fin.mk (src * n.netsz + dst) (by sorry) -- TODO
 
 @[drcomponents]
 def Noc.mk_spec_mqueue_input_rule (n : Noc) (rid : n.RouterID) : RelIO (n.spec_mqueueT) :=
-  ⟨n.Flit, λ old_s v new_s =>
-    let idx := n.spec_mqueue_idx rid v.2.dst
+  ⟨n.Data × n.RouterID, λ old_s v new_s =>
+    let idx := n.spec_mqueue_idx rid v.2
     new_s = old_s.set idx (old_s[idx] ++ [v])
   ⟩
 
 @[drcomponents]
 def Noc.mk_spec_mqueue_output_rule (n : Noc) (rid : n.RouterID) : RelIO (spec_mqueueT n) :=
   ⟨
-    n.Flit, λ old_s v new_s =>
-      v.2.dst = rid ∧
+    n.Data, λ old_s v new_s =>
       ∃ src : n.RouterID,
-        let idx := n.spec_mqueue_idx src v.2.dst
-        old_s = new_s.set idx (v :: new_s[idx])
+        let idx := n.spec_mqueue_idx src rid
+        old_s = new_s.set idx ((v, rid) :: new_s[idx])
   ⟩
 
 @[drcomponents]
@@ -147,7 +146,7 @@ theorem refines_φ : n.spec_mqueue ⊑_{φ n} n.spec_bag := by
       unfold φ at Hφ
       specialize Hφ src' dst'
       dsimp at Hφ
-      by_cases Heq : (↑src' * n.netsz + ↑dst') = (↑src * n.netsz + ↑(Hv.mp v).snd.dst)
+      by_cases Heq : (↑src' * n.netsz + ↑dst') = (↑src * n.netsz + ↑(Hv.mp v).2)
       · simp only [
           Heq, typeOf, eq_mp_eq_cast, Vector.getElem_set_self, List.mem_append,
           List.mem_cons, List.not_mem_nil, or_false
@@ -177,24 +176,16 @@ theorem refines_φ : n.spec_mqueue ⊑_{φ n} n.spec_bag := by
       unfold typeOf
       rewrite [Noc.spec_mqueue, RelIO.liftFinf_get]
       dsimp [drcomponents]
-    obtain ⟨Hrule1, src, Hrule2⟩ := Hrule
+    obtain ⟨src, Hrule⟩ := Hrule
     apply Exists.intro ?_
     rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
     dsimp [drcomponents]
     and_intros
-    · simpa [Hrule1]
-    · rw [Hrule2] at Hφ
-      specialize Hφ src (Hv.mp v).2.dst
-      dsimp at Hφ
-      -- FIXME: Not working for some reasons :(
-      -- obtain ⟨idx', Hidx'⟩ := vec_set_subset' Hφ
+    · -- TODO
       sorry
     · intros src dst
       dsimp
-      rw [Hrule2] at Hφ
-      specialize Hφ src dst
-      dsimp at Hφ
-      -- TODO: True by transitivity with Hφ
+      -- TODO
       sorry
     · sorry -- TODO: Solving variable
   · intros rule mid_i Hcontains Hrule
@@ -229,18 +220,13 @@ theorem ϕ_indistinguishable :
         unfold typeOf
         rewrite [Noc.spec_mqueue, RelIO.liftFinf_get]
         dsimp [drcomponents]
-      obtain ⟨Hrule1, src, Hrule2⟩ := Hrule
+      obtain ⟨src, Hrule⟩ := Hrule
       subst i
       apply Exists.intro _
       rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
       dsimp [drcomponents]
       and_intros
-      · simpa [Hrule1]
-      · specialize Hφ src (Hv.mp v).2.dst
-        dsimp at Hφ
-        -- FIXME: Not working for some reasons :(
-        -- obtain ⟨idx', Hidx'⟩ := vec_set_subset' Hφ
-        sorry -- TODO: Annoying but true
+      · sorry -- TODO: Annoying but true
       · sorry -- TODO: Solving variable
 
 theorem correct : n.spec_mqueue ⊑ n.spec_bag := by
