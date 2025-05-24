@@ -1167,7 +1167,7 @@ theorem refines_φ_connect [MatchInterface imod smod] {φ i o} :
       rcases this with ⟨x, hin⟩
       rw [hin, AssocList.find?_eraseAll hin]
     refine ⟨almost_mid_s, mid_s, ?_, ?_, ?_⟩
-    · sorry -- TODO: Should be easy with hstep
+    · apply existSR_cons; assumption
     · rw [PortMap.rw_rule_execution this]; convert hrule_s; simp
     · assumption
   · intro rule mid_i hrulein hrule
@@ -1186,19 +1186,24 @@ theorem refines_φ_connect [MatchInterface imod smod] {φ i o} :
       rcases href_in with ⟨alm_mid_s, mid_s_i, instep, exstep, hphi_i⟩
       exists mid_s_i; and_intros <;> try assumption
       apply existSR_transitive;
-      · unfold connect'; dsimp; apply existSR.step; constructor; unfold connect'';
-        and_intros; intros
-        -- · constructor; constructor; and_intros
-        --   · assumption
-        --   · convert instep; simp
-        · sorry
-        · intro h; exfalso; apply h;
-          rw [← ‹MatchInterface imod smod›.input_types]
-          rw [← ‹MatchInterface imod smod›.output_types]
-          assumption
-        · apply existSR.done
-      · unfold connect'; dsimp
-        apply existSR_cons; assumption
+      · unfold connect'; dsimp;
+        apply existSR_transitive;
+        · apply existSR_cons; assumption
+        · apply existSR.step; constructor; unfold connect''
+          and_intros
+          · intros _
+            constructor; constructor
+            and_intros
+            exact hrule_s_o
+            simp only [eq_mp_eq_cast, cast_cast] at instep
+            simp only [eq_mp_eq_cast, cast_cast]
+            exact instep
+          · intro h; exfalso; apply h;
+            rw [← ‹MatchInterface imod smod›.input_types]
+            rw [← ‹MatchInterface imod smod›.output_types]
+            assumption
+          · apply existSR_cons; assumption
+      · constructor
     · rcases hrule with ⟨_, hrule⟩
       cases hrule HEQ
     · specialize href _ _ hphi; rcases href with ⟨h1, h2, href⟩; clear h1 h2
