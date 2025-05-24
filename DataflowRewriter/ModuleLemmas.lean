@@ -1167,7 +1167,7 @@ theorem refines_φ_connect [MatchInterface imod smod] {φ i o} :
       rcases this with ⟨x, hin⟩
       rw [hin, AssocList.find?_eraseAll hin]
     refine ⟨almost_mid_s, mid_s, ?_, ?_, ?_⟩
-    · sorry -- TODO: Should be easy
+    · sorry -- TODO: Should be easy with hstep
     · rw [PortMap.rw_rule_execution this]; convert hrule_s; simp
     · assumption
   · intro rule mid_i hrulein hrule
@@ -1293,7 +1293,7 @@ theorem refines_φ_mapOutputPorts {I S} {imod : Module Ident I} {smod : Module I
     specialize hout ident' mid_i _ hrule'
     rcases hout with ⟨almost_mid_s, mid_s, hstep, hrule_s, hphi'⟩
     refine ⟨ almost_mid_s, mid_s, ?_, ?_, ‹_› ⟩
-    · sorry
+    · assumption
     . have : (smod.mapOutputPorts f).outputs.getIO (f ident') = smod.outputs.getIO ident' := by
         unfold mapOutputPorts PortMap.getIO; dsimp
         rw [AssocList.mapKey_find?]; exact h.injective
