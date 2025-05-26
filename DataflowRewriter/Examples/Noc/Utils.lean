@@ -15,15 +15,26 @@ namespace DataflowRewriter.Noc
 
 @[simp] abbrev typeOf {α} (_ : α) := α
 
+theorem in_list_idx {α} {l : List α} {x : α} (H : x ∈ l) :
+  ∃ i : Fin (List.length l), l[i] = x := by
+    induction l with
+    | nil => contradiction
+    | cons hd tl HR =>
+      rw [List.mem_cons] at H
+      cases H <;> rename_i H
+      · rw [H]; apply Exists.intro (Fin.mk 0 (by simpa)); simpa
+      · obtain ⟨i, Hi'⟩ := HR H; exists (Fin.mk (i + 1) (by simpa))
+
 def fin_range (sz : Nat) : List (Fin sz) :=
   List.replicate sz 0
   |>.mapFinIdx (λ i _ h => Fin.mk i (by rwa [List.length_replicate] at h))
 
 theorem mapFinIdx_length {α β} (l : List α) (f : (i : Nat) → α → (h : i < l.length) → β) :
-  (List.mapFinIdx l f).length = l.length := by sorry
+  (List.mapFinIdx l f).length = l.length := by
+    induction l <;> simpa
 
 theorem mapFinIdx_get {α β} (l : List α) (f : (i : Nat) → α → (h : i < l.length) → β) (i : Fin (List.mapFinIdx l f).length):
-  (List.mapFinIdx l f).get i = f i l[i] (by sorry) := by
+  (List.mapFinIdx l f).get i = f i l[i] (by rw [← mapFinIdx_length l f]; exact i.isLt) := by
     sorry
 
 -- RelIO -----------------------------------------------------------------------

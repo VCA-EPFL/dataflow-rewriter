@@ -4,7 +4,11 @@
 
 - First Fix TorusAbsoluteCorrect
 
-- `Data` should maybe be a parameter of the `Noc` structure instead of a field
+- Maybe `netsz` should also be a parameter of the `Noc` structure instead of a
+  field?
+
+- Is there a better way to have FlitHeader be LawfulEq? Do we need it to be?
+  Maybe not?
 
 - The `Route` function is currently necessarily deterministic
 
@@ -16,7 +20,7 @@
 - We need to make a verified compilation to hardware, we could do it by
   compiling to `ExprLow` / `ExprHigh`
 
-- Make a bounded spec -> Probably not useful
+- Make a bounded spec
 
 ## Routers
 

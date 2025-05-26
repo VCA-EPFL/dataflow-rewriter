@@ -18,15 +18,17 @@ namespace DataflowRewriter.Noc
 -- Bag -------------------------------------------------------------------------
 -- Weakest possible specification, where order is not preserved by the Noc
 
-abbrev Noc.spec_bagT (n : Noc) : Type :=
+variable {α : Type} [BEq α] [LawfulBEq α]
+
+abbrev Noc.spec_bagT (n : Noc α) : Type :=
   List (n.Data × n.RouterID)
 
 @[drcomponents]
-def Noc.mk_spec_bag_input_rule (n : Noc) (rid : n.RouterID) : RelIO (n.spec_bagT) :=
+def Noc.mk_spec_bag_input_rule (n : Noc α) (rid : n.RouterID) : RelIO (n.spec_bagT) :=
   ⟨n.Data × n.RouterID, λ old_s v new_s => new_s = old_s ++ [v]⟩
 
 @[drcomponents]
-def Noc.mk_spec_bag_output_rule (n : Noc) (rid : n.RouterID) : RelIO (spec_bagT n) :=
+def Noc.mk_spec_bag_output_rule (n : Noc α) (rid : n.RouterID) : RelIO (spec_bagT n) :=
   ⟨
     n.Data,
     λ oldS v newS =>
@@ -35,41 +37,42 @@ def Noc.mk_spec_bag_output_rule (n : Noc) (rid : n.RouterID) : RelIO (spec_bagT 
 
 -- Specification of a noc as a bag, all flit are sent unordered
 @[drcomponents]
-def Noc.spec_bag (n : Noc) (name := "spec_bag") : NatModule (NatModule.Named name (spec_bagT n)) :=
+def Noc.spec_bag (n : Noc α) (name := "spec_bag") : NatModule (NatModule.Named name (spec_bagT n)) :=
   {
     inputs := RelIO.liftFinf n.netsz n.mk_spec_bag_input_rule,
     outputs := RelIO.liftFinf n.netsz n.mk_spec_bag_output_rule,
     init_state := λ s => s = [],
   }
 
-instance (n : Noc) : MatchInterface n.build_module n.spec_bag := by
+instance (n : Noc α) : MatchInterface n.build_module n.spec_bag := by
   apply MatchInterface_simpler
   <;> simp only [drcomponents, RelIO_mapVal]
   <;> intros _
   <;> exact True.intro
 
-instance (n : Noc) : MatchInterface n.spec_bag n.build_module := by
+instance (n : Noc α) : MatchInterface n.spec_bag n.build_module := by
   apply MatchInterface_symmetric
   exact inferInstance
 
 -- Multi-Queue -----------------------------------------------------------------
 -- Flit are sent ordered per channel (one per each input/output pair)
 
-abbrev Noc.spec_mqueueT (n : Noc) : Type :=
+abbrev Noc.spec_mqueueT (n : Noc α) : Type :=
   Vector n.spec_bagT (n.netsz * n.netsz)
 
-abbrev Noc.spec_mqueue_idx (n : Noc) (src dst : n.RouterID) : Fin (n.netsz * n.netsz) :=
+abbrev Noc.spec_mqueue_idx (n : Noc α) (src dst : n.RouterID) : Fin (n.netsz * n.netsz) :=
   Fin.mk (src * n.netsz + dst) (by sorry) -- TODO
 
 @[drcomponents]
-def Noc.mk_spec_mqueue_input_rule (n : Noc) (rid : n.RouterID) : RelIO (n.spec_mqueueT) :=
-  ⟨n.Data × n.RouterID, λ old_s v new_s =>
-    let idx := n.spec_mqueue_idx rid v.2
-    new_s = old_s.set idx (old_s[idx] ++ [v])
+def Noc.mk_spec_mqueue_input_rule (n : Noc α) (rid : n.RouterID) : RelIO (n.spec_mqueueT) :=
+  ⟨
+    n.Data × n.RouterID, λ old_s v new_s =>
+      let idx := n.spec_mqueue_idx rid v.2
+      new_s = old_s.set idx (old_s[idx] ++ [v])
   ⟩
 
 @[drcomponents]
-def Noc.mk_spec_mqueue_output_rule (n : Noc) (rid : n.RouterID) : RelIO (spec_mqueueT n) :=
+def Noc.mk_spec_mqueue_output_rule (n : Noc α) (rid : n.RouterID) : RelIO (spec_mqueueT n) :=
   ⟨
     n.Data, λ old_s v new_s =>
       ∃ src : n.RouterID,
@@ -78,30 +81,30 @@ def Noc.mk_spec_mqueue_output_rule (n : Noc) (rid : n.RouterID) : RelIO (spec_mq
   ⟩
 
 @[drcomponents]
-def Noc.spec_mqueue (n : Noc) (name := "spec_mqueue") : NatModule (NatModule.Named name (spec_mqueueT n)) :=
+def Noc.spec_mqueue (n : Noc α) (name := "spec_mqueue") : NatModule (NatModule.Named name (spec_mqueueT n)) :=
   {
     inputs := RelIO.liftFinf n.netsz n.mk_spec_mqueue_input_rule,
     outputs := RelIO.liftFinf n.netsz n.mk_spec_mqueue_output_rule,
     init_state := λ s => s = Vector.replicate (n.netsz * n.netsz) [],
   }
 
-instance (n : Noc) : MatchInterface n.build_module n.spec_mqueue := by
+instance (n : Noc α) : MatchInterface n.build_module n.spec_mqueue := by
   apply MatchInterface_simpler
   <;> simp only [drcomponents, RelIO_mapVal]
   <;> intros _
   <;> exact True.intro
 
-instance (n : Noc) : MatchInterface n.spec_mqueue n.build_module := by
+instance (n : Noc α) : MatchInterface n.spec_mqueue n.build_module := by
   apply MatchInterface_symmetric
   exact inferInstance
 
-instance (n : Noc) : MatchInterface n.spec_mqueue n.spec_bag := by
+instance (n : Noc α) : MatchInterface n.spec_mqueue n.spec_bag := by
   apply MatchInterface_transitive n.build_module
   repeat exact inferInstance
 
 section MQueueInBag
 
-variable (n : Noc)
+variable (n : Noc α)
 
 def φ (I : n.spec_mqueueT) (S : n.spec_bagT) : Prop :=
   ∀ (src : n.RouterID) (dst : n.RouterID),
@@ -159,7 +162,7 @@ theorem refines_φ : n.spec_mqueue ⊑_{φ n} n.spec_bag := by
             List.not_mem_nil, or_false
           ]
           left; exact Hφ Hin
-        · rename_i Heq; simp [Heq]
+        · rename_i Heq; simpa [Heq]
       · -- TODO: We have to say that getting an element of a vector in another
         -- position of where it has been modified is just like accessing the vector
         -- directly
@@ -177,17 +180,27 @@ theorem refines_φ : n.spec_mqueue ⊑_{φ n} n.spec_bag := by
       rewrite [Noc.spec_mqueue, RelIO.liftFinf_get]
       dsimp [drcomponents]
     obtain ⟨src, Hrule⟩ := Hrule
-    apply Exists.intro ?_
+    subst i
+    unfold φ at Hφ
+    dsimp at Hφ
+    specialize Hφ src idx
+    rw [Vector.getElem_set_self, List.cons_subset] at Hφ
+    obtain ⟨Hv, _⟩ := Hφ
+    obtain ⟨i, Hi⟩ := in_list_idx Hv
+    apply Exists.intro s
+    apply Exists.intro (List.eraseIdx s i)
     rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
     dsimp [drcomponents]
     and_intros
-    · -- TODO
-      sorry
-    · intros src dst
+    · exact existSR.done _
+    · exists i; and_intros
+      · rfl
+      · dsimp at Hi; simpa [Hi]
+    · intros src' dst'
       dsimp
-      -- TODO
+      -- TODO: Case analysis, we need to keep Hφ above instead of specializing
+      -- it
       sorry
-    · sorry -- TODO: Solving variable
   · intros rule mid_i Hcontains Hrule
     exists s
 
