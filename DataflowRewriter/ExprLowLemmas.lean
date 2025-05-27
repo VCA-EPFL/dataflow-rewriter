@@ -1709,8 +1709,22 @@ theorem refines_comm_connections2' {iexpr l} :
       all_goals solve_by_elim [refines_comm_connection'_, wf_comm_connection'_]
   · assumption
 
-axiom ensureIOUnmodified_correct {e : ExprLow Ident} {p} :
-  e.ensureIOUnmodified p → [e| e, ε ].renamePorts p = ([e| e, ε ])
+theorem build_module'_build_module_type {e} :
+  e.wf ε → build_module' ε e = some ⟨[T| e, ε], [e| e, ε ]⟩ := by
+  intro wf
+  unfold build_module_type build_module_expr build_module
+  replace wf := wf_builds_module wf
+
+theorem ensureIOUnmodified_correct {e : ExprLow Ident} {p} :
+  e.well_formed ε → e.ensureIOUnmodified p → [e| e, ε ].renamePorts p = ([e| e, ε ]) := by
+  unfold ensureIOUnmodified; simp; intro wf hi ho
+  generalize h : ([e| e, ε ]) = m; rcases m with ⟨ins, outs, ints, inits⟩
+  simp [Module.renamePorts, Module.mapPorts2, Module.mapInputPorts, Module.mapOutputPorts]; and_intros
+  · have hi' : ∀ x, x ∈ p.input.keysList → ins.contains x = false := by
+      have : ins = ([e| e, ε ]).inputs := by simp [*]
+      subst ins; intro x hcont; rw [←findInput_iff_contains] <;> try assumption
+      solve_by_elim
+
 
 theorem force_replace_eq_replace {e e₁ e₂ : ExprLow Ident} :
     (e.force_replace e₁ e₂).1 = e.replace e₁ e₂ := by

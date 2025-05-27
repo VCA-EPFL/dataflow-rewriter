@@ -1984,4 +1984,5 @@ theorem renamePorts_outputs {Ident S} [DecidableEq Ident] {m : Module Ident S} {
   (m.renamePorts i).outputs = m.outputs.mapKey i.output.bijectivePortRenaming := rfl
 
 end Module
+
 end DataflowRewriter

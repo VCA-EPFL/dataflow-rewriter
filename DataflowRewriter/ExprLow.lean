@@ -244,6 +244,7 @@ def findBase (typ : Ident) : ExprLow Ident → Option (PortMapping Ident)
   match e₁.findBase typ with
   | some port => port
   | none => e₂.findBase typ
+
 @[drunfold]
 def mapInputPorts (f : InternalPort Ident → InternalPort Ident) : ExprLow Ident → Option (ExprLow Ident)
 | .base map typ' => do
@@ -403,10 +404,6 @@ def findAllOutputs : ExprLow Ident → List (InternalPort Ident)
 | .product e₁ e₂ => e₁.findAllOutputs ++ e₂.findAllOutputs
 | .connect c e => e.findAllOutputs.eraseAll c.input
 
-def ensureIOUnmodified (p : PortMapping Ident) (e : ExprLow Ident) : Bool :=
-  e.findAllInputs.all (λ x => (p.input.find? x).isNone)
-  ∧ e.findAllOutputs.all (λ x => (p.output.find? x).isNone)
-
 /--
 Find input and find output imply that build_module will contain that key
 -/
@@ -419,6 +416,14 @@ def findOutput (o : InternalPort Ident) : ExprLow Ident → Bool
 | .base inst _typ => inst.output.any (λ _ a => a = o)
 | .product e₁ e₂ => findOutput o e₁ ∨ findOutput o e₂
 | .connect c e => c.output ≠ o ∧ findOutput o e
+
+def ensureIOUnmodified' (p : PortMapping Ident) (e : ExprLow Ident) : Bool :=
+  e.findAllInputs.all (λ x => (p.input.find? x).isNone)
+  ∧ e.findAllOutputs.all (λ x => (p.output.find? x).isNone)
+
+def ensureIOUnmodified (p : PortMapping Ident) (e : ExprLow Ident) : Bool :=
+  p.input.keysList.all (e.findInput · == false)
+  ∧ p.output.keysList.all (e.findOutput · == false)
 
 def fix_point (f : ExprLow Ident → ExprLow Ident) (e : ExprLow Ident): Nat → ExprLow Ident
 | 0 => e
