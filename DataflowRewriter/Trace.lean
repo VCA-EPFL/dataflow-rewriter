@@ -40,6 +40,23 @@ inductive step : State Ident S → List Trace → State Ident S → Prop where
   r ∈ st.module.internals →
   r st.state s' →
   step st [] ⟨s', st.module⟩
+| epsilon {st} : step st [] st
+
+def state_transition (m : Module Ident S) : StateTransition (State Ident S) Trace where
+  init := fun s => m.init_state s.state ∧ s.module = m
+  step := step
+
+theorem existSR_implies_empty_steps {m : Module Ident S} {s1 s2} :
+  existSR m.internals s1 s2 →
+  @star _ _ (state_transition m) ⟨s1, m⟩ [] ⟨s2, m⟩ := by
+  intro h
+  induction h with
+  | done => apply @star.refl _ _ (state_transition m)
+  | step init mid final rule hin hrule hexists ih =>
+    rw [show [] = [] ++ [] by rfl]
+    apply @star.step _ _ (state_transition m)
+    rotate_left; apply ih
+    constructor <;> assumption
 
 end StateTransition
 
@@ -50,31 +67,25 @@ variable [DecidableEq Ident]
 variable {S I : Type _}
 variable (imp : Module Ident I)
 variable (spec : Module Ident S)
-variable [MatchInterface imp spec]
 
-def imp_state_transition : StateTransition (State Ident I) Trace where
-  init := fun s => imp.init_state s.state ∧ s.module = imp
-  step := step
+def imp_behaviour := @behaviour _ _ (state_transition imp)
 
-def spec_state_transition : StateTransition (State Ident S) Trace where
-  init := fun s => spec.init_state s.state ∧ s.module = spec
-  step := step
-
-def imp_behaviour := @behaviour _ _ (imp_state_transition imp)
-
-def spec_behaviour := @behaviour _ _ (spec_state_transition spec)
+def spec_behaviour := @behaviour _ _ (state_transition spec)
 
 def trace_inclusion : Prop :=
   ∀ l, imp_behaviour imp l → spec_behaviour spec l
+
+section Refinement
+
+variable [mm : MatchInterface imp spec]
 
 theorem refines_implies_step_preservation {φ} :
   imp ⊑_{φ} spec →
   ∀ i s i' e,
     φ i s →
-    (imp_state_transition imp).step ⟨i, imp⟩ e i' →
-    ∃ s_mid s',
-      (spec_state_transition spec).step ⟨s, spec⟩ e s_mid
-      ∧ (spec_state_transition spec).step s_mid [] s'
+    (state_transition imp).step ⟨i, imp⟩ e i' →
+    ∃ s',
+      @star _ _ (state_transition spec) ⟨s, spec⟩ e s'
       ∧ φ i'.state s'.state := by
   intros href i s i' e hphi hstep
   cases hstep with
@@ -83,14 +94,63 @@ theorem refines_implies_step_preservation {φ} :
     dsimp at *; dsimp at v
     rcases href _ _ hphi with ⟨inp, out, int⟩; clear href out int
     obtain ⟨s1, s2, h1, h2, h3⟩ := inp ident i' v step; clear inp
-    exists ⟨s1, spec⟩, ⟨s2, spec⟩
+    exists ⟨s2, spec⟩
     and_intros
-    · constructor
-      · apply h1
-      · simp; apply MatchInterface.input_types
-    · sorry
+    · rw [show [Trace.input ⟨(imp.inputs.getIO ident).fst, v⟩] = [Trace.input ⟨(imp.inputs.getIO ident).fst, v⟩] ++ [] by rfl]
+      apply @star.trans_star _ _ (state_transition spec)
+      · apply @star.plus_one _ _ (state_transition spec)
+        constructor
+        · apply h1
+        · simp; apply MatchInterface.input_types
+      · apply existSR_implies_empty_steps; assumption
     · assumption
-  | _ => sorry
+  | @output ident i' v v' step =>
+    subst v'
+    dsimp at *; dsimp at v
+    rcases href _ _ hphi with ⟨inp, out, int⟩; clear href inp int
+    obtain ⟨s1, h1, h2⟩ := out ident i' v step; clear out
+    exists ⟨s1, spec⟩
+    and_intros
+    · apply @star.plus_one _ _ (state_transition spec)
+      constructor
+      · apply h1
+      · simp; apply MatchInterface.output_types
+    · assumption
+  | @internal r i' hin hrule =>
+    dsimp at *
+    rcases href _ _ hphi with ⟨inp, out, int⟩; clear href inp out
+    obtain ⟨s1, h1, h2⟩ := int r i' hin hrule; clear int
+    exists ⟨s1, spec⟩
+    and_intros
+    · apply existSR_implies_empty_steps <;> assumption
+    · assumption
+  | @epsilon =>
+    exists ⟨s, spec⟩
+    and_intros
+    · apply @star.refl _ _ (state_transition spec)
+    · assumption
+
+theorem refines_implies_star_preservation {φ} :
+  imp ⊑_{φ} spec →
+  ∀ i s i' e,
+    φ i s →
+    @star _ _ (state_transition imp) ⟨i, imp⟩ e i' →
+    ∃ s',
+      @star _ _ (state_transition spec) ⟨s, spec⟩ e s'
+      ∧ φ i'.state s'.state := by
+  intro href i s i' e hphi hstar
+  generalize heq : State.mk i imp = y at *
+  induction hstar with
+  | refl =>
+    cases heq
+    exists ⟨s, spec⟩; and_intros
+    · apply @star.refl _ _ (state_transition spec)
+    · assumption
+  | step =>
+    cases heq
+    sorry
+
+end Refinement
 
 theorem refines_implies_trace_inclusion :
   imp ⊑ spec →
