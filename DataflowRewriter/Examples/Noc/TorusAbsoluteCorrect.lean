@@ -11,16 +11,18 @@ import DataflowRewriter.Examples.Noc.Spec
 
 open Batteries (AssocList)
 
+set_option Elab.async false
+
 namespace DataflowRewriter.Noc.DirectedTorus
 
 variable (dt : DirectedTorus)
-variable (Data : Type)
+variable (α : Type) [BEq α] [LawfulBEq α]
 
-def noc := dt.absolute_xy_to_noc Data
-abbrev mod := (noc dt Data).build_module
-abbrev spec := (noc dt Data).spec_bag
-abbrev specT := (noc dt Data).spec_bagT
---
+def noc : Noc α := dt.absolute_xy_to_noc
+abbrev mod := (noc dt α).build_module
+abbrev spec := (noc dt α).spec_bag
+abbrev specT := (noc dt α).spec_bagT
+
 -- theorem route_xy_correct : Noc.Route_correct (noc dt Data) := by
 --   intros src dst
 --   dsimp [noc, DirectedTorus.xy_to_noc, DirectedTorus.route_xy]
@@ -36,24 +38,24 @@ abbrev specT := (noc dt Data).spec_bagT
 
 namespace ImplementationInSpec
 
-def φ (I : (noc dt Data).nocT) (S : specT dt Data) : Prop :=
+def φ (I : (noc dt α).nocT) (S : specT dt α) : Prop :=
   I.toList.flatten ⊆ S
 
 theorem refines_initial :
-  Module.refines_initial (mod dt Data) (spec dt Data) (φ dt Data) := by
+  Module.refines_initial (mod dt α) (spec dt α) (φ dt α) := by
     dsimp [drcomponents, Module.refines_initial]
     intros i s
     subst i
     exists []
     and_intros
     · rfl
-    · unfold φ; induction (noc dt Data).netsz <;> simpa
+    · unfold φ; induction (noc dt α).netsz <;> simpa
 
-theorem refines_φ : (mod dt Data) ⊑_{φ dt Data} (spec dt Data) := by
+theorem refines_φ : (mod dt α) ⊑_{φ dt α} (spec dt α) := by
   intros i s H
   constructor
   · intros ident mid_i v Hrule
-    case_transition Hcontains : (Module.inputs (mod dt Data)), ident,
+    case_transition Hcontains : (Module.inputs (mod dt α)), ident,
      (PortMap.getIO_not_contained_false' Hrule)
     dsimp [drcomponents] at v Hrule Hcontains ⊢
     obtain ⟨idx, Hidx⟩ := RelIO.liftFinf_in Hcontains
@@ -72,9 +74,9 @@ theorem refines_φ : (mod dt Data) ⊑_{φ dt Data} (spec dt Data) := by
     · rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
       simpa
     · constructor
-    · sorry -- rw [List.concat_eq_append]; apply vec_set_concat_perm H
+    · rw [List.concat_eq_append]; apply vec_set_concat_in H
   · intros ident mid_i v Hrule
-    case_transition Hcontains : (Module.outputs (mod dt Data)), ident,
+    case_transition Hcontains : (Module.outputs (mod dt α)), ident,
      (PortMap.getIO_not_contained_false' Hrule)
     dsimp [drcomponents] at v Hrule Hcontains ⊢
     obtain ⟨idx, Heq⟩ := RelIO.liftFinf_in Hcontains
@@ -84,18 +86,20 @@ theorem refines_φ : (mod dt Data) ⊑_{φ dt Data} (spec dt Data) := by
     obtain ⟨head, Hrule1, Hrule2⟩ := Hrule
     subst i
     unfold φ at H
-    sorry
-    -- obtain ⟨idx', Hidx'⟩ := vec_set_perm_in H
-    -- exists s.remove idx'
-    -- and_intros
-    -- · rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
-    --   dsimp only [drcomponents]
-    --   and_intros
-    --   · unfold noc Noc.DirLocal at Hrule2
-    --     obtain H := route_xy_correct dt Data (by unfold noc; rw [Hrule2])
-    --     simpa [H]
-    --   · exists idx'; dsimp at Hidx'; simpa [Hidx']
-    -- · apply vec_set_cons_remove_perm Hidx' H
+    obtain ⟨idx', Hidx'⟩ := vec_set_subset_in H
+    exists s
+    exists s.remove idx'
+    and_intros
+    · constructor
+    · rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
+      dsimp only [drcomponents]
+      exists idx'
+      and_intros
+      · rfl
+      · -- From Hrule1 we have idx = head
+        -- Then we can conclude from Hidx'
+        sorry
+    · apply vec_set_cons_remove_in Hidx' H
   · intros rule mid_i HruleIn Hrule
     exists s
     and_intros
@@ -110,18 +114,18 @@ theorem refines_φ : (mod dt Data) ⊑_{φ dt Data} (spec dt Data) := by
       obtain ⟨val, i', ⟨Hval1, Hval2⟩, Hval3⟩ := Hrule
       subst i
       subst mid_i
+      apply List.Subset.trans (h₂ := H)
+      dsimp [noc, drunfold_defs]
+      -- TODO: annoying
+      -- apply vec_set_cons_in (v := i') (idx1 := (↑((noc dt α).neigh idx1)[idx2])) (idx2 := idx1) (elt := val)
       sorry
-      -- apply List.Perm.symm
-      -- apply List.Perm.trans
-      -- · apply List.Perm.symm; exact H
-      -- · apply vec_set_cons_perm
 
 theorem ϕ_indistinguishable :
-  ∀ i s, φ dt Data i s → Module.indistinguishable (mod dt Data) (spec dt Data) i s := by
+  ∀ i s, (φ dt α) i s → Module.indistinguishable (mod dt α) (spec dt α) i s := by
     intros i s Hφ
     constructor
     <;> intros ident new_i v Hrule
-    · case_transition Hcontains : (Module.inputs (mod dt Data)), ident,
+    · case_transition Hcontains : (Module.inputs (mod dt α)), ident,
        (PortMap.getIO_not_contained_false' Hrule)
       obtain ⟨idx, Hidx⟩ := RelIO.liftFinf_in Hcontains
       subst ident
@@ -135,7 +139,7 @@ theorem ϕ_indistinguishable :
       exists s.concat (Hv.mp v)
       rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
       simpa [drcomponents]
-    · case_transition Hcontains : (Module.outputs (mod dt Data)), ident,
+    · case_transition Hcontains : (Module.outputs (mod dt α)), ident,
        (PortMap.getIO_not_contained_false' Hrule)
       obtain ⟨idx, Hidx⟩ := RelIO.liftFinf_in Hcontains
       subst ident
@@ -148,26 +152,23 @@ theorem ϕ_indistinguishable :
         dsimp
       obtain ⟨head, Hrule1, Hrule2⟩ := Hrule
       subst i
-      sorry
-      -- obtain ⟨idx', Hidx'⟩ := vec_set_perm_in Hφ
-      -- exists s.remove idx'
-      -- rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
-      -- dsimp [drcomponents]
-      -- and_intros
-      -- -- · sorry
-      -- -- unfold noc Noc.DirLocal at Hrule2
-      -- --   obtain H := route_xy_correct dt Data (by unfold noc; rw [Hrule2])
-      -- --   simpa [H]
-      -- · exists idx'; dsimp at Hidx'; and_intros
-      --   · rfl
-      --   · simp [Hidx']; sorry
+      obtain ⟨idx', Hidx'⟩ := vec_set_subset_in Hφ
+      exists s.remove idx'
+      rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
+      dsimp [drcomponents]
+      exists idx'; dsimp at Hidx'; and_intros
+      · rfl
+      · simp [Hidx']
+      -- From Hrule1 we have idx = head
+      -- Then we can conclude from Hidx'
+        sorry
 
-theorem correct : (mod dt Data) ⊑ (spec dt Data) := by
+theorem correct : (mod dt α) ⊑ (spec dt α) := by
   apply (
     Module.refines_φ_refines
-      (ϕ_indistinguishable dt Data)
-      (refines_initial dt Data)
-      (refines_φ dt Data)
+      (ϕ_indistinguishable dt α)
+      (refines_initial dt α)
+      (refines_φ dt α)
   )
 
 end ImplementationInSpec

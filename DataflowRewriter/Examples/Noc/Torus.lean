@@ -82,18 +82,20 @@ abbrev DirectedTorus.MkHead (d : DirectedTorus) (Data : Type) (FlitHeader : Type
 @[simp] abbrev DirectedTorus.AbsoluteHeader (d : DirectedTorus) : Type :=
   d.RouterID
 
-def DirectedTorus.AbsoluteFlit (d : DirectedTorus) : Type :=
+abbrev DirectedTorus.AbsoluteFlit (d : DirectedTorus) : Type :=
   α × d.AbsoluteHeader
 
-def DirectedTorus.AbsoluteRoute (d : DirectedTorus) : Type :=
+abbrev DirectedTorus.AbsoluteRoute (d : DirectedTorus) : Type :=
   Route' d.netsz d.neigh (@d.AbsoluteFlit α)
 
+@[drunfold_defs]
 def DirectedTorus.absolute_route_xy (d : DirectedTorus) : @d.AbsoluteRoute α :=
   λ cur flit =>
     if d.get_x cur != d.get_x flit.2 then (d.DirX, flit)
     else if d.get_y cur != d.get_y flit.2 then (d.DirY, flit)
     else (d.DirLocal, flit)
 
+@[drunfold_defs]
 def DirectedTorus.absolute_xy_to_noc (d : DirectedTorus) : Noc α :=
   {
     netsz       := d.netsz,
@@ -110,18 +112,20 @@ structure DirectedTorus.RelativeHeader (d : DirectedTorus) where
   diff_y : Nat
 deriving BEq
 
-def DirectedTorus.RelativeFlit (d : DirectedTorus) : Type _ :=
+abbrev DirectedTorus.RelativeFlit (d : DirectedTorus) : Type :=
   α × d.RelativeHeader
 
-def DirectedTorus.RelativeRoute (d : DirectedTorus) : Type _ :=
+abbrev DirectedTorus.RelativeRoute (d : DirectedTorus) : Type :=
   Route' d.netsz d.neigh (@d.RelativeFlit α)
 
+@[drunfold_defs]
 def DirectedTorus.relative_route_xy (d : DirectedTorus) : @d.RelativeRoute α :=
   λ cur flit =>
     if 0 < flit.2.diff_x then (d.DirX, flit)
     else if 0 < flit.2.diff_y then (d.DirY, flit)
     else (d.DirLocal, flit)
 
+@[drunfold_defs]
 def DirectedTorus.relative_mkhead (d : DirectedTorus) : d.MkHead α d.RelativeHeader :=
   λ cur dst data =>
     {
@@ -129,6 +133,7 @@ def DirectedTorus.relative_mkhead (d : DirectedTorus) : d.MkHead α d.RelativeHe
       diff_y := d.get_y cur - d.get_y dst,
     }
 
+@[drunfold_defs]
 def DirectedTorus.relative_xy_to_noc (d : DirectedTorus) : Noc α :=
   {
     netsz       := d.netsz,

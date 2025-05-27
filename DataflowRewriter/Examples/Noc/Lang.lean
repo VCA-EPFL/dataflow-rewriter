@@ -13,8 +13,6 @@ set_option linter.all false
 
 namespace DataflowRewriter.Noc
 
--- Basic definitions -----------------------------------------------------------
-
 abbrev Netsz : Type :=
   Nat
 
@@ -44,8 +42,8 @@ structure Noc (Data : Type) [BEq Data] [LawfulBEq Data] where
   netsz         : Netsz
   neigh         : Neigh' netsz
   FlitHeader    : Type
-  FlitHeaderBEq : BEq FlitHeader := by exact inferInstance
-  FlitHeaderEq  : LawfulBEq FlitHeader := by exact inferInstance
+  -- FlitHeaderBEq : BEq FlitHeader := by exact inferInstance
+  -- FlitHeaderEq  : LawfulBEq FlitHeader := by exact inferInstance
   mkhead        : MkHead' netsz Data FlitHeader
   route         : Route' netsz neigh (Flit' Data FlitHeader)
 

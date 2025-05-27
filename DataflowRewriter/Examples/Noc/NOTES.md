@@ -24,8 +24,8 @@
 
 ## Routers
 
-- We would like to have Routers be a parameter of the Noc definition, so that we
-  can have routers with bounded state, which behaves more like a bag, ....
+- Have Router in `Noc` definition to have router with bounded spec, bag router,
+  ...
   They can still be homogeneous in a first place, since this probably cover most
   use cases, but in the final form it would be better for them to be
   heterogeneous.
