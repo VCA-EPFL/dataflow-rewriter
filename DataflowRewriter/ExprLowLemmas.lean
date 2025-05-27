@@ -1714,26 +1714,82 @@ theorem build_module'_build_module_type {e} :
   intro wf
   unfold build_module_type build_module_expr build_module
   replace wf := wf_builds_module wf
+  rw [Option.isSome_iff_exists] at wf
+  obtain ⟨m, hbuild⟩ := wf
+  rw [hbuild]; rfl
+
+theorem keysList_unchanged {α} {p : PortMap Ident (InternalPort Ident)} {ins : PortMap Ident α}:
+  (∀ x ∈ AssocList.keysList p, AssocList.contains x ins = false) →
+  (∀ x ∈ AssocList.valsList p, AssocList.contains x ins = false) →
+  AssocList.mapKey (AssocList.bijectivePortRenaming p) ins = ins := by
+  induction ins with
+  | nil => intros; rfl
+  | cons k v xs ih =>
+    intro hkey hval
+    rw [AssocList.mapKey_cons, ih] <;> try assumption
+    · suffices (AssocList.bijectivePortRenaming p k) = k by rw [this]
+      have hin : k ∉ AssocList.keysList p := by
+        intro hin
+        replace hkey := hkey _ hin
+        simp at hkey
+      have hin' : k ∉ AssocList.valsList p := by
+        intro hin
+        replace hkey := hval _ hin
+        simp at hkey
+      simp only [←AssocList.inverse_keysList] at *
+      rw [←AssocList.keysList_find?_isSome_iff,Bool.not_eq_true,Option.isSome_eq_false_iff,Option.isNone_iff_eq_none] at hin hin'
+      apply AssocList.bijectivePortRenaming_eq2 <;> assumption
+    · intro k' hin; specialize hkey _ hin
+      simp only [AssocList.contains, AssocList.any_eq, List.any_eq_false, beq_iff_eq, Prod.forall,
+        AssocList.toList, List.any_cons, Bool.or_eq_false_iff, beq_eq_false_iff_ne, ne_eq] at *
+      cases hkey; assumption
+    · intro k' hin; specialize hval _ hin
+      simp only [AssocList.contains, AssocList.any_eq, List.any_eq_false, beq_iff_eq, Prod.forall,
+        AssocList.toList, List.any_cons, Bool.or_eq_false_iff, beq_eq_false_iff_ne, ne_eq] at *
+      cases hval; assumption
 
 theorem ensureIOUnmodified_correct {e : ExprLow Ident} {p} :
   e.well_formed ε → e.ensureIOUnmodified p → [e| e, ε ].renamePorts p = ([e| e, ε ]) := by
-  unfold ensureIOUnmodified; simp; intro wf hi ho
+  unfold ensureIOUnmodified; simp only [beq_false, List.all_eq_true, Bool.not_eq_eq_eq_not,
+    Bool.not_true, Bool.decide_and, Bool.and_eq_true, decide_eq_true_eq, and_imp]
+  intro wf hi1 hi2 ho1 ho2
   generalize h : ([e| e, ε ]) = m; rcases m with ⟨ins, outs, ints, inits⟩
   simp [Module.renamePorts, Module.mapPorts2, Module.mapInputPorts, Module.mapOutputPorts]; and_intros
-  · have hi' : ∀ x, x ∈ p.input.keysList → ins.contains x = false := by
+  · have hi1' : ∀ x, x ∈ p.input.keysList → ins.contains x = false := by
       have : ins = ([e| e, ε ]).inputs := by simp [*]
       subst ins; intro x hcont; rw [←findInput_iff_contains] <;> try assumption
       solve_by_elim
-
+      rw [build_module'_build_module_type]
+      exact well_formed_implies_wf _ wf
+    have hi2' : ∀ x, x ∈ p.input.valsList → ins.contains x = false := by
+      have : ins = ([e| e, ε ]).inputs := by simp [*]
+      subst ins; intro x hcont; rw [←findInput_iff_contains] <;> try assumption
+      solve_by_elim
+      rw [build_module'_build_module_type]
+      exact well_formed_implies_wf _ wf
+    apply keysList_unchanged <;> assumption
+  · have hi1' : ∀ x, x ∈ p.output.keysList → outs.contains x = false := by
+      have : outs = ([e| e, ε ]).outputs := by simp [*]
+      subst outs; intro x hcont; rw [←findOutput_iff_contains] <;> try assumption
+      solve_by_elim
+      rw [build_module'_build_module_type]
+      exact well_formed_implies_wf _ wf
+    have hi2' : ∀ x, x ∈ p.output.valsList → outs.contains x = false := by
+      have : outs = ([e| e, ε ]).outputs := by simp [*]
+      subst outs; intro x hcont; rw [←findOutput_iff_contains] <;> try assumption
+      solve_by_elim
+      rw [build_module'_build_module_type]
+      exact well_formed_implies_wf _ wf
+    apply keysList_unchanged <;> assumption
 
 theorem force_replace_eq_replace {e e₁ e₂ : ExprLow Ident} :
     (e.force_replace e₁ e₂).1 = e.replace e₁ e₂ := by
   induction e <;> simp [force_replace, replace] <;> split <;> simp [*]
 
-axiom refines_subset {e e' : ExprLow Ident} (ε' : IdentMap Ident (Σ T : Type, Module Ident T)) :
-  ε.subsetOf ε' → e.wf ε → e'.wf ε →
-  [e| e, ε ] ⊑ ([e| e', ε ]) →
-  [e| e, ε' ] ⊑ ([e| e', ε' ])
+-- axiom refines_subset {e e' : ExprLow Ident} (ε' : IdentMap Ident (Σ T : Type, Module Ident T)) :
+--   ε.subsetOf ε' → e.wf ε → e'.wf ε →
+--   [e| e, ε ] ⊑ ([e| e', ε ]) →
+--   [e| e, ε' ] ⊑ ([e| e', ε' ])
 
 end Refinement
 

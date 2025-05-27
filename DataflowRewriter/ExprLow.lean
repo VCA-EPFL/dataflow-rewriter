@@ -423,7 +423,9 @@ def ensureIOUnmodified' (p : PortMapping Ident) (e : ExprLow Ident) : Bool :=
 
 def ensureIOUnmodified (p : PortMapping Ident) (e : ExprLow Ident) : Bool :=
   p.input.keysList.all (e.findInput · == false)
+  ∧ p.input.valsList.all (e.findInput · == false)
   ∧ p.output.keysList.all (e.findOutput · == false)
+  ∧ p.output.valsList.all (e.findOutput · == false)
 
 def fix_point (f : ExprLow Ident → ExprLow Ident) (e : ExprLow Ident): Nat → ExprLow Ident
 | 0 => e
