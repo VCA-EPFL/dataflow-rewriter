@@ -90,7 +90,10 @@ namespace DataflowRewriter.Noc
       intros H x Hx
       simp only [Fin.getElem_fin, List.mem_flatten, Vector.mem_toList_iff] at Hx
       obtain ⟨l', Hl1, Hl2⟩ := Hx
+<<<<<<< HEAD
       simp? at Hx
+=======
+>>>>>>> 7b745e4 (Noc: Remove some dumb sorry)
       sorry
 
   theorem vec_set_subset_in {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
