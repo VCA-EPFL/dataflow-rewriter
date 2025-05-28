@@ -31,11 +31,11 @@ namespace DataflowRewriter.Noc
 
   theorem mapFinIdx_length {α β} (l : List α) (f : (i : Nat) → α → (h : i < l.length) → β) :
     (List.mapFinIdx l f).length = l.length := by
-      induction l <;> simpa
+      simpa
 
   theorem mapFinIdx_get {α β} (l : List α) (f : (i : Nat) → α → (h : i < l.length) → β) (i : Fin (List.mapFinIdx l f).length):
     (List.mapFinIdx l f).get i = f i l[i] (by rw [← mapFinIdx_length l f]; exact i.isLt) := by
-      sorry
+      simpa
 
   -- RelIO ---------------------------------------------------------------------
 
@@ -87,6 +87,10 @@ namespace DataflowRewriter.Noc
   theorem vec_set_concat_in {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
     v.toList.flatten ⊆ l →
     (v.set idx (v[idx] ++ [elt])).toList.flatten ⊆ (l ++ [elt]) := by
+      intros H x Hx
+      simp only [Fin.getElem_fin, List.mem_flatten, Vector.mem_toList_iff] at Hx
+      obtain ⟨l', Hl1, Hl2⟩ := Hx
+      simp? at Hx
       sorry
 
   theorem vec_set_subset_in {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
@@ -100,10 +104,16 @@ namespace DataflowRewriter.Noc
       simpa [Vector.mem_set]
 
   theorem vec_set_in {α} {n : Nat} (v : Vector (List α) n) (idx : Fin n) (elt : α) :
-    elt ∈ (Vector.set v idx (elt :: v[idx]))[idx] := by sorry
+    elt ∈ (Vector.set v idx (elt :: v[idx]))[idx] := by simpa
 
   theorem vec_set_in_flatten {α} {n : Nat} (v : Vector (List α) n) (idx : Fin n) (elt : α) :
-    elt ∈ (Vector.set v idx (elt :: v[idx])).toList.flatten := by sorry
+    elt ∈ (Vector.set v idx (elt :: v[↑idx])).toList.flatten := by
+      simp only [Fin.getElem_fin, List.mem_flatten, Vector.mem_toList_iff]
+      exists (elt :: v[↑idx])
+      and_intros
+      · simp
+        sorry
+      · simp
 
   theorem vec_set_subset {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
     (v.set idx (elt :: v[idx])).toList.flatten ⊆ l →
@@ -129,11 +139,17 @@ namespace DataflowRewriter.Noc
 
   theorem vec_set_cons_in {α} {n : Nat} {v : Vector (List α) n} {idx1 idx2 : Fin n} {elt : α} :
     (Vector.set v idx1 (v[idx1] ++ [elt])).toList.flatten ⊆
-    (Vector.set v idx2 (elt :: v[idx2])).toList.flatten := by sorry
+    (Vector.set v idx2 (elt :: v[idx2])).toList.flatten := by
+      intros x Hx
+      simp only [Fin.getElem_fin, List.mem_flatten, Vector.mem_toList_iff] at ⊢ Hx
+      obtain ⟨l, Hl1, Hl2⟩ := Hx
+      sorry
 
   theorem vec_set_cons_remove_in {α} {n : Nat} {v : Vector (List α) n} {idx1 : Fin n} {l} {idx2 : Fin (List.length l)} {elt : α} :
     l[idx2] = elt →
     (v.set idx1 (elt :: v[idx1])).toList.flatten ⊆ l →
-    v.toList.flatten ⊆ (l.remove idx2) := by sorry
+    v.toList.flatten ⊆ (l.remove idx2) := by
+      intros H1 H2 x Hx
+      sorry
 
 end DataflowRewriter.Noc

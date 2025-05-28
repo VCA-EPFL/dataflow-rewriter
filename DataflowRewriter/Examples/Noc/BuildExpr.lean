@@ -23,7 +23,6 @@ namespace DataflowRewriter.Noc
   def router_stringify_out (n : Noc Data) (rid : n.topology.RouterID) (dir : n.topology.Dir rid) :=
     s!"Router {rid} out{dir}"
 
-  -- TODO
   @[drcomponents]
   def Noc.build_expr (n : Noc Data) : ExprLow String :=
 
@@ -73,11 +72,11 @@ namespace DataflowRewriter.Noc
           acc)
         acc (n.topology.neigh rid)
 
-    -- TODO: Call mkconn for each router
+    let mkconns (acc : ExprLow String) : ExprLow String :=
+      List.foldl (λ acc i => mkconn acc (Fin.mk i (by sorry))) acc (List.range n.topology.netsz)
 
     .base { input := .nil, output := .nil } "empty"
     |> mkrouters
-    -- TODO: Make connections per each routers
 
   -- We need an environment correctness property:
   --  · Each router is in the env, with correct amount of input/output
