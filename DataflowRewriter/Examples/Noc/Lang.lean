@@ -46,6 +46,12 @@ namespace DataflowRewriter.Noc
   def Topology.DirLocal (t : Topology) {src : t.RouterID} : t.Dir src :=
     Fin.mk 0 (by simpa)
 
+  def Topology.out_len (t : Topology) (rid : t.RouterID) : Nat :=
+    List.length (t.neigh rid)
+
+  def Topology.inp_len (t : Topology) (rid : t.RouterID) : Nat :=
+    0 -- TODO
+
   -- Routing policy definition -------------------------------------------------
 
   @[simp]
@@ -112,5 +118,7 @@ namespace DataflowRewriter.Noc
     topology      : Topology
     routing_pol   : RoutingPolicy topology Data
     routers       : Router topology.netsz routing_pol.Flit
+
+  variable {Data : Type} [BEq Data] [LawfulBEq Data]
 
 end DataflowRewriter.Noc
