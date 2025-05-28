@@ -14,5 +14,13 @@ set_option linter.all false
 
 namespace DataflowRewriter.Noc
 
--- TODO
--- Choose wether it should be ExprLow or ExprHigh
+  -- TODO
+  -- Choose wether it should be ExprLow or ExprHigh
+
+  variable {Data : Type} [BEq Data] [LawfulBEq Data]
+
+  @[drcomponents]
+  def Noc.build_expr (n : Noc Data) : ExprLow Nat :=
+    .base { input := .nil, output := .nil } 0
+
+end DataflowRewriter.Noc

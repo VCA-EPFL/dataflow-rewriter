@@ -13,62 +13,104 @@ set_option linter.all false
 
 namespace DataflowRewriter.Noc
 
-abbrev Netsz : Type :=
-  Nat
+  -- Topology definition -------------------------------------------------------
 
-abbrev RouterID' (netsz : Netsz) : Type :=
-  Fin netsz
+  abbrev Netsz : Type :=
+    Nat
 
-abbrev Neigh' (netsz : Netsz) : Type :=
-  RouterID' netsz → List (RouterID' netsz)
+  @[simp]
+  abbrev RouterID' (netsz : Netsz) : Type :=
+    Fin netsz
 
--- Number of neighbors + 1 for the local output / input
-abbrev Dir' (netsz : Netsz) (neigh : Neigh' netsz) (src : RouterID' netsz) : Type :=
-  Fin (List.length (neigh src) + 1)
+  @[simp]
+  abbrev Neigh' (netsz : Netsz) : Type :=
+    RouterID' netsz → List (RouterID' netsz)
 
-def DirLocal' {netsz neigh src} : Dir' netsz neigh src :=
-  Fin.mk 0 (by simpa)
+  structure Topology where
+    netsz : Netsz
+    neigh : Neigh' netsz
 
-abbrev Flit' (Data : Type) (FlitHeader : Type) : Type :=
-  Data × FlitHeader
+  -- Topology utils --------------------------------------------------------------
 
-abbrev Route' (netsz : Netsz) (neigh : Neigh' netsz) (Flit : Type) : Type :=
-  (cur : RouterID' netsz) → (flit : Flit) → (Dir' netsz neigh cur × Flit)
+  abbrev Topology.RouterID (t : Topology) :=
+    RouterID' t.netsz
 
-abbrev MkHead' (netsz : Netsz) (Data : Type) (FlitHeader : Type) : Type :=
-  (cur dst : RouterID' netsz) → (data : Data) → FlitHeader
+  abbrev Topology.Neigh (t : Topology) :=
+    Neigh' t.netsz
 
-structure Noc (Data : Type) [BEq Data] [LawfulBEq Data] where
-  netsz         : Netsz
-  neigh         : Neigh' netsz
-  FlitHeader    : Type
-  -- FlitHeaderBEq : BEq FlitHeader := by exact inferInstance
-  -- FlitHeaderEq  : LawfulBEq FlitHeader := by exact inferInstance
-  mkhead        : MkHead' netsz Data FlitHeader
-  route         : Route' netsz neigh (Flit' Data FlitHeader)
+  -- Number of neighbors + 1 for the local output / input
+  @[simp]
+  abbrev Topology.Dir (t : Topology) (src : t.RouterID) : Type :=
+    Fin (List.length (t.neigh src) + 1)
 
-variable {α : Type} [BEq α] [LawfulBEq α]
+  def Topology.DirLocal (t : Topology) {src : t.RouterID} : t.Dir src :=
+    Fin.mk 0 (by simpa)
 
-abbrev Noc.Data (_ : Noc α) : Type :=
-  α
+  -- Routing policy definition -------------------------------------------------
 
-abbrev Noc.RouterID (n : Noc α) : Type :=
-  RouterID' n.netsz
+  @[simp]
+  abbrev Route' (t : Topology) (Flit : Type) : Type :=
+    (cur : t.RouterID) → (flit : Flit) → (t.Dir cur × Flit)
 
-abbrev Noc.Neigh (n : Noc α) : Type :=
-  Neigh' n.netsz
+  @[simp]
+  abbrev Flit' (Data : Type) (FlitHeader : Type) : Type :=
+    Data × FlitHeader
 
-abbrev Noc.Dir (n : Noc α) (src : n.RouterID) : Type :=
-  Dir' n.netsz n.neigh src
+  @[simp]
+  abbrev MkHead' (t : Topology) (Data : Type) (FlitHeader : Type) : Type :=
+    (cur dst : t.RouterID) → (data : Data) → FlitHeader
 
-abbrev Noc.DirLocal (n : Noc α) {src} :=
-  @DirLocal' n.netsz n.neigh src
+  structure RoutingPolicy (t : Topology) (Data : Type) where
+    FlitHeader  : Type
+    route       : Route' t (Flit' Data FlitHeader)
+    mkhead      : MkHead' t Data FlitHeader
 
-abbrev Noc.Route (n : Noc α) : Type :=
-  Route' n.netsz n.neigh n.FlitHeader
+  -- Routing policy utils ------------------------------------------------------
 
-abbrev Noc.MkHead (n : Noc α) : Type :=
-  MkHead' n.netsz n.Data n.FlitHeader
+  variable {t : Topology} {Data : Type}
 
-abbrev Noc.Flit (n : Noc α) :=
-  Flit' n.Data n.FlitHeader
+  abbrev RoutingPolicy.Flit (rp : RoutingPolicy t Data) :=
+    Flit' Data rp.FlitHeader
+
+  abbrev RoutingPolicy.Route (rp : RoutingPolicy t Data) :=
+    Route' t rp.Flit
+
+  abbrev RoutingPolicy.MkHead (rp : RoutingPolicy t Data) :=
+    MkHead' t Data rp.FlitHeader
+
+  -- Router definition ---------------------------------------------------------
+
+  @[simp]
+  abbrev NocState' (netsz : Netsz) (RouterState : Type) :=
+    Vector RouterState netsz
+
+  @[simp]
+  abbrev RouterRel' (netsz : Netsz) (Flit RouterState : Type) :=
+    let NocState := NocState' netsz RouterState
+    let RouterID := RouterID' netsz
+    (rid : RouterID) → (val : Flit) → (old_s new_s : NocState) → Prop
+
+  structure Router (netsz : Netsz) (Flit : Type) where
+    State       : Type
+    init_state  : State
+    input_rel   : RouterRel' netsz Flit State
+    output_rel  : RouterRel' netsz Flit State
+
+  -- Router utils --------------------------------------------------------------
+
+  variable {netsz : Netsz} {Flit : Type}
+
+  abbrev Router.NocState (r : Router netsz Flit) :=
+    NocState' netsz r.State
+
+  abbrev Router.RouterRel (r : Router netsz Flit) :=
+    RouterRel' netsz Flit r.State
+
+  -- Noc -----------------------------------------------------------------------
+
+  structure Noc (Data : Type) [BEq Data] [LawfulBEq Data] where
+    topology      : Topology
+    routing_pol   : RoutingPolicy topology Data
+    routers       : Router topology.netsz routing_pol.Flit
+
+end DataflowRewriter.Noc

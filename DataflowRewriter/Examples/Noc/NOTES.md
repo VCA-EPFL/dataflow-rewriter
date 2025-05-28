@@ -5,10 +5,7 @@
 - First Fix TorusAbsoluteCorrect
 
 - Maybe `netsz` should also be a parameter of the `Noc` structure instead of a
-  field?
-
-- Is there a better way to have FlitHeader be LawfulEq? Do we need it to be?
-  Maybe not?
+  field
 
 - The `Route` function is currently necessarily deterministic
 
@@ -22,14 +19,13 @@
 
 - Make a bounded spec
 
+- Make a boundde Router
+
+- Router.init_state should be a relation
+
 ## Routers
 
-- Have Router in `Noc` definition to have router with bounded spec, bag router,
-  ...
-  They can still be homogeneous in a first place, since this probably cover most
-  use cases, but in the final form it would be better for them to be
-  heterogeneous.
-  This requires changing `Noc.input_rel` and `Noc.output_rel`
+- Make non homogeneous router
 
 - We don't have access to the rewriting framework, but we could make some sort
   of rewriting by having us say that, when we allow having different spec for a

@@ -7,10 +7,12 @@ Authors: Yann Herklotz, Gurvan Debaussart
 import DataflowRewriter.Module
 import DataflowRewriter.Examples.Noc.Lang
 
-namespace DataflowRewriter.Noc.Mesh2D
+namespace DataflowRewriter.Noc
 
-structure Mesh2D where
-  sizeX : Nat
-  sizeY : Nat
+  structure Mesh2D where
+    sizeX : Nat
+    sizeY : Nat
 
--- TODO: Harder than Torus because topology is less regular (edges)
+  -- TODO: Harder than Torus because topology is less regular (edges)
+
+end DataflowRewriter.Noc
