@@ -16,6 +16,10 @@ variable {Data : Type} [BEq Data] [LawfulBEq Data]
 namespace DataflowRewriter.Noc
 
   @[drcomponents]
+  def router_name (n : Noc Data) (rid : n.topology.RouterID) :=
+    s!"Router {rid}"
+
+  @[drcomponents]
   def router_stringify_inp (n : Noc Data) (rid : n.topology.RouterID) (dir : n.topology.Dir rid) :=
     s!"Router {rid} in{dir}"
 
@@ -33,7 +37,7 @@ namespace DataflowRewriter.Noc
       n.topology.Dir rid
 
     let router_internal (rid : RouterID) :=
-      InstIdent.internal s!"Router {rid}"
+      InstIdent.internal (router_name n rid)
 
     let router_out (rid : RouterID) (dir : Dir rid) : InternalPort String :=
       { inst := router_internal rid, name := NatModule.stringify_output dir }
@@ -60,26 +64,39 @@ namespace DataflowRewriter.Noc
         s!"Router {rid}"
 
     let mkrouters (acc : ExprLow String) : ExprLow String :=
-      List.foldl (λ acc i => .product (mkrouter (Fin.mk i (by sorry))) acc) acc (List.range n.topology.netsz)
+      List.foldl (λ acc i => .product acc (mkrouter i)) acc (fin_range n.topology.netsz)
 
     let mkconn (acc : ExprLow String) (rid : RouterID) : ExprLow String :=
       List.foldlIdx
-        (λ idx acc rid' => .connect
+        (λ dir acc rid' => .connect
+          -- TODO: Check if we need to add 1 to the dir? I think we need to
           {
-            output  := router_out rid idx
+            output  := router_out rid dir
             input   := sorry -- TODO: How do we know to which port of rid' we are connected?
           }
           acc)
         acc (n.topology.neigh rid)
 
     let mkconns (acc : ExprLow String) : ExprLow String :=
-      List.foldl (λ acc i => mkconn acc (Fin.mk i (by sorry))) acc (List.range n.topology.netsz)
+      List.foldl mkconn acc (fin_range n.topology.netsz)
 
     .base { input := .nil, output := .nil } "empty"
     |> mkrouters
 
+-- Spec ------------------------------------------------------------------------
+-- TODO: Move elsewhere? In the correctness proof for example
+
+-- TODO
+def Noc.spec_router (n : Noc Data) (rid : n.topology.RouterID) : NatModule sorry :=
+  sorry
+
   -- We need an environment correctness property:
   --  · Each router is in the env, with correct amount of input/output
   --  · Each router implementation respect the specification given for a router
+  def Noc.env_correct (n : Noc Data) (ε : Env) : Prop :=
+    ∀ rid : n.topology.RouterID, ∃ rmod,
+      AssocList.find? (router_name n rid) ε = .some rmod
+      -- TODO: On top of every router is in the module, we also need to have
+      -- rmod ⊑ n.rspec rid (The spec should be fairly straightforward to get)
 
 end DataflowRewriter.Noc
