@@ -421,6 +421,9 @@ def ensureIOUnmodified' (p : PortMapping Ident) (e : ExprLow Ident) : Bool :=
   e.findAllInputs.all (λ x => (p.input.find? x).isNone)
   ∧ e.findAllOutputs.all (λ x => (p.output.find? x).isNone)
 
+def ensureIOUnmodified_efficient [DecidableEq Ident] (p : PortMapping Ident) (e : ExprLow Ident) : Bool := true
+
+@[implemented_by ensureIOUnmodified_efficient]
 def ensureIOUnmodified (p : PortMapping Ident) (e : ExprLow Ident) : Bool :=
   p.input.keysList.all (e.findInput · == false)
   ∧ p.input.valsList.all (e.findInput · == false)
@@ -504,6 +507,21 @@ def comm_base_ {Ident} [DecidableEq Ident] (binst : PortMapping Ident) (btyp : I
   else .product e₁ <$> comm_base_ binst btyp e₂
 | .connect c e => .connect c <$> comm_base_ binst btyp e
 | e => .none
+
+def comm_connection_inv_ : ExprLow Ident → Option (ExprLow Ident)
+| .connect c e =>
+  .connect c <$> comm_connection_inv_ e
+| .product e₁ e₂ =>
+  match e₂ with
+  | .connect c e₂ =>
+    if ¬ e₁.findInput c.input ∧ ¬ e₁.findOutput c.output then
+      .some <| .connect c (.product e₁ e₂)
+    else
+      .none
+  | _ => .product e₁ <$> comm_connection_inv_ e₂
+| _ => .none
+
+def comm_connection_inv (e : ExprLow Ident) := fix_point_opt comm_connection_inv_ e 10000
 
 def comm_base (binst : PortMapping Ident) (btyp : Ident) e := fix_point_opt (comm_base_ binst btyp) e 10000
 

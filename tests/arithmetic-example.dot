@@ -5,7 +5,7 @@ digraph {
     "mul_1" [type="Operator", op = "mul_op"];
     "add_1" [type="Operator", op = "add_op"];
     "mul_2" [type="Operator", op = "mul_op"];
-    "fork" [type="Fork", op = "mul_op"];
+    "fork" [type="Fork"];
 
     "a" [type="io"];
     "b" [type="io"];

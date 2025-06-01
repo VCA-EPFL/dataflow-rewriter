@@ -60,9 +60,44 @@ theorem EStateM.map_eq_ok {ε σ α β} {f : α → β} {o : EStateM ε σ α} {
 --   unfold addRewriteInfo; simp
 --   sorry
 
-axiom refines_higherSS {e : ExprLow String} {e' : ExprHigh String} :
+theorem refines_higherSS {e : ExprLow String} {e' : ExprHigh String} :
   e.higherSS = .some e' →
-  [Ge| e', ε_global] ⊑ ([e| e, ε_global])
+  e'.lower = e := by
+  induction e generalizing e' with
+  | base =>
+
+-- theorem refines_higherSS'' {e : ExprLow String} {e' : ExprHigh String} {ε} :
+--   e.higherSS = .some e' →
+--   [Ge| e', ε] ⊑ ([e| e, ε]) := by
+
+
+theorem refines_higherSS' {e : ExprLow String} {e' : ExprHigh String} {ε} :
+  e.well_formed ε →
+  e.higherSS = .some e' →
+  [Ge| e', ε] ⊑ ([e| e, ε]) := by
+  induction e generalizing e' with
+  | base inst typ =>
+    intro wf hhigh
+    dsimp [ExprLow.well_formed] at wf
+    split at wf <;> try contradiction
+    simp only [Bool.decide_and, Bool.decide_eq_true, Bool.and_eq_true, decide_eq_true_eq] at wf
+    obtain ⟨wf1, wf2, wf3, wf4⟩ := wf
+    dsimp [ExprLow.higherSS] at hhigh
+    rw [Option.bind_eq_some] at hhigh
+    obtain ⟨name, hhigh, hsome⟩ := hhigh
+    cases hsome
+    dsimp [ExprHigh.build_module_expr, ExprHigh.build_module, ExprHigh.build_module', ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry, ExprLow.build_module_expr]
+    apply Module.refines_reflexive
+  | connect c e ih =>
+    intro wf hhigh
+    rw [ExprLow.well_formed_connect] at wf
+    dsimp [ExprLow.higherSS] at hhigh
+    rw [Option.bind_eq_some] at hhigh
+    obtain ⟨e_mid, hhigh, hsome⟩ := hhigh
+    cases hsome
+    dsimp [ExprHigh.build_module_expr, ExprHigh.build_module, ExprHigh.build_module', ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry, ExprLow.build_module_expr]
+
+  | _ => sorry
 
 axiom wf_mapping_all {e : ExprLow String}:
   e.wf_mapping ε_global
