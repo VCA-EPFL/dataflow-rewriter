@@ -29,11 +29,15 @@ namespace DataflowRewriter.Noc
     List.replicate sz 0
     |>.mapFinIdx (λ i _ h => Fin.mk i (by rwa [List.length_replicate] at h))
 
+  theorem fin_in_fin_range (sz : Nat) (i : Fin sz) : i ∈ fin_range sz := by
+    simp only [fin_range, List.mem_mapFinIdx, List.length_replicate]
+    exists i.toNat, i.isLt
+
   theorem mapFinIdx_length {α β} (l : List α) (f : (i : Nat) → α → (h : i < l.length) → β) :
     (List.mapFinIdx l f).length = l.length := by
       simpa
 
-  theorem mapFinIdx_get {α β} (l : List α) (f : (i : Nat) → α → (h : i < l.length) → β) (i : Fin (List.mapFinIdx l f).length):
+  theorem mapFinIdx_get {α β} (l : List α) (f : (i : Nat) → α → (h : i < l.length) → β) (i : Fin (List.mapFinIdx l f).length) :
     (List.mapFinIdx l f).get i = f i l[i] (by rw [← mapFinIdx_length l f]; exact i.isLt) := by
       simpa
 
@@ -74,17 +78,34 @@ namespace DataflowRewriter.Noc
     fin_range n |>.map f |>.flatten
 
   theorem RelInt.liftFinf_in {S} {rule : RelInt S} {n : Nat} {f : Fin n → List (RelInt S)}:
+    -- TODO: This is probably an equivalence too
     rule ∈ (RelInt.liftFinf n f)
     → ∃ (i : Fin n) (j : Fin (List.length (f i))), rule = (f i).get j := by sorry
 
+  theorem RelInt.liftFinf_in' {S} {rule : RelInt S} {n : Nat} {f : Fin n → List (RelInt S)}:
+    (∃ (i : Fin n) (j : Fin (List.length (f i))), rule = (f i).get j) →
+    rule ∈ (RelInt.liftFinf n f) := by
+      intro ⟨i, j, Hij⟩
+      rw [Hij]
+      unfold liftFinf
+      simp only [RelInt, List.get_eq_getElem, List.mem_flatten, List.mem_map]
+      exists (f i)
+      and_intros
+      · exists i; and_intros
+        · apply fin_in_fin_range
+        · rfl
+      · simpa
+
   -- Some stuff about permutations ---------------------------------------------
 
-  theorem vec_set_concat_perm {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
+  variable {α} {n : Nat}
+
+  theorem vec_set_concat_perm {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
     v.toList.flatten.Perm l →
     (v.set idx (v[idx] ++ [elt])).toList.flatten.Perm (l ++ [elt]) := by
       sorry
 
-  theorem vec_set_concat_in {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
+  theorem vec_set_concat_in {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
     v.toList.flatten ⊆ l →
     (v.set idx (v[idx] ++ [elt])).toList.flatten ⊆ (l ++ [elt]) := by
       intros H x Hx
@@ -92,7 +113,7 @@ namespace DataflowRewriter.Noc
       obtain ⟨l', Hl1, Hl2⟩ := Hx
       sorry
 
-  theorem vec_set_subset_in {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
+  theorem vec_set_subset_in {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
     (v.set idx (elt :: v[↑idx])).toList.flatten ⊆ l →
     ∃ idx' : Fin (List.length l), l[idx'] = elt := by
       intros H
@@ -102,19 +123,16 @@ namespace DataflowRewriter.Noc
       apply Exists.intro (elt :: v[↑idx])
       simpa [Vector.mem_set]
 
-  theorem vec_set_in {α} {n : Nat} (v : Vector (List α) n) (idx : Fin n) (elt : α) :
+  theorem vec_set_in (v : Vector (List α) n) (idx : Fin n) (elt : α) :
     elt ∈ (Vector.set v idx (elt :: v[idx]))[idx] := by simpa
 
-  theorem vec_set_in_flatten {α} {n : Nat} (v : Vector (List α) n) (idx : Fin n) (elt : α) :
+  theorem vec_set_in_flatten (v : Vector (List α) n) (idx : Fin n) (elt : α) :
     elt ∈ (Vector.set v idx (elt :: v[↑idx])).toList.flatten := by
       simp only [Fin.getElem_fin, List.mem_flatten, Vector.mem_toList_iff]
       exists (elt :: v[↑idx])
-      and_intros
-      · simp
-        sorry
-      · simp
+      and_intros <;> simpa [Vector.mem_set]
 
-  theorem vec_set_subset {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
+  theorem vec_set_subset {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
     (v.set idx (elt :: v[idx])).toList.flatten ⊆ l →
     ∃ idx' : Fin (List.length l), l[idx'] = elt := by
       intros H
@@ -123,7 +141,7 @@ namespace DataflowRewriter.Noc
       obtain ⟨n, Hn⟩ := H
       exists n
 
-  theorem vec_set_subset' {α} {n : Nat} {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
+  theorem vec_set_subset' {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
     (v.set idx (elt :: v[idx]))[idx] ⊆ l →
     ∃ idx' : Fin (List.length l), l[idx'] = elt := by
       intros H
@@ -132,11 +150,11 @@ namespace DataflowRewriter.Noc
       obtain ⟨n, Hn⟩ := H
       exists n
 
-  theorem vec_set_cons_perm {α} {n : Nat} {v : Vector (List α) n} {idx1 idx2 : Fin n} {elt : α} :
+  theorem vec_set_cons_perm {v : Vector (List α) n} {idx1 idx2 : Fin n} {elt : α} :
     (Vector.set v idx1 (elt :: v[idx1])).toList.flatten.Perm
     (Vector.set v idx2 (v[idx2] ++ [elt])).toList.flatten := by sorry
 
-  theorem vec_set_cons_in {α} {n : Nat} {v : Vector (List α) n} {idx1 idx2 : Fin n} {elt : α} :
+  theorem vec_set_cons_in {v : Vector (List α) n} {idx1 idx2 : Fin n} {elt : α} :
     (Vector.set v idx1 (v[idx1] ++ [elt])).toList.flatten ⊆
     (Vector.set v idx2 (elt :: v[idx2])).toList.flatten := by
       intros x Hx
@@ -144,11 +162,22 @@ namespace DataflowRewriter.Noc
       obtain ⟨l, Hl1, Hl2⟩ := Hx
       sorry
 
-  theorem vec_set_cons_remove_in {α} {n : Nat} {v : Vector (List α) n} {idx1 : Fin n} {l} {idx2 : Fin (List.length l)} {elt : α} :
+  theorem vec_set_cons_remove_in {v : Vector (List α) n} {idx1 : Fin n} {l} {idx2 : Fin (List.length l)} {elt : α} :
     l[idx2] = elt →
     (v.set idx1 (elt :: v[idx1])).toList.flatten ⊆ l →
     v.toList.flatten ⊆ (l.remove idx2) := by
       intros H1 H2 x Hx
       sorry
+
+   theorem vec_set_reconstruct {v v' : Vector α n} {idx : Fin n} {f : α → α} :
+      (∀ idx' : Fin n, ¬(idx' = idx) → v'[idx'] = v[idx']) →
+      v'[idx] = f v[idx] →
+      v' = v.set idx (f v[idx])
+      := by
+        intros H1 H2
+        -- have Htmp : v' = v'.set idx (f v[idx]) := by
+        --   sorry
+        -- sorry
+        sorry
 
 end DataflowRewriter.Noc

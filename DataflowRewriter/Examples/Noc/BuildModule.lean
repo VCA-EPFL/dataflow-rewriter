@@ -19,9 +19,8 @@ namespace DataflowRewriter.Noc
   @[drcomponents]
   abbrev Noc.input_rel (n : Noc Data) : n.Rel (Data × n.topology.RouterID) :=
     λ rid dir old_s val new_s =>
-      -- TODO: We probably also need to say that all router other than rid are
-      -- unchanged
       n.routers.input_rel rid old_s[rid] (val.1, (n.routing_pol.mkhead rid val.2 val.1)) new_s[rid]
+      ∧ ∀ (rid' : n.RouterID), rid ≠ rid' → new_s[rid'] = old_s[rid']
 
   @[drcomponents]
   abbrev Noc.router_output_rel (n : Noc Data) :=
@@ -33,9 +32,8 @@ namespace DataflowRewriter.Noc
   @[drcomponents]
   abbrev Noc.output_rel (n : Noc Data) : n.Rel n.Flit :=
     λ rid dir old_s val new_s =>
-      -- TODO: We probably also need to say that all router other than rid are
-      -- unchanged
       n.router_output_rel rid dir old_s[rid] val new_s[rid]
+      ∧ ∀ (rid' : n.RouterID), rid ≠ rid' → new_s[rid'] = old_s[rid']
 
   @[drcomponents]
   def Noc.mk_router_input (n : Noc Data) (rid : n.topology.RouterID) (dir : n.topology.Dir rid) : RelIO n.State :=

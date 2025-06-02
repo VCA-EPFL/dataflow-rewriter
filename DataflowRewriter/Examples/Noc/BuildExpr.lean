@@ -85,8 +85,3 @@ namespace DataflowRewriter.Noc
 
     .base { input := .nil, output := .nil } "empty"
     |> mkrouters
-
--- Spec ------------------------------------------------------------------------
--- TODO: Move elsewhere? In the correctness proof for example
-
--- TODO
