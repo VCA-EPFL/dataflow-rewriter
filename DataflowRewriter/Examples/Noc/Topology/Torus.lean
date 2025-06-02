@@ -91,13 +91,13 @@ namespace DataflowRewriter.Noc
   abbrev DirectedTorus.AbsoluteRoute (d : DirectedTorus) : Type :=
     Route' d.to_topology (d.AbsoluteFlit Data)
 
-  @[drunfold_defs]
   def DirectedTorus.absolute_route_xy (d : DirectedTorus) : d.AbsoluteRoute Data :=
     λ cur flit =>
       if d.get_x cur != d.get_x flit.2 then (d.DirX, flit)
       else if d.get_y cur != d.get_y flit.2 then (d.DirY, flit)
       else (d.DirLocal, flit)
 
+  @[drunfold_defs]
   def DirectedTorus.AbsoluteRoutingPolicy (d : DirectedTorus) : RoutingPolicy d.to_topology Data :=
     {
       FlitHeader  := d.AbsoluteHeader,
@@ -118,7 +118,6 @@ namespace DataflowRewriter.Noc
   abbrev DirectedTorus.RelativeRoute (d : DirectedTorus) : Type :=
     Route' d.to_topology (d.RelativeFlit Data)
 
-  @[drunfold_defs]
   def DirectedTorus.relative_route_xy (d : DirectedTorus) : d.RelativeRoute Data :=
     λ cur flit =>
       if 0 < flit.2.diff_x then (d.DirX, flit)

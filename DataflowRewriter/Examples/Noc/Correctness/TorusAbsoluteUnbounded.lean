@@ -19,6 +19,7 @@ namespace DataflowRewriter.Noc.DirectedTorusAbsoluteUnboundedCorrect
   variable (dt : DirectedTorus)
   variable (Data : Type) [BEq Data] [LawfulBEq Data]
 
+  @[drunfold_defs]
   def noc : Noc Data :=
     let topology := dt.to_topology
     let routing_pol := dt.AbsoluteRoutingPolicy Data
@@ -28,10 +29,13 @@ namespace DataflowRewriter.Noc.DirectedTorusAbsoluteUnboundedCorrect
       routers := Router.Unbounded.queue topology.netsz routing_pol.Flit
     }
 
+  @[drunfold_defs]
   abbrev mod := (noc dt Data).build_module
 
+  @[drunfold_defs]
   abbrev spec := (noc dt Data).spec_bag
 
+  @[drunfold_defs]
   abbrev specT := (noc dt Data).spec_bagT
 
   -- theorem route_xy_correct : Noc.Route_correct (noc dt Data) := by
@@ -47,7 +51,7 @@ namespace DataflowRewriter.Noc.DirectedTorusAbsoluteUnboundedCorrect
   --   · simp [DirLocal'] at H
   --   · simp [DirLocal'] at H
 
-  def φ (I : (noc dt Data).routers.NocState) (S : specT dt Data) : Prop :=
+  def φ (I : (noc dt Data).State) (S : specT dt Data) : Prop :=
     I.toList.flatten ⊆ S
 
   theorem refines_initial :
@@ -71,18 +75,20 @@ namespace DataflowRewriter.Noc.DirectedTorusAbsoluteUnboundedCorrect
       subst ident
       have_hole Hv : typeOf v = _ := by
         unfold typeOf
-        rewrite [RelIO.liftFinf_get, Noc.mk_router_input]
+        rewrite [RelIO.liftFinf_get]
         dsimp
       rw [PortMap.rw_rule_execution RelIO.liftFinf_get] at Hrule
-      dsimp [drcomponents] at Hrule
-      subst mid_i
+      dsimp [drcomponents, drunfold_defs] at Hrule
+      -- subst mid_i
       exists s.concat (Hv.mp v)
       exists s.concat (Hv.mp v)
       and_intros
       · rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
         simpa [drcomponents]
       · constructor
-      · rw [List.concat_eq_append]; apply vec_set_concat_in H
+      · rw [List.concat_eq_append]
+        -- FIXME: Fix when we have info on other element of mid_i
+        sorry
     · intros ident mid_i v Hrule
       case_transition Hcontains : (Module.outputs (mod dt Data)), ident,
        (PortMap.getIO_not_contained_false' Hrule)
@@ -92,22 +98,24 @@ namespace DataflowRewriter.Noc.DirectedTorusAbsoluteUnboundedCorrect
       rw [PortMap.rw_rule_execution RelIO.liftFinf_get] at Hrule
       dsimp at Hrule
       obtain ⟨head, Hrule1, Hrule2⟩ := Hrule
-      subst i
-      unfold φ at H
-      obtain ⟨idx', Hidx'⟩ := vec_set_subset_in H
-      exists s
-      exists s.remove idx'
-      and_intros
-      · constructor
-      · rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
-        dsimp only [drcomponents]
-        exists idx'
-        and_intros
-        · rfl
-        · -- From Hrule1 we have idx = head
-          -- Then we can conclude from Hidx'
-          sorry
-      · apply vec_set_cons_remove_in Hidx' H
+      dsimp [drcomponents, drunfold_defs] at Hrule1 Hrule2
+      -- subst i
+      -- unfold φ at H
+      -- obtain ⟨idx', Hidx'⟩ := vec_set_subset_in H
+      -- exists s
+      -- exists s.remove idx'
+      -- and_intros
+      -- · constructor
+      -- · rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
+      --   dsimp only [drcomponents]
+      --   exists idx'
+      --   and_intros
+      --   · rfl
+      --   · -- From Hrule1 we have idx = head
+      --     -- Then we can conclude from Hidx'
+      --     sorry
+      -- · apply vec_set_cons_remove_in Hidx' H
+      sorry
     · intros rule mid_i HruleIn Hrule
       exists s
       and_intros
@@ -120,10 +128,11 @@ namespace DataflowRewriter.Noc.DirectedTorusAbsoluteUnboundedCorrect
         subst rule
         dsimp [drcomponents] at Hrule
         obtain ⟨val, i', ⟨Hval1, Hval2⟩, Hval3⟩ := Hrule
-        subst i
-        subst mid_i
-        apply List.Subset.trans (h₂ := H)
-        dsimp [noc, drunfold_defs]
+        dsimp [drcomponents, drunfold_defs] at Hval1 Hval2 Hval3
+        -- subst i
+        -- subst mid_i
+        -- apply List.Subset.trans (h₂ := H)
+        -- dsimp [noc, drunfold_defs]
         -- TODO: annoying
         -- apply vec_set_cons_in (v := i') (idx1 := (↑((noc dt Data).neigh idx1)[idx2])) (idx2 := idx1) (elt := val)
         sorry
@@ -142,7 +151,7 @@ namespace DataflowRewriter.Noc.DirectedTorusAbsoluteUnboundedCorrect
         dsimp [drcomponents] at Hrule
         have_hole Hv : typeOf v = _ := by
           unfold typeOf
-          rewrite [RelIO.liftFinf_get, Noc.mk_router_input]
+          rewrite [RelIO.liftFinf_get]
           dsimp
         exists s.concat (Hv.mp v)
         rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
@@ -159,17 +168,18 @@ namespace DataflowRewriter.Noc.DirectedTorusAbsoluteUnboundedCorrect
           rewrite [RelIO.liftFinf_get]
           dsimp
         obtain ⟨head, Hrule1, Hrule2⟩ := Hrule
-        subst i
-        obtain ⟨idx', Hidx'⟩ := vec_set_subset_in Hφ
-        exists s.remove idx'
-        rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
-        dsimp [drcomponents]
-        exists idx'; dsimp at Hidx'; and_intros
-        · rfl
-        · simp [Hidx']
-        -- From Hrule1 we have idx = head
-        -- Then we can conclude from Hidx'
-          sorry
+        -- subst i
+        -- obtain ⟨idx', Hidx'⟩ := vec_set_subset_in Hφ
+        -- exists s.remove idx'
+        -- rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
+        -- dsimp [drcomponents]
+        -- exists idx'; dsimp at Hidx'; and_intros
+        -- · rfl
+        -- · simp [Hidx']
+        -- -- From Hrule1 we have idx = head
+        -- -- Then we can conclude from Hidx'
+        --   sorry
+        sorry
 
   theorem correct : (mod dt Data) ⊑ (spec dt Data) := by
     apply (

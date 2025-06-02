@@ -15,20 +15,22 @@ namespace DataflowRewriter.Noc.Router
 
   namespace Unbounded
 
+    @[drunfold_defs]
     def queue : Router netsz Flit :=
       {
         State       := List Flit
         init_state  := []
-        input_rel   := λ rid flit s s' => s' = s.set rid (s[rid] ++ [flit])
-        output_rel  := λ rid flit s s' => s = s'.set rid (flit :: s'[rid])
+        input_rel   := λ rid s flit s' => s' = s ++ [flit]
+        output_rel  := λ rid s flit s' => s = flit :: s'
       }
 
+    @[drunfold_defs]
     def bag : Router netsz Flit :=
       {
         State       := List Flit
         init_state  := []
-        input_rel   := λ rid flit s s' => s' = s.set rid (s[rid] ++ [flit])
-        output_rel  := λ rid flit s s' => ∃ i : Fin (s'[rid].length), s' = s.set rid (s'[rid].remove i)
+        input_rel   := λ rid s flit s' => s' = s ++ [flit]
+        output_rel  := λ rid s flit s' => ∃ i : Fin (s.length), s' = (s.remove i)
       }
 
   end Unbounded

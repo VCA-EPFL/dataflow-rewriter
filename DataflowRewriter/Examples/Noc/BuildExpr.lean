@@ -19,12 +19,15 @@ namespace DataflowRewriter.Noc
   def router_name (n : Noc Data) (rid : n.topology.RouterID) :=
     s!"Router {rid}"
 
+  -- TODO:
+  -- We use (dir : Nat) here to make our life easier but should probably do it the
+  -- proper way
   @[drcomponents]
-  def router_stringify_inp (n : Noc Data) (rid : n.topology.RouterID) (dir : n.topology.Dir rid) :=
+  def router_stringify_inp (n : Noc Data) (rid : n.topology.RouterID) (dir : Nat) :=
     s!"Router {rid} in{dir}"
 
   @[drcomponents]
-  def router_stringify_out (n : Noc Data) (rid : n.topology.RouterID) (dir : n.topology.Dir rid) :=
+  def router_stringify_out (n : Noc Data) (rid : n.topology.RouterID) (dir : Nat) :=
     s!"Router {rid} out{dir}"
 
   @[drcomponents]
@@ -87,16 +90,3 @@ namespace DataflowRewriter.Noc
 -- TODO: Move elsewhere? In the correctness proof for example
 
 -- TODO
-def Noc.spec_router (n : Noc Data) (rid : n.topology.RouterID) : NatModule sorry :=
-  sorry
-
-  -- We need an environment correctness property:
-  --  · Each router is in the env, with correct amount of input/output
-  --  · Each router implementation respect the specification given for a router
-  def Noc.env_correct (n : Noc Data) (ε : Env) : Prop :=
-    ∀ rid : n.topology.RouterID, ∃ rmod,
-      AssocList.find? (router_name n rid) ε = .some rmod
-      -- TODO: On top of every router is in the module, we also need to have
-      -- rmod ⊑ n.rspec rid (The spec should be fairly straightforward to get)
-
-end DataflowRewriter.Noc
