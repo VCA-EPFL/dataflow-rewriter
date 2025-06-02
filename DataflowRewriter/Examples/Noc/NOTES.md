@@ -24,6 +24,12 @@
 
 - We should have a `List.foldlFinIdx`
 
+- We have the problem that we don't know to which input we are connecting in the
+  topology, but this is an information which could be important...
+  It would be very helpful for the neigh function to be some sort of
+  Bijection, or we can have two function `neigh_out` and `neigh_inp` and a proof
+  that they are sort of bijective
+
 ## Routers
 
 - Non homogeneous router
