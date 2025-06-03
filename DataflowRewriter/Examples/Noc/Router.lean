@@ -37,6 +37,26 @@ namespace DataflowRewriter.Noc.Router
 
   namespace Bounded
 
+    variable (len : Nat)
+
+    @[drunfold_defs]
+    def queue : Router netsz Flit :=
+      {
+        State       := List Flit
+        init_state  := []
+        input_rel   := λ rid s flit s' => s'.length < len ∧ s' = s ++ [flit]
+        output_rel  := λ rid s flit s' => s = flit :: s'
+      }
+
+    @[drunfold_defs]
+    def bag : Router netsz Flit :=
+      {
+        State       := List Flit
+        init_state  := []
+        input_rel   := λ rid s flit s' => s'.length < len ∧ s' = s ++ [flit]
+        output_rel  := λ rid s flit s' => ∃ i : Fin (s.length), s' = s.remove i
+      }
+
   end Bounded
 
 end DataflowRewriter.Noc.Router

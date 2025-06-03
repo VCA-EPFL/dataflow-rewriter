@@ -19,9 +19,6 @@ namespace DataflowRewriter.Noc
   def router_name (n : Noc Data) (rid : n.topology.RouterID) :=
     s!"Router {rid}"
 
-  -- TODO:
-  -- We use (dir : Nat) here to make our life easier but should probably do it the
-  -- proper way
   @[drcomponents]
   def router_stringify_inp (n : Noc Data) (rid : n.topology.RouterID) (dir : Nat) :=
     s!"Router {rid} in{dir}"
@@ -64,18 +61,20 @@ namespace DataflowRewriter.Noc
       List.foldl (λ acc i => .product acc (mkrouter i)) acc (fin_range n.topology.netsz)
 
     let mkconn (acc : ExprLow String) (rid : n.RouterID) : ExprLow String :=
-      List.foldlIdx
-        (λ dir acc rid' => .connect
-          -- TODO: Check if we need to add 1 to the dir? I think we need to
-          {
-            output  := router_out rid dir
-            input   := sorry -- TODO: How do we know to which port of rid' we are connected?
-          }
+      AssocList.foldl
+        (λ acc dir_out inp =>
+          .connect
+            {
+              output  := router_out rid dir_out
+              input   := router_inp inp.1 inp.2
+            }
           acc)
-        acc (n.topology.neigh_out rid)
+        acc (n.topology.conn rid)
 
     let mkconns (acc : ExprLow String) : ExprLow String :=
       List.foldl mkconn acc (fin_range n.topology.netsz)
 
     .base { input := .nil, output := .nil } "empty"
     |> mkrouters
+
+end DataflowRewriter.Noc

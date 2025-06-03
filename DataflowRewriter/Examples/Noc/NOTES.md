@@ -15,13 +15,13 @@
 
 - Make a bounded spec
 
-- Make a bounded Router
-
 - We should have a `List.foldlFinIdx`
 
 - For `BuildExpr`, we need a function `neigh_conn` or something which returns an
   assocList of connections, we could prove this function correct separately and
   it would be a lot easier to use
+
+- `UnboundedQueueInUnboundedBag` could be proven using `RouterIn`
 
 ## Topology
 

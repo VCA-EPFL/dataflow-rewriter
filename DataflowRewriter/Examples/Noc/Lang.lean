@@ -11,6 +11,8 @@ import DataflowRewriter.Examples.Noc.Utils
 set_option autoImplicit false
 set_option linter.all false
 
+open Batteries (AssocList)
+
 namespace DataflowRewriter.Noc
 
   -- Topology definition -------------------------------------------------------
@@ -36,8 +38,6 @@ namespace DataflowRewriter.Noc
     neigh_out : Neigh' netsz
     neigh_ok  : Neigh_ok' netsz neigh_inp neigh_out
 
-  -- Topology utils --------------------------------------------------------------
-
   abbrev Topology.RouterID (t : Topology) :=
     RouterID' t.netsz
 
@@ -56,6 +56,12 @@ namespace DataflowRewriter.Noc
   abbrev Topology.Dir_inp (t : Topology) (src : t.RouterID) : Type :=
     Fin (List.length (t.neigh_inp src) + 1)
 
+  abbrev Topology.mkDir_out (t : Topology) (rid : t.RouterID) (i : Nat) (h : i < List.length (t.neigh_out rid)) : t.Dir_out rid :=
+    Fin.mk i (by sorry)
+
+  abbrev Topology.mkDir_inp (t : Topology) (rid : t.RouterID) (i : Nat) (h : i < List.length (t.neigh_inp rid)) : t.Dir_inp rid :=
+    Fin.mk i (by sorry)
+
   def Topology.DirLocal_out (t : Topology) {src : t.RouterID} : t.Dir_out src :=
     Fin.mk 0 (by simpa)
 
@@ -68,7 +74,16 @@ namespace DataflowRewriter.Noc
   def Topology.inp_len (t : Topology) (rid : t.RouterID) : Nat :=
     List.length (t.neigh_inp rid)
 
-  -- Routing policy definition -------------------------------------------------
+  def Topology.conn (t : Topology) (rid : t.RouterID) : AssocList (t.Dir_out rid) (Σ rid' : t.RouterID, t.Dir_inp rid') :=
+    t.neigh_out rid
+    -- TODO: Replace t.DirLocal_inp with a proper input
+    -- We need to handle the case where we have multiple connections with the
+    -- same router, maybe we need an accumulator saying how many times we've
+    -- encoutered stuff
+    |>.mapFinIdx (λ dir rid' Hdir => (t.mkDir_out rid dir Hdir, ⟨rid', t.DirLocal_inp⟩))
+    |>.toAssocList
+
+  -- Routing policy ------------------------------------------------------------
 
   @[simp]
   abbrev Route' (t : Topology) (Flit : Type) : Type :=
@@ -87,8 +102,6 @@ namespace DataflowRewriter.Noc
     route       : Route' t (Flit' Data FlitHeader)
     mkhead      : MkHead' t Data FlitHeader
 
-  -- Routing policy utils ------------------------------------------------------
-
   variable {t : Topology} {Data : Type}
 
   abbrev RoutingPolicy.Flit (rp : RoutingPolicy t Data) :=
@@ -100,9 +113,10 @@ namespace DataflowRewriter.Noc
   abbrev RoutingPolicy.MkHead (rp : RoutingPolicy t Data) :=
     MkHead' t Data rp.FlitHeader
 
-  -- Router definition ---------------------------------------------------------
+  -- Router --------------------------------------------------------------------
 
-  -- TODO: RouterRel' could have a `dir_inp` as a parameter
+  -- TODO: RouterRel' sould have a `Dir_inp rid` as a parameter so we know where
+  -- we got the message from
   @[simp]
   abbrev RouterRel' (netsz : Netsz) (Flit RouterState : Type) :=
     (rid : RouterID' netsz) → (old_s : RouterState) → (val : Flit) → (old_s : RouterState) → Prop
@@ -112,8 +126,6 @@ namespace DataflowRewriter.Noc
     init_state  : State
     input_rel   : RouterRel' netsz Flit State
     output_rel  : RouterRel' netsz Flit State
-
-  -- Router utils --------------------------------------------------------------
 
   abbrev Router.Rel {netsz : Netsz} {Flit : Type} (r : Router netsz Flit) :=
     RouterRel' netsz Flit r.State
