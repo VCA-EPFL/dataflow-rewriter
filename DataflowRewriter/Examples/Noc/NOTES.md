@@ -5,9 +5,6 @@
 - Maybe `netsz` should also be a parameter of the `Noc` structure instead of a
   field
 
-- The `Route` function is currently necessarily deterministic, which we don't
-  want
-
 - There is some hope that we can have definitions such as `Route_correct` inside
   the Noc definition which would allow us to guarantee that Noc are correct by
   constructions
@@ -20,9 +17,13 @@
 
 - Make a bounded Router
 
-- `Router.init_state` should be a relation
-
 - We should have a `List.foldlFinIdx`
+
+- For `BuildExpr`, we need a function `neigh_conn` or something which returns an
+  assocList of connections, we could prove this function correct separately and
+  it would be a lot easier to use
+
+## Topology
 
 - We have the problem that we don't know to which input we are connecting in the
   topology, but this is an information which could be important...
@@ -30,7 +31,19 @@
   Bijection, or we can have two function `neigh_out` and `neigh_inp` and a proof
   that they are sort of bijective
 
+- Maybe `Topology.neigh` should be called `Topology.neigh_out`
+
+- In `Topology`, we can currently only choose the ID of outgoing edges, and not
+  of in-going edges
+
+## Routing Policy
+
+- The `Route` function is currently necessarily deterministic, which we don't
+  want
+
 ## Routers
+
+- `Router.init_state` should be a relation
 
 - Non homogeneous router
 

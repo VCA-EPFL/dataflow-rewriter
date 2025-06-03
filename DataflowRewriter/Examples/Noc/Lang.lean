@@ -26,9 +26,15 @@ namespace DataflowRewriter.Noc
   abbrev Neigh' (netsz : Netsz) : Type :=
     RouterID' netsz → List (RouterID' netsz)
 
+  @[simp]
+  abbrev Neigh_ok' (netsz : Netsz) (inp : Neigh' netsz) (out : Neigh' netsz) :=
+    ∀ rid rid', List.count rid' (out rid) = List.count rid (inp rid')
+
   structure Topology where
-    netsz : Netsz
-    neigh : Neigh' netsz
+    netsz     : Netsz
+    neigh_inp : Neigh' netsz
+    neigh_out : Neigh' netsz
+    neigh_ok  : Neigh_ok' netsz neigh_inp neigh_out
 
   -- Topology utils --------------------------------------------------------------
 
@@ -41,29 +47,32 @@ namespace DataflowRewriter.Noc
   -- TODO: We need a neigh but reversed function, where we get all from other to
   -- me
   -- TODO: Maybe neigh should be called neigh_out ?
-  abbrev Topology.neigh_inp (t : Topology) : t.Neigh :=
-    λ rid =>
-    sorry
-
   -- Number of neighbors + 1 for the local output / input
   @[simp]
-  abbrev Topology.Dir (t : Topology) (src : t.RouterID) : Type :=
-    Fin (List.length (t.neigh src) + 1)
+  abbrev Topology.Dir_out (t : Topology) (src : t.RouterID) : Type :=
+    Fin (List.length (t.neigh_out src) + 1)
 
-  def Topology.DirLocal (t : Topology) {src : t.RouterID} : t.Dir src :=
+  @[simp]
+  abbrev Topology.Dir_inp (t : Topology) (src : t.RouterID) : Type :=
+    Fin (List.length (t.neigh_inp src) + 1)
+
+  def Topology.DirLocal_out (t : Topology) {src : t.RouterID} : t.Dir_out src :=
+    Fin.mk 0 (by simpa)
+
+  def Topology.DirLocal_inp (t : Topology) {src : t.RouterID} : t.Dir_inp src :=
     Fin.mk 0 (by simpa)
 
   def Topology.out_len (t : Topology) (rid : t.RouterID) : Nat :=
-    List.length (t.neigh rid)
+    List.length (t.neigh_out rid)
 
   def Topology.inp_len (t : Topology) (rid : t.RouterID) : Nat :=
-    0 -- TODO
+    List.length (t.neigh_inp rid)
 
   -- Routing policy definition -------------------------------------------------
 
   @[simp]
   abbrev Route' (t : Topology) (Flit : Type) : Type :=
-    (cur : t.RouterID) → (flit : Flit) → (t.Dir cur × Flit)
+    (cur : t.RouterID) → (flit : Flit) → (t.Dir_out cur × Flit)
 
   @[simp]
   abbrev Flit' (Data : Type) (FlitHeader : Type) : Type :=
@@ -93,7 +102,7 @@ namespace DataflowRewriter.Noc
 
   -- Router definition ---------------------------------------------------------
 
-  -- TODO: RouterRel' should have a `dir` as a parameter
+  -- TODO: RouterRel' could have a `dir_inp` as a parameter
   @[simp]
   abbrev RouterRel' (netsz : Netsz) (Flit RouterState : Type) :=
     (rid : RouterID' netsz) → (old_s : RouterState) → (val : Flit) → (old_s : RouterState) → Prop
@@ -131,15 +140,23 @@ namespace DataflowRewriter.Noc
     n.topology.RouterID
 
   @[simp]
-  abbrev Noc.Dir (n : Noc Data) :=
-    n.topology.Dir
+  abbrev Noc.Dir_out (n : Noc Data) :=
+    n.topology.Dir_out
+
+  @[simp]
+  abbrev Noc.Dir_inp (n : Noc Data) :=
+    n.topology.Dir_inp
 
   @[simp]
   abbrev Noc.Flit (n : Noc Data) :=
     n.routing_pol.Flit
 
   @[simp]
-  abbrev Noc.Rel (n : Noc Data) (T : Type) :=
-    (rid : n.RouterID) → (dir : n.Dir rid) → (old_s : n.State) → (val : T) → (old_s : n.State) → Prop
+  abbrev Noc.Rel_out (n : Noc Data) (T : Type) :=
+    (rid : n.RouterID) → (dir : n.Dir_out rid) → (old_s : n.State) → (val : T) → (old_s : n.State) → Prop
+
+  @[simp]
+  abbrev Noc.Rel_inp (n : Noc Data) (T : Type) :=
+    (rid : n.RouterID) → (dir : n.Dir_out rid) → (old_s : n.State) → (val : T) → (old_s : n.State) → Prop
 
 end DataflowRewriter.Noc

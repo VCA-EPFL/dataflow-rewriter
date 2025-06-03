@@ -20,43 +20,44 @@ variable {Data : Type} [BEq Data] [LawfulBEq Data]
 
 -- Router ----------------------------------------------------------------------
 
-def Noc.mk_spec_router_input_rule0 (n : Noc Data) (rid : n.RouterID) : RelIO n.routers.State :=
-    ⟨
-      Data × n.topology.RouterID,
-      λ old_s val new_s =>
-        n.routers.input_rel rid old_s (val.1, (n.routing_pol.mkhead rid val.2 val.1)) new_s
-    ⟩
+def Noc.mk_spec_router_input_rule_z (n : Noc Data) (rid : n.RouterID) : RelIO n.routers.State :=
+  ⟨
+    Data × n.topology.RouterID,
+    λ old_s val new_s =>
+      n.routers.input_rel rid old_s (val.1, (n.routing_pol.mkhead rid val.2 val.1)) new_s
+  ⟩
 
-def Noc.mk_spec_router_input_rule (n : Noc Data) (rid : n.RouterID) : RelIO n.routers.State :=
-    ⟨n.routing_pol.Flit, n.routers.input_rel rid⟩
+def Noc.mk_spec_router_input_rule_s (n : Noc Data) (rid : n.RouterID) : RelIO n.routers.State :=
+  ⟨n.routing_pol.Flit, n.routers.input_rel rid⟩
+
+def Noc.mk_spec_router_input_rule (n : Noc Data) (rid : n.RouterID) (dir : n.Dir_inp rid) : RelIO n.routers.State :=
+  if dir = n.topology.DirLocal_inp
+  then n.mk_spec_router_input_rule_z rid
+  else n.mk_spec_router_input_rule_s rid
 
 def Noc.mk_spec_router_output_rule_z (n : Noc Data) (rid : n.RouterID) : RelIO n.routers.State :=
-    ⟨
-      Data,
-      λ old_s val new_s => ∃ head,
-        n.router_output_rel rid n.topology.DirLocal old_s (val, head) new_s
-    ⟩
+  ⟨
+    Data,
+    λ old_s val new_s => ∃ head,
+      n.router_output_rel rid n.topology.DirLocal_out old_s (val, head) new_s
+  ⟩
 
-def Noc.mk_spec_router_output_rule_s (n : Noc Data) (rid : n.RouterID) (dir : n.Dir rid) : RelIO n.routers.State :=
-    ⟨
-      n.Flit,
-      λ old_s val new_s =>
-        n.router_output_rel rid dir old_s val new_s
-    ⟩
+def Noc.mk_spec_router_output_rule_s (n : Noc Data) (rid : n.RouterID) (dir : n.Dir_out rid) : RelIO n.routers.State :=
+  ⟨n.Flit, λ old_s val new_s => n.router_output_rel rid dir old_s val new_s⟩
 
-def Noc.mk_spec_router_output_rule (n : Noc Data) (rid : n.RouterID) (dir : n.Dir rid) : RelIO n.routers.State :=
-  if dir = n.topology.DirLocal then n.mk_spec_router_output_rule_z rid else
+def Noc.mk_spec_router_output_rule (n : Noc Data) (rid : n.RouterID) (dir : n.Dir_out rid) : RelIO n.routers.State :=
+  if dir = n.topology.DirLocal_out then n.mk_spec_router_output_rule_z rid else
     n.mk_spec_router_output_rule_s rid dir
 
 def Noc.spec_router' (n : Noc Data) (rid : n.topology.RouterID) : NatModule n.routers.State :=
   {
-    inputs      := sorry -- Need list of neighbors but from them to me
-    outputs     := RelIO.liftFinf ((n.topology.neigh rid).length + 1) (n.mk_spec_router_output_rule rid)
+    inputs      := RelIO.liftFinf ((n.topology.neigh_inp rid).length + 1) (n.mk_spec_router_input_rule rid)
+    outputs     := RelIO.liftFinf ((n.topology.neigh_out rid).length + 1) (n.mk_spec_router_output_rule rid)
     init_state  := λ s => s = n.routers.init_state
   }
 
 @[drcomponents]
-def Noc.spec_router (n : Noc Data) (rid : n.topology.RouterID) (m : NatModule n.routers.State) : StringModule (n.routers.State) :=
+def Noc.spec_router (n : Noc Data) (rid : n.topology.RouterID) : StringModule (n.routers.State) :=
   n.spec_router' rid |>.mapIdent (router_stringify_inp n rid) (router_stringify_out n rid)
 
 -- Bag -------------------------------------------------------------------------

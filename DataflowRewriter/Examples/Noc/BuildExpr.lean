@@ -30,25 +30,19 @@ namespace DataflowRewriter.Noc
   def router_stringify_out (n : Noc Data) (rid : n.topology.RouterID) (dir : Nat) :=
     s!"Router {rid} out{dir}"
 
-  @[drcomponents]
+  @[drunfold_defs]
   def Noc.build_expr (n : Noc Data) : ExprLow String :=
 
-    let RouterID :=
-      n.topology.RouterID
-
-    let Dir (rid : RouterID) :=
-      n.topology.Dir rid
-
-    let router_internal (rid : RouterID) :=
+    let router_internal (rid : n.RouterID) :=
       InstIdent.internal (router_name n rid)
 
-    let router_out (rid : RouterID) (dir : Dir rid) : InternalPort String :=
+    let router_out (rid : n.RouterID) (dir : n.Dir_out rid) : InternalPort String :=
       { inst := router_internal rid, name := NatModule.stringify_output dir }
 
-    let router_inp (rid : RouterID) (dir : Dir rid) : InternalPort String :=
+    let router_inp (rid : n.RouterID) (dir : n.Dir_inp rid) : InternalPort String :=
       { inst := router_internal rid, name := NatModule.stringify_input dir }
 
-    let mkrouter (rid : RouterID) : ExprLow String :=
+    let mkrouter (rid : n.RouterID) : ExprLow String :=
       .base
         {
             input :=
@@ -69,7 +63,7 @@ namespace DataflowRewriter.Noc
     let mkrouters (acc : ExprLow String) : ExprLow String :=
       List.foldl (λ acc i => .product acc (mkrouter i)) acc (fin_range n.topology.netsz)
 
-    let mkconn (acc : ExprLow String) (rid : RouterID) : ExprLow String :=
+    let mkconn (acc : ExprLow String) (rid : n.RouterID) : ExprLow String :=
       List.foldlIdx
         (λ dir acc rid' => .connect
           -- TODO: Check if we need to add 1 to the dir? I think we need to
@@ -78,7 +72,7 @@ namespace DataflowRewriter.Noc
             input   := sorry -- TODO: How do we know to which port of rid' we are connected?
           }
           acc)
-        acc (n.topology.neigh rid)
+        acc (n.topology.neigh_out rid)
 
     let mkconns (acc : ExprLow String) : ExprLow String :=
       List.foldl mkconn acc (fin_range n.topology.netsz)
