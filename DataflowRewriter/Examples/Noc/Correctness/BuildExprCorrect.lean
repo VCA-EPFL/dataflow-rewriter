@@ -42,19 +42,38 @@ namespace DataflowRewriter.Noc
 
   abbrev mod := NatModule.stringify n.build_module
 
+  theorem tmodule_renamePorts_1 {Ident} [DecidableEq Ident] (a : TModule Ident) (p : PortMapping Ident) :
+     (⟨a.1, a.2.renamePorts p⟩ : TModule Ident).1 = a.1 := by rfl
+
+  theorem tmodule_renamePorts_2 {Ident} [DecidableEq Ident] (a : TModule Ident) (p : PortMapping Ident) :
+     (⟨a.1, a.2.renamePorts p⟩ : TModule Ident).2 = a.2.renamePorts p := by rfl
+
+  theorem foldl_connect {Ident α} [DecidableEq Ident] (acc : TModule Ident) (l : List α) (f g : α → InternalPort Ident) :
+    (List.foldl (λ acc i => ⟨acc.1, Module.connect' acc.2 (f i) (g i)⟩) acc l).1 = acc.1 := by
+      induction l generalizing acc with
+      | nil => rfl
+      | cons hd tl HR => simpa only [List.foldl_cons, HR]
+
   def_module expT : Type := [T| n.build_expr, ε] reduction_by
     dsimp [drunfold_defs, drcomponents]
     dsimp [ExprLow.build_module_type]
-    rw [ExprLow.build_module_foldl]
-    rw [Module.foldl_acc_plist]
+    rw [ExprLow.build_module_connect_foldl]
+    rw [ExprLow.build_module_product_foldl]
     dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
     rw [EC.empty_in_ε]
     conv =>
       pattern List.foldl _ _
+      arg 2
       arg 1
       intro acc i
-      rhs
       rw [←router_name, EC.rmod_in_ε i]
+      dsimp
+    rw [foldl_connect]
+    -- We need tmodule_renamePorts rewrites here to apply foldl_acc_plist
+    -- but dependent types are killing me
+    -- rw [←tmodule_renamePorts_2]
+    -- rw [←tmodule_renamePorts_1]
+    -- rw [Module.foldl_acc_plist]
     simp only [drenv, drcompute]
 
   def_module expM : Module String (expT n ε) := [e| n.build_expr, ε] reduction_by

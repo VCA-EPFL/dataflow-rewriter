@@ -96,9 +96,8 @@ def Noc.spec_bag (n : Noc Data) (name := "spec_bag") : NatModule (NatModule.Name
 
 instance (n : Noc Data) : MatchInterface n.build_module n.spec_bag := by
   apply MatchInterface_simpler
-  <;> simp only [drcomponents, RelIO_mapVal]
   <;> intros _
-  <;> exact True.intro
+  <;> simpa only [drcomponents, RelIO.mapVal]
 
 instance (n : Noc Data) : MatchInterface n.spec_bag n.build_module := by
   apply MatchInterface_symmetric
@@ -140,9 +139,8 @@ def Noc.spec_mqueue (n : Noc Data) (name := "spec_mqueue") : NatModule (NatModul
 
 instance (n : Noc Data) : MatchInterface n.build_module n.spec_mqueue := by
   apply MatchInterface_simpler
-  <;> simp only [drcomponents, RelIO_mapVal]
   <;> intros _
-  <;> exact True.intro
+  <;> simpa only [drcomponents, RelIO.mapVal]
 
 instance (n : Noc Data) : MatchInterface n.spec_mqueue n.build_module := by
   apply MatchInterface_symmetric

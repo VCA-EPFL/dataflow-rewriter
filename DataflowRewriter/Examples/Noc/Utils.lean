@@ -64,9 +64,8 @@ namespace DataflowRewriter.Noc
   theorem RelIO.liftFinf_get {S} {n : Nat} {i : Fin n} {f : Fin n → RelIO S}:
     (RelIO.liftFinf n f).getIO i = f i := by sorry
 
-  theorem RelIO_mapVal {α β} {n : Nat} {f : Fin n → α} {g : α → β} :
-    AssocList.mapVal (λ _ => g) (RelIO.liftFinf n f) = RelIO.liftFinf n (λ i => g (f i)) :=
-    by
+  theorem RelIO.mapVal {α β} {n : Nat} {f : Fin n → α} {g : α → β} :
+    AssocList.mapVal (λ _ => g) (RelIO.liftFinf n f) = RelIO.liftFinf n (λ i => g (f i)) := by
       dsimp [RelIO.liftFinf, fin_range]
       rw [AssocList.mapVal_map_toAssocList]
 
@@ -179,5 +178,32 @@ namespace DataflowRewriter.Noc
         --   sorry
         -- sorry
         sorry
+
+  -- Random --------------------------------------------------------------------
+
+  theorem list_foldl_foldl_map {α β γ} {l : List (List α)} {h : List α → List β}
+  {g : γ → γ} {f : γ → β → γ} {acc : γ} :
+    List.foldl (λ acc i => List.foldl f (g acc) (h i)) acc l
+    = List.foldl (λ acc i => List.foldl f (g acc) i) acc (List.map h l) := by
+      induction l generalizing acc with
+      | nil => rfl
+      | cons hd tl HR => simpa [HR]
+
+  -- theorem list_foldl_foldl_map {α β γ} {l : List (List α)} {h : List α → List β}
+  -- {g : γ → γ} {f : γ → β → γ} {acc : γ} :
+  --   List.foldl (λ acc i => List.foldl f (g acc) i) acc (List.map h l)
+  --   = ???
+  --    := by sorry
+
+  -- Problem: We need to get rid of the inside `g acc`, meaning we need to have
+  -- it below...
+  -- We can do it by folding with a new function which applies `g` to the acc ?
+
+  theorem list_foldl_foldl_flatten {α β} {l : List (List α)} {f} {acc : β} :
+  List.foldl (λ acc i => List.foldl f acc i) acc l = List.foldl f acc l.flatten
+  := by
+    induction l generalizing acc with
+    | nil => rfl
+    | cons hd tl HR => simpa [HR]
 
 end DataflowRewriter.Noc

@@ -1342,14 +1342,14 @@ theorem refines_renamePorts {I S} {imod : Module Ident I} {smod : Module Ident S
 
 end Refinement
 
-def dproduct {Ident} (a b : TModule1 Ident) : TModule1 Ident :=
+def dproduct {Ident} (a b : TModule Ident) : TModule Ident :=
   ⟨a.1 × b.1, Module.product a.2 b.2⟩
 
 theorem dproduct_1 {Ident} (a b : TModule Ident) :
   (dproduct a b).1 = (a.1 × b.1) := by rfl
 
 theorem foldl_acc_plist {Ident α} (acc : TModule Ident) (l : List α) (f : α → TModule1 Ident):
-  ((List.foldl (λ acc i => ⟨acc.1 × (f i).1, Module.product acc.2 (f i).2⟩) acc l) : TModule1 Ident).1
+  ((List.foldl (λ acc i => ⟨acc.1 × (f i).1, acc.2.product (f i).2⟩) acc l) : TModule1 Ident).1
   = (List.foldl (λ acc i => acc × (f i).1) acc.1 l) := by
     induction l generalizing acc with
     | nil => rfl

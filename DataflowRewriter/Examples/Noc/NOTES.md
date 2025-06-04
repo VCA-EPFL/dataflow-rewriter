@@ -23,6 +23,10 @@
 
 - `UnboundedQueueInUnboundedBag` could be proven using `RouterIn`
 
+- We want to simplify as much as possible the `BuildExpr` function.
+  Avoiding having to rely on complex `bijectivePortRenaming` and custom
+  `stringify` functions could be of great help
+
 ## Topology
 
 - We have the problem that we don't know to which input we are connecting in the

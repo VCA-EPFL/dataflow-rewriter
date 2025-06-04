@@ -60,21 +60,23 @@ namespace DataflowRewriter.Noc
     let mkrouters (acc : ExprLow String) : ExprLow String :=
       List.foldl (λ acc i => .product acc (mkrouter i)) acc (fin_range n.topology.netsz)
 
-    let mkconn (acc : ExprLow String) (rid : n.RouterID) : ExprLow String :=
-      AssocList.foldl
-        (λ acc dir_out inp =>
+    let mkconns (acc : ExprLow String) : ExprLow String :=
+      List.foldl
+        (λ acc c  =>
+          let rid_out := c.1
+          let rid_inp := c.2.1
+          let dir_out := c.2.2.1
+          let dir_inp := c.2.2.2
           .connect
             {
-              output  := router_out rid dir_out
-              input   := router_inp inp.1 inp.2
+              output  := router_out rid_out dir_out
+              input   := router_inp rid_inp dir_inp
             }
           acc)
-        acc (n.topology.conn rid)
-
-    let mkconns (acc : ExprLow String) : ExprLow String :=
-      List.foldl mkconn acc (fin_range n.topology.netsz)
+        acc n.topology.conns
 
     .base { input := .nil, output := .nil } "empty"
     |> mkrouters
+    |> mkconns
 
 end DataflowRewriter.Noc
