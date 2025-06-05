@@ -382,7 +382,6 @@ by
     cases h₂
     . rename_i h₁ h₂
       simp at h₁ h₂
-
       sorry -- TODO: Reasoning about the length again?
     . rename_i h₁ h₂
       simp at h₁ h₂
@@ -431,7 +430,7 @@ by
 ---------------------------------------------------------------------------------------------------
 
 theorem lhs_can_always_flush:
-  ∀ s, ∃ s', existSR (lhsModule T₁ T₂ T₃).internals s s' ∧ partially_flushed s' :=
+  ∀ s, ∃ s', existSR (lhsModule T₁ T₂ T₃).internals s s' ∧ pf (lhsModule T₁ T₂ T₃) s' :=
 by
   intro ⟨⟨l1, l2⟩, ⟨l3, l4⟩⟩
   induction l3 generalizing l1 l2 l4 with
@@ -439,13 +438,14 @@ by
     apply Exists.intro
     and_intros
     . apply existSR_reflexive
-    . constructor
+    . apply partially_flushed_is_pf <;>
+      constructor
   | cons x xs ih =>
     cases l4
     . apply Exists.intro
       and_intros
       . apply existSR_reflexive
-      . constructor
+      . apply partially_flushed_is_pf <;> constructor
     . rename_i head tail
       specialize ih (l1 ++ [(x, head)]) l2 tail
       obtain ⟨ ⟨⟨_, _⟩, ⟨_, _⟩⟩, _, _⟩ := ih
@@ -494,7 +494,7 @@ by
   have: ∃ s₂, ((lhsModule T₁ T₂ T₃).inputs.getIO ident).snd s₁ ((flushed_preserves_input_over_getIO (lhsModule T₁ T₂ T₃) ident).mp v) s₂ := by
     apply lhs_can_always_input <;> assumption
   obtain ⟨s₃, h⟩ := this
-  have: ∃ s', existSR (lhsModule T₁ T₂ T₃).internals s₃ s' ∧ partially_flushed s' := by
+  have: ∃ s', existSR (lhsModule T₁ T₂ T₃).internals s₃ s' ∧ pf (lhsModule T₁ T₂ T₃) s' := by
     apply lhs_can_always_flush
   have ⟨s₄, _, _⟩ := this
   use s₄
@@ -505,10 +505,7 @@ by
   rw [sigma_rw this]
   dsimp [rflushed]
   use s₃
-  and_intros
-  . assumption
-  . assumption
-  . apply partially_flushed_is_pf <;> assumption
+  and_intros <;> assumption
 
 ---------------------------------------------------------------------------------------------------
 ----------
@@ -563,7 +560,7 @@ by
       contradiction
 
 ---------------------------------------------------------------------------------------------------
---------------------------------------- LHS SPECIFIC LEMMAS ---------------------------------------
+--------------------------------------- LHS IS DETERMINISTIC --------------------------------------
 ---------------------------------------------------------------------------------------------------
 
 theorem input_rules_deterministic: ∀ ident s₁ v s₂ s₃,
@@ -587,7 +584,7 @@ by
   . exfalso; exact (PortMap.getIO_not_contained_false (by assumption) HContains)
 
 theorem internal_rules_deterministic:
-  ∀ rule ∈ (lhsModule T₁ T₂ T₃).internals, ∀ s₁ s₂ s₃, rule s₁ s₂ → rule s₁ s₃ → s₂ = s₃ :=
+  ∀ rule ∈ (lhsModule T₁ T₂ T₃).internals , ∀ s₁ s₂ s₃, rule s₁ s₂ → rule s₁ s₃ → s₂ = s₃ :=
 by
   intro _ _ ⟨⟨_ , _⟩, ⟨_ , _⟩⟩ ⟨⟨_ , _⟩, ⟨_ , _⟩⟩ ⟨⟨_ , _⟩, ⟨_ , _⟩⟩ h₁ h₂
   simp [lhsModule] at *
@@ -618,6 +615,10 @@ by
       try subst_vars
     rfl
   . exfalso; exact (PortMap.getIO_not_contained_false (by assumption) HContains)
+
+---------------------------------------------------------------------------------------------------
+--------------------------------------- LHS SPECIFIC LEMMAS ---------------------------------------
+---------------------------------------------------------------------------------------------------
 
 theorem hamza₂: ∀ rule ∈ (lhsModule T₁ T₂ T₃).internals, ∀ ident s₁ v s₂ s₃,
   ((lhsModule T₁ T₂ T₃).inputs.getIO ident).snd s₁ v s₂
@@ -796,12 +797,6 @@ by
 -----------
 ---------------------------------------------------------------------------------------------------
 
--- TODO: Was called bll₂
-theorem flushed_preserves_input_over_getIO' {Ident S: Type _} [DecidableEq Ident] (mod: Module Ident S):
-  ∀ ident, (mod.inputs.getIO ident).fst = ((flushed mod).inputs.getIO ident).fst :=
-by
-  intro; symm; apply flushed_preserves_input_over_getIO
-
 theorem bll'₂ {Ident S: Type _} [DecidableEq Ident] (mod: Module Ident S): ∀ ident s₁ v s₂ s₃,
   (mod.inputs.getIO ident).snd s₁ v s₂
   → existSR (mod.internals) s₂ s₃
@@ -823,24 +818,11 @@ theorem abc: ∀ ident s₁ v s₂,
   → ∃ s₃, ((flushed (lhsModule T₁ T₂ T₃)).inputs.getIO ident).snd s₁ ((flushed_preserves_input_over_getIO' (lhsModule T₁ T₂ T₃) ident).mp v) s₃ :=
 by
   intros ident _ _ s₂ _
-  have: ∃ s₃, existSR (lhsModule T₁ T₂ T₃).internals s₂ s₃ ∧ partially_flushed s₃ := by
+  have: ∃ s₃, existSR (lhsModule T₁ T₂ T₃).internals s₂ s₃ ∧ pf (lhsModule T₁ T₂ T₃) s₃ := by
       apply lhs_can_always_flush s₂
   obtain ⟨s₃, _, h⟩ := this
-  apply partially_flushed_is_pf at h
   use s₃
   apply bll'₂ <;> assumption
-
-theorem abc₃: ∀ ident s₁ v s₂ s₃,
-  ((lhsModule T₁ T₂ T₃).inputs.getIO ident).snd s₁ v s₂
-  → ((flushed (lhsModule T₁ T₂ T₃)).inputs.getIO ident).snd s₁ ((flushed_preserves_input_over_getIO' (lhsModule T₁ T₂ T₃) ident).mp v) s₃
-  → existSR (lhsModule T₁ T₂ T₃).internals s₂ s₃ :=
-by
-  intros _ s₁ _ s₂ s₃ _ h
-  apply flushed_reachable_from_nonflushed
-  . simp at *
-    assumption
-  . simp at *
-    assumption
 
 theorem bll'₃: ∀ ident s v s',
   ((lhsModule T₁ T₂ T₃).inputs.getIO ident).snd s v s'
@@ -984,7 +966,7 @@ theorem refines₀: rhsModule T₁ T₂ T₃ p⊑_{φ} lhsModule T₁ T₂ T₃ 
                 . assumption
                 . rfl
               . assumption
-            . assumption
+            . apply pf_is_partially_flushed <;> assumption
       . obtain ⟨⟨⟨_, _⟩, _⟩, ⟨_, _⟩, _⟩ := a
         subst_vars
         reduce at s
@@ -1008,7 +990,7 @@ theorem refines₀: rhsModule T₁ T₂ T₃ p⊑_{φ} lhsModule T₁ T₂ T₃ 
                   assumption
                 . rfl
               . assumption
-            . assumption
+            . apply pf_is_partially_flushed <;> assumption
       . obtain ⟨⟨⟨_, _⟩, _⟩, ⟨_, _⟩, _⟩ := a
         subst_vars
         reduce at s
@@ -1031,7 +1013,7 @@ theorem refines₀: rhsModule T₁ T₂ T₃ p⊑_{φ} lhsModule T₁ T₂ T₃ 
                 . assumption
                 . simp only [<- List.append_assoc, List.append_left_inj] at *
               . assumption
-            . assumption
+            . apply pf_is_partially_flushed <;> assumption
     . exfalso; exact (PortMap.getIO_not_contained_false a HContains)
   -- output rules
   . intro ident i v hrule
@@ -1126,37 +1108,6 @@ theorem refines₀: rhsModule T₁ T₂ T₃ p⊑_{φ} lhsModule T₁ T₂ T₃ 
         . assumption
         . apply existSR_single_step' <;> assumption
       . assumption
-
----------------------------------------------------------------------------------------------------
---------------- FORANY MODULE, IT'S FLUSHED VERSION REFINES THE NON-FLUSHED VERSION ---------------
----------------------------------------------------------------------------------------------------
-
-theorem refines₁ {Ident S: Type _} [DecidableEq Ident] (mod: Module Ident S): flushed mod p⊑_{Eq} mod := by
-  unfold Module.prefines_φ
-  intro init_i init_s Hφ
-  subst_vars
-  apply Module.pcomp_refines.mk
-  -- input rules
-  . intro _ mid_i v h
-    apply bll at h
-    obtain ⟨s', _, _⟩ := h
-    use s', mid_i
-  -- output rules
-  . intro _ mid_i _ _
-    use mid_i
-    and_intros
-    . simp only [flushed, eq_mp_eq_cast, cast_eq] at *
-      assumption
-    . rfl
-  -- internal rules
-  . intro _ mid_i _ _
-    use mid_i
-    and_intros
-    . apply existSR.step
-      . simp only [flushed, List.not_mem_nil] at *
-      . assumption
-      . apply existSR_reflexive
-    . rfl
 
 ---------------------------------------------------------------------------------------------------
 ------------------- FLUSHED, INDUCTIVE, OVER LHS PROOF THAT (LHS ⊑ FLUSHED LHS) -------------------

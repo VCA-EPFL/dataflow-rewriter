@@ -72,6 +72,11 @@ by
   iterate 2 rw [Batteries.AssocList.find?_map_comm]
   rw [preserves_input_types]
 
+theorem flushed_preserves_input_over_getIO' {Ident S: Type _} [DecidableEq Ident] (mod: Module Ident S):
+  ∀ ident, (mod.inputs.getIO ident).fst = ((flushed mod).inputs.getIO ident).fst :=
+by
+  intro; symm; apply flushed_preserves_input_over_getIO
+
 theorem flushed_preserves_ports:
   ∀ ident, (flushed mod).inputs.contains ident ↔ mod.inputs.contains ident :=
 by
