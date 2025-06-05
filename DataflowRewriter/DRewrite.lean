@@ -112,7 +112,7 @@ def castBack? (e te x h : Expr) : MetaM (Option Expr) := do
       mkLambdaFVars #[x', h'] <| te.replaceFVars #[x, h] #[x', ← mkEqTrans h h']
   some <$> mkEqRec motive e (← mkEqSymm h)
 
-def withSubst? (x tx : Expr) (k : M α) : M α := do
+def withSubst? {α} (x tx : Expr) (k : M α) : M α := do
   let ctx ← read
   match ← castBack? x tx ctx.x ctx.h with
   | some e =>

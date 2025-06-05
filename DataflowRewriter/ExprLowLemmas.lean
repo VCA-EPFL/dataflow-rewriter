@@ -692,7 +692,7 @@ universe v w
 variable {Ident : Type w}
 variable [DecidableEq Ident]
 
-variable (ε : IdentMap Ident ((T : Type _) × Module Ident T))
+variable (ε : IdentMap Ident (TModule Ident))
 
 variable {S : Type v}
 variable (smod : Module Ident S)

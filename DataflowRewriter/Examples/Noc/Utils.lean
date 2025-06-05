@@ -71,8 +71,6 @@ namespace DataflowRewriter.Noc
 
   -- RelInt --------------------------------------------------------------------
 
-  @[simp] abbrev RelInt (S : Type) := S → S → Prop
-
   def RelInt.liftFinf {S : Type} (n : Nat) (f : Fin n → List (RelInt S)) : List (RelInt S) :=
     fin_range n |>.map f |>.flatten
 

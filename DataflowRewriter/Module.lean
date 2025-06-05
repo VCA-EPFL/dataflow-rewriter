@@ -33,10 +33,10 @@ inductive existSR {S : Type _} (rules : List (S → S → Prop)) : S → S → P
     existSR rules init final
 
 /-- Input/Output relation --/
-@[simp] abbrev RelIO (S : Type) := Σ T : Type, S → T → S → Prop
+@[simp] abbrev RelIO (S : Type _) := Σ T : Type, S → T → S → Prop
 
 /-- Internal relation --/
-@[simp] abbrev RelInt (S : Type) := S → S → Prop
+@[simp] abbrev RelInt (S : Type _) := S → S → Prop
 
 /--
 `Module` definition, which is our definition of circuit semantics.  It can have inputs and outputs, which are maps from

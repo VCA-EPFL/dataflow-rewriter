@@ -243,10 +243,10 @@ theorem MatchInterface_mapOutputPorts {I S} {imod : Module Ident I}
 
 end Match
 
-theorem existSR_reflexive {S} {rules : List (S → S → Prop)} {s} :
+theorem existSR_reflexive {S} {rules : List (RelInt S)} {s} :
   existSR rules s s := existSR.done s
 
-theorem existSR_transitive {S} (rules : List (S → S → Prop)) :
+theorem existSR_transitive {S} (rules : List (RelInt S)) :
   ∀ s₁ s₂ s₃,
     existSR rules s₁ s₂ →
     existSR rules s₂ s₃ →
@@ -255,7 +255,7 @@ theorem existSR_transitive {S} (rules : List (S → S → Prop)) :
   induction He1 generalizing s₃; assumption
   constructor; all_goals solve_by_elim
 
-theorem existSR_append_left {S} (rules₁ rules₂ : List (S → S → Prop)) :
+theorem existSR_append_left {S} (rules₁ rules₂ : List (RelInt S)) :
   ∀ s₁ s₂,
     existSR rules₁ s₁ s₂ →
     existSR (rules₁ ++ rules₂) s₁ s₂ := by
@@ -265,7 +265,7 @@ theorem existSR_append_left {S} (rules₁ rules₂ : List (S → S → Prop)) :
   | step init mid final rule hrulein hrule hex =>
     apply existSR.step (rule := rule) (mid := mid) <;> simp [*]
 
-theorem existSR_append_right {S} (rules₁ rules₂ : List (S → S → Prop)) :
+theorem existSR_append_right {S} (rules₁ rules₂ : List (RelInt S)) :
   ∀ s₁ s₂,
     existSR rules₂ s₁ s₂ →
     existSR (rules₁ ++ rules₂) s₁ s₂ := by
@@ -275,7 +275,7 @@ theorem existSR_append_right {S} (rules₁ rules₂ : List (S → S → Prop)) :
   | step init mid final rule hrulein hrule hex =>
     apply existSR.step (rule := rule) (mid := mid) <;> simp [*]
 
-theorem existSR_liftL' {S T} (rules : List (S → S → Prop)) :
+theorem existSR_liftL' {S T} (rules : List (RelInt S)) :
   ∀ s₁ s₂ (t₁ : T),
     existSR rules s₁ s₂ →
     existSR (rules.map Module.liftL') (s₁, t₁) (s₂, t₁) := by
@@ -287,7 +287,7 @@ theorem existSR_liftL' {S T} (rules : List (S → S → Prop)) :
     simp; exists rule
     simp [*, Module.liftL']
 
-theorem existSR_liftR' {S T} (rules : List (S → S → Prop)) :
+theorem existSR_liftR' {S T} (rules : List (RelInt S)) :
   ∀ s₁ s₂ (t₁ : T),
     existSR rules s₁ s₂ →
     existSR (rules.map Module.liftR') (t₁, s₁) (t₁, s₂) := by
@@ -299,7 +299,7 @@ theorem existSR_liftR' {S T} (rules : List (S → S → Prop)) :
     simp; exists rule
     simp [*, Module.liftR']
 
-theorem existSR_cons {S} {r} {rules : List (S → S → Prop)} :
+theorem existSR_cons {S} {r} {rules : List (RelInt S)} :
   ∀ s₁ s₂,
     existSR rules s₁ s₂ →
     existSR (r :: rules) s₁ s₂ := by
@@ -1342,24 +1342,47 @@ theorem refines_renamePorts {I S} {imod : Module Ident I} {smod : Module Ident S
 
 end Refinement
 
-def dproduct {Ident} (a b : TModule Ident) : TModule Ident :=
-  ⟨a.1 × b.1, Module.product a.2 b.2⟩
+variable {Ident}
+variable {α : Type _}
+variable {β : Type _ → Type _}
 
-theorem dproduct_1 {Ident} (a b : TModule Ident) :
-  (dproduct a b).1 = (a.1 × b.1) := by rfl
+@[simp]
+abbrev dep_foldl (acc : Σ S, β S) (l : List α) (f : Type _ → α → Type _) (g : (acc : Σ S, β S) → (i : α) → β (f acc.1 i)) :=
+  List.foldl (λ acc i => ⟨f acc.1 i, g acc i⟩) acc l
 
-theorem foldl_acc_plist {Ident α} (acc : TModule Ident) (l : List α) (f : α → TModule1 Ident):
-  ((List.foldl (λ acc i => ⟨acc.1 × (f i).1, acc.2.product (f i).2⟩) acc l) : TModule1 Ident).1
-  = (List.foldl (λ acc i => acc × (f i).1) acc.1 l) := by
+theorem dep_foldl_1 acc l (f : Type _ → α → Type _) (g : (acc : Σ S, β S) → (i : α) → β (f acc.1 i)) :
+  (dep_foldl acc l f g).1 = List.foldl f acc.1 l := by
     induction l generalizing acc with
     | nil => rfl
-    | cons x xs ih =>
-      dsimp
-      conv =>
-        pattern (Sigma.fst _ × Sigma.fst _)
-        rw [←dproduct_1]
-      rw [←ih (acc := dproduct acc (f x))]
-      rfl
+    | cons x xs ih => dsimp [dep_foldl] at *; rw [ih]
+
+def foldl_int {α} := dep_foldl (α := α) (β := λ S => List (RelInt S))
+def foldl_io {α} := dep_foldl (α := α) (β := λ S => PortMap Ident (RelIO S))
+
+-- def foldl_init_state (acc : TModule1 Ident) (l : List α) (f : α → Type) (g : (i : α) → Module Ident (f i)) : Σ (S : Type _), S → Prop :=
+--   List.foldl
+--     (λ (acc : Σ S, S → Prop) i =>
+--       (⟨acc.1 × (f i), λ s => acc.2 s.1 ∧ (g i).init_state s.2⟩ : Σ S, S → Prop)
+--     )
+--     (⟨acc.1, acc.2.init_state⟩ : Σ S, S → Prop)
+--     l
+
+-- -- TODO: Could this be generalized like above? Maybe…
+-- -- Current problem is that we actually need mutiple g: We cannot have cross
+-- -- dependency between inputs, outputs, internals and init_state for this
+-- -- simplification to work
+-- theorem foldl_acc_plist_2 (acc : TModule1 Ident) (l : List α) (f : Type → α → Type)
+--   (g : (acc : TModule1 Ident) → (i : α) → Module Ident (f acc.1 i))
+--   :
+--   (List.foldl (λ acc i => ⟨f acc.1 i, g acc i⟩) acc l).2
+--   =
+--     {
+--       inputs := (foldl_io ⟨acc.1, acc.2.inputs⟩ l f g).2
+--       outputs := (foldl_outputs_cast acc l f g).mp (foldl_outputs acc l f g).2
+--       internals := (foldl_internal' acc l f (λ acc i => (g acc i).internals)).2
+--       init_state := (foldl_init_state_cast acc l f g).mp (foldl_init_state acc l f g).2
+--     } := by
+--       sorry
 
 end Module
 end DataflowRewriter

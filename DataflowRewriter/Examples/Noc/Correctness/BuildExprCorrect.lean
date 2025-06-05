@@ -10,6 +10,7 @@ import DataflowRewriter.ModuleReduction
 import DataflowRewriter.ExprLow
 import DataflowRewriter.ExprLowLemmas
 import DataflowRewriter.Component
+import DataflowRewriter.DRewrite
 import DataflowRewriter.Examples.Noc.Utils
 import DataflowRewriter.Examples.Noc.Lang
 import DataflowRewriter.Examples.Noc.Spec
@@ -54,6 +55,16 @@ namespace DataflowRewriter.Noc
       | nil => rfl
       | cons hd tl HR => simpa only [List.foldl_cons, HR]
 
+  variable {α : Type _}
+  variable {β : Type _ → Type _}
+
+  theorem dep_foldl_1 (acc : Σ S, β S) (l : List α) (f : Type _ → α → Type _) (g : (acc : Σ S, β S) → (i : α) → β (f acc.1 i)) :
+    (List.foldl (λ acc i => ⟨f acc.1 i, g acc i⟩) acc l).1
+    = List.foldl f acc.1 l := by
+      induction l generalizing acc with
+      | nil => rfl
+      | cons x xs ih => dsimp at *; rw [ih]
+
   def_module expT : Type := [T| n.build_expr, ε] reduction_by
     dsimp [drunfold_defs, drcomponents]
     dsimp [ExprLow.build_module_type]
@@ -61,30 +72,29 @@ namespace DataflowRewriter.Noc
     rw [ExprLow.build_module_product_foldl]
     dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
     rw [EC.empty_in_ε]
+    rw [foldl_connect]
     conv =>
       pattern List.foldl _ _
-      arg 2
       arg 1
       intro acc i
       rw [←router_name, EC.rmod_in_ε i]
       dsimp
-    rw [foldl_connect]
-    -- We need tmodule_renamePorts rewrites here to apply foldl_acc_plist
-    -- but dependent types are killing me
-    -- rw [←tmodule_renamePorts_2]
-    -- rw [←tmodule_renamePorts_1]
-    -- rw [Module.foldl_acc_plist]
+    -- TODO: Cannot do it for some reason :(
+    -- rw [Module.dep_foldl_1 (f := λ acc i => acc × (EnvCorrect.rmod n ε).1)]
+    rw [dep_foldl_1 (f := λ acc i => acc × (EnvCorrect.rmod n ε).1)]
     simp only [drenv, drcompute]
 
   def_module expM : Module String (expT n ε) := [e| n.build_expr, ε] reduction_by
     dsimp [drunfold_defs, reduceAssocListfind?, reduceListPartition]
     dsimp [ExprLow.build_module_expr, ExprLow.build_module_type]
-    rw [ExprLow.build_module_foldl]
+    rw [ExprLow.build_module_connect_foldl]
+    rw [ExprLow.build_module_product_foldl]
     dsimp [ExprLow.build_module, ExprLow.build_module']
     rw [EC.empty_in_ε]; dsimp
     rw [rw_opaque (by
       conv =>
         pattern List.foldl _ _
+        arg 2
         arg 1
         intro acc i
         rw [←router_name, EC.rmod_in_ε i]
@@ -92,6 +102,11 @@ namespace DataflowRewriter.Noc
     )]
     dsimp [drcomponents]
     dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, reduceAssocListfind?]
+    dsimp [Module.product]
+    -- We need a thing like Module.foldl_acc_plist but for .snd, where we have
+    -- inputs, outputs and stuff like this expressed with .append or something
+    -- We also need liftR and liftL which is a bit annoying, we may need a pow
+    -- function
     -- We should know what are `(EnvCorrect.rmod n ε).snd.inputs` by using rmod_ok
     -- Ok we don't know exactly, but we do know the names.
     -- Maybe we could
