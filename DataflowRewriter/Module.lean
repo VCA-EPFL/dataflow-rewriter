@@ -32,6 +32,12 @@ inductive existSR {S : Type _} (rules : List (S → S → Prop)) : S → S → P
     existSR rules mid final →
     existSR rules init final
 
+/-- Input/Output relation --/
+@[simp] abbrev RelIO (S : Type) := Σ T : Type, S → T → S → Prop
+
+/-- Internal relation --/
+@[simp] abbrev RelInt (S : Type) := S → S → Prop
+
 /--
 `Module` definition, which is our definition of circuit semantics.  It can have inputs and outputs, which are maps from
 `Ident` to transition rules accept or return a value.
@@ -43,9 +49,9 @@ connect an output to an input, because it is guaranteed that there won't be any 
 be executed in between the output rule and input rule execution.
 -/
 structure Module (Ident S : Type _) where
-  inputs : PortMap Ident (Σ T : Type, (S → T → S → Prop))
-  outputs : PortMap Ident (Σ T : Type, (S → T → S → Prop))
-  internals : List (S → S → Prop) := []
+  inputs : PortMap Ident (RelIO S)
+  outputs : PortMap Ident (RelIO S)
+  internals : List (RelInt S) := []
   init_state : S → Prop
 deriving Inhabited
 
@@ -74,42 +80,38 @@ universe i
 variable {Ident : Type i}
 variable [DecidableEq Ident]
 
-@[drunfold] def liftL {S S' : Type _} (x: (T : Type _) × (S → T → S → Prop))
-    : (T : Type _) × (S × S' → T → S × S' → Prop) :=
+@[drunfold] def liftL {S S' : Type _} (x : RelIO S) : RelIO (S × S') :=
   ⟨ x.1, λ (a,b) ret (a',b') => x.2 a ret a' ∧ b = b' ⟩
 
-@[drunfold] def liftR {S S'} (x: (T : Type _) × (S' → T → S' → Prop))
-    : (T : Type _) × (S × S' → T → S × S' → Prop) :=
+@[drunfold] def liftR {S S'} (x : RelIO S') : RelIO (S × S') :=
   ⟨ x.1, λ (a,b) ret (a',b') => x.2 b ret b' ∧ a = a' ⟩
 
-@[drunfold] def liftL' {S S'} (x:  S → S → Prop) : S × S' → S × S' → Prop :=
+@[drunfold] def liftL' {S S'} (x : RelInt S) : RelInt (S × S') :=
   λ (a,b) (a',b') => x a a' ∧ b = b'
 
-@[drunfold] def liftR' {S S'} (x:  S' → S' → Prop) : S × S' → S × S' → Prop :=
+@[drunfold] def liftR' {S S'} (x : RelInt S') : RelInt (S × S'):=
   λ (a,b) (a',b') => x b b' ∧ a = a'
 
-@[drunfold] def liftLD {α : Type _} {l₁ l₂ : List α} {f} (x: (T : Type _) × (HVector f l₁ → T → HVector f l₁ → Prop))
-    : (T : Type _) × (HVector f (l₁ ++ l₂) → T → HVector f (l₁ ++ l₂) → Prop) :=
+@[drunfold] def liftLD {α : Type _} {l₁ l₂ : List α} {f} (x : RelIO (HVector f l₁))
+    : RelIO (HVector f (l₁ ++ l₂)) :=
   ⟨ x.1, λ a ret a' => x.2 a.left ret a'.left ∧ a.right = a'.right ⟩
 
-@[drunfold] def liftRD {α : Type _} {l₁ l₂ : List α} {f} (x: (T : Type _) × (HVector f l₂ → T → HVector f l₂ → Prop))
-    : (T : Type _) × (HVector f (l₁ ++ l₂) → T → HVector f (l₁ ++ l₂) → Prop) :=
+@[drunfold] def liftRD {α : Type _} {l₁ l₂ : List α} {f} (x : RelIO (HVector f l₂))
+    : RelIO (HVector f (l₁ ++ l₂)) :=
   ⟨ x.1, λ a ret a' => x.2 a.right ret a'.right ∧ a.left = a'.left ⟩
 
-@[drunfold] def liftLD' {α : Type _} {l₁ l₂ : List α} {f} (x: HVector f l₁ → HVector f l₁ → Prop)
-    : HVector f (l₁ ++ l₂) → HVector f (l₁ ++ l₂) → Prop :=
+@[drunfold] def liftLD' {α : Type _} {l₁ l₂ : List α} {f} (x : RelInt (HVector f l₁))
+    : RelInt (HVector f (l₁ ++ l₂)) :=
   λ a a' => x a.left a'.left ∧ a.right = a'.right
 
-@[drunfold] def liftRD' {α : Type _} {l₁ l₂ : List α} {f} (x: HVector f l₂ → HVector f l₂ → Prop)
-    : HVector f (l₁ ++ l₂) → HVector f (l₁ ++ l₂) → Prop :=
+@[drunfold] def liftRD' {α : Type _} {l₁ l₂ : List α} {f} (x : RelInt (HVector f l₂))
+    : RelInt (HVector f (l₁ ++ l₂)) :=
   λ a a' => x a.right a'.right ∧ a.left = a'.left
 
-@[drunfold] def liftSingle.{u} {α} {a : α} {f} (x: Σ (T : Type u), (f a → T → f a → Prop))
-    : Σ (T : Type u), HVector f [a] → T → HVector f [a] → Prop :=
+@[drunfold] def liftSingle {α} {a : α} {f} (x : RelIO (f a)) : RelIO (HVector f [a]) :=
   ⟨ x.1, λ | .cons a .nil, t, .cons a' .nil => x.2 a t a' ⟩
 
-@[drunfold] def liftSingle' {α} {a : α} {f} (x: f a → f a → Prop)
-    : HVector f [a] → HVector f [a] → Prop :=
+@[drunfold] def liftSingle' {α} {a : α} {f} (x : RelInt (f a)) : RelInt (HVector f [a]) :=
   λ | .cons a .nil, .cons a' .nil => x a a'
 
 def EqExt {S} (m₁ m₂ : Module Ident S) : Prop :=
@@ -122,9 +124,7 @@ theorem EqExt.symm {S} (m₁ m₂ : Module Ident S) :
   m₁.EqExt m₂ → m₂.EqExt m₁ := by
   unfold EqExt; intros; simp [*, AssocList.EqExt.symm, List.Perm.symm]
 
-def connect'' {Ti To S} (ruleO : S → To → S → Prop) (ruleI : S → Ti → S → Prop)
-  -- (int : S → S → Prop)
-  : S → S → Prop :=
+def connect'' {Ti To S} (ruleO : S → To → S → Prop) (ruleI : S → Ti → S → Prop) : RelInt S :=
   (λ st st' =>
      (∀ wf : To = Ti,
        ∃ consumed_output output, ruleO st output consumed_output
@@ -144,7 +144,7 @@ precondition that the input and output type must match.
     init_state := mod.init_state,
   }
 
-theorem connect''_dep_rw {C : Type} {x y x' y' : Σ (T : Type), C → T → C → Prop} (h : x' = x := by simp; rfl) (h' : y' = y := by simp; rfl) :
+theorem connect''_dep_rw {C : Type} {x y x' y' : RelIO C} (h : x' = x := by simp; rfl) (h' : y' = y := by simp; rfl) :
     @Module.connect'' y.1 x.1 C x.2 y.2 = @Module.connect'' y'.1 x'.1 C x'.2 y'.2 := by
   intros; subst_vars; rfl
 
