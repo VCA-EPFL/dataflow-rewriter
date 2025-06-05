@@ -5,6 +5,7 @@ Authors: Hamza Remmal
 -/
 
 import DataflowRewriter.Module
+import DataflowRewriter.DeterministicModule
 import DataflowRewriter.ModuleLemmas
 import Mathlib.Tactic
 
@@ -103,10 +104,11 @@ by
   obtain ⟨_, h⟩ := h; rw [h]
   dsimp only [Option.map_some, Option.getD_some]
 
--- TODO: Introduce [Deterministic mod]? Is it really needed?
+-- Hamza: Introduce [Deterministic mod]? Is it really needed?
 -- Hamza: Yes, if the underlying module is not deterministic, we can't guarantee that
 --        the flushed module will behave the same way as the non-flushed version
-theorem flushed_reachable_from_nonflushed: ∀ ident s₁ v s₂ s₃,
+open Module.Determinism in
+theorem flushed_reachable_from_nonflushed [DeterministicInputs mod] : ∀ ident s₁ v s₂ s₃,
   ((flushed mod).inputs.getIO ident).snd s₁ v s₃
   → (mod.inputs.getIO ident).snd s₁ ((flushed_preserves_input_over_getIO mod ident).mp v) s₂
   → existSR mod.internals s₂ s₃ :=
@@ -120,7 +122,8 @@ by
   dsimp [rflushed] at h₁
   obtain ⟨w, _, _, _⟩ := h₁
   have: s₂ = w := by
-    sorry -- determinism of the rules (can I get rid of this?)
+    rename_i det _ _ _
+    apply det.input_deterministic <;> assumption
   subst this
   assumption
 

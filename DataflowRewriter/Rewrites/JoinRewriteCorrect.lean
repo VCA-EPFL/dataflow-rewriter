@@ -616,6 +616,14 @@ by
     rfl
   . exfalso; exact (PortMap.getIO_not_contained_false (by assumption) HContains)
 
+open Module.Determinism in
+instance: Deterministic (lhsModule T₁ T₂ T₃) :=
+  {
+    input_deterministic    := input_rules_deterministic
+    internal_deterministic := internal_rules_deterministic
+    output_deterministic   := output_rules_deterministic
+  }
+
 ---------------------------------------------------------------------------------------------------
 --------------------------------------- LHS SPECIFIC LEMMAS ---------------------------------------
 ---------------------------------------------------------------------------------------------------
