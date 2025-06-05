@@ -172,6 +172,22 @@ by
     simp at h
 
 ---------------------------------------------------------------------------------------------------
+-----
+---------------------------------------------------------------------------------------------------
+
+instance {ident: InternalPort String} [MatchInterface (rhsModule T₁ T₂ T₃) (lhsModule T₁ T₂ T₃)]: Coe ((rhsModule T₁ T₂ T₃).inputs.getIO ident).fst ((lhsModule T₁ T₂ T₃).inputs.getIO ident).fst where
+  coe := by
+    intro h
+    rename_i mi
+    simpa [<- mi.input_types]
+
+instance {ident: InternalPort String} [MatchInterface (rhsModule T₁ T₂ T₃) (lhsModule T₁ T₂ T₃)]: Coe ((rhsModule T₁ T₂ T₃).outputs.getIO ident).fst ((lhsModule T₁ T₂ T₃).outputs.getIO ident).fst where
+  coe := by
+    intro h
+    rename_i mi
+    simpa [<- mi.output_types]
+
+---------------------------------------------------------------------------------------------------
 ----------- BASE RELATION BETWEEN (rhsModuleType T₁ T₂ T₃) and (lhsModuleType T₁ T₂ T₃) -----------
 ---------------------------------------------------------------------------------------------------
 
@@ -247,30 +263,16 @@ by
     apply ψ_holds_over_internals_spec <;> assumption
   apply ψ_holds_over_internals_impl <;> assumption
 
--- TODO: Can I get rid of this very specific theorem?
-theorem f: ∀ ident,
-  ((rhsModule T₁ T₂ T₃).outputs.getIO ident).fst = ((lhsModule T₁ T₂ T₃).outputs.getIO ident).fst :=
-by
-  have: MatchInterface (rhsModule T₁ T₂ T₃) (lhsModule T₁ T₂ T₃) := by infer_instance
-  exact this.output_types
-
--- TODO: Can I get rid of this very specific theorem?
-theorem f'₂: ∀ ident,
-  ((rhsModule T₁ T₂ T₃).inputs.getIO ident).fst = ((lhsModule T₁ T₂ T₃).inputs.getIO ident).fst :=
-by
-  have: MatchInterface (rhsModule T₁ T₂ T₃) (lhsModule T₁ T₂ T₃) := by infer_instance
-  exact this.input_types
-
 theorem inputs_preserves_ψ: ∀ ident i₁ i₂ v s₁ s₂,
   ψ i₁ s₁
-  → ((rhsModule T₁ T₂ T₃).inputs.getIO ident).snd i₁ v i₂
-  → ((lhsModule T₁ T₂ T₃).inputs.getIO ident).snd s₁ ((f'₂ ident).mp v) s₂
+  → ((rhsModule T₁ T₂ T₃).inputs.getIO ident).snd i₁ ↑v i₂
+  → ((lhsModule T₁ T₂ T₃).inputs.getIO ident).snd s₁ ↑v s₂
   → ψ i₂ s₂ :=
 by
   intro ident ⟨⟨_, _⟩, ⟨_, _⟩, _⟩ ⟨⟨_, _⟩, ⟨_, _⟩, _⟩ v ⟨⟨_, _⟩, ⟨_, _⟩⟩ ⟨⟨_, _⟩, ⟨_, _⟩⟩  h₁ h₂ h₃
   by_cases HContains: (rhsModule T₁ T₂ T₃).inputs.contains ident
   . simp [rhsModule] at HContains
-    rcases HContains with h | h | h <;> subst h <;> simp only [eq_mp_eq_cast, cast_eq] at h₃
+    rcases HContains with h | h | h <;> subst h
     . --
       unfold lhsModule at h₃
       rw [PortMap.rw_rule_execution] at h₃
@@ -337,8 +339,8 @@ by
 
 theorem outputs_preserves_ψ: ∀ ident i₁ i₂ v s₁ s₂,
   ψ i₁ s₁
-  → ((rhsModule T₁ T₂ T₃).outputs.getIO ident).snd i₁ v i₂
-  → ((lhsModule T₁ T₂ T₃).outputs.getIO ident).snd s₁ ((f ident).mp v) s₂
+  → ((rhsModule T₁ T₂ T₃).outputs.getIO ident).snd i₁ ↑v i₂
+  → ((lhsModule T₁ T₂ T₃).outputs.getIO ident).snd s₁ ↑v s₂
   → ψ i₂ s₂ :=
 by
   intro ident ⟨⟨_, _⟩, ⟨_, _⟩, _⟩ ⟨⟨_, _⟩, ⟨_, _⟩, _⟩ v ⟨⟨_, _⟩, ⟨_, _⟩⟩ ⟨⟨_, _⟩, ⟨_, _⟩⟩ h₁ h₂ h₃
@@ -346,7 +348,6 @@ by
   . simp [rhsModule] at HContains; subst HContains
     unfold rhsModule at h₂
     rw [PortMap.rw_rule_execution] at h₂; simp at h₂
-    simp at *
     repeat
       cases ‹_ ∧ _›
     simp at *
@@ -393,13 +394,12 @@ by
 theorem f₅: ∀ ident i₁ i₂ v s₁,
   ψ i₁ s₁
   → at_least_single_internal s₁
-  → ((rhsModule T₁ T₂ T₃).outputs.getIO ident).snd i₁ v i₂
-  → ∃ s₂, ((lhsModule T₁ T₂ T₃).outputs.getIO ident).snd s₁ ((f ident).mp v) s₂ :=
+  → ((rhsModule T₁ T₂ T₃).outputs.getIO ident).snd i₁ ↑v i₂
+  → ∃ s₂, ((lhsModule T₁ T₂ T₃).outputs.getIO ident).snd s₁ ↑v s₂ :=
 by
   intro ident ⟨⟨_, _⟩, ⟨_, _⟩, _⟩ ⟨⟨_, _⟩, ⟨_, _⟩, _⟩ v s₁ h₁ h₂ h₃
   by_cases HContains: (rhsModule T₁ T₂ T₃).outputs.contains ident
   . simp [rhsModule] at HContains <;> subst HContains
-    simp only [eq_mp_eq_cast, cast_eq] -- remove the cast
     --
     unfold rhsModule at h₃
     rw [PortMap.rw_rule_execution] at h₃
@@ -1026,7 +1026,8 @@ theorem refines₀: rhsModule T₁ T₂ T₃ p⊑_{φ} lhsModule T₁ T₂ T₃ 
   -- output rules
   . intro ident i v hrule
     by_cases HContains: ((rhsModule T₁ T₂ T₃).outputs.contains ident)
-    · obtain ⟨⟨sj2l, sj2r⟩, ⟨sj1l, sj1r⟩⟩ := init_s
+    ·
+      obtain ⟨⟨sj2l, sj2r⟩, ⟨sj1l, sj1r⟩⟩ := init_s
       obtain ⟨⟨ij2l, ij2r⟩, ⟨ij1l, ij1r⟩, ip⟩ := init_i
       obtain ⟨⟨ij2l', ij2r'⟩, ⟨ij1l', ij1r'⟩, ip'⟩ := i
       unfold rhsModule at HContains; simp at HContains
@@ -1276,8 +1277,8 @@ by
 theorem f'': ∀ ident i₁ i₂ v s₁,
   ψ i₁ s₁
   → single_internal s₁
-  → ((rhsModule T₁ T₂ T₃).outputs.getIO ident).snd i₁ v i₂
-  → ∃ s₂, ((lhsModule T₁ T₂ T₃).outputs.getIO ident).snd s₁ ((f ident).mp v) s₂ :=
+  → ((rhsModule T₁ T₂ T₃).outputs.getIO ident).snd i₁ ↑v i₂
+  → ∃ s₂, ((lhsModule T₁ T₂ T₃).outputs.getIO ident).snd s₁ ↑v s₂ :=
 by
   intro ident ⟨⟨_, _⟩,⟨_, _⟩⟩ ⟨⟨_, _⟩,⟨_, _⟩⟩ _ ⟨⟨_, _⟩,⟨_, _⟩⟩ h₁ h₂ h₃
   by_cases HContains: ((rhsModule T₁ T₂ T₃).outputs.contains ident)
@@ -1406,7 +1407,7 @@ theorem refines₃: rhsModule T₁ T₂ T₃ ⊑_{φ₃} lhsModule T₁ T₂ T�
         have hψ: ψ init_i almost_mid_s := by
           apply ψ_holds_over_internals_spec <;> assumption
         clear this
-        have: ∃ mid_s, ((lhsModule T₁ T₂ T₃).outputs.getIO ident).snd almost_mid_s ((f ident).mp v) mid_s := by
+        have: ∃ mid_s, ((lhsModule T₁ T₂ T₃).outputs.getIO ident).snd almost_mid_s ↑v mid_s := by
           apply f'' <;> assumption
         obtain ⟨mid_s, _⟩ := this
         use mid_s
@@ -1432,6 +1433,7 @@ theorem refines₃: rhsModule T₁ T₂ T₃ ⊑_{φ₃} lhsModule T₁ T₂ T�
 
 ---------------------------------------------------------------------------------------------------
 
+-- TODO: Make these cast a coercion
 def cast:
   ∀ ident, ((flushed (rhsModule T₁ T₂ T₃)).inputs.getIO ident).fst = ((flushed (lhsModule T₁ T₂ T₃)).inputs.getIO ident).fst :=
 by
@@ -1443,6 +1445,7 @@ by
   have: MatchInterface (rhsModule T₁ T₂ T₃) (lhsModule T₁ T₂ T₃) := by infer_instance
   exact this.input_types ident
 
+-- TODO: Make these cast a coercion
 def cast':
   ∀ ident, ((flushed (rhsModule T₁ T₂ T₃)).outputs.getIO ident).fst = ((flushed (lhsModule T₁ T₂ T₃)).outputs.getIO ident).fst :=
 by
