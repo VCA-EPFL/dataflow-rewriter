@@ -10,6 +10,7 @@ import Batteries
 import DataflowRewriter.AssocList
 import DataflowRewriter.Simp
 import DataflowRewriter.Basic
+import Mathlib.Tactic
 
 namespace DataflowRewriter
 
@@ -147,5 +148,70 @@ theorem getIO_cons_nil_false
   apply (getIO_cons_false Hneq (by simpa) Hsnd)
 
 end PortMap
+
+namespace AssocList
+
+theorem contains_of_cons_ne_head {K V : Type _} [DecidableEq K] {k k' : K} {v : V} : ∀ tl,
+  Batteries.AssocList.contains k (Batteries.AssocList.cons k' v tl) = true
+  → k' ≠ k
+  → Batteries.AssocList.contains k tl = true :=
+by
+  intros _ h _
+  simp at *
+  cases h
+  . exfalso; contradiction
+  . assumption
+
+lemma contains_cons_of_ne {α β : Type _} [BEq α]
+    {a k : α} {v : β} {l : Batteries.AssocList α β}
+    (h : k ≠ a) :
+    (Batteries.AssocList.cons a v l).contains k ↔ l.contains k := by
+  simp only [Batteries.AssocList.contains, Batteries.AssocList.find?, Batteries.AssocList.mapVal]
+  dsimp [Batteries.AssocList.any]
+  sorry
+
+theorem blabla {α β: Type _} [BEq α] : ∀ (k₁ k₂: α) (v: β) tl,
+  k₁ ≠ k₂
+  → Batteries.AssocList.find? k₁ (Batteries.AssocList.cons k₂ v tl) = Batteries.AssocList.find? k₁ tl :=
+by
+  sorry
+
+theorem blabla₂ {α β: Type _} [BEq α]: ∀ (k: α) (v: β) tl,
+  Batteries.AssocList.find? k (Batteries.AssocList.cons k v tl) = some v :=
+by
+  intros k _ _
+  rw [Batteries.AssocList.find?]
+  have: (k == k) = true := by
+    --have: [ReflBEq α] := by infer_instance
+    --apply BEq.refl
+    sorry -- TODO: This shouldn't be this hard to prove...
+  rw [this]
+
+-- TODO: Move this to another file
+theorem contains_find?_exists {α β : Type _} [BEq α] (l : Batteries.AssocList α β):
+    ∀ k, l.contains k → ∃ v, l.find? k = some v :=
+by
+  intro k h
+  induction l with
+  | nil => cases h
+  | cons k' v' tl ih =>
+    by_cases eq?: k = k'
+    . subst eq?
+      use v'
+      apply blabla₂
+    . have: Batteries.AssocList.contains k tl := by
+        apply contains_cons_of_ne at eq?
+        -- TODO: Why can't I just apply eq?
+        obtain ⟨l, _⟩ := eq?
+        apply l
+        assumption
+      specialize ih this
+      obtain ⟨v, _⟩ := ih
+      use v
+      rw [blabla]
+      assumption
+      simpa
+
+end AssocList
 
 end DataflowRewriter
