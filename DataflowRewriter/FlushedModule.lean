@@ -209,25 +209,17 @@ theorem flushed_refines_nonflushed: flushed mod p⊑_{Eq} mod := by
   apply Module.pcomp_refines.mk
   -- input rules
   . intro ident mid_i v h
+    simp only [eq_mp_eq_cast, exists_and_left, exists_eq_right']
     apply bll at h
-    obtain ⟨s', _, _⟩ := h
-    use s', mid_i
+    simp at h
+    obtain ⟨s', _⟩ := h
+    use s'
   -- output rules
   . intro _ mid_i _ _
-    use mid_i
-    and_intros
-    . simp only [flushed, eq_mp_eq_cast, cast_eq] at *
-      assumption
-    . rfl
+    use mid_i; simpa
   -- internal rules
-  . intro _ mid_i _ _
-    use mid_i
-    and_intros
-    . apply existSR.step
-      . simp only [flushed, List.not_mem_nil] at *
-      . assumption
-      . apply existSR_reflexive
-    . rfl
+  . intro _ mid_i h _
+    cases h
 
 end Refinement
 
