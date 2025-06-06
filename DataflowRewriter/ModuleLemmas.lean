@@ -1356,8 +1356,11 @@ theorem dep_foldl_1 acc l (f : Type _ → α → Type _) (g : (acc : Σ S, β S)
     | nil => rfl
     | cons x xs ih => dsimp [dep_foldl] at *; rw [ih]
 
-def foldl_int {α} := dep_foldl (α := α) (β := λ S => List (RelInt S))
-def foldl_io {α} := dep_foldl (α := α) (β := λ S => PortMap Ident (RelIO S))
+abbrev acc_int (S : Type _) := List (RelInt S)
+abbrev acc_io (S : Type _) := PortMap Ident (RelIO S)
+
+abbrev foldl_int {α} := dep_foldl (α := α) (β := acc_int)
+abbrev foldl_io {α} := dep_foldl (α := α) (β := @acc_io Ident)
 
 -- def foldl_init_state (acc : TModule1 Ident) (l : List α) (f : α → Type) (g : (i : α) → Module Ident (f i)) : Σ (S : Type _), S → Prop :=
 --   List.foldl
@@ -1367,12 +1370,11 @@ def foldl_io {α} := dep_foldl (α := α) (β := λ S => PortMap Ident (RelIO S)
 --     (⟨acc.1, acc.2.init_state⟩ : Σ S, S → Prop)
 --     l
 
--- -- TODO: Could this be generalized like above? Maybe…
--- -- Current problem is that we actually need mutiple g: We cannot have cross
--- -- dependency between inputs, outputs, internals and init_state for this
--- -- simplification to work
+-- We actually need mutiple g:
+-- We cannot have cross dependency between fields of a module for this
+-- simplification to work
 -- theorem foldl_acc_plist_2 (acc : TModule1 Ident) (l : List α) (f : Type → α → Type)
---   (g : (acc : TModule1 Ident) → (i : α) → Module Ident (f acc.1 i))
+--   (g_input : (acc : acc_io → (i : α) → acc_io))
 --   :
 --   (List.foldl (λ acc i => ⟨f acc.1 i, g acc i⟩) acc l).2
 --   =
