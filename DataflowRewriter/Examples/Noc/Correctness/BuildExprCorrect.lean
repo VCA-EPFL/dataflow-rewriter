@@ -43,10 +43,10 @@ namespace DataflowRewriter.Noc
   abbrev mod := NatModule.stringify n.build_module
 
   theorem tmodule_renamePorts_1 {Ident} [DecidableEq Ident] (a : TModule Ident) (p : PortMapping Ident) :
-     (⟨a.1, a.2.renamePorts p⟩ : TModule Ident).1 = a.1 := by rfl
+   (⟨a.1, a.2.renamePorts p⟩ : TModule Ident).1 = a.1 := by rfl
 
   theorem tmodule_renamePorts_2 {Ident} [DecidableEq Ident] (a : TModule Ident) (p : PortMapping Ident) :
-     (⟨a.1, a.2.renamePorts p⟩ : TModule Ident).2 = a.2.renamePorts p := by rfl
+   (⟨a.1, a.2.renamePorts p⟩ : TModule Ident).2 = a.2.renamePorts p := by rfl
 
   def_module expT : Type := [T| n.build_expr, ε] reduction_by
     dsimp [drunfold_defs, drcomponents]
@@ -63,7 +63,7 @@ namespace DataflowRewriter.Noc
       rw [←router_name, EC.rmod_in_ε i]
       dsimp
     rw [Module.dep_foldl_1 (f := λ acc i => acc)]
-    rw [Module.dep_foldl_1 (f := λ acc i => acc × (EnvCorrect.rmod n ε).1)]
+    rw [Module.dep_foldl_1 (f := λ acc i => acc × EC.rmod.1)]
     simp only [drenv, drcompute, List.foldl_fixed]
 
   def_module expM : Module String (expT n ε) := [e| n.build_expr, ε] reduction_by
@@ -85,10 +85,16 @@ namespace DataflowRewriter.Noc
     dsimp [drcomponents]
     dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, reduceAssocListfind?]
     dsimp [Module.product]
-    -- We need a thing like Module.foldl_acc_plist but for .snd, where we have
-    -- inputs, outputs each expressed with their own fold (Lowering it)
-    -- This could then allow us to simplify the top level fold doing connections
-    -- in a similar way
+    rw [rw_opaque (by
+      conv =>
+        pattern List.foldl _ _
+        arg 2
+        -- Not working :(
+        -- But almost there...
+        -- I think the automatic rewrite may just be having issue with dependent
+        -- types but that it is correct
+        rw [Module.foldl_acc_plist_2 (f := λ acc1 _ => acc1 × EC.rmod.1)]
+    )]
 
   instance : MatchInterface (mod n) (expM n ε) := by
     apply MatchInterface_simpler
