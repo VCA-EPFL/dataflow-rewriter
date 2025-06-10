@@ -66,6 +66,18 @@ namespace DataflowRewriter.Noc
     rw [Module.dep_foldl_1 (f := λ acc i => acc × EC.rmod.1)]
     simp only [drenv, drcompute, List.foldl_fixed]
 
+  def expand_init {Ident} [DecidableEq Ident] (acc : TModule Ident) :
+      acc.snd.init_state = (⟨acc.fst, acc.snd.init_state⟩ : Σ S, Module.acc_init S).snd := by rfl
+
+  def expand_inputs {Ident} [DecidableEq Ident] (acc : TModule Ident) :
+      acc.snd.inputs = (⟨acc.fst, acc.snd.inputs⟩ : Σ S, Module.acc_io S).snd := by rfl
+
+  def expand_outputs {Ident} [DecidableEq Ident] (acc : TModule Ident) :
+      acc.snd.outputs = (⟨acc.fst, acc.snd.outputs⟩ : Σ S, Module.acc_io S).snd := by rfl
+
+  def expand_internals {Ident} [DecidableEq Ident] (acc : TModule Ident) :
+      acc.snd.internals = (⟨acc.fst, acc.snd.internals⟩ : Σ S, Module.acc_int S).snd := by rfl
+
   def_module expM : Module String (expT n ε) := [e| n.build_expr, ε] reduction_by
     dsimp [drunfold_defs, reduceAssocListfind?, reduceListPartition]
     dsimp [ExprLow.build_module_expr, ExprLow.build_module_type]
@@ -80,11 +92,18 @@ namespace DataflowRewriter.Noc
         arg 1
         intro acc i
         rw [←router_name, EC.rmod_in_ε i]
-        dsimp
+        dsimp [Module.product]
     )]
     dsimp [drcomponents]
     dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, reduceAssocListfind?]
-    dsimp [Module.product]
+    rw [rw_opaque (by
+      conv =>
+        pattern List.foldl _ _
+        arg 2
+        arg 1
+        intro acc i
+        rw [expand_internals, expand_init, expand_outputs, expand_inputs]
+    )]
     rw [rw_opaque (by
       conv =>
         pattern List.foldl _ _
@@ -139,6 +158,15 @@ namespace DataflowRewriter.Noc
           (g_init_state := λ acc i =>
             fun x => acc.snd x.1 ∧ (EnvCorrect.rmod n ε).snd.init_state x.2
           )
+          (acc :=
+            ⟨Unit,
+              {
+                inputs := AssocList.nil,
+                outputs := AssocList.nil,
+                init_state := fun x => True
+              }
+            ⟩)
+          (l := (fin_range n.topology.netsz))
         ]
     )]
 
