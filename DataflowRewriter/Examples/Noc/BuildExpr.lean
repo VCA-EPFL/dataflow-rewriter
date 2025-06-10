@@ -44,15 +44,21 @@ namespace DataflowRewriter.Noc
         {
             input :=
               AssocList.cons (router_stringify_inp n rid 0) (NatModule.stringify_input rid)
-                (List.map
-                  (λ dir => ⟨router_stringify_inp n rid (dir + 1), router_inp rid (dir + 1)⟩)
-                  (List.range (n.topology.inp_len rid))
+                (List.mapFinIdx (n.topology.neigh_inp rid)
+                  (λ dir _ h =>
+                    ⟨
+                      router_stringify_inp n rid (dir + 1),
+                      router_inp rid (n.topology.mkDir_inp rid dir h)
+                    ⟩)
                 |>.toAssocList),
             output :=
               AssocList.cons (router_stringify_out n rid 0) (NatModule.stringify_output rid)
-                (List.map
-                  (λ dir => ⟨router_stringify_out n rid (dir + 1), router_out rid (dir + 1)⟩)
-                  (List.range (n.topology.out_len rid))
+                (List.mapFinIdx (n.topology.neigh_out rid)
+                  (λ dir _ h =>
+                    ⟨
+                      router_stringify_out n rid (dir + 1),
+                      router_out rid (n.topology.mkDir_out rid dir h)
+                    ⟩)
                 |>.toAssocList),
         }
         s!"Router {rid}"

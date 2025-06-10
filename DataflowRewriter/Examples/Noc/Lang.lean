@@ -44,35 +44,31 @@ namespace DataflowRewriter.Noc
   abbrev Topology.Neigh (t : Topology) :=
     Neigh' t.netsz
 
-  -- TODO: We need a neigh but reversed function, where we get all from other to
-  -- me
-  -- TODO: Maybe neigh should be called neigh_out ?
-  -- Number of neighbors + 1 for the local output / input
   @[simp]
-  abbrev Topology.Dir_out (t : Topology) (src : t.RouterID) : Type :=
-    Fin (List.length (t.neigh_out src) + 1)
+  abbrev Topology.Dir_out (t : Topology) (rid : t.RouterID) : Type :=
+    Fin (List.length (t.neigh_out rid) + 1)
 
   @[simp]
-  abbrev Topology.Dir_inp (t : Topology) (src : t.RouterID) : Type :=
-    Fin (List.length (t.neigh_inp src) + 1)
+  abbrev Topology.Dir_inp (t : Topology) (rid : t.RouterID) : Type :=
+    Fin (List.length (t.neigh_inp rid) + 1)
 
   abbrev Topology.mkDir_out (t : Topology) (rid : t.RouterID) (i : Nat) (h : i < List.length (t.neigh_out rid)) : t.Dir_out rid :=
-    Fin.mk i (by sorry)
+    Fin.mk (i + 1) (by simpa)
 
   abbrev Topology.mkDir_inp (t : Topology) (rid : t.RouterID) (i : Nat) (h : i < List.length (t.neigh_inp rid)) : t.Dir_inp rid :=
-    Fin.mk i (by sorry)
+    Fin.mk (i + 1) (by simpa)
 
-  def Topology.DirLocal_out (t : Topology) {src : t.RouterID} : t.Dir_out src :=
+  def Topology.DirLocal_out (t : Topology) {rid : t.RouterID} : t.Dir_out rid :=
     Fin.mk 0 (by simpa)
 
-  def Topology.DirLocal_inp (t : Topology) {src : t.RouterID} : t.Dir_inp src :=
+  def Topology.DirLocal_inp (t : Topology) {rid : t.RouterID} : t.Dir_inp rid :=
     Fin.mk 0 (by simpa)
 
-  def Topology.out_len (t : Topology) (rid : t.RouterID) : Nat :=
-    List.length (t.neigh_out rid)
+  abbrev Topology.out_len (t : Topology) (rid : t.RouterID) : Nat :=
+    (t.neigh_out rid).length
 
-  def Topology.inp_len (t : Topology) (rid : t.RouterID) : Nat :=
-    List.length (t.neigh_inp rid)
+  abbrev Topology.inp_len (t : Topology) (rid : t.RouterID) : Nat :=
+    (t.neigh_inp rid).length
 
   -- def Topology.conn (t : Topology) (rid : t.RouterID) : AssocList (t.Dir_out rid) (Σ rid' : t.RouterID, t.Dir_inp rid') :=
   --   t.neigh_out rid
@@ -176,6 +172,6 @@ namespace DataflowRewriter.Noc
 
   @[simp]
   abbrev Noc.Rel_inp (n : Noc Data) (T : Type) :=
-    (rid : n.RouterID) → (dir : n.Dir_out rid) → (old_s : n.State) → (val : T) → (old_s : n.State) → Prop
+    (rid : n.RouterID) → (dir : n.Dir_inp rid) → (old_s : n.State) → (val : T) → (old_s : n.State) → Prop
 
 end DataflowRewriter.Noc

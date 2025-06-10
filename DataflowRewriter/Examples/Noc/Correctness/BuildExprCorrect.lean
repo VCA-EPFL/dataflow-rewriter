@@ -93,7 +93,53 @@ namespace DataflowRewriter.Noc
         -- But almost there...
         -- I think the automatic rewrite may just be having issue with dependent
         -- types but that it is correct
-        rw [Module.foldl_acc_plist_2 (f := λ acc1 _ => acc1 × EC.rmod.1)]
+        rw [Module.foldl_acc_plist_2
+          (f := λ acc1 _ => acc1 × EC.rmod.1)
+          (g_inputs := λ acc i =>
+            AssocList.mapVal (λ x => Module.liftL) acc.snd ++
+              AssocList.mapVal (λ x => Module.liftR)
+                (AssocList.mapKey
+                  (AssocList.cons
+                      { inst := InstIdent.top,
+                        name := toString "Router " ++ toString i ++ toString " in" ++ "0" ++ toString "" }
+                      { inst := InstIdent.top, name := toString "in" ++ toString (↑i + 1) ++ toString "" }
+                      ((n.topology.neigh_inp i).mapFinIdx fun dir x h =>
+                          ({ inst := InstIdent.top,
+                              name :=
+                                toString "Router " ++ toString i ++ toString " in" ++ toString (dir + 1) ++
+                                  toString "" },
+                            { inst := InstIdent.internal (toString "Router " ++ toString i ++ toString ""),
+                              name :=
+                                toString "in" ++ toString (dir + 1 + 1) ++
+                                  toString "" })).toAssocList).bijectivePortRenaming
+                  (EnvCorrect.rmod n ε).snd.inputs)
+          )
+          (g_outputs := λ acc i =>
+            AssocList.mapVal (fun x => Module.liftL) acc.snd ++
+              AssocList.mapVal (fun x => Module.liftR)
+                (AssocList.mapKey
+                  (AssocList.cons
+                      { inst := InstIdent.top,
+                        name := toString "Router " ++ toString i ++ toString " out" ++ "0" ++ toString "" }
+                      { inst := InstIdent.top, name := toString "out" ++ toString (↑i + 1) ++ toString "" }
+                      ((n.topology.neigh_out i).mapFinIdx fun dir x h =>
+                          ({ inst := InstIdent.top,
+                              name :=
+                                toString "Router " ++ toString i ++ toString " out" ++ toString (dir + 1) ++
+                                  toString "" },
+                            { inst := InstIdent.internal (toString "Router " ++ toString i ++ toString ""),
+                              name :=
+                                toString "out" ++ toString (dir + 1 + 1) ++
+                                  toString "" })).toAssocList).bijectivePortRenaming
+                  (EnvCorrect.rmod n ε).snd.outputs)
+          )
+          (g_internals := λ acc i =>
+            List.map Module.liftL' acc.snd ++ List.map Module.liftR' (EnvCorrect.rmod n ε).snd.internals
+          )
+          (g_init_state := λ acc i =>
+            fun x => acc.snd x.1 ∧ (EnvCorrect.rmod n ε).snd.init_state x.2
+          )
+        ]
     )]
 
   instance : MatchInterface (mod n) (expM n ε) := by
