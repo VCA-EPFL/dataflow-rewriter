@@ -100,7 +100,7 @@ namespace DataflowRewriter.Noc
     )]
     dsimp [drcomponents]
     dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, reduceAssocListfind?]
-    have Htmp := @Module.foldl_acc_plist_2 String n.RouterID
+    have := @Module.foldl_acc_plist_2 String n.RouterID
         ⟨Unit,
           {
             inputs := AssocList.nil,
@@ -154,7 +154,36 @@ namespace DataflowRewriter.Noc
       (g_init_state := λ acc i =>
         fun x => acc.snd x.1 ∧ (EnvCorrect.rmod n ε).snd.init_state x.2
       )
-    rw [Htmp]
+    rw [this]
+    clear this
+    dsimp [Module.connect']
+    -- Cannot apply the strong lemma here because he have a dependency between
+    -- internal, output and inputs…
+    -- We can maybe lower the fold for inputs, outputs and internals, and keep a
+    -- weird fold for the internals…
+
+    -- have := Module.foldl_acc_plist_2 (f := λ acc1 _ => acc1)
+    --   (g_inputs := λ acc (i : n.topology.conn) =>
+    --           AssocList.eraseAll
+    --             { inst := InstIdent.internal (toString "Router " ++ toString i.snd.fst ++ toString ""),
+    --               name := toString "in" ++ toString (↑i.snd.snd.2 + 1) ++ toString "" }
+    --             acc.snd)
+    --   (g_outputs := λ acc (i : n.topology.conn) =>
+    --           AssocList.eraseAll
+    --             { inst := InstIdent.internal (toString "Router " ++ toString i.fst ++ toString ""),
+    --               name := toString "out" ++ toString (↑i.snd.snd.1 + 1) ++ toString "" }
+    --             acc.snd)
+    --   (g_internals := λ acc (i : n.topology.conn) =>
+    --           Module.connect''
+    --               (acc.snd.outputs.getIO
+    --                   { inst := InstIdent.internal (toString "Router " ++ toString i.fst ++ toString ""),
+    --                     name := toString "out" ++ toString (↑i.snd.snd.1 + 1) ++ toString "" }).snd
+    --               (acc.snd.inputs.getIO
+    --                   { inst := InstIdent.internal (toString "Router " ++ toString i.snd.fst ++ toString ""),
+    --                     name := toString "in" ++ toString (↑i.snd.snd.2 + 1) ++ toString "" }).snd ::
+    --             acc.snd.internals,
+    -- rw [this]
+    -- clear this
 
   instance : MatchInterface (mod n) (expM n ε) := by
     apply MatchInterface_simpler

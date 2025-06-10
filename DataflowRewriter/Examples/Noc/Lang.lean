@@ -83,7 +83,10 @@ namespace DataflowRewriter.Noc
     t.neigh_out rid
     |>.mapFinIdx (λ dir rid' Hdir => ⟨rid, rid', (t.mkDir_out rid dir Hdir, t.DirLocal_inp)⟩)
 
-  def Topology.conns (t : Topology) : List (Σ (rid_out rid_inp : t.RouterID), t.Dir_out rid_out × t.Dir_inp rid_inp) :=
+  abbrev Topology.conn (t : Topology) :=
+    Σ (rid_out rid_inp : t.RouterID), t.Dir_out rid_out × t.Dir_inp rid_inp
+
+  def Topology.conns (t : Topology) : List t.conn :=
     List.foldl (λ acc rid => acc ++ (t.conn' rid)) [] (fin_range t.netsz)
 
   -- Routing policy ------------------------------------------------------------
