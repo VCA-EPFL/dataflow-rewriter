@@ -96,29 +96,10 @@ namespace DataflowRewriter.Noc
         arg 1
         intro acc i
         rw [←router_name, EC.rmod_in_ε i]
-        -- dsimp [Module.product]
+        dsimp [Module.product]
     )]
     dsimp [drcomponents]
     dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, reduceAssocListfind?]
-    rw [rw_opaque (by
-      conv =>
-        pattern List.foldl _ _
-        arg 2
-        arg 1
-        intro acc i
-        rw [expand_internals, expand_init, expand_outputs, expand_inputs]
-        -- rw [expand_t n ε acc i]
-    )]
-    -- rw [rw_opaque (by rw [Module.foldl_acc_plist_2])]
-    rw [rw_opaque (by
-      conv =>
-        pattern List.foldl _ _
-        arg 2
-    )]
-    -- Not working :(
-    -- But almost there...
-    -- I think the automatic rewrite may just be having issue with dependent
-    -- types but that it is correct
     have Htmp := @Module.foldl_acc_plist_2 String n.RouterID
         ⟨Unit,
           {

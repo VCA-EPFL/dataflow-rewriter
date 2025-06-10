@@ -1372,7 +1372,7 @@ abbrev foldl_init {α} := dep_foldl (α := α) (β := acc_init)
 -- TODO: It would be helpful to define a g_inputs_prod for product, and try to
 -- specialize the following rewrite lemmas for products
 
-theorem foldl_acc_plist_2 (acc : TModule1 Ident) (l : List α) (f : Type → α → Type)
+theorem foldl_acc_plist_2 (acc : TModule Ident) (l : List α) (f : Type _ → α → Type _)
   (g_inputs : (acc : Σ S, acc_io S) → (i : α) → (acc_io (f acc.1 i)))
   (g_outputs : (acc : Σ S, acc_io S) → (i : α) → (acc_io (f acc.1 i)))
   (g_internals : (acc : Σ S, acc_int S) → (i : α) → (acc_int (f acc.1 i)))
