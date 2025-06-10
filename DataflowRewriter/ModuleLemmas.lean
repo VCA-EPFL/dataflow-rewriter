@@ -1402,5 +1402,37 @@ theorem foldl_acc_plist_2 (acc : TModule1 Ident) (l : List α) (f : Type → α 
       | nil => rfl
       | cons hd tl HR => simpa [HR]
 
+variable {α : Type}
+variable (modT : Type)
+variable (mod : α → Module Ident modT)
+
+-- abbrev f_prod := (λ acc1 (_ : α) => acc1 × modT)
+--
+-- abbrev g_inputs_prod :=
+--   (λ (acc : Σ S, acc_io S) i =>
+--     ((acc.2.mapVal (λ _ => liftL)).append ((mod i).inputs.mapVal (λ _ => liftR))
+--     : acc_io (f_prod modT acc.1 i))
+--   )
+--
+-- abbrev g_outputs_prod :=
+--   (λ (acc : Σ S, acc_io S) i =>
+--     ((acc.2.mapVal (λ _ => liftL)).append ((mod i).outputs.mapVal (λ _ => liftR))
+--     : acc_io (f_prod modT acc.1 i))
+--   )
+--
+-- theorem foldl_product
+--   (modT : Type) (mod : α → Module Ident modT) (acc : TModule1 Ident) (l : List α) :
+--   (List.foldl (λ acc i => ⟨acc.fst × modT, acc.snd.product (mod i)⟩) acc l)
+--   =
+--   ⟨
+--       List.foldl f_prod acc.1 l,
+--       {
+--         inputs := dep_foldl_β.mp (foldl_io ⟨acc.1, acc.2.inputs⟩ l (f_prod modT) (g_inputs_prod modT mod)).2
+--         outputs := dep_foldl_β.mp (foldl_io ⟨acc.1, acc.2.outputs⟩ l (f_prod modT) (g_outputs_prod modT mod)).2
+--         internals := sorry,
+--         init_state := sorry,
+--       }
+--   ⟩ := by sorry
+
 end Module
 end DataflowRewriter
