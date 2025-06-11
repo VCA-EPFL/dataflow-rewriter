@@ -1412,6 +1412,12 @@ theorem dep_foldl_β {acc l} {f : Type _ → α → Type _} {g : (acc : Σ S, β
   β (dep_foldl acc l f g).1 = β (List.foldl f acc.1 l) := by
     rw [dep_foldl_1]
 
+theorem dep_foldl_gg' {acc l} {f : Type _ → α → Type _}
+  {g : (acc : Σ S, β S) → (i : α) → β (f acc.1 i)}
+  {g' : (acc : Σ S, β S) → (i : α) → β (f acc.1 i)} :
+  β (dep_foldl acc l f g).1 = β (dep_foldl acc l f g').1 := by
+    simpa [dep_foldl_1]
+
 abbrev acc_int (S : Type _) := List (RelInt S)
 abbrev acc_io (S : Type _) := PortMap Ident (RelIO S)
 abbrev acc_init (S : Type _) := S → Prop
@@ -1453,37 +1459,40 @@ theorem foldl_acc_plist_2 (acc : TModule Ident) (l : List α) (f : Type _ → α
       | nil => rfl
       | cons hd tl HR => simpa [HR]
 
-variable {α : Type}
-variable (modT : Type)
-variable (mod : α → Module Ident modT)
+-- Possibly useful lemmas?
 
--- abbrev f_prod := (λ acc1 (_ : α) => acc1 × modT)
---
--- abbrev g_inputs_prod :=
---   (λ (acc : Σ S, acc_io S) i =>
---     ((acc.2.mapVal (λ _ => liftL)).append ((mod i).inputs.mapVal (λ _ => liftR))
---     : acc_io (f_prod modT acc.1 i))
---   )
---
--- abbrev g_outputs_prod :=
---   (λ (acc : Σ S, acc_io S) i =>
---     ((acc.2.mapVal (λ _ => liftL)).append ((mod i).outputs.mapVal (λ _ => liftR))
---     : acc_io (f_prod modT acc.1 i))
---   )
---
--- theorem foldl_product
---   (modT : Type) (mod : α → Module Ident modT) (acc : TModule1 Ident) (l : List α) :
---   (List.foldl (λ acc i => ⟨acc.fst × modT, acc.snd.product (mod i)⟩) acc l)
---   =
---   ⟨
---       List.foldl f_prod acc.1 l,
+theorem foldl_acc_plist_expand (acc : TModule Ident) (l : List α) (f : TModule Ident → α → TModule Ident) :
+  List.foldl f acc l
+  =
+  ⟨
+    (List.foldl f acc l).1,
+    {
+      inputs := (List.foldl f acc l).2.inputs,
+      outputs := (List.foldl f acc l).2.outputs,
+      internals := (List.foldl f acc l).2.internals,
+      init_state := (List.foldl f acc l).2.init_state,
+    }
+  ⟩ := by rfl
+
+-- theorem foldl_acc_plist_inputs (acc : TModule Ident) (l : List α) (f : Type _ → α → Type _)
+--   (g_inputs : (acc : Σ S, acc_io S) → (i : α) → (acc_io (f acc.1 i)))
+--   (g_outputs : (acc : TModule Ident) → (i : α) → (acc_io (f acc.1 i)))
+--   (g_internals : (acc : TModule Ident) → (i : α) → (acc_int (f acc.1 i)))
+--   (g_init_state : (acc : TModule Ident) → (i : α) → (acc_init (f acc.1 i)))
+--   :
+--   (List.foldl (λ acc i =>
+--     ⟨
+--       f acc.1 i,
 --       {
---         inputs := dep_foldl_β.mp (foldl_io ⟨acc.1, acc.2.inputs⟩ l (f_prod modT) (g_inputs_prod modT mod)).2
---         outputs := dep_foldl_β.mp (foldl_io ⟨acc.1, acc.2.outputs⟩ l (f_prod modT) (g_outputs_prod modT mod)).2
---         internals := sorry,
---         init_state := sorry,
+--         inputs := g_inputs ⟨acc.1, acc.2.inputs⟩ i
+--         outputs := g_outputs acc i
+--         internals := g_internals acc i
+--         init_state := g_init_state acc i
 --       }
---   ⟩ := by sorry
+--     ⟩) acc l).2.inputs
+-- TODO: Missing a cast here, but I'm not sure which one…
+--   = dep_foldl_gg'.mp (foldl_io ⟨acc.1, acc.2.inputs⟩ l f g_inputs).2
+--   := by sorry
 
 end Module
 end DataflowRewriter

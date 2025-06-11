@@ -70,10 +70,15 @@ theorem refines_φ : n.spec_mqueue ⊑_{φ n} n.spec_bag := by
           ]
           left; exact Hφ Hin
         · rename_i Heq; simpa [Heq]
-      · -- TODO: We have to say that getting an element of a vector in another
-        -- position of where it has been modified is just like accessing the vector
-        -- directly
-        sorry
+      · rw [Vector.getElem_set_ne] at Hv'
+        simp only [List.concat_eq_append, List.mem_append, List.mem_cons,
+          List.not_mem_nil, or_false]
+        left
+        apply Hφ Hv'
+        simp [Heq]
+        intro Heq2
+        apply Heq
+        simpa [Heq2]
   · intros ident mid_i v Hrule
     case_transition Hcontains : (Module.outputs n.spec_mqueue), ident,
       (PortMap.getIO_not_contained_false' Hrule)
@@ -146,7 +151,12 @@ theorem ϕ_indistinguishable :
       rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
       dsimp [drcomponents]
       and_intros
-      · sorry -- TODO: Annoying but true
+      · -- unfold φ at Hφ
+        -- dsimp at Hφ
+        -- specialize Hφ src src
+        -- have := @in_list_idx (x := new_i)
+        apply Vector.any_subtype
+        sorry -- TODO: Annoying but true
       · sorry -- TODO: Solving variable
 
 theorem correct : n.spec_mqueue ⊑ n.spec_bag := by

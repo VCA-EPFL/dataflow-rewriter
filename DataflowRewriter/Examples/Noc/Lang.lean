@@ -70,12 +70,10 @@ namespace DataflowRewriter.Noc
   abbrev Topology.inp_len (t : Topology) (rid : t.RouterID) : Nat :=
     (t.neigh_inp rid).length
 
-  -- def Topology.conn (t : Topology) (rid : t.RouterID) : AssocList (t.Dir_out rid) (Σ rid' : t.RouterID, t.Dir_inp rid') :=
-  --   t.neigh_out rid
-  --   |>.mapFinIdx (λ dir rid' Hdir => (t.mkDir_out rid dir Hdir, ⟨rid', t.DirLocal_inp⟩))
-  --   |>.toAssocList
+  abbrev Topology.conn (t : Topology) :=
+    Σ (rid_out rid_inp : t.RouterID), t.Dir_out rid_out × t.Dir_inp rid_inp
 
-  def Topology.conn' (t : Topology) (rid : t.RouterID) : List (Σ (rid_out rid_inp : t.RouterID), t.Dir_out rid_out × t.Dir_inp rid_inp) :=
+  def Topology.conn' (t : Topology) (rid : t.RouterID) : List t.conn :=
     -- TODO: Replace t.DirLocal_inp with a proper input
     -- We need to handle the case where we have multiple connections with the
     -- same router, maybe we need an accumulator saying how many times we've
@@ -83,11 +81,10 @@ namespace DataflowRewriter.Noc
     t.neigh_out rid
     |>.mapFinIdx (λ dir rid' Hdir => ⟨rid, rid', (t.mkDir_out rid dir Hdir, t.DirLocal_inp)⟩)
 
-  abbrev Topology.conn (t : Topology) :=
-    Σ (rid_out rid_inp : t.RouterID), t.Dir_out rid_out × t.Dir_inp rid_inp
 
   def Topology.conns (t : Topology) : List t.conn :=
-    List.foldl (λ acc rid => acc ++ (t.conn' rid)) [] (fin_range t.netsz)
+    List.map t.conn' (fin_range t.netsz)
+    |>.flatten
 
   -- Routing policy ------------------------------------------------------------
 

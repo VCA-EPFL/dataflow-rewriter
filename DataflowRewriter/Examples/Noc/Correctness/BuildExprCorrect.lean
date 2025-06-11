@@ -100,16 +100,16 @@ namespace DataflowRewriter.Noc
     )]
     dsimp [drcomponents]
     dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, reduceAssocListfind?]
-    have := @Module.foldl_acc_plist_2 String n.RouterID
-        ⟨Unit,
+    have := Module.foldl_acc_plist_2
+        (acc := ⟨Unit,
           {
             inputs := AssocList.nil,
             outputs := AssocList.nil,
             init_state := fun x => True
           }
-        ⟩
-      (fin_range n.topology.netsz)
-      (λ acc1 _ => acc1 × EC.rmod.1)
+        ⟩)
+      (l := fin_range n.topology.netsz)
+      (f := λ acc1 _ => acc1 × EC.rmod.1)
       (g_inputs := λ acc i =>
         AssocList.mapVal (λ x => Module.liftL) acc.snd ++
           AssocList.mapVal (λ x => Module.liftR)
