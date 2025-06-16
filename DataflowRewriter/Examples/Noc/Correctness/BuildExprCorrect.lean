@@ -17,6 +17,8 @@ import DataflowRewriter.Examples.Noc.BuildExpr
 
 open Batteries (AssocList)
 
+set_option Elab.async false
+
 namespace DataflowRewriter.Noc
 
   variable {Data : Type} [BEq Data] [LawfulBEq Data]
@@ -66,21 +68,12 @@ namespace DataflowRewriter.Noc
     rw [Module.dep_foldl_1 (f := λ acc i => acc × EC.rmod.1)]
     simp only [drenv, drcompute, List.foldl_fixed]
 
-  def expand_init {Ident} [DecidableEq Ident] (acc : TModule Ident) :
-      acc.snd.init_state = (⟨acc.fst, acc.snd.init_state⟩ : Σ S, Module.acc_init S).snd := by rfl
+  theorem f_cast {f : Type _ → Type _} {a a'} (heq : a = a') : f a = f a' :=
+    by subst a; rfl
 
-  def expand_inputs {Ident} [DecidableEq Ident] (acc : TModule Ident) :
-      acc.snd.inputs = (⟨acc.fst, acc.snd.inputs⟩ : Σ S, Module.acc_io S).snd := by rfl
-
-  def expand_outputs {Ident} [DecidableEq Ident] (acc : TModule Ident) :
-      acc.snd.outputs = (⟨acc.fst, acc.snd.outputs⟩ : Σ S, Module.acc_io S).snd := by rfl
-
-  def expand_internals {Ident} [DecidableEq Ident] (acc : TModule Ident) :
-      acc.snd.internals = (⟨acc.fst, acc.snd.internals⟩ : Σ S, Module.acc_int S).snd := by rfl
-
-  def expand_t {Ident α} [DecidableEq Ident] (acc : TModule Ident) (i : α) :
-    (acc.fst × (EnvCorrect.rmod n ε).fst) =
-    (λ acc1 _ => acc1 × EC.rmod.1) acc.fst i := by rfl
+  theorem rw_opaque_fst {f : Type _ → Type _} {a b a'} (heq : a = a') :
+  Opaque (@Sigma.mk _ f a b).snd ↔ Opaque (@Sigma.mk _ f a' ((f_cast heq).mp b)).snd := by
+    subst a; rfl
 
   def_module expM : Module String (expT n ε) := [e| n.build_expr, ε] reduction_by
     dsimp [drunfold_defs, reduceAssocListfind?, reduceListPartition]
@@ -157,6 +150,13 @@ namespace DataflowRewriter.Noc
     rw [this]
     clear this
     dsimp [Module.connect']
+    rw [Module.foldl_acc_plist_expand]
+    rw [rw_opaque_fst (by
+      rw [Module.dep_foldl_1 (f := λ acc i => acc), List.foldl_fixed]
+    )]
+    simp only [drcompute]
+    -- We still need to lower folds, but it is hard because we have cross
+    -- dependency in the fold between internals to inputs and outputs
     -- Cannot apply the strong lemma here because he have a dependency between
     -- internal, output and inputs…
     -- We can maybe lower the fold for inputs, outputs and internals, and keep a
