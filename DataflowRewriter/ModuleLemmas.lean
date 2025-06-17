@@ -1428,10 +1428,10 @@ abbrev acc_init (S : Type _) := S → Prop
 
 -- TODO: We need a cast but having a cast will make it very annoying to use this
 -- theorem in rewrites...
-theorem dep_foldl_fix (acc : Σ S, β S) (l : List α)
-  (g : β acc.1 → (i : α) → β acc.1) :
-  (List.foldl (λ acc' i => (⟨acc.1, g acc'.2 i⟩: Σ S, β acc.1)) acc l) = ⟨acc.1, List.foldl g acc.2 l⟩
-  := by sorry
+-- theorem dep_foldl_fix (acc : Σ S, β S) (l : List α)
+--   (g : β acc.1 → (i : α) → β acc.1) :
+--   (List.foldl (λ acc' i => (⟨acc.1, g acc'.2 i⟩: Σ S, β acc.1)) acc l) = ⟨acc.1, List.foldl g acc.2 l⟩
+--   := by sorry
 
 -- TODO: It would be helpful to define a g_inputs_prod for product, and try to
 -- specialize the following rewrite lemmas for products
