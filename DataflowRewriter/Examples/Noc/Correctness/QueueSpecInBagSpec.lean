@@ -151,12 +151,15 @@ theorem ϕ_indistinguishable :
       rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
       dsimp [drcomponents]
       and_intros
-      · -- unfold φ at Hφ
-        -- dsimp at Hφ
-        -- specialize Hφ src src
-        -- have := @in_list_idx (x := new_i)
-        apply Vector.any_subtype
-        sorry -- TODO: Annoying but true
+      · have : (Hv.mp v, idx) ∈ s := by
+          apply Hφ src idx; simpa
+        have := in_list_idx this
+        obtain ⟨i, Hi⟩ := this
+        exists i
+        and_intros
+        · sorry -- TODO: Why cannot I do rfl ?
+        · simp only [Fin.getElem_fin, typeOf, eq_mp_eq_cast] at Hi
+          simpa [Hi]
       · sorry -- TODO: Solving variable
 
 theorem correct : n.spec_mqueue ⊑ n.spec_bag := by
