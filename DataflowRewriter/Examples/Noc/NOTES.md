@@ -12,10 +12,6 @@
 
 - We should have a `List.foldlFinIdx`
 
-- For `BuildExpr`, we need a function `neigh_conn` or something which returns an
-  assocList of connections, we could prove this function correct separately and
-  it would be a lot easier to use
-
 - `UnboundedQueueInUnboundedBag` could be proven using `RouterIn`
 
 - We want to simplify as much as possible the `BuildExpr` function.
@@ -31,4 +27,19 @@
 
 - `Router.init_state` should be a relation
 
-- Non homogeneous router
+- Non homogeneous routers
+
+## BuildExprCorrect
+
+- To show the correctness, we want to simplify as much as possible the
+  `BuildExpr` function.
+  To this end, it would be nice if we could remove the renaming of router ports,
+  because it introduce annoying bijectivePortRenaming.
+  To still be able to prove the MatchInterface, we could actually do a
+  portRenaming on the noc _module_, and not on the noc _expression module_.
+
+## Interesting for later
+
+- Study how deadlock freedom is a liveness property in trace-based semantics:
+  + Study how to express liveness property refinement. A thing would be to have
+    a φ which is preserved with a ∀ instead of an ∃

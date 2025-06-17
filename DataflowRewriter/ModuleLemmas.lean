@@ -1422,9 +1422,16 @@ abbrev acc_int (S : Type _) := List (RelInt S)
 abbrev acc_io (S : Type _) := PortMap Ident (RelIO S)
 abbrev acc_init (S : Type _) := S → Prop
 
-abbrev foldl_int {α} := dep_foldl (α := α) (β := acc_int)
-abbrev foldl_io {α} := dep_foldl (α := α) (β := @acc_io Ident)
-abbrev foldl_init {α} := dep_foldl (α := α) (β := acc_init)
+@[simp] abbrev foldl_int {α} := dep_foldl (α := α) (β := acc_int)
+@[simp] abbrev foldl_io {α} := dep_foldl (α := α) (β := @acc_io Ident)
+@[simp] abbrev foldl_init {α} := dep_foldl (α := α) (β := acc_init)
+
+-- TODO: We need a cast but having a cast will make it very annoying to use this
+-- theorem in rewrites...
+theorem dep_foldl_fix (acc : Σ S, β S) (l : List α)
+  (g : β acc.1 → (i : α) → β acc.1) :
+  (List.foldl (λ acc' i => (⟨acc.1, g acc'.2 i⟩: Σ S, β acc.1)) acc l) = ⟨acc.1, List.foldl g acc.2 l⟩
+  := by sorry
 
 -- TODO: It would be helpful to define a g_inputs_prod for product, and try to
 -- specialize the following rewrite lemmas for products
@@ -1474,25 +1481,35 @@ theorem foldl_acc_plist_expand (acc : TModule Ident) (l : List α) (f : TModule 
     }
   ⟩ := by rfl
 
--- theorem foldl_acc_plist_inputs (acc : TModule Ident) (l : List α) (f : Type _ → α → Type _)
---   (g_inputs : (acc : Σ S, acc_io S) → (i : α) → (acc_io (f acc.1 i)))
---   (g_outputs : (acc : TModule Ident) → (i : α) → (acc_io (f acc.1 i)))
---   (g_internals : (acc : TModule Ident) → (i : α) → (acc_int (f acc.1 i)))
---   (g_init_state : (acc : TModule Ident) → (i : α) → (acc_init (f acc.1 i)))
---   :
---   (List.foldl (λ acc i =>
---     ⟨
---       f acc.1 i,
---       {
---         inputs := g_inputs ⟨acc.1, acc.2.inputs⟩ i
---         outputs := g_outputs acc i
---         internals := g_internals acc i
---         init_state := g_init_state acc i
---       }
---     ⟩) acc l).2.inputs
--- TODO: Missing a cast here, but I'm not sure which one…
---   = dep_foldl_gg'.mp (foldl_io ⟨acc.1, acc.2.inputs⟩ l f g_inputs).2
---   := by sorry
+variable [DecidableEq Ident]
+
+theorem foldl_connect' (l : List α) (acc : TModule Ident) (f g : α → InternalPort Ident) :
+  -- TODO: We need a pre-condition here
+  -- acc.2.connect' (f hd) (g hd)).outputs.getIO (f i) = acc.2.outputs.getIO (f i)
+  -- acc.2.connect' (f hd) (g hd)).inputs.getIO (g i) = acc.2.outputs.getIO (g i)
+  List.foldl (λ acc i => ⟨acc.1, acc.snd.connect' (f i) (g i)⟩) acc l
+  = ⟨
+      acc.1,
+      {
+        inputs := List.foldl (λ acc' i => acc'.eraseAll (g i)) acc.2.inputs l,
+        outputs := List.foldl (λ acc' i => acc'.eraseAll (f i)) acc.2.outputs l,
+        internals :=
+          List.foldl
+            (λ acc' i => connect'' (acc.2.outputs.getIO (f i)).2 (acc.2.inputs.getIO (g i)).2 :: acc')
+            acc.2.internals l,
+        init_state := acc.2.init_state,
+      }
+    ⟩
+  := by
+    induction l generalizing acc with
+    | nil => rfl
+    | cons hd tl HR =>
+      dsimp
+      rw [HR]
+      dsimp
+      congr
+      dsimp [Module.connect']
+      sorry
 
 end Module
 end DataflowRewriter

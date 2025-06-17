@@ -62,7 +62,7 @@ namespace DataflowRewriter.Noc.DirectedTorusAbsoluteUnboundedCorrect
       exists []
       and_intros
       · rfl
-      · unfold φ; sorry -- induction (noc dt Data).topology.netsz <;> simpa
+      · unfold φ; simpa [drunfold_defs]
 
   theorem refines_φ : (mod dt Data) ⊑_{φ dt Data} (spec dt Data) := by
     intros i s H

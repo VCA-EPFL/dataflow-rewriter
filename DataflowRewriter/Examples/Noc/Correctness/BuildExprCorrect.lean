@@ -23,19 +23,31 @@ namespace DataflowRewriter.Noc
 
   variable {Data : Type} [BEq Data] [LawfulBEq Data]
 
-  def Noc.env_rmod_ok (n : Noc Data) (rmod : TModule String) : Prop :=
-    ∀ rid : n.RouterID, rmod.2 ⊑ (n.spec_router rid)
+  def Noc.env_rmod_ok (n : Noc Data) (rmod : n.RouterID → TModule String) : Prop :=
+    ∀ rid : n.RouterID, (rmod rid).2 ⊑ (n.spec_router rid)
+
+  -- TODO: We also need to have the op
+
+  def Noc.env_rmod_ok' (n : Noc Data) (rmod : n.RouterID → TModule String) : Prop :=
+    ∀ rid : n.RouterID, (n.spec_router rid) ⊑ (rmod rid).2
+
+  -- TODO:
+  -- env_rmod_ok + env_rmod_ok' means that inputs and outputs rule MUST be
+  -- permutations of one another right?
+  -- NO: This is false.
+  -- Theorem that says that env_rmod_ok gives us that, forall rid,
+  -- (rmod rid).2.inputs = RelIO.liftFinf ((n.topology.neigh_inp rid).length + 1) (n.mk_spec_router_input_rule rid)
 
   @[drenv]
-  def Noc.env_rmod_in (n : Noc Data) (ε : Env) (rmod : TModule String) : Prop :=
-    ∀ rid : n.RouterID, AssocList.find? (router_name n rid) ε = .some rmod
+  def Noc.env_rmod_in (n : Noc Data) (ε : Env) (rmod : n.RouterID → TModule String) : Prop :=
+    ∀ rid : n.RouterID, AssocList.find? (router_name n rid) ε = .some (rmod rid)
 
   @[drenv]
   def Noc.env_empty (n : Noc Data) (ε : Env) : Prop :=
     AssocList.find? "empty" ε = .some ⟨Unit, StringModule.empty⟩
 
   class EnvCorrect (n : Noc Data) (ε : Env) where
-    rmod        : TModule String
+    rmod        : n.RouterID → TModule String
     rmod_ok     : n.env_rmod_ok rmod
     rmod_in_ε   : n.env_rmod_in ε rmod
     empty_in_ε  : n.env_empty ε
@@ -43,12 +55,6 @@ namespace DataflowRewriter.Noc
   variable (n : Noc Data) (ε : Env) [EC : EnvCorrect n ε]
 
   abbrev mod := NatModule.stringify n.build_module
-
-  theorem tmodule_renamePorts_1 {Ident} [DecidableEq Ident] (a : TModule Ident) (p : PortMapping Ident) :
-   (⟨a.1, a.2.renamePorts p⟩ : TModule Ident).1 = a.1 := by rfl
-
-  theorem tmodule_renamePorts_2 {Ident} [DecidableEq Ident] (a : TModule Ident) (p : PortMapping Ident) :
-   (⟨a.1, a.2.renamePorts p⟩ : TModule Ident).2 = a.2.renamePorts p := by rfl
 
   def_module expT : Type := [T| n.build_expr, ε] reduction_by
     dsimp [drunfold_defs, drcomponents]
@@ -65,16 +71,23 @@ namespace DataflowRewriter.Noc
       rw [←router_name, EC.rmod_in_ε i]
       dsimp
     rw [Module.dep_foldl_1 (f := λ acc i => acc)]
-    rw [Module.dep_foldl_1 (f := λ acc i => acc × EC.rmod.1)]
+    rw [Module.dep_foldl_1 (f := λ acc i => acc × (EC.rmod i).1)]
     simp only [drenv, drcompute, List.foldl_fixed]
 
   theorem f_cast {f : Type _ → Type _} {a a'} (heq : a = a') : f a = f a' :=
     by subst a; rfl
 
   theorem rw_opaque_fst {f : Type _ → Type _} {a b a'} (heq : a = a') :
-  Opaque (@Sigma.mk _ f a b).snd ↔ Opaque (@Sigma.mk _ f a' ((f_cast heq).mp b)).snd := by
+    Opaque (@Sigma.mk _ f a b).snd ↔ Opaque (@Sigma.mk _ f a' ((f_cast heq).mp b)).snd := by
     subst a; rfl
 
+  -- FIXME: This is clearly false, important part is just getting the .snd at
+  -- top-level
+  theorem del_cast {f : Type _ → Type _} {a'} {s : Σ T, f T} (h : f s.1 = f a') :
+    Opaque (h.mp s.2) ↔ Opaque s.2 := by
+      sorry
+
+  @[drunfold_defs]
   def_module expM : Module String (expT n ε) := [e| n.build_expr, ε] reduction_by
     dsimp [drunfold_defs, reduceAssocListfind?, reduceListPartition]
     dsimp [ExprLow.build_module_expr, ExprLow.build_module_type]
@@ -102,7 +115,7 @@ namespace DataflowRewriter.Noc
           }
         ⟩)
       (l := fin_range n.topology.netsz)
-      (f := λ acc1 _ => acc1 × EC.rmod.1)
+      (f := λ acc1 i => acc1 × (EC.rmod i).1)
       (g_inputs := λ acc i =>
         AssocList.mapVal (λ x => Module.liftL) acc.snd ++
           AssocList.mapVal (λ x => Module.liftR)
@@ -120,7 +133,7 @@ namespace DataflowRewriter.Noc
                           name :=
                             toString "in" ++ toString (dir + 1 + 1) ++
                               toString "" })).toAssocList).bijectivePortRenaming
-              (EnvCorrect.rmod n ε).snd.inputs)
+              (EC.rmod i).snd.inputs)
       )
       (g_outputs := λ acc i =>
         AssocList.mapVal (fun x => Module.liftL) acc.snd ++
@@ -139,51 +152,29 @@ namespace DataflowRewriter.Noc
                           name :=
                             toString "out" ++ toString (dir + 1 + 1) ++
                               toString "" })).toAssocList).bijectivePortRenaming
-              (EnvCorrect.rmod n ε).snd.outputs)
+              (EC.rmod i).snd.outputs)
       )
       (g_internals := λ acc i =>
-        List.map Module.liftL' acc.snd ++ List.map Module.liftR' (EnvCorrect.rmod n ε).snd.internals
+        List.map Module.liftL' acc.snd ++ List.map Module.liftR' (EC.rmod i).snd.internals
       )
       (g_init_state := λ acc i =>
-        fun x => acc.snd x.1 ∧ (EnvCorrect.rmod n ε).snd.init_state x.2
+        λ x => acc.snd x.1 ∧ (EC.rmod i).snd.init_state x.2
       )
     rw [this]
     clear this
-    dsimp [Module.connect']
-    rw [Module.foldl_acc_plist_expand]
     rw [rw_opaque_fst (by
       rw [Module.dep_foldl_1 (f := λ acc i => acc), List.foldl_fixed]
     )]
+    dsimp only
+    rw [del_cast]
+    rw [Module.foldl_connect']
     simp only [drcompute]
-    -- We still need to lower folds, but it is hard because we have cross
-    -- dependency in the fold between internals to inputs and outputs
-    -- Cannot apply the strong lemma here because he have a dependency between
-    -- internal, output and inputs…
-    -- We can maybe lower the fold for inputs, outputs and internals, and keep a
-    -- weird fold for the internals…
-
-    -- have := Module.foldl_acc_plist_2 (f := λ acc1 _ => acc1)
-    --   (g_inputs := λ acc (i : n.topology.conn) =>
-    --           AssocList.eraseAll
-    --             { inst := InstIdent.internal (toString "Router " ++ toString i.snd.fst ++ toString ""),
-    --               name := toString "in" ++ toString (↑i.snd.snd.2 + 1) ++ toString "" }
-    --             acc.snd)
-    --   (g_outputs := λ acc (i : n.topology.conn) =>
-    --           AssocList.eraseAll
-    --             { inst := InstIdent.internal (toString "Router " ++ toString i.fst ++ toString ""),
-    --               name := toString "out" ++ toString (↑i.snd.snd.1 + 1) ++ toString "" }
-    --             acc.snd)
-    --   (g_internals := λ acc (i : n.topology.conn) =>
-    --           Module.connect''
-    --               (acc.snd.outputs.getIO
-    --                   { inst := InstIdent.internal (toString "Router " ++ toString i.fst ++ toString ""),
-    --                     name := toString "out" ++ toString (↑i.snd.snd.1 + 1) ++ toString "" }).snd
-    --               (acc.snd.inputs.getIO
-    --                   { inst := InstIdent.internal (toString "Router " ++ toString i.snd.fst ++ toString ""),
-    --                     name := toString "in" ++ toString (↑i.snd.snd.2 + 1) ++ toString "" }).snd ::
-    --             acc.snd.internals,
-    -- rw [this]
-    -- clear this
+    -- We cannot know EC.rmod.2.inputs but we can define something which is
+    -- EC.rmod.2.inputs but stringified, and this should correspond to this
+    -- bijectivePortRenaming
+    -- Another possibility would be to remove directly the need for
+    -- bijectivePortRenaming by having router have their default port name be a
+    -- different kind of stringify
 
   instance : MatchInterface (mod n) (expM n ε) := by
     apply MatchInterface_simpler
