@@ -26,8 +26,6 @@ namespace DataflowRewriter.Noc
   def Noc.env_rmod_ok (n : Noc Data) (rmod : n.RouterID → TModule String) : Prop :=
     ∀ rid : n.RouterID, (rmod rid).2 ⊑ (n.spec_router rid)
 
-  -- TODO: We also need to have the op
-
   def Noc.env_rmod_ok' (n : Noc Data) (rmod : n.RouterID → TModule String) : Prop :=
     ∀ rid : n.RouterID, (n.spec_router rid) ⊑ (rmod rid).2
 
@@ -105,53 +103,31 @@ namespace DataflowRewriter.Noc
         dsimp [Module.product]
     )]
     dsimp [drcomponents]
-    dsimp [Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts, Module.mapInputPorts, reduceAssocListfind?]
+    dsimp [
+      Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts,
+      Module.mapInputPorts, reduceAssocListfind?
+    ]
     have := Module.foldl_acc_plist_2
-        (acc := ⟨Unit,
-          {
-            inputs := AssocList.nil,
-            outputs := AssocList.nil,
-            init_state := fun x => True
-          }
-        ⟩)
+      (acc :=
+        ⟨
+          Unit,
+          { inputs := .nil, outputs := .nil, init_state := λ x => True }
+        ⟩
+      )
       (l := fin_range n.topology.netsz)
       (f := λ acc1 i => acc1 × (EC.rmod i).1)
       (g_inputs := λ acc i =>
         AssocList.mapVal (λ x => Module.liftL) acc.snd ++
           AssocList.mapVal (λ x => Module.liftR)
             (AssocList.mapKey
-              (AssocList.cons
-                  { inst := InstIdent.top,
-                    name := toString "Router " ++ toString i ++ toString " in" ++ "0" ++ toString "" }
-                  { inst := InstIdent.top, name := toString "in" ++ toString (↑i + 1) ++ toString "" }
-                  ((n.topology.neigh_inp i).mapFinIdx fun dir x h =>
-                      ({ inst := InstIdent.top,
-                          name :=
-                            toString "Router " ++ toString i ++ toString " in" ++ toString (dir + 1) ++
-                              toString "" },
-                        { inst := InstIdent.internal (toString "Router " ++ toString i ++ toString ""),
-                          name :=
-                            toString "in" ++ toString (dir + 1 + 1) ++
-                              toString "" })).toAssocList).bijectivePortRenaming
+              (AssocList.nil.bijectivePortRenaming)
               (EC.rmod i).snd.inputs)
       )
       (g_outputs := λ acc i =>
         AssocList.mapVal (fun x => Module.liftL) acc.snd ++
           AssocList.mapVal (fun x => Module.liftR)
             (AssocList.mapKey
-              (AssocList.cons
-                  { inst := InstIdent.top,
-                    name := toString "Router " ++ toString i ++ toString " out" ++ "0" ++ toString "" }
-                  { inst := InstIdent.top, name := toString "out" ++ toString (↑i + 1) ++ toString "" }
-                  ((n.topology.neigh_out i).mapFinIdx fun dir x h =>
-                      ({ inst := InstIdent.top,
-                          name :=
-                            toString "Router " ++ toString i ++ toString " out" ++ toString (dir + 1) ++
-                              toString "" },
-                        { inst := InstIdent.internal (toString "Router " ++ toString i ++ toString ""),
-                          name :=
-                            toString "out" ++ toString (dir + 1 + 1) ++
-                              toString "" })).toAssocList).bijectivePortRenaming
+              (AssocList.nil.bijectivePortRenaming)
               (EC.rmod i).snd.outputs)
       )
       (g_internals := λ acc i =>
@@ -169,12 +145,8 @@ namespace DataflowRewriter.Noc
     rw [del_cast]
     rw [Module.foldl_connect']
     simp only [drcompute]
-    -- We cannot know EC.rmod.2.inputs but we can define something which is
-    -- EC.rmod.2.inputs but stringified, and this should correspond to this
-    -- bijectivePortRenaming
-    -- Another possibility would be to remove directly the need for
-    -- bijectivePortRenaming by having router have their default port name be a
-    -- different kind of stringify
+    -- We should be able to say that inupts and outputs are just inputs and
+    -- outputs and that we removed every internal inputs and output
 
   instance : MatchInterface (mod n) (expM n ε) := by
     apply MatchInterface_simpler

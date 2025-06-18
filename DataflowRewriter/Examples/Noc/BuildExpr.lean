@@ -30,38 +30,8 @@ namespace DataflowRewriter.Noc
   @[drunfold_defs]
   def Noc.build_expr (n : Noc Data) : ExprLow String :=
 
-    let router_internal (rid : n.RouterID) :=
-      InstIdent.internal (router_name n rid)
-
-    let router_out (rid : n.RouterID) (dir : n.Dir_out rid) : InternalPort String :=
-      { inst := router_internal rid, name := NatModule.stringify_output dir }
-
-    let router_inp (rid : n.RouterID) (dir : n.Dir_inp rid) : InternalPort String :=
-      { inst := router_internal rid, name := NatModule.stringify_input dir }
-
     let mkrouter (rid : n.RouterID) : ExprLow String :=
-      .base
-        {
-            input :=
-              AssocList.cons (router_stringify_inp n rid 0) (NatModule.stringify_input rid)
-                (List.mapFinIdx (n.topology.neigh_inp rid)
-                  (λ dir _ h =>
-                    ⟨
-                      router_stringify_inp n rid (dir + 1),
-                      router_inp rid (n.topology.mkDir_inp rid dir h)
-                    ⟩)
-                |>.toAssocList),
-            output :=
-              AssocList.cons (router_stringify_out n rid 0) (NatModule.stringify_output rid)
-                (List.mapFinIdx (n.topology.neigh_out rid)
-                  (λ dir _ h =>
-                    ⟨
-                      router_stringify_out n rid (dir + 1),
-                      router_out rid (n.topology.mkDir_out rid dir h)
-                    ⟩)
-                |>.toAssocList),
-        }
-        s!"Router {rid}"
+      .base { input := .nil, output := .nil } s!"Router {rid}"
 
     let mkrouters (acc : ExprLow String) : ExprLow String :=
       List.foldl (λ acc i => .product acc (mkrouter i)) acc (fin_range n.topology.netsz)
@@ -75,8 +45,8 @@ namespace DataflowRewriter.Noc
           let dir_inp := c.2.2.2
           .connect
             {
-              output  := router_out rid_out dir_out
-              input   := router_inp rid_inp dir_inp
+              output  := router_stringify_out n rid_out dir_out
+              input   := router_stringify_inp n rid_inp dir_inp
             }
           acc)
         acc n.topology.conns
