@@ -269,6 +269,10 @@ theorem append_find_right_disjoint {α β} [DecidableEq α] {a b : AssocList α 
 -- @[simp] theorem erase_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} ident (f : α → β → γ) :
 --   (a.erase ident).mapVal f = (a.mapVal f).erase ident := by sorry
 
+
+@[simp, drcompute] theorem eraseAllP_cons {α β} [DecidableEq α] {a : AssocList α β} {p : α → β → Bool} {ident val} :
+  (a.cons ident val).eraseAllP p = if p ident val then a.eraseAllP p else (a.eraseAllP p).cons ident val := by simpa
+
 @[simp, drcompute] theorem eraseAll_cons_eq {α β} [DecidableEq α] {a : AssocList α β} {ident val} :
   ((a.cons ident val).eraseAll ident) = a.eraseAll ident := by simp [*, eraseAll]
 
@@ -276,6 +280,9 @@ theorem append_find_right_disjoint {α β} [DecidableEq α] {a b : AssocList α 
   ident' ≠ ident →
   ((a.cons ident' val).eraseAll ident) = (a.eraseAll ident).cons ident' val := by
   simpa +contextual [eraseAll, beq_false_of_ne]
+
+@[simp, drcompute] theorem eraseAllP_nil {α β} [DecidableEq α] {a : AssocList α β} {p : α → β → Bool} :
+  ((@nil α β).eraseAllP p) = .nil := by simp [*, eraseAll]
 
 @[simp, drcompute] theorem eraseAll_nil {α β} [DecidableEq α] {ident} :
   ((@nil α β).eraseAll ident) = .nil := by rfl
@@ -398,6 +405,7 @@ theorem eraseAll_append {α β} [DecidableEq α] {l1 l2 : AssocList α β} {i}:
     induction l1 <;> simp [eraseAll, append]
     rename_i k _ _ _
     cases k == i <;> simp [eraseAllP_TR_eraseAll, eraseAll] at * <;> simpa [append, eraseAll]
+
 
 @[simp, drcompute] theorem eraseAll_concat_eq {α β} [DecidableEq α] {a : AssocList α β} {ident val} :
   ((a.concat ident val).eraseAll ident) = a.eraseAll ident := by
@@ -1090,5 +1098,17 @@ theorem invertibleMap {α} [DecidableEq α] {p : AssocList α α} {a b} :
       rotate_left 1; assumption
       rw [← keysList_contains_iff, ← contains_find?_iff]
       constructor; assumption
+
+@[simp] theorem eraseAllP_false {α β} (l : AssocList α β) :
+    AssocList.eraseAllP (λ _ _ => false) l = l := by
+      induction l; rfl; simpa
+
+@[simp]
+theorem eraseAllP_combine {α β γ} [DecidableEq α] (hd : γ) (tl : List γ) (f : γ → α) (l : AssocList α β) :
+  AssocList.eraseAllP (λ k v => k ∈ List.map f tl) (AssocList.eraseAll (f hd) l)
+  = AssocList.eraseAllP (λ k v => (k ∈ List.map f (hd :: tl))) l := by
+    induction l with
+    | nil => simpa
+    | cons k v tl' HR => sorry
 
 end Batteries.AssocList

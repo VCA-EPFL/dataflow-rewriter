@@ -7,6 +7,7 @@ Authors: Yann Herklotz
 import DataflowRewriter.Module
 import DataflowRewriter.AssocList.Bijective
 import Mathlib.Tactic.Convert
+import Mathlib.Logic.Function.Basic
 
 open Batteries (AssocList)
 
@@ -1483,16 +1484,14 @@ theorem foldl_acc_plist_expand (acc : TModule Ident) (l : List α) (f : TModule 
 
 variable [DecidableEq Ident]
 
-theorem foldl_connect' (l : List α) (acc : TModule Ident) (f g : α → InternalPort Ident) :
-  -- TODO: We need a pre-condition here
-  -- acc.2.connect' (f hd) (g hd)).outputs.getIO (f i) = acc.2.outputs.getIO (f i)
-  -- acc.2.connect' (f hd) (g hd)).inputs.getIO (g i) = acc.2.outputs.getIO (g i)
+theorem foldl_connect' (l : List α) (acc : TModule Ident) (f g : α → InternalPort Ident)
+  (hfInj : Function.Injective f) (hgInj : Function.Injective g) (Hdup : l.Nodup) :
   List.foldl (λ acc i => ⟨acc.1, acc.snd.connect' (f i) (g i)⟩) acc l
   = ⟨
       acc.1,
       {
-        inputs := List.foldl (λ acc' i => acc'.eraseAll (g i)) acc.2.inputs l,
-        outputs := List.foldl (λ acc' i => acc'.eraseAll (f i)) acc.2.outputs l,
+        inputs := AssocList.eraseAllP (λ k v => k ∈ List.map g l) acc.2.inputs,
+        outputs := AssocList.eraseAllP (λ k v => k ∈ List.map f l) acc.2.outputs,
         internals :=
           List.foldl
             (λ acc' i => connect'' (acc.2.outputs.getIO (f i)).2 (acc.2.inputs.getIO (g i)).2 :: acc')
@@ -1502,14 +1501,18 @@ theorem foldl_connect' (l : List α) (acc : TModule Ident) (f g : α → Interna
     ⟩
   := by
     induction l generalizing acc with
-    | nil => rfl
+    | nil => simpa [AssocList.eraseAllP_false]
     | cons hd tl HR =>
       dsimp
       rw [HR]
-      dsimp
-      congr
       dsimp [Module.connect']
+      repeat rw [AssocList.eraseAllP_combine]
+      -- Doing congr here make us loose the fact that i is not in the list of
+      -- internals, which we later need to say that we can ignore the eraseAll
+      congr
       sorry
+      sorry
+
 
 end Module
 end DataflowRewriter

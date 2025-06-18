@@ -145,8 +145,9 @@ namespace DataflowRewriter.Noc
     rw [del_cast]
     rw [Module.foldl_connect']
     simp only [drcompute]
-    -- We should be able to say that inupts and outputs are just inputs and
-    -- outputs and that we removed every internal inputs and output
+    -- We want to lower the eraseAll but it is a bit annoying to do because
+    -- erasing after a folds is not always the same thing as erasing inside it.
+    -- But it is in this case
 
   instance : MatchInterface (mod n) (expM n ε) := by
     apply MatchInterface_simpler
