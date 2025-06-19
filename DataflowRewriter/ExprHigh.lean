@@ -74,6 +74,16 @@ def inputNodes (g : ExprHigh Ident) : List Ident :=
       else inodes
     ) ∅
 
+def inputPorts (g : ExprHigh Ident) : List Ident :=
+  g.modules.foldl (λ inodes k v =>
+      inodes ++ (v.fst.input.filter (λ _ k => k.inst.isTop) |>.toList |>.map (λ (_, ⟨_, k⟩) => k))
+    ) ∅
+
+def outputPorts (g : ExprHigh Ident) : List Ident :=
+  g.modules.foldl (λ inodes k v =>
+      inodes ++ (v.fst.output.filter (λ _ k => k.inst.isTop) |>.toList |>.map (λ (_, ⟨_, k⟩) => k))
+    ) ∅
+
 def outputNodes (g : ExprHigh Ident) : List Ident :=
   g.modules.foldl (λ inodes k v =>
       if v.fst.output.any (λ _ k => k.inst.isTop)

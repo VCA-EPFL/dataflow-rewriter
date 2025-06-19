@@ -9,6 +9,7 @@ import DataflowRewriter.ExprLow
 import DataflowRewriter.Environment
 import Mathlib.Tactic
 import Mathlib.Data.QPF.Univariate.Basic
+import DataflowRewriter.ModuleSimulation
 
 open Batteries (AssocList)
 
@@ -85,6 +86,19 @@ theorem filterId_empty {α} [DecidableEq α] : PortMapping.filterId (Ident := α
   let a ← a.build_module'
   let b ← b.build_module'
   return ⟨ _, a.2.product b.2 ⟩
+
+-- @[drunfold] def build_smodule'
+--     : (e : ExprLow Ident) → Option (Σ T, Module Ident T)
+-- | .base i e => do
+--   let mod ← ε.find? e
+--   return ⟨ _, mod.2.renamePorts i ⟩
+-- | .connect c e' => do
+--   let e ← e'.build_module'
+--   return ⟨ _, e.2.connect' c.output c.input ⟩
+-- | .product a b => do
+--   let a ← a.build_module'
+--   let b ← b.build_module'
+--   return ⟨ _, a.2.product b.2 ⟩
 
 inductive type_correct_module : ExprLow Ident → Prop where
 | base : ∀ i e, type_correct_module (.base i e)
