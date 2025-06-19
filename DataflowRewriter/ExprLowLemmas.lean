@@ -1321,8 +1321,8 @@ end Refinement
 theorem build_module_product_foldl {α} {ε} {acc accb} {l : List α} {f : α → ExprLow Ident}:
   (∀ i, i ∈ l → ∃ b, (ExprLow.build_module' ε (f i)) = .some b) →
   (ExprLow.build_module' ε acc) = .some accb →
-  ExprLow.build_module ε (List.foldl (λ acc i => acc.product (f i)) acc l)
-  = List.foldl (λ acc i => ⟨_, Module.product acc.2 (ExprLow.build_module ε (f i)).2⟩) (ExprLow.build_module ε acc) l := by
+  ExprLow.build_module ε (List.foldl (λ acc i => (f i).product acc) acc l)
+  = List.foldl (λ acc i => ⟨_, Module.product (ExprLow.build_module ε (f i)).2 acc.2⟩) (ExprLow.build_module ε acc) l := by
   induction l generalizing acc accb with
   | nil => intros; rfl
   | cons x xs ih =>

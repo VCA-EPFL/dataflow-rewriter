@@ -14,6 +14,9 @@
 
 - `UnboundedQueueInUnboundedBag` could be proven using `RouterIn`
 
+- Heterogeneous Vectors are a pain and should be left for later.
+  For now,
+
 ## Routing Policy
 
 - The `Route` function is currently necessarily deterministic, which we don't

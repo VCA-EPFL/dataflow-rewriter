@@ -406,7 +406,6 @@ theorem eraseAll_append {α β} [DecidableEq α] {l1 l2 : AssocList α β} {i}:
     rename_i k _ _ _
     cases k == i <;> simp [eraseAllP_TR_eraseAll, eraseAll] at * <;> simpa [append, eraseAll]
 
-
 @[simp, drcompute] theorem eraseAll_concat_eq {α β} [DecidableEq α] {a : AssocList α β} {ident val} :
   ((a.concat ident val).eraseAll ident) = a.eraseAll ident := by
     dsimp [AssocList.concat]

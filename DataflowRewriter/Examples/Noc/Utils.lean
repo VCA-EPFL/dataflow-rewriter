@@ -33,6 +33,12 @@ namespace DataflowRewriter.Noc
     simp only [fin_range, List.mem_mapFinIdx, List.length_replicate]
     exists i.toNat, i.isLt
 
+  theorem fin_range_len (sz : Nat) :
+    (fin_range sz).length = sz := by
+      induction sz with
+      | zero => rfl
+      | succ sz HR => simpa [fin_range, HR]
+
   theorem mapFinIdx_length {α β} (l : List α) (f : (i : Nat) → α → (h : i < l.length) → β) :
     (List.mapFinIdx l f).length = l.length := by
       simpa
@@ -203,5 +209,42 @@ namespace DataflowRewriter.Noc
     induction l generalizing acc with
     | nil => rfl
     | cons hd tl HR => simpa [HR]
+
+  -- PLists --------------------------------------------------------------------
+
+  def PListL''.{u} {β : Type _} (l : List β) (acc : Type u) (α : Type u) :=
+    List.foldl (λ acc i => α × acc) acc l
+
+  def PListL' (acc : Type _) (α : Type _) (n : Nat) :=
+    PListL'' (List.replicate n 0) acc α
+
+  theorem PListL''_toPListL' {β} {l : List β} {acc : Type _} :
+    PListL'' l acc α = PListL' acc α (List.length l) := by sorry
+
+  def PListL := PListL' Unit
+
+  theorem PListL_succ' (acc : Type _) (α : Type _) (n : Nat) :
+    PListL' acc α (n + 1) = (α × (PListL' acc α n)) := by
+    induction n generalizing acc with
+    | zero => rfl
+    | succ n HR => simp [PListL', PListL'', List.replicate] at HR ⊢; rw [HR]
+
+  theorem PListL_zero {α : Type _} :
+    PListL α 0 = Unit := by rfl
+
+  theorem PListL_succ {α : Type _} {n : Nat} :
+    PListL α (n + 1) = (α × (PListL α n)) := by apply PListL_succ'
+
+  def PListL.replicate {α : Type _} (n : Nat) (v : α) : PListL α n :=
+    match n with
+    | 0 => PListL_zero.mpr ()
+    | n + 1 => PListL_succ.mpr (v, PListL.replicate n v)
+
+  def PListL.toList {α n} (pl : PListL α n) : List α :=
+    match n with
+    | 0 => []
+    | n + 1 =>
+      have pl' := PListL_succ.mp pl
+      pl'.1 :: PListL.toList pl'.2
 
 end DataflowRewriter.Noc

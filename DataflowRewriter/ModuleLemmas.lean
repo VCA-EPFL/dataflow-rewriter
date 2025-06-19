@@ -1409,6 +1409,10 @@ theorem dep_foldl_1 acc l (f : Type _ → α → Type _) (g : (acc : Σ S, β S)
     | nil => rfl
     | cons x xs ih => dsimp [dep_foldl] at *; rw [ih]
 
+-- theorem dep_foldl_2 (acc : Σ S, β S) l (g : (acc : Σ S, β S) → (i : α) → β acc.1) :
+--   List.foldl (λ acc i => ⟨acc.1, g acc i⟩) acc l
+--   = ⟨acc.1, List.foldl (λ acc' i => g ⟨acc.1, acc'⟩ i) acc.2 l⟩ := by sorry
+
 theorem dep_foldl_β {acc l} {f : Type _ → α → Type _} {g : (acc : Σ S, β S) → (i : α) → β (f acc.1 i)} :
   β (dep_foldl acc l f g).1 = β (List.foldl f acc.1 l) := by
     rw [dep_foldl_1]
@@ -1512,7 +1516,6 @@ theorem foldl_connect' (l : List α) (acc : TModule Ident) (f g : α → Interna
       congr
       sorry
       sorry
-
 
 end Module
 end DataflowRewriter

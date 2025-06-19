@@ -29,6 +29,9 @@ namespace DataflowRewriter.Noc
   def Noc.env_rmod_ok' (n : Noc Data) (rmod : n.RouterID → TModule String) : Prop :=
     ∀ rid : n.RouterID, (n.spec_router rid) ⊑ (rmod rid).2
 
+  def Noc.env_rmod_homogeneous (n : Noc Data) (rmod : n.RouterID → TModule String) (rmodS : Type _) : Prop :=
+    ∀ rid : n.RouterID, (rmod rid).1 = rmodS
+
   -- TODO:
   -- env_rmod_ok + env_rmod_ok' means that inputs and outputs rule MUST be
   -- permutations of one another right?
@@ -45,10 +48,11 @@ namespace DataflowRewriter.Noc
     AssocList.find? "empty" ε = .some ⟨Unit, StringModule.empty⟩
 
   class EnvCorrect (n : Noc Data) (ε : Env) where
-    rmod        : n.RouterID → TModule String
-    rmod_ok     : n.env_rmod_ok rmod
-    rmod_in_ε   : n.env_rmod_in ε rmod
-    empty_in_ε  : n.env_empty ε
+    rmod              : n.RouterID → TModule String
+    rmod_ok           : n.env_rmod_ok rmod
+    rmod_in_ε         : n.env_rmod_in ε rmod
+    rmod_homogeneous  : n.env_rmod_homogeneous rmod n.routers.State
+    empty_in_ε        : n.env_empty ε
 
   variable (n : Noc Data) (ε : Env) [EC : EnvCorrect n ε]
 
@@ -69,8 +73,14 @@ namespace DataflowRewriter.Noc
       rw [←router_name, EC.rmod_in_ε i]
       dsimp
     rw [Module.dep_foldl_1 (f := λ acc i => acc)]
-    rw [Module.dep_foldl_1 (f := λ acc i => acc × (EC.rmod i).1)]
+    rw [Module.dep_foldl_1 (f := λ acc i => (EC.rmod i).1 × acc)]
     simp only [drenv, drcompute, List.foldl_fixed]
+    conv =>
+      arg 1
+      arg 1
+      intro acc i
+      rw [EC.rmod_homogeneous]
+    rw [←PListL'', PListL''_toPListL', ←PListL, fin_range_len]
 
   theorem f_cast {f : Type _ → Type _} {a a'} (heq : a = a') : f a = f a' :=
     by subst a; rfl
@@ -79,20 +89,40 @@ namespace DataflowRewriter.Noc
     Opaque (@Sigma.mk _ f a b).snd ↔ Opaque (@Sigma.mk _ f a' ((f_cast heq).mp b)).snd := by
     subst a; rfl
 
-  -- FIXME: This is clearly false, important part is just getting the .snd at
-  -- top-level
-  theorem del_cast {f : Type _ → Type _} {a'} {s : Σ T, f T} (h : f s.1 = f a') :
-    Opaque (h.mp s.2) ↔ Opaque s.2 := by
-      sorry
+  theorem rw_opaque_snd {f : Type _ → Type _} {a b b'} (heq : b = b') :
+    Opaque (@Sigma.mk _ f a b).snd ↔ Opaque (@Sigma.mk _ f a b').snd := by
+    subst b; rfl
+
+  theorem mp_combine {T1 T2 T3 : Type _} (v : T1) (H1 : T1 = T2) (H2 : T2 = T3) :
+    H2.mp (H1.mp v) = (Eq.trans H1 H2).mp v := by simpa
+
+  theorem mp_lower {f : Type _ → Type _} {a'} {s : Σ T, f T} (h : f s.1 = f a') :
+    Opaque (h.mp s.2) ↔ Opaque (⟨a', h.mp s.2⟩: Σ T, f T).2 := by
+      rfl
+
+  -- False, used for debugging
+  theorem mp_delete {α} {f : Type _ → Type _} {s : Σ T, f T} (h : typeOf s = α) :
+    Opaque (h.mp s) ↔ Opaque s := by sorry
+
+  theorem get_fst {s1 s2}: (⟨s1, s2⟩: Σ T, T).1 = s1 := by rfl
+
+  theorem get_snd {s1 s2}: (⟨s1, s2⟩: Σ T, T).2 = s2 := by rfl
+
+  theorem nil_renaming {α β} [DecidableEq α] (l : AssocList α β) :
+  (AssocList.mapKey (@AssocList.nil α α).bijectivePortRenaming l) = l := by
+    induction l with
+    | nil => rfl
+    | cons x v tl HR => simpa [HR, AssocList.bijectivePortRenaming, drcompute]
 
   @[drunfold_defs]
-  def_module expM : Module String (expT n ε) := [e| n.build_expr, ε] reduction_by
+  def_module expM : Module String (expT n) := [e| n.build_expr, ε] reduction_by
     dsimp [drunfold_defs, reduceAssocListfind?, reduceListPartition]
     dsimp [ExprLow.build_module_expr, ExprLow.build_module_type]
     rw [ExprLow.build_module_connect_foldl]
     rw [ExprLow.build_module_product_foldl]
     dsimp [ExprLow.build_module, ExprLow.build_module']
     rw [EC.empty_in_ε]; dsimp
+    dsimp [drcomponents]
     rw [rw_opaque (by
       conv =>
         pattern List.foldl _ _
@@ -101,8 +131,13 @@ namespace DataflowRewriter.Noc
         intro acc i
         rw [←router_name, EC.rmod_in_ε i]
         dsimp [Module.product]
+        dsimp [
+          Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts,
+          Module.mapInputPorts, reduceAssocListfind?
+        ]
+        rw [nil_renaming]
+        rw [nil_renaming]
     )]
-    dsimp [drcomponents]
     dsimp [
       Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts,
       Module.mapInputPorts, reduceAssocListfind?
@@ -115,39 +150,47 @@ namespace DataflowRewriter.Noc
         ⟩
       )
       (l := fin_range n.topology.netsz)
-      (f := λ acc1 i => acc1 × (EC.rmod i).1)
+      (f := λ acc1 i => (EC.rmod i).1 × acc1)
       (g_inputs := λ acc i =>
-        AssocList.mapVal (λ x => Module.liftL) acc.snd ++
-          AssocList.mapVal (λ x => Module.liftR)
-            (AssocList.mapKey
-              (AssocList.nil.bijectivePortRenaming)
-              (EC.rmod i).snd.inputs)
+        AssocList.mapVal (λ x => Module.liftL) ((EC.rmod i).2.inputs)
+          ++ AssocList.mapVal (λ x => Module.liftR) acc.2
       )
       (g_outputs := λ acc i =>
-        AssocList.mapVal (fun x => Module.liftL) acc.snd ++
-          AssocList.mapVal (fun x => Module.liftR)
-            (AssocList.mapKey
-              (AssocList.nil.bijectivePortRenaming)
-              (EC.rmod i).snd.outputs)
+        (AssocList.mapVal (λ x => Module.liftL) ((EC.rmod i).2.outputs))
+          ++ (AssocList.mapVal (λ x => Module.liftR) acc.2)
       )
       (g_internals := λ acc i =>
-        List.map Module.liftL' acc.snd ++ List.map Module.liftR' (EC.rmod i).snd.internals
+            List.map Module.liftL' (EC.rmod i).2.internals
+         ++ List.map Module.liftR' acc.2
       )
       (g_init_state := λ acc i =>
-        λ x => acc.snd x.1 ∧ (EC.rmod i).snd.init_state x.2
+        λ x => (EC.rmod i).snd.init_state x.1 ∧ acc.2 x.2
       )
     rw [this]
     clear this
+    rw [Module.foldl_connect']
     rw [rw_opaque_fst (by
-      rw [Module.dep_foldl_1 (f := λ acc i => acc), List.foldl_fixed]
+      dsimp
+    )]
+    rw [rw_opaque_fst (by
+      conv =>
+        arg 1
+        arg 1
+        intro acc i
+        rw [EC.rmod_homogeneous]
+    )]
+    rw [rw_opaque_fst (by
+      rw [←PListL'', PListL''_toPListL', ←PListL, fin_range_len]
     )]
     dsimp only
-    rw [del_cast]
-    rw [Module.foldl_connect']
+    rw [mp_combine]
+    rw [mp_combine]
     simp only [drcompute]
     -- We want to lower the eraseAll but it is a bit annoying to do because
     -- erasing after a folds is not always the same thing as erasing inside it.
     -- But it is in this case
+    -- What would be really nice would be to be able to transform the
+    -- Module.foldl_io into a map or something...
 
   instance : MatchInterface (mod n) (expM n ε) := by
     apply MatchInterface_simpler
@@ -155,17 +198,18 @@ namespace DataflowRewriter.Noc
     <;> dsimp [drunfold_defs, drcomponents]
     <;> sorry
 
-  def φ (I : n.State) (S : expT n ε) : Prop :=
+  def φ (I : n.State) (S : expT n) : Prop :=
+    I.toList = PListL.toList S
+
+  theorem refines_initial : Module.refines_initial (mod n) (expM n ε) (φ n) := by
+    intro i H
     sorry
 
-  theorem refines_initial : Module.refines_initial (mod n) (expM n ε) (φ n ε) := by
-    sorry
-
-  theorem refines_φ : (mod n) ⊑_{φ n ε} (expM n ε) := by
+  theorem refines_φ : (mod n) ⊑_{φ n} (expM n ε) := by
     sorry
 
   theorem ϕ_indistinguishable :
-    ∀ i s, (φ n ε) i s → Module.indistinguishable (mod n) (expM n ε) i s := by
+    ∀ i s, (φ n) i s → Module.indistinguishable (mod n) (expM n ε) i s := by
       sorry
 
   theorem correct : (mod n) ⊑ (expM n ε) := by
