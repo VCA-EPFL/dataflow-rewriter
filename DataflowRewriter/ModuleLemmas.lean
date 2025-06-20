@@ -1514,6 +1514,8 @@ theorem foldl_connect' (l : List α) (acc : TModule Ident) (f g : α → Interna
       -- Doing congr here make us loose the fact that i is not in the list of
       -- internals, which we later need to say that we can ignore the eraseAll
       congr
+      funext acc' i
+      congr
       sorry
       sorry
 

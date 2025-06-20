@@ -219,7 +219,10 @@ namespace DataflowRewriter.Noc
     PListL'' (List.replicate n 0) acc α
 
   theorem PListL''_toPListL' {β} {l : List β} {acc : Type _} :
-    PListL'' l acc α = PListL' acc α (List.length l) := by sorry
+    PListL'' l acc α = PListL' acc α (List.length l) := by
+      induction l generalizing acc with
+      | nil => rfl
+      | cons hd tl HR => simp [PListL', PListL'', List.replicate] at HR ⊢; rw [HR]
 
   def PListL := PListL' Unit
 
@@ -246,5 +249,17 @@ namespace DataflowRewriter.Noc
     | n + 1 =>
       have pl' := PListL_succ.mp pl
       pl'.1 :: PListL.toList pl'.2
+
+  def PListL.ofList {α n} (l : List α) (h : List.length l = n) : PListL α n :=
+    match n with
+    | 0 => PListL_zero.mpr ()
+    | n + 1 =>
+      match l with
+      | [] => by simp only [List.length_nil, Nat.right_eq_add, Nat.add_eq_zero, Nat.succ_ne_self, and_false] at h
+      | hd :: tl =>
+        PListL_succ.mpr (hd, PListL.ofList tl (by simp only [List.length_cons, Nat.add_right_cancel_iff] at h; exact h))
+
+  def PListL.ofVector {α n} (v : Vector α n) : PListL α n :=
+    PListL.ofList v.toList sorry
 
 end DataflowRewriter.Noc

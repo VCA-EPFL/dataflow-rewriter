@@ -100,13 +100,25 @@ namespace DataflowRewriter.Noc
     Opaque (h.mp s.2) ↔ Opaque (⟨a', h.mp s.2⟩: Σ T, f T).2 := by
       rfl
 
-  -- False, used for debugging
-  theorem mp_delete {α} {f : Type _ → Type _} {s : Σ T, f T} (h : typeOf s = α) :
-    Opaque (h.mp s) ↔ Opaque s := by sorry
+  theorem S_eq {Ident S S' : Type _} (h : Module Ident S = Module Ident S') :
+    S = S' := by sorry
 
-  theorem get_fst {s1 s2}: (⟨s1, s2⟩: Σ T, T).1 = s1 := by rfl
+  theorem PortMap_eq {Ident S S' : Type _} (h : Module Ident S = Module Ident S') :
+    PortMap Ident (RelIO S) = PortMap Ident (RelIO S') := by
+      congr; exact S_eq h
 
-  theorem get_snd {s1 s2}: (⟨s1, s2⟩: Σ T, T).2 = s2 := by rfl
+  theorem S_Prop_eq {Ident S S' : Type _} (h : Module Ident S = Module Ident S') :
+    (S → Prop) = (S' → Prop) := by
+      congr; exact S_eq h
+
+  theorem mp_inputs {Ident S S' : Type _} {m : Module Ident S} (h : Module Ident S = Module Ident S'):
+    (h.mp m).inputs = (PortMap_eq h).mp m.inputs := by sorry
+
+  theorem mp_outputs {Ident S S' : Type _} {m : Module Ident S} (h : Module Ident S = Module Ident S'):
+    (h.mp m).outputs = (PortMap_eq h).mp m.outputs := by sorry
+
+  theorem mp_init_state {Ident S S' : Type _} {m : Module Ident S} (h : Module Ident S = Module Ident S'):
+    (h.mp m).init_state = (S_Prop_eq h).mp m.init_state := by sorry
 
   theorem nil_renaming {α β} [DecidableEq α] (l : AssocList α β) :
   (AssocList.mapKey (@AssocList.nil α α).bijectivePortRenaming l) = l := by
@@ -144,10 +156,7 @@ namespace DataflowRewriter.Noc
     ]
     have := Module.foldl_acc_plist_2
       (acc :=
-        ⟨
-          Unit,
-          { inputs := .nil, outputs := .nil, init_state := λ x => True }
-        ⟩
+        ⟨Unit, { inputs := .nil, outputs := .nil, init_state := λ x => True }⟩
       )
       (l := fin_range n.topology.netsz)
       (f := λ acc1 i => (EC.rmod i).1 × acc1)
@@ -186,11 +195,13 @@ namespace DataflowRewriter.Noc
     rw [mp_combine]
     rw [mp_combine]
     simp only [drcompute]
-    -- We want to lower the eraseAll but it is a bit annoying to do because
-    -- erasing after a folds is not always the same thing as erasing inside it.
-    -- But it is in this case
+    -- We want to lower the eraseAll but it is a bit annoying to do:
+    -- Erasing after a fold is rarely the same thing as erasing inside of it.
+    -- Even here, there is a subtelty that we cannot make it disapear easily
+    -- because otherwise we might not get the correct amount of lift…
+    --
     -- What would be really nice would be to be able to transform the
-    -- Module.foldl_io into a map or something...
+    -- Module.foldl_io into a map-flatten or something...
 
   instance : MatchInterface (mod n) (expM n ε) := by
     apply MatchInterface_simpler
@@ -203,6 +214,11 @@ namespace DataflowRewriter.Noc
 
   theorem refines_initial : Module.refines_initial (mod n) (expM n ε) (φ n) := by
     intro i H
+    exists PListL.ofVector i
+    dsimp [drunfold_defs, drcomponents]
+    -- Annoying: We do (cast m).init_state which we want to reduce
+    -- Interesting: The following does not work
+    -- rw [mp_init_state]
     sorry
 
   theorem refines_φ : (mod n) ⊑_{φ n} (expM n ε) := by
