@@ -475,6 +475,8 @@ variable [mm : MatchInterface imod smod]
 This could be made even more flexible by passing a custom type comparison
 function for the inputs and outputs.  For now this might be general enough
 though.
+
+In addition to that, it can also support star steps after an input and before an output.
 -/
 structure indistinguishable (init_i : I) (init_s : S) : Prop where
   inputs_indistinguishable : ∀ (ident : InternalPort Ident) new_i v,
