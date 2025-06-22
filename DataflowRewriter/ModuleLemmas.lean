@@ -1718,7 +1718,7 @@ theorem refines_φ_product_associative {J} (jmod : Module Ident J):
     refine ⟨((mid_i, mid_s), mid_j), ((mid_i, mid_s), mid_j), ?_, existSR.done _, ⟨rfl, rfl, rfl⟩⟩
     solve_by_elim [rule_product_associative_input]
   · intro ident (mid_i, mid_s, mid_j) v rule
-    refine ⟨((mid_i, mid_s), mid_j), ?_, ⟨rfl, rfl, rfl⟩⟩
+    refine ⟨_, ((mid_i, mid_s), mid_j), existSR.done _, ?_, ⟨rfl, rfl, rfl⟩⟩
     solve_by_elim [rule_product_associative_output]
   · intro r (mid_i, mid_s, mid_j) hrule rule
     exists ((mid_i, mid_s), mid_j)
@@ -1747,7 +1747,7 @@ theorem refines_φ_product_associative' {J} (jmod : Module Ident J):
     refine ⟨(mid_i, mid_s, mid_j), (mid_i, mid_s, mid_j), ?_, existSR.done _, ⟨rfl, rfl, rfl⟩⟩
     solve_by_elim [rule_product_associative'_input]
   · intro ident ((mid_i, mid_s), mid_j) v rule
-    refine ⟨(mid_i, mid_s, mid_j), ?_, ⟨rfl, rfl, rfl⟩⟩
+    refine ⟨_, (mid_i, mid_s, mid_j), existSR.done _, ?_, ⟨rfl, rfl, rfl⟩⟩
     solve_by_elim [rule_product_associative'_output]
   · intro r ((mid_i, mid_s), mid_j) hrule rule
     exists (mid_i, mid_s, mid_j)
@@ -1803,7 +1803,7 @@ theorem refines_φ_product_commutative (h : Disjoint imod smod) :
     refine ⟨(mid_s, mid_i), (mid_s, mid_i), ?_, existSR.done _, ⟨rfl, rfl⟩⟩
     solve_by_elim [rule_product_commutative_input]
   · intro ident (mid_i, mid_s) v rule
-    refine ⟨(mid_s, mid_i), ?_, ⟨rfl, rfl⟩⟩
+    refine ⟨_, (mid_s, mid_i), existSR.done _, ?_, ⟨rfl, rfl⟩⟩
     solve_by_elim [rule_product_commutative_output]
   · intro r (mid_i, mid_s) hrule rule
     exists (mid_s, mid_i)

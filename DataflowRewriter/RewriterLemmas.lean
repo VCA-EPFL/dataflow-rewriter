@@ -62,9 +62,8 @@ theorem EStateM.map_eq_ok {ε σ α β} {f : α → β} {o : EStateM ε σ α} {
 
 theorem refines_higherSS {e : ExprLow String} {e' : ExprHigh String} :
   e.higherSS = .some e' →
-  e'.lower = e := by
-  induction e generalizing e' with
-  | base =>
+  e'.lower = e := by stop
+  induction e generalizing e'
 
 -- theorem refines_higherSS'' {e : ExprLow String} {e' : ExprHigh String} {ε} :
 --   e.higherSS = .some e' →
@@ -96,7 +95,7 @@ theorem refines_higherSS' {e : ExprLow String} {e' : ExprHigh String} {ε} :
     obtain ⟨e_mid, hhigh, hsome⟩ := hhigh
     cases hsome
     dsimp [ExprHigh.build_module_expr, ExprHigh.build_module, ExprHigh.build_module', ExprHigh.lower, ExprHigh.lower', ExprHigh.uncurry, ExprLow.build_module_expr]
-
+    sorry
   | _ => sorry
 
 axiom wf_mapping_all {e : ExprLow String}:
