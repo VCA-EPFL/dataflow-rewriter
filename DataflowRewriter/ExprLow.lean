@@ -244,6 +244,7 @@ def findBase (typ : Ident) : ExprLow Ident → Option (PortMapping Ident)
   match e₁.findBase typ with
   | some port => port
   | none => e₂.findBase typ
+
 @[drunfold]
 def mapInputPorts (f : InternalPort Ident → InternalPort Ident) : ExprLow Ident → Option (ExprLow Ident)
 | .base map typ' => do
@@ -403,10 +404,6 @@ def findAllOutputs : ExprLow Ident → List (InternalPort Ident)
 | .product e₁ e₂ => e₁.findAllOutputs ++ e₂.findAllOutputs
 | .connect c e => e.findAllOutputs.eraseAll c.input
 
-def ensureIOUnmodified (p : PortMapping Ident) (e : ExprLow Ident) : Bool :=
-  e.findAllInputs.all (λ x => (p.input.find? x).isNone)
-  ∧ e.findAllOutputs.all (λ x => (p.output.find? x).isNone)
-
 /--
 Find input and find output imply that build_module will contain that key
 -/
@@ -419,6 +416,19 @@ def findOutput (o : InternalPort Ident) : ExprLow Ident → Bool
 | .base inst _typ => inst.output.any (λ _ a => a = o)
 | .product e₁ e₂ => findOutput o e₁ ∨ findOutput o e₂
 | .connect c e => c.output ≠ o ∧ findOutput o e
+
+def ensureIOUnmodified' (p : PortMapping Ident) (e : ExprLow Ident) : Bool :=
+  e.findAllInputs.all (λ x => (p.input.find? x).isNone)
+  ∧ e.findAllOutputs.all (λ x => (p.output.find? x).isNone)
+
+def ensureIOUnmodified_efficient [DecidableEq Ident] (p : PortMapping Ident) (e : ExprLow Ident) : Bool := true
+
+@[implemented_by ensureIOUnmodified_efficient]
+def ensureIOUnmodified (p : PortMapping Ident) (e : ExprLow Ident) : Bool :=
+  p.input.keysList.all (e.findInput · == false)
+  ∧ p.input.valsList.all (e.findInput · == false)
+  ∧ p.output.keysList.all (e.findOutput · == false)
+  ∧ p.output.valsList.all (e.findOutput · == false)
 
 def fix_point (f : ExprLow Ident → ExprLow Ident) (e : ExprLow Ident): Nat → ExprLow Ident
 | 0 => e
@@ -497,6 +507,21 @@ def comm_base_ {Ident} [DecidableEq Ident] (binst : PortMapping Ident) (btyp : I
   else .product e₁ <$> comm_base_ binst btyp e₂
 | .connect c e => .connect c <$> comm_base_ binst btyp e
 | e => .none
+
+def comm_connection_inv_ : ExprLow Ident → Option (ExprLow Ident)
+| .connect c e =>
+  .connect c <$> comm_connection_inv_ e
+| .product e₁ e₂ =>
+  match e₂ with
+  | .connect c e₂ =>
+    if ¬ e₁.findInput c.input ∧ ¬ e₁.findOutput c.output then
+      .some <| .connect c (.product e₁ e₂)
+    else
+      .none
+  | _ => .product e₁ <$> comm_connection_inv_ e₂
+| _ => .none
+
+def comm_connection_inv (e : ExprLow Ident) := fix_point_opt comm_connection_inv_ e 10000
 
 def comm_base (binst : PortMapping Ident) (btyp : Ident) e := fix_point_opt (comm_base_ binst btyp) e 10000
 

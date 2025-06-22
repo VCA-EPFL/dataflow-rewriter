@@ -9,6 +9,8 @@ import DataflowRewriter.AssocList.Bijective
 import Mathlib.Tactic.Convert
 import Mathlib.Logic.Function.Basic
 
+set_option Elab.async false
+
 open Batteries (AssocList)
 
 namespace DataflowRewriter
@@ -241,6 +243,128 @@ theorem MatchInterface_mapOutputPorts {I S} {imod : Module Ident I}
   obtain ⟨ha, hb1, hb2⟩ := hbij; subst ident
   obtain ⟨h1, h2⟩ := inst ha; obtain ⟨h1', h2'⟩ := inst (f ha); clear inst
   and_intros <;> (simp (disch := assumption) only [Module.mapOutputPorts, AssocList.find?_mapVal, AssocList.mapKey_find?] at *; assumption)
+
+set_option maxHeartbeats 0 in
+instance MatchInterface_product_associative {I S J} {imod : Module Ident I} {smod : Module Ident S} {jmod : Module Ident J} : MatchInterface (imod.product (smod.product jmod)) ((imod.product smod).product jmod) := by
+  simp only [MatchInterface_simpler_iff] at *
+  intro ident
+  and_intros
+  · dsimp [Module.product];
+    repeat rw [AssocList.find?_mapVal]
+    cases himod : imod.inputs.find? ident
+    · cases hsmod : smod.inputs.find? ident
+      · cases hjmod : jmod.inputs.find? ident
+        · repeat1 ((try rw [AssocList.find?_mapVal]); rw [AssocList.append_find_right])
+          any_goals simp [*, AssocList.find?_mapVal, -AssocList.find?_eq]
+          repeat1 ((try rw [AssocList.find?_mapVal]); rw [AssocList.append_find_right])
+          all_goals simp [*, AssocList.find?_mapVal, -AssocList.find?_eq]
+        · repeat1 ((try rw [AssocList.find?_mapVal]); rw [AssocList.append_find_right])
+          any_goals simp [*, AssocList.find?_mapVal, -AssocList.find?_eq]
+          rfl
+          repeat1 ((try rw [AssocList.find?_mapVal]); rw [AssocList.append_find_right])
+          all_goals simp [*, AssocList.find?_mapVal, -AssocList.find?_eq]
+      · rename_i v
+        conv =>
+          lhs; rw [AssocList.append_find_right, AssocList.find?_mapVal, AssocList.append_find_left (x := Module.liftL v)]
+          dsimp; rfl
+          rw [AssocList.find?_mapVal, hsmod]; rfl
+          rw [AssocList.find?_mapVal, himod]; rfl
+        conv =>
+          rhs; rw [AssocList.append_find_left (x := Module.liftL (Module.liftR v))]; dsimp; rfl
+          rw [AssocList.find?_mapVal, AssocList.append_find_right, AssocList.find?_mapVal, hsmod]; rfl
+          rw [AssocList.find?_mapVal, himod]
+        rfl
+    · rename_i v
+      conv =>
+        lhs; rw [AssocList.append_find_left (x := Module.liftL v)]; dsimp; rfl
+        rw [AssocList.find?_mapVal, himod]; rfl
+      conv =>
+        rhs; rw [AssocList.append_find_left (x := Module.liftL (Module.liftL v))]; dsimp; rfl
+        rw [AssocList.find?_mapVal, AssocList.append_find_left (x := Module.liftL v)]; dsimp; rfl
+        rw [AssocList.find?_mapVal, himod]; rfl
+      rfl
+  · dsimp [Module.product];
+    repeat rw [AssocList.find?_mapVal]
+    cases himod : imod.outputs.find? ident
+    · cases hsmod : smod.outputs.find? ident
+      · cases hjmod : jmod.outputs.find? ident
+        · repeat1 ((try rw [AssocList.find?_mapVal]); rw [AssocList.append_find_right])
+          any_goals simp [*, AssocList.find?_mapVal, -AssocList.find?_eq]
+          repeat1 ((try rw [AssocList.find?_mapVal]); rw [AssocList.append_find_right])
+          all_goals simp [*, AssocList.find?_mapVal, -AssocList.find?_eq]
+        · repeat1 ((try rw [AssocList.find?_mapVal]); rw [AssocList.append_find_right])
+          any_goals simp [*, AssocList.find?_mapVal, -AssocList.find?_eq]
+          rfl
+          repeat1 ((try rw [AssocList.find?_mapVal]); rw [AssocList.append_find_right])
+          all_goals simp [*, AssocList.find?_mapVal, -AssocList.find?_eq]
+      · rename_i v
+        conv =>
+          lhs; rw [AssocList.append_find_right, AssocList.find?_mapVal, AssocList.append_find_left (x := Module.liftL v)]
+          dsimp; rfl
+          rw [AssocList.find?_mapVal, hsmod]; rfl
+          rw [AssocList.find?_mapVal, himod]; rfl
+        conv =>
+          rhs; rw [AssocList.append_find_left (x := Module.liftL (Module.liftR v))]; dsimp; rfl
+          rw [AssocList.find?_mapVal, AssocList.append_find_right, AssocList.find?_mapVal, hsmod]; rfl
+          rw [AssocList.find?_mapVal, himod]
+        rfl
+    · rename_i v
+      conv =>
+        lhs; rw [AssocList.append_find_left (x := Module.liftL v)]; dsimp; rfl
+        rw [AssocList.find?_mapVal, himod]; rfl
+      conv =>
+        rhs; rw [AssocList.append_find_left (x := Module.liftL (Module.liftL v))]; dsimp; rfl
+        rw [AssocList.find?_mapVal, AssocList.append_find_left (x := Module.liftL v)]; dsimp; rfl
+        rw [AssocList.find?_mapVal, himod]; rfl
+      rfl
+
+instance MatchInterface_product_associative' {I S J} {imod : Module Ident I} {smod : Module Ident S} {jmod : Module Ident J}
+  : MatchInterface ((imod.product smod).product jmod) (imod.product (smod.product jmod))
+  := MatchInterface_symmetric _ MatchInterface_product_associative
+
+theorem MatchInterface_product_commutative {I S} {imod : Module Ident I} {smod : Module Ident S}
+  (h : Disjoint imod smod)
+  : MatchInterface (imod.product smod) (smod.product imod) := by
+  simp only [MatchInterface_simpler_iff] at *
+  intro ident
+  obtain ⟨hl, hr⟩ := h
+  and_intros
+  · unfold Module.product; dsimp
+    cases himod : imod.inputs.find? ident
+    · cases hsmod : smod.inputs.find? ident
+      · rewrite [AssocList.find?_mapVal, AssocList.find?_mapVal, AssocList.append_find_right, AssocList.append_find_right,
+                 AssocList.find?_mapVal, AssocList.find?_mapVal, himod, hsmod]; rfl
+        · rewrite [AssocList.find?_mapVal, hsmod]; rfl
+        · rewrite [AssocList.find?_mapVal, himod]; rfl
+      · rename_i v
+        rewrite [AssocList.find?_mapVal, AssocList.find?_mapVal, AssocList.append_find_right, AssocList.find?_mapVal, hsmod,
+                 AssocList.append_find_left (x := Module.liftL v)]; rfl
+        · rewrite [AssocList.find?_mapVal, hsmod]; rfl
+        · rewrite [AssocList.find?_mapVal, himod]; rfl
+    · rename_i v
+      have hsmod := AssocList.disjoint_keys_find_some hl himod
+      rewrite [AssocList.find?_mapVal, AssocList.find?_mapVal, AssocList.append_find_left (x := Module.liftL v),
+               AssocList.append_find_right, AssocList.find?_mapVal, himod]; rfl
+      · rewrite [AssocList.find?_mapVal, hsmod]; rfl
+      · rewrite [AssocList.find?_mapVal, himod]; rfl
+  · unfold Module.product; dsimp
+    cases himod : imod.outputs.find? ident
+    · cases hsmod : smod.outputs.find? ident
+      · rewrite [AssocList.find?_mapVal, AssocList.find?_mapVal, AssocList.append_find_right, AssocList.append_find_right,
+                 AssocList.find?_mapVal, AssocList.find?_mapVal, himod, hsmod]; rfl
+        · rewrite [AssocList.find?_mapVal, hsmod]; rfl
+        · rewrite [AssocList.find?_mapVal, himod]; rfl
+      · rename_i v
+        rewrite [AssocList.find?_mapVal, AssocList.find?_mapVal, AssocList.append_find_right, AssocList.find?_mapVal, hsmod,
+                 AssocList.append_find_left (x := Module.liftL v)]; rfl
+        · rewrite [AssocList.find?_mapVal, hsmod]; rfl
+        · rewrite [AssocList.find?_mapVal, himod]; rfl
+    · rename_i v
+      have hsmod := AssocList.disjoint_keys_find_some hr himod
+      rewrite [AssocList.find?_mapVal, AssocList.find?_mapVal, AssocList.append_find_left (x := Module.liftL v),
+               AssocList.append_find_right, AssocList.find?_mapVal, himod]; rfl
+      · rewrite [AssocList.find?_mapVal, hsmod]; rfl
+      · rewrite [AssocList.find?_mapVal, himod]; rfl
 
 end Match
 
@@ -612,7 +736,7 @@ theorem indistinguishability_connect {i s inp out} [MatchInterface imod smod] :
     dsimp [connect'] at *
     by_cases heq : ident = inp
     · subst_vars
-      have hFalse := PortMap.getIO_not_contained_false conn AssocList.eraseAll_not_contains2
+      have hFalse := PortMap.getIO_not_contained_false conn (AssocList.eraseAll_not_contains2 _ _)
       contradiction
     · rw [PortMap.rw_rule_execution (by rw [PortMap.getIO_eraseAll_neq]; assumption)] at conn
       obtain ⟨new_s, hindl₁⟩ := hindl₁ _ _ _ conn
@@ -622,12 +746,425 @@ theorem indistinguishability_connect {i s inp out} [MatchInterface imod smod] :
     dsimp [connect'] at *
     by_cases heq : ident = out
     · subst_vars
-      have hFalse := PortMap.getIO_not_contained_false conn AssocList.eraseAll_not_contains2
+      have hFalse := PortMap.getIO_not_contained_false conn (AssocList.eraseAll_not_contains2 _ _)
       contradiction
     · rw [PortMap.rw_rule_execution (by rw [PortMap.getIO_eraseAll_neq]; assumption)] at conn
       obtain ⟨new_s, hindl₂⟩ := hindl₂ _ _ _ conn
       exists new_s; rw [PortMap.rw_rule_execution (by rw [PortMap.getIO_eraseAll_neq]; assumption)]
       convert hindl₂; simp
+
+omit mm in
+theorem rule_product_associative_input {J} (jmod : Module Ident J) {i₁ i₂ i₃} {new_i new_s new_j} {ident} {v}:
+  ((imod.product (smod.product jmod)).inputs.getIO ident).snd (i₁, i₂, i₃) v (new_i, new_s, new_j) →
+  (((imod.product smod).product jmod).inputs.getIO ident).snd ((i₁, i₂), i₃) ((MatchInterface.input_types ident).mp v) ((new_i, new_s), new_j) := by
+  intro rule
+  cases h1 : imod.inputs.find? ident
+  · cases h2 : smod.inputs.find? ident
+    · cases h3 : jmod.inputs.find? ident
+      · have := PortMap.getIO_not_contained_false rule
+          (by
+            intro hcont
+            dsimp [Module.product] at hcont
+            simp only [AssocList.contains_append, AssocList.contains_mapval] at hcont
+            rw [AssocList.contains_find?_none_iff] at h1 h2 h3
+            rw [h1, h2, h3] at hcont
+            contradiction
+          )
+        contradiction
+      · rename_i rule'
+        have imp : (imod.product (smod.product jmod)).inputs.getIO ident = liftR (liftR rule') := by
+          dsimp [Module.product, PortMap.getIO]
+          rewrite [AssocList.append_find_right, AssocList.find?_mapVal, AssocList.append_find_right, AssocList.find?_mapVal, h3]; rfl
+          · rewrite [AssocList.find?_mapVal, h2]; rfl
+          · rewrite [AssocList.find?_mapVal, h1]; rfl
+        have spec : ((imod.product smod).product jmod).inputs.getIO ident = liftR rule' := by
+          dsimp [Module.product, PortMap.getIO]
+          rewrite [AssocList.append_find_right, AssocList.find?_mapVal, h3]; rfl
+          rewrite [AssocList.find?_mapVal, AssocList.append_find_right, AssocList.find?_mapVal, h2]; rfl
+          rewrite [AssocList.find?_mapVal, h1]; rfl
+        rewrite [PortMap.rw_rule_execution (by rw [spec])]
+        rewrite [PortMap.rw_rule_execution (by rw [imp])] at rule
+        dsimp [liftR] at *
+        obtain ⟨⟨rule, r2⟩, r3⟩ := rule; subst_vars
+        constructor <;> try rfl
+        convert rule; simp
+    · rename_i rule'
+      have imp : (imod.product (smod.product jmod)).inputs.getIO ident = liftR (liftL rule') := by
+        dsimp [Module.product, PortMap.getIO]
+        rewrite [AssocList.append_find_right, AssocList.find?_mapVal, AssocList.append_find_left]; rfl
+        · rewrite [AssocList.find?_mapVal, h2]; rfl
+        · rewrite [AssocList.find?_mapVal, h1]; rfl
+      have spec : ((imod.product smod).product jmod).inputs.getIO ident = liftL (liftR rule') := by
+        dsimp [Module.product, PortMap.getIO]
+        rewrite [AssocList.append_find_left]; rfl
+        rewrite [AssocList.find?_mapVal, AssocList.append_find_right, AssocList.find?_mapVal, h2]; rfl
+        rewrite [AssocList.find?_mapVal, h1]; rfl
+      rewrite [PortMap.rw_rule_execution (by rw [spec])]
+      rewrite [PortMap.rw_rule_execution (by rw [imp])] at rule
+      dsimp [liftR] at *
+      obtain ⟨⟨rule, r2⟩, r3⟩ := rule; subst_vars
+      constructor <;> try rfl
+      convert rule; simp
+  · rename_i rule'
+    have imp : (imod.product (smod.product jmod)).inputs.getIO ident = liftL rule' := by
+      dsimp [Module.product, PortMap.getIO]
+      rewrite [AssocList.append_find_left]; rfl
+      rewrite [AssocList.find?_mapVal, h1]; rfl
+    have spec : ((imod.product smod).product jmod).inputs.getIO ident = liftL (liftL rule') := by
+      dsimp [Module.product, PortMap.getIO]
+      rewrite [AssocList.append_find_left]; rfl
+      rewrite [AssocList.find?_mapVal, AssocList.append_find_left]; rfl
+      rewrite [AssocList.find?_mapVal, h1]; rfl
+    rewrite [PortMap.rw_rule_execution (by rw [spec])]
+    rewrite [PortMap.rw_rule_execution (by rw [imp])] at rule
+    dsimp [liftR, liftL] at *
+    obtain ⟨rule, r3⟩ := rule; subst_vars
+    cases r3
+    constructor <;> try rfl
+    convert rule; simp
+
+omit mm in
+theorem rule_product_associative_output {J} (jmod : Module Ident J) {i₁ i₂ i₃} {new_i new_s new_j} {ident} {v}:
+  ((imod.product (smod.product jmod)).outputs.getIO ident).snd (i₁, i₂, i₃) v (new_i, new_s, new_j) →
+  (((imod.product smod).product jmod).outputs.getIO ident).snd ((i₁, i₂), i₃) ((MatchInterface.output_types ident).mp v) ((new_i, new_s), new_j) := by
+  intro rule
+  cases h1 : imod.outputs.find? ident
+  · cases h2 : smod.outputs.find? ident
+    · cases h3 : jmod.outputs.find? ident
+      · have := PortMap.getIO_not_contained_false rule
+          (by
+            intro hcont
+            dsimp [Module.product] at hcont
+            simp only [AssocList.contains_append, AssocList.contains_mapval] at hcont
+            rw [AssocList.contains_find?_none_iff] at h1 h2 h3
+            rw [h1, h2, h3] at hcont
+            contradiction
+          )
+        contradiction
+      · rename_i rule'
+        have imp : (imod.product (smod.product jmod)).outputs.getIO ident = liftR (liftR rule') := by
+          dsimp [Module.product, PortMap.getIO]
+          rewrite [AssocList.append_find_right, AssocList.find?_mapVal, AssocList.append_find_right, AssocList.find?_mapVal, h3]; rfl
+          · rewrite [AssocList.find?_mapVal, h2]; rfl
+          · rewrite [AssocList.find?_mapVal, h1]; rfl
+        have spec : ((imod.product smod).product jmod).outputs.getIO ident = liftR rule' := by
+          dsimp [Module.product, PortMap.getIO]
+          rewrite [AssocList.append_find_right, AssocList.find?_mapVal, h3]; rfl
+          rewrite [AssocList.find?_mapVal, AssocList.append_find_right, AssocList.find?_mapVal, h2]; rfl
+          rewrite [AssocList.find?_mapVal, h1]; rfl
+        rewrite [PortMap.rw_rule_execution (by rw [spec])]
+        rewrite [PortMap.rw_rule_execution (by rw [imp])] at rule
+        dsimp [liftR] at *
+        obtain ⟨⟨rule, r2⟩, r3⟩ := rule; subst_vars
+        constructor <;> try rfl
+        convert rule; simp
+    · rename_i rule'
+      have imp : (imod.product (smod.product jmod)).outputs.getIO ident = liftR (liftL rule') := by
+        dsimp [Module.product, PortMap.getIO]
+        rewrite [AssocList.append_find_right, AssocList.find?_mapVal, AssocList.append_find_left]; rfl
+        · rewrite [AssocList.find?_mapVal, h2]; rfl
+        · rewrite [AssocList.find?_mapVal, h1]; rfl
+      have spec : ((imod.product smod).product jmod).outputs.getIO ident = liftL (liftR rule') := by
+        dsimp [Module.product, PortMap.getIO]
+        rewrite [AssocList.append_find_left]; rfl
+        rewrite [AssocList.find?_mapVal, AssocList.append_find_right, AssocList.find?_mapVal, h2]; rfl
+        rewrite [AssocList.find?_mapVal, h1]; rfl
+      rewrite [PortMap.rw_rule_execution (by rw [spec])]
+      rewrite [PortMap.rw_rule_execution (by rw [imp])] at rule
+      dsimp [liftR] at *
+      obtain ⟨⟨rule, r2⟩, r3⟩ := rule; subst_vars
+      constructor <;> try rfl
+      convert rule; simp
+  · rename_i rule'
+    have imp : (imod.product (smod.product jmod)).outputs.getIO ident = liftL rule' := by
+      dsimp [Module.product, PortMap.getIO]
+      rewrite [AssocList.append_find_left]; rfl
+      rewrite [AssocList.find?_mapVal, h1]; rfl
+    have spec : ((imod.product smod).product jmod).outputs.getIO ident = liftL (liftL rule') := by
+      dsimp [Module.product, PortMap.getIO]
+      rewrite [AssocList.append_find_left]; rfl
+      rewrite [AssocList.find?_mapVal, AssocList.append_find_left]; rfl
+      rewrite [AssocList.find?_mapVal, h1]; rfl
+    rewrite [PortMap.rw_rule_execution (by rw [spec])]
+    rewrite [PortMap.rw_rule_execution (by rw [imp])] at rule
+    dsimp [liftR, liftL] at *
+    obtain ⟨rule, r3⟩ := rule; subst_vars
+    cases r3
+    constructor <;> try rfl
+    convert rule; simp
+
+omit mm in
+theorem indistinguishability_product_associative {J} (jmod : Module Ident J) {i₁ i₂ i₃} :
+  (imod.product (smod.product jmod)).indistinguishable ((imod.product smod).product jmod) (i₁, i₂, i₃) ((i₁, i₂), i₃) := by
+  constructor
+  · intro ident (new_i, new_s, new_j) v rule
+    refine ⟨((new_i, new_s), new_j), ?_⟩
+    solve_by_elim [rule_product_associative_input]
+  · intro ident (new_i, new_s, new_j) v rule
+    refine ⟨((new_i, new_s), new_j), ?_⟩
+    solve_by_elim [rule_product_associative_output]
+
+omit mm in
+theorem rule_product_associative'_input {J} (jmod : Module Ident J) {i₁ i₂ i₃} {new_i new_s new_j} {ident} {v}:
+  (((imod.product smod).product jmod).inputs.getIO ident).snd ((i₁, i₂), i₃) v ((new_i, new_s), new_j) →
+  ((imod.product (smod.product jmod)).inputs.getIO ident).snd (i₁, i₂, i₃) ((MatchInterface.input_types ident).mp v) (new_i, new_s, new_j) := by
+  intro rule
+  cases h1 : imod.inputs.find? ident
+  · cases h2 : smod.inputs.find? ident
+    · cases h3 : jmod.inputs.find? ident
+      · have := PortMap.getIO_not_contained_false rule
+          (by
+            intro hcont
+            dsimp [Module.product] at hcont
+            simp only [AssocList.contains_append, AssocList.contains_mapval] at hcont
+            rw [AssocList.contains_find?_none_iff] at h1 h2 h3
+            rw [h1, h2, h3] at hcont
+            contradiction
+          )
+        contradiction
+      · rename_i rule'
+        have imp : (imod.product (smod.product jmod)).inputs.getIO ident = liftR (liftR rule') := by
+          dsimp [Module.product, PortMap.getIO]
+          rewrite [AssocList.append_find_right, AssocList.find?_mapVal, AssocList.append_find_right, AssocList.find?_mapVal, h3]; rfl
+          · rewrite [AssocList.find?_mapVal, h2]; rfl
+          · rewrite [AssocList.find?_mapVal, h1]; rfl
+        have spec : ((imod.product smod).product jmod).inputs.getIO ident = liftR rule' := by
+          dsimp [Module.product, PortMap.getIO]
+          rewrite [AssocList.append_find_right, AssocList.find?_mapVal, h3]; rfl
+          rewrite [AssocList.find?_mapVal, AssocList.append_find_right, AssocList.find?_mapVal, h2]; rfl
+          rewrite [AssocList.find?_mapVal, h1]; rfl
+        rewrite [PortMap.rw_rule_execution (by rw [imp])]
+        rewrite [PortMap.rw_rule_execution (by rw [spec])] at rule
+        dsimp [liftR, liftL] at *
+        obtain ⟨rule, r3⟩ := rule; subst_vars; cases r3
+        constructor <;> try rfl
+        convert rule; simp
+    · rename_i rule'
+      have imp : (imod.product (smod.product jmod)).inputs.getIO ident = liftR (liftL rule') := by
+        dsimp [Module.product, PortMap.getIO]
+        rewrite [AssocList.append_find_right, AssocList.find?_mapVal, AssocList.append_find_left]; rfl
+        · rewrite [AssocList.find?_mapVal, h2]; rfl
+        · rewrite [AssocList.find?_mapVal, h1]; rfl
+      have spec : ((imod.product smod).product jmod).inputs.getIO ident = liftL (liftR rule') := by
+        dsimp [Module.product, PortMap.getIO]
+        rewrite [AssocList.append_find_left]; rfl
+        rewrite [AssocList.find?_mapVal, AssocList.append_find_right, AssocList.find?_mapVal, h2]; rfl
+        rewrite [AssocList.find?_mapVal, h1]; rfl
+      rewrite [PortMap.rw_rule_execution (by rw [imp])]
+      rewrite [PortMap.rw_rule_execution (by rw [spec])] at rule
+      dsimp [liftR, liftL] at *
+      obtain ⟨⟨rule, r2⟩, r3⟩ := rule; subst_vars
+      constructor <;> try rfl
+      convert rule; simp
+  · rename_i rule'
+    have imp : (imod.product (smod.product jmod)).inputs.getIO ident = liftL rule' := by
+      dsimp [Module.product, PortMap.getIO]
+      rewrite [AssocList.append_find_left]; rfl
+      rewrite [AssocList.find?_mapVal, h1]; rfl
+    have spec : ((imod.product smod).product jmod).inputs.getIO ident = liftL (liftL rule') := by
+      dsimp [Module.product, PortMap.getIO]
+      rewrite [AssocList.append_find_left]; rfl
+      rewrite [AssocList.find?_mapVal, AssocList.append_find_left]; rfl
+      rewrite [AssocList.find?_mapVal, h1]; rfl
+    rewrite [PortMap.rw_rule_execution (by rw [imp])]
+    rewrite [PortMap.rw_rule_execution (by rw [spec])] at rule
+    dsimp [liftR, liftL] at *
+    obtain ⟨⟨rule, r2⟩, r3⟩ := rule; subst_vars
+    constructor <;> try rfl
+    convert rule; simp
+
+omit mm in
+theorem rule_product_associative'_output {J} (jmod : Module Ident J) {i₁ i₂ i₃} {new_i new_s new_j} {ident} {v}:
+  (((imod.product smod).product jmod).outputs.getIO ident).snd ((i₁, i₂), i₃) v ((new_i, new_s), new_j) →
+  ((imod.product (smod.product jmod)).outputs.getIO ident).snd (i₁, i₂, i₃) ((MatchInterface.output_types ident).mp v) (new_i, new_s, new_j) := by
+  intro rule
+  cases h1 : imod.outputs.find? ident
+  · cases h2 : smod.outputs.find? ident
+    · cases h3 : jmod.outputs.find? ident
+      · have := PortMap.getIO_not_contained_false rule
+          (by
+            intro hcont
+            dsimp [Module.product] at hcont
+            simp only [AssocList.contains_append, AssocList.contains_mapval] at hcont
+            rw [AssocList.contains_find?_none_iff] at h1 h2 h3
+            rw [h1, h2, h3] at hcont
+            contradiction
+          )
+        contradiction
+      · rename_i rule'
+        have imp : (imod.product (smod.product jmod)).outputs.getIO ident = liftR (liftR rule') := by
+          dsimp [Module.product, PortMap.getIO]
+          rewrite [AssocList.append_find_right, AssocList.find?_mapVal, AssocList.append_find_right, AssocList.find?_mapVal, h3]; rfl
+          · rewrite [AssocList.find?_mapVal, h2]; rfl
+          · rewrite [AssocList.find?_mapVal, h1]; rfl
+        have spec : ((imod.product smod).product jmod).outputs.getIO ident = liftR rule' := by
+          dsimp [Module.product, PortMap.getIO]
+          rewrite [AssocList.append_find_right, AssocList.find?_mapVal, h3]; rfl
+          rewrite [AssocList.find?_mapVal, AssocList.append_find_right, AssocList.find?_mapVal, h2]; rfl
+          rewrite [AssocList.find?_mapVal, h1]; rfl
+        rewrite [PortMap.rw_rule_execution (by rw [imp])]
+        rewrite [PortMap.rw_rule_execution (by rw [spec])] at rule
+        dsimp [liftR, liftL] at *
+        obtain ⟨rule, r3⟩ := rule; subst_vars; cases r3
+        constructor <;> try rfl
+        convert rule; simp
+    · rename_i rule'
+      have imp : (imod.product (smod.product jmod)).outputs.getIO ident = liftR (liftL rule') := by
+        dsimp [Module.product, PortMap.getIO]
+        rewrite [AssocList.append_find_right, AssocList.find?_mapVal, AssocList.append_find_left]; rfl
+        · rewrite [AssocList.find?_mapVal, h2]; rfl
+        · rewrite [AssocList.find?_mapVal, h1]; rfl
+      have spec : ((imod.product smod).product jmod).outputs.getIO ident = liftL (liftR rule') := by
+        dsimp [Module.product, PortMap.getIO]
+        rewrite [AssocList.append_find_left]; rfl
+        rewrite [AssocList.find?_mapVal, AssocList.append_find_right, AssocList.find?_mapVal, h2]; rfl
+        rewrite [AssocList.find?_mapVal, h1]; rfl
+      rewrite [PortMap.rw_rule_execution (by rw [imp])]
+      rewrite [PortMap.rw_rule_execution (by rw [spec])] at rule
+      dsimp [liftR, liftL] at *
+      obtain ⟨⟨rule, r2⟩, r3⟩ := rule; subst_vars
+      constructor <;> try rfl
+      convert rule; simp
+  · rename_i rule'
+    have imp : (imod.product (smod.product jmod)).outputs.getIO ident = liftL rule' := by
+      dsimp [Module.product, PortMap.getIO]
+      rewrite [AssocList.append_find_left]; rfl
+      rewrite [AssocList.find?_mapVal, h1]; rfl
+    have spec : ((imod.product smod).product jmod).outputs.getIO ident = liftL (liftL rule') := by
+      dsimp [Module.product, PortMap.getIO]
+      rewrite [AssocList.append_find_left]; rfl
+      rewrite [AssocList.find?_mapVal, AssocList.append_find_left]; rfl
+      rewrite [AssocList.find?_mapVal, h1]; rfl
+    rewrite [PortMap.rw_rule_execution (by rw [imp])]
+    rewrite [PortMap.rw_rule_execution (by rw [spec])] at rule
+    dsimp [liftR, liftL] at *
+    obtain ⟨⟨rule, r2⟩, r3⟩ := rule; subst_vars
+    constructor <;> try rfl
+    convert rule; simp
+
+omit mm in
+theorem indistinguishability_product_associative' {J} (jmod : Module Ident J) {i₁ i₂ i₃} :
+  ((imod.product smod).product jmod).indistinguishable (imod.product (smod.product jmod)) ((i₁, i₂), i₃) (i₁, i₂, i₃) := by
+  constructor
+  · intro ident ((new_i, new_s), new_j) v rule
+    refine ⟨(new_i, new_s, new_j), ?_⟩
+    solve_by_elim [rule_product_associative'_input]
+  · intro ident ((new_i, new_s), new_j) v rule
+    refine ⟨(new_i, new_s, new_j), ?_⟩
+    solve_by_elim [rule_product_associative'_output]
+
+omit mm in
+theorem rule_product_commutative_input {i₁ i₂} {mid_i mid_s} {ident} {v} (h : Disjoint imod smod) :
+  have _ := MatchInterface_product_commutative h
+  ((imod.product smod).inputs.getIO ident).snd (i₁, i₂) v (mid_i, mid_s) →
+  ((smod.product imod).inputs.getIO ident).snd (i₂, i₁) ((MatchInterface.input_types ident).mp v) (mid_s, mid_i) := by
+  intro _ rule
+  cases h1 : imod.inputs.find? ident
+  · cases h2 : smod.inputs.find? ident
+    · have := PortMap.getIO_not_contained_false rule
+                (by
+                  intro hcont
+                  dsimp [Module.product] at hcont
+                  simp only [AssocList.contains_append, AssocList.contains_mapval] at hcont
+                  rw [AssocList.contains_find?_none_iff] at h1 h2
+                  rw [h1, h2] at hcont
+                  contradiction
+                )
+      contradiction
+    · rename_i rule'
+      have imp : (imod.product smod).inputs.getIO ident = liftR rule' := by
+        dsimp [Module.product, PortMap.getIO]
+        rewrite [AssocList.append_find_right, AssocList.find?_mapVal, h2]; rfl
+        rewrite [AssocList.find?_mapVal, h1]; rfl
+      have spec : (smod.product imod).inputs.getIO ident = liftL rule' := by
+        dsimp [Module.product, PortMap.getIO]
+        rewrite [AssocList.append_find_left]; rfl
+        rewrite [AssocList.find?_mapVal, h2]; rfl
+      rewrite [PortMap.rw_rule_execution (by rw [spec])]
+      rewrite [PortMap.rw_rule_execution (by rw [imp])] at rule
+      dsimp [liftR, liftL] at *
+      obtain ⟨rule, r3⟩ := rule; subst_vars
+      constructor <;> try rfl
+      convert rule; simp
+  · rename_i rule'
+    have hsmod := AssocList.disjoint_keys_find_some h.1 h1
+    have imp : (imod.product smod).inputs.getIO ident = liftL rule' := by
+      dsimp [Module.product, PortMap.getIO]
+      rewrite [AssocList.append_find_left]; rfl
+      rewrite [AssocList.find?_mapVal, h1]; rfl
+    have spec : (smod.product imod).inputs.getIO ident = liftR rule' := by
+      dsimp [Module.product, PortMap.getIO]
+      rewrite [AssocList.append_find_right, AssocList.find?_mapVal, h1]; rfl
+      rewrite [AssocList.find?_mapVal, hsmod]; rfl
+    rewrite [PortMap.rw_rule_execution (by rw [spec])]
+    rewrite [PortMap.rw_rule_execution (by rw [imp])] at rule
+    dsimp [liftR, liftL] at *
+    obtain ⟨rule, r3⟩ := rule; subst_vars
+    constructor <;> try rfl
+    convert rule; simp
+
+omit mm in
+theorem rule_product_commutative_output {i₁ i₂} {mid_i mid_s} {ident} {v} (h : Disjoint imod smod) :
+  have _ := MatchInterface_product_commutative h
+  ((imod.product smod).outputs.getIO ident).snd (i₁, i₂) v (mid_i, mid_s) →
+  ((smod.product imod).outputs.getIO ident).snd (i₂, i₁) ((MatchInterface.output_types ident).mp v) (mid_s, mid_i) := by
+  intro _ rule
+  cases h1 : imod.outputs.find? ident
+  · cases h2 : smod.outputs.find? ident
+    · have := PortMap.getIO_not_contained_false rule
+                (by
+                  intro hcont
+                  dsimp [Module.product] at hcont
+                  simp only [AssocList.contains_append, AssocList.contains_mapval] at hcont
+                  rw [AssocList.contains_find?_none_iff] at h1 h2
+                  rw [h1, h2] at hcont
+                  contradiction
+                )
+      contradiction
+    · rename_i rule'
+      have imp : (imod.product smod).outputs.getIO ident = liftR rule' := by
+        dsimp [Module.product, PortMap.getIO]
+        rewrite [AssocList.append_find_right, AssocList.find?_mapVal, h2]; rfl
+        rewrite [AssocList.find?_mapVal, h1]; rfl
+      have spec : (smod.product imod).outputs.getIO ident = liftL rule' := by
+        dsimp [Module.product, PortMap.getIO]
+        rewrite [AssocList.append_find_left]; rfl
+        rewrite [AssocList.find?_mapVal, h2]; rfl
+      rewrite [PortMap.rw_rule_execution (by rw [spec])]
+      rewrite [PortMap.rw_rule_execution (by rw [imp])] at rule
+      dsimp [liftR, liftL] at *
+      obtain ⟨rule, r3⟩ := rule; subst_vars
+      constructor <;> try rfl
+      convert rule; simp
+  · rename_i rule'
+    have hsmod := AssocList.disjoint_keys_find_some h.2 h1
+    have imp : (imod.product smod).outputs.getIO ident = liftL rule' := by
+      dsimp [Module.product, PortMap.getIO]
+      rewrite [AssocList.append_find_left]; rfl
+      rewrite [AssocList.find?_mapVal, h1]; rfl
+    have spec : (smod.product imod).outputs.getIO ident = liftR rule' := by
+      dsimp [Module.product, PortMap.getIO]
+      rewrite [AssocList.append_find_right, AssocList.find?_mapVal, h1]; rfl
+      rewrite [AssocList.find?_mapVal, hsmod]; rfl
+    rewrite [PortMap.rw_rule_execution (by rw [spec])]
+    rewrite [PortMap.rw_rule_execution (by rw [imp])] at rule
+    dsimp [liftR, liftL] at *
+    obtain ⟨rule, r3⟩ := rule; subst_vars
+    constructor <;> try rfl
+    convert rule; simp
+
+omit mm in
+theorem indistinguishability_product_commutative {i₁ i₂} (h : Disjoint imod smod) :
+  have _ := MatchInterface_product_commutative h
+  (imod.product smod).indistinguishable (smod.product imod) (i₁, i₂) (i₂, i₁) := by
+  intro _
+  constructor
+  · intro ident (new_i, new_s) v rule
+    refine ⟨(new_s, new_i), ?_⟩
+    solve_by_elim [rule_product_commutative_input]
+  · intro ident (new_i, new_s) v rule
+    refine ⟨(new_s, new_i), ?_⟩
+    solve_by_elim [rule_product_commutative_output]
 
 def refines_φ (φ : I → S → Prop) :=
   ∀ (init_i : I) (init_s : S),
@@ -1172,6 +1709,129 @@ theorem refines_product {J K} (imod₂ : Module Ident J) (smod₂ : Module Ident
     imod.product imod₂ ⊑ smod.product smod₂ := by
   simp [←refines'_refines_iff]; apply refines'_product
 
+theorem refines_φ_product_associative {J} (jmod : Module Ident J):
+    imod.product (smod.product jmod) ⊑_{fun | (i₁, i₂, i₃), ((s₁, s₂), s₃) => i₁ = s₁ ∧ i₂ = s₂ ∧ i₃ = s₃} (imod.product smod).product jmod := by
+  intro (i_init, s_init, j_init) ((i_init', s_init'), j_init') hphi
+  dsimp at hphi; repeat1 cases ‹_ ∧ _›; subst_vars
+  constructor
+  · intro ident (mid_i, mid_s, mid_j) v rule
+    refine ⟨((mid_i, mid_s), mid_j), ((mid_i, mid_s), mid_j), ?_, existSR.done _, ⟨rfl, rfl, rfl⟩⟩
+    solve_by_elim [rule_product_associative_input]
+  · intro ident (mid_i, mid_s, mid_j) v rule
+    refine ⟨((mid_i, mid_s), mid_j), ?_, ⟨rfl, rfl, rfl⟩⟩
+    solve_by_elim [rule_product_associative_output]
+  · intro r (mid_i, mid_s, mid_j) hrule rule
+    exists ((mid_i, mid_s), mid_j)
+    and_intros <;> try rfl
+    dsimp [Module.product] at hrule ⊢; simp at hrule ⊢
+    rcases hrule with ⟨rule', hrule, heq⟩ | ⟨rule', hrule, heq⟩ | ⟨rule', hrule, heq⟩ <;> subst_vars
+    · apply existSR.step (mid := ((mid_i, mid_s), mid_j)) (rule := liftL' (liftL' rule'))
+      · simp only [List.mem_append, List.mem_map]; grind
+      · dsimp [liftL', liftR'] at *; cases rule.2; simp [*]
+      · apply existSR.done
+    · apply existSR.step (mid := ((mid_i, mid_s), mid_j)) (rule := liftL' (liftR' rule'))
+      · simp only [List.mem_append, List.mem_map]; grind
+      · dsimp [liftL', liftR'] at *; simp [*]
+      · apply existSR.done
+    · apply existSR.step (mid := ((mid_i, mid_s), mid_j)) (rule := liftR' rule')
+      · simp only [List.mem_append, List.mem_map]; grind
+      · dsimp [liftL', liftR'] at *; cases rule.2; simp [*]
+      · apply existSR.done
+
+theorem refines_φ_product_associative' {J} (jmod : Module Ident J):
+    (imod.product smod).product jmod ⊑_{fun | ((i₁, i₂), i₃), (s₁, s₂, s₃) => i₁ = s₁ ∧ i₂ = s₂ ∧ i₃ = s₃} imod.product (smod.product jmod) := by
+  intro ((i_init, s_init), j_init) (i_init', s_init', j_init') hphi
+  dsimp at hphi; repeat1 cases ‹_ ∧ _›; subst_vars
+  constructor
+  · intro ident ((mid_i, mid_s), mid_j) v rule
+    refine ⟨(mid_i, mid_s, mid_j), (mid_i, mid_s, mid_j), ?_, existSR.done _, ⟨rfl, rfl, rfl⟩⟩
+    solve_by_elim [rule_product_associative'_input]
+  · intro ident ((mid_i, mid_s), mid_j) v rule
+    refine ⟨(mid_i, mid_s, mid_j), ?_, ⟨rfl, rfl, rfl⟩⟩
+    solve_by_elim [rule_product_associative'_output]
+  · intro r ((mid_i, mid_s), mid_j) hrule rule
+    exists (mid_i, mid_s, mid_j)
+    and_intros <;> try rfl
+    dsimp [Module.product] at hrule ⊢; simp at hrule ⊢
+    rcases hrule with ⟨rule', hrule, heq⟩ | ⟨rule', hrule, heq⟩ | ⟨rule', hrule, heq⟩ <;> subst_vars
+    · apply existSR.step (mid := (mid_i, mid_s, mid_j)) (rule := liftL' rule')
+      · simp only [List.mem_append, List.mem_map]; grind
+      · dsimp [liftL', liftR'] at *; cases rule.2; simp [*]
+      · apply existSR.done
+    · apply existSR.step (mid := (mid_i, mid_s, mid_j)) (rule := liftR' (liftL' rule'))
+      · simp only [List.mem_append, List.mem_map]; grind
+      · dsimp [liftL', liftR'] at *; simp [*]
+      · apply existSR.done
+    · apply existSR.step (mid := (mid_i, mid_s, mid_j)) (rule := liftR' (liftR' rule'))
+      · simp only [List.mem_append, List.mem_map]; grind
+      · dsimp [liftL', liftR'] at *; cases rule.2; simp [*]
+      · apply existSR.done
+
+theorem refines'_product_associative {J} {jmod : Module Ident J} :
+  imod.product (smod.product jmod) ⊑' (imod.product smod).product jmod := by
+  refine ⟨inferInstance, fun | (i₁, i₂, i₃), ((s₁, s₂), s₃) => i₁ = s₁ ∧ i₂ = s₂ ∧ i₃ = s₃, refines_φ_product_associative _, ?_, ?_⟩
+  · intro (i₁, i₂, i₃) ((s₁, s₂), s₃) hphi
+    dsimp at hphi; obtain ⟨_, _, _⟩ := hphi; subst_vars
+    apply indistinguishability_product_associative
+  · dsimp [refines_initial]; intro (i_init, s_init, j_init) hprod
+    unfold Module.product at *; dsimp at *; simp [*]
+
+theorem refines'_product_associative' {J} {jmod : Module Ident J} :
+  (imod.product smod).product jmod ⊑' imod.product (smod.product jmod) := by
+  refine ⟨inferInstance, fun | ((i₁, i₂), i₃), (s₁, s₂, s₃) => i₁ = s₁ ∧ i₂ = s₂ ∧ i₃ = s₃, refines_φ_product_associative' _, ?_, ?_⟩
+  · intro ((i₁, i₂), i₃) (s₁, s₂, s₃) hphi
+    dsimp at hphi; obtain ⟨_, _, _⟩ := hphi; subst_vars
+    apply indistinguishability_product_associative'
+  · dsimp [refines_initial]; intro ((i_init, s_init), j_init) hprod
+    unfold Module.product at *; dsimp at *; simp [*]
+
+theorem refines_product_associative {J} {jmod : Module Ident J} :
+  imod.product (smod.product jmod) ⊑ (imod.product smod).product jmod := by
+  simp [←refines'_refines_iff]; exact refines'_product_associative
+
+theorem refines_product_associative' {J} {jmod : Module Ident J} :
+  (imod.product smod).product jmod ⊑ imod.product (smod.product jmod) := by
+  simp [←refines'_refines_iff]; exact refines'_product_associative'
+
+theorem refines_φ_product_commutative (h : Disjoint imod smod) :
+  have _ := MatchInterface_product_commutative h
+  (imod.product smod) ⊑_{fun | (i₁, i₂), (s₁, s₂) => i₁ = s₂ ∧ i₂ = s₁} (smod.product imod) := by
+  intro _ (i_init, s_init) (i_init', s_init') hphi
+  dsimp at hphi; repeat1 cases ‹_ ∧ _›; subst_vars
+  constructor
+  · intro ident (mid_i, mid_s) v rule
+    refine ⟨(mid_s, mid_i), (mid_s, mid_i), ?_, existSR.done _, ⟨rfl, rfl⟩⟩
+    solve_by_elim [rule_product_commutative_input]
+  · intro ident (mid_i, mid_s) v rule
+    refine ⟨(mid_s, mid_i), ?_, ⟨rfl, rfl⟩⟩
+    solve_by_elim [rule_product_commutative_output]
+  · intro r (mid_i, mid_s) hrule rule
+    exists (mid_s, mid_i)
+    and_intros <;> try rfl
+    dsimp [Module.product] at hrule ⊢; simp at hrule ⊢
+    rcases hrule with ⟨rule', hrule, heq⟩ | ⟨rule', hrule, heq⟩ <;> subst_vars
+    · apply existSR.step (mid := (mid_s, mid_i)) (rule := liftR' rule')
+      · simp only [List.mem_append, List.mem_map]; grind
+      · dsimp [liftL', liftR'] at *; cases rule.2; simp [*]
+      · apply existSR.done
+    · apply existSR.step (mid := (mid_s, mid_i)) (rule := liftL' rule')
+      · simp only [List.mem_append, List.mem_map]; grind
+      · dsimp [liftL', liftR'] at *; simp [*]
+      · apply existSR.done
+
+theorem refines'_product_commutative (h : Disjoint imod smod) :
+  (imod.product smod) ⊑' smod.product imod := by
+  refine ⟨MatchInterface_product_commutative h, fun | (i₁, i₂), (s₁, s₂) => i₁ = s₂ ∧ i₂ = s₁, refines_φ_product_commutative h, ?_, ?_⟩
+  · intro (i₁, i₂) (s₁, s₂) hphi
+    dsimp at hphi; obtain ⟨_, _, _⟩ := hphi; subst_vars
+    exact indistinguishability_product_commutative _ _ h
+  · dsimp [refines_initial]; intro (i_init, s_init) hprod
+    unfold Module.product at *; dsimp at *; simp [*]
+
+theorem refines_product_commutative (h : Disjoint imod smod) :
+  (imod.product smod) ⊑ smod.product imod := by
+  simp [←refines'_refines_iff]; exact refines'_product_commutative h
+
 theorem refines_φ_connect [MatchInterface imod smod] {φ i o} :
     imod ⊑_{φ} smod → imod.connect' o i ⊑_{φ} smod.connect' o i := by
   intro href
@@ -1519,5 +2179,14 @@ theorem foldl_connect' (l : List α) (acc : TModule Ident) (f g : α → Interna
       sorry
       sorry
 
+@[simp]
+theorem renamePorts_inputs {Ident S} [DecidableEq Ident] {m : Module Ident S} {i}:
+  (m.renamePorts i).inputs = m.inputs.mapKey i.input.bijectivePortRenaming := rfl
+
+@[simp]
+theorem renamePorts_outputs {Ident S} [DecidableEq Ident] {m : Module Ident S} {i}:
+  (m.renamePorts i).outputs = m.outputs.mapKey i.output.bijectivePortRenaming := rfl
+
 end Module
+
 end DataflowRewriter

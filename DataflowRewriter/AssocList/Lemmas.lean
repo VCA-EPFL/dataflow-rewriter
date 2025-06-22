@@ -1,5 +1,5 @@
 /-
-Copyright (c) 2024 VCA Lab, EPFL. All rights reserved.
+Copyright (c) 2024, 2025 VCA Lab, EPFL. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
@@ -57,7 +57,7 @@ theorem append_find? {α β} [DecidableEq α] (a b : AssocList α β) (i) :
   | nil => simp
   | cons k v t ih =>
     by_cases h : k = i
-    <;> simp_all [List.find?_cons_of_pos, List.find?_cons_of_neg]
+    <;> simp_all [List.find?_cons_of_pos, List.find?_cons_of_neg, find?_eq]
 
 theorem append_find?2 {α β} [DecidableEq α] {a b : AssocList α β} {i x} :
   (a ++ b).find? i = some x →
@@ -130,7 +130,7 @@ private theorem map_keys_list' {α β γ} [DecidableEq α] {f : α → β → γ
 
 theorem map_keys_list {α β γ} [DecidableEq α] {ident} {l : AssocList α β} {f : α → β → γ} :
     (l.mapVal f).find? ident = (l.find? ident).map (f ident) := by
-  simp [find?_eq]
+  simp only [find?_eq, toList_mapVal, List.find?_map, Option.map_map]
   cases h : List.find? (fun x => x.fst == ident) l.toList <;> simp_all
   · assumption
   · rename_i val
@@ -227,6 +227,15 @@ theorem contains_find?_iff {α β} [DecidableEq α] {m : AssocList α β} {ident
 theorem contains_find?_isSome_iff {α β} [DecidableEq α] {m : AssocList α β} {ident} :
     (m.find? ident).isSome ↔ m.contains ident := by
   rw [Option.isSome_iff_exists]; apply contains_find?_iff
+
+theorem contains_find?_none_iff {α β} [DecidableEq α] {m : AssocList α β} {ident} :
+    m.find? ident = none ↔ m.contains ident = false := by
+  constructor
+  · intro find?; cases h : contains ident m <;> try rfl
+    rw [←contains_find?_isSome_iff, find?] at h; contradiction
+  · intro cont; cases h : find? ident m <;> try rfl
+    have h' : (find? ident m).isSome := by rewrite [h]; rfl
+    grind [contains_find?_isSome_iff]
 
 theorem keysList_find {α β} [DecidableEq α] {m : AssocList α β} {ident} :
   (m.find? ident).isSome → ident ∈ m.keysList := by simp_all [keysList]
@@ -384,7 +393,7 @@ theorem eraseAll_not_contains {α β} [DecidableEq α] (a : AssocList α β) (i 
     · exfalso; apply H
       simp; left; simp at Heq; assumption
 
-theorem eraseAll_not_contains2 {α β} [DecidableEq α] {a : AssocList α β} {i : α} :
+theorem eraseAll_not_contains2 {α β} [DecidableEq α] (a : AssocList α β) (i : α) :
   ¬ (a.eraseAll i).contains i := by
   rw [← contains_find?_iff]; intro ⟨x, h⟩
   rw [find?_eraseAll_eq] at h; contradiction
@@ -436,6 +445,14 @@ theorem keysList_contains_iff {α β} [DecidableEq α] {m : AssocList α β} {k}
   · intro h
     by_cases h' : contains k m <;> try assumption
     exfalso; apply keysNotInMap (α := α) <;> assumption
+
+theorem keysList_find?_isSome_iff {α β} [DecidableEq α] {m : AssocList α β} {k} :
+  (m.find? k).isSome ↔ k ∈ m.keysList := by
+  rw [contains_find?_isSome_iff, keysList_contains_iff]
+
+theorem keysList_find?_iff {α β} [DecidableEq α] {m : AssocList α β} {k} :
+  (∃ v, m.find? k = .some v) ↔ k ∈ m.keysList := by
+  rw [contains_find?_iff, keysList_contains_iff]
 
 -- theorem disjoint_keys_mapVal {α β γ μ} [DecidableEq α] {a : AssocList α β} {b : AssocList α γ} {f : α → γ → μ} :
 --   a.disjoint_keys b → a.disjoint_keys (b.mapVal f)
@@ -943,7 +960,7 @@ theorem eraseAll_Nodup {α β} [DecidableEq α] {p : AssocList α β} {k} :
       apply contains_eraseAll; assumption
       grind
 
-theorem find?_in_toList {α β} [DecidableEq α] [DecidableEq β] {p : AssocList α β} {k v} :
+theorem find?_in_toList {α β} [DecidableEq α] {p : AssocList α β} {k v} :
   find? k p = some v → (k, v) ∈ p.toList := by
   induction p generalizing k v with
   | nil => simp
@@ -954,6 +971,28 @@ theorem find?_in_toList {α β} [DecidableEq α] [DecidableEq β] {p : AssocList
     · rw [find?_cons_neq] at hfind <;> try assumption
       simp [h]; right
       solve_by_elim
+
+theorem find?_in_toList2 {α β} [DecidableEq α] {p : AssocList α β} {k v} :
+  p.keysList.Nodup → (k, v) ∈ p.toList → find? k p = some v := by
+  induction p generalizing k v with
+  | nil => simp
+  | cons k' v' xs ih =>
+    intro hnodup hkv
+    dsimp at *; cases hkv
+    · rw [find?_cons_eq]
+    · simp only [keysList_cons, List.nodup_cons] at hnodup
+      rename_i hin
+      rcases hnodup with ⟨hk, hnodup⟩
+      by_cases heq : k' = k
+      · subst k; exfalso
+        apply hk; unfold keysList
+        simp only [List.mem_map, Prod.exists, exists_and_right, exists_eq_right]
+        solve_by_elim
+      · rw [find?_cons_neq] <;> solve_by_elim
+
+theorem find?_in_toList_iff {α β} [DecidableEq α] {p : AssocList α β} {k v} :
+  p.keysList.Nodup → ((k, v) ∈ p.toList ↔ find? k p = some v) :=
+  fun h => { mp := find?_in_toList2 h, mpr := find?_in_toList }
 
 theorem EqExt_Perm {α β} [DecidableEq α] [DecidableEq β] {p p' : AssocList α β} :
   p.EqExt p' → p.wf → p'.wf → p.toList.Perm p'.toList := by
@@ -1097,6 +1136,135 @@ theorem invertibleMap {α} [DecidableEq α] {p : AssocList α α} {a b} :
       rotate_left 1; assumption
       rw [← keysList_contains_iff, ← contains_find?_iff]
       constructor; assumption
+
+theorem bijectivePortRenaming_eq1 {α} [DecidableEq α] {p : AssocList α α} {a}:
+  p.find? a = some a →
+  AssocList.bijectivePortRenaming p a = a := by
+  unfold AssocList.bijectivePortRenaming
+  intro hf; split <;> try rfl
+  rename_i hinv; unfold invertible at hinv; simp only [List.empty_eq, Bool.decide_and,
+    Bool.and_eq_true, decide_eq_true_eq] at hinv; dsimp
+  rcases hinv with ⟨ha, hb, hc⟩
+  rw [append_find_right, filterId_correct]; rfl; assumption
+  rwa [inverse_correct]; assumption
+  rwa [filterId_correct]; assumption
+
+theorem bijectivePortRenaming_eq2 {α} [DecidableEq α] {p : AssocList α α} {a}:
+  p.find? a = none →
+  p.inverse.find? a = none →
+  AssocList.bijectivePortRenaming p a = a := by
+  unfold AssocList.bijectivePortRenaming
+  intro hf hf'; split <;> try rfl
+  rename_i hinv; unfold invertible at hinv; simp only [List.empty_eq, Bool.decide_and,
+    Bool.and_eq_true, decide_eq_true_eq] at hinv; dsimp
+  rcases hinv with ⟨ha, hb, hc⟩
+  rw [append_find_right, filterId_correct_none]; rfl; assumption
+  rwa [filterId_correct_none]
+
+theorem bijectivePortRenaming_eq3 {α} [DecidableEq α] {p : AssocList α α} {a b}:
+  p.invertible →
+  p.find? a = some b →
+  AssocList.bijectivePortRenaming p a = b := by
+  intro inv hfind
+  by_cases heq : a = b
+  · subst b; solve_by_elim [bijectivePortRenaming_eq1]
+  · rw [bijectivePortRenaming_invert] <;> try assumption
+    dsimp; rw [append_find_left]; rfl
+    rwa [filterId_correct2]; assumption
+
+theorem bijectivePortRenaming_eq4 {α} [DecidableEq α] {p : AssocList α α} {a b}:
+  p.invertible →
+  p.find? a = some b →
+  AssocList.bijectivePortRenaming p b = a := by
+  intro inv hfind
+  by_cases heq : a = b
+  · subst b; solve_by_elim [bijectivePortRenaming_eq1]
+  · rw [bijectivePortRenaming_invert] <;> try assumption
+    dsimp; rw [invertibleMap]; rfl; assumption
+    rw [append_find_left]; rwa [filterId_correct2]; assumption
+
+theorem bijectivePortRenaming_eq5 {α} [DecidableEq α] {p : AssocList α α} {a}:
+  ¬ p.invertible →
+  AssocList.bijectivePortRenaming p a = a := by
+  intro hinv
+  simp only [Bool.not_eq_true] at hinv
+  unfold bijectivePortRenaming; rw [hinv]; rfl
+
+theorem contains_append {α β} [DecidableEq α] {m1 m2 : AssocList α β} {i} :
+  (m1 ++ m2).contains i = (m1.contains i || m2.contains i) := by
+  cases h : (m1 ++ m2).contains i <;> symm
+  · simp only [← Bool.not_eq_true] at *
+    intro hcont; apply h; clear h
+    simp only [Bool.or_eq_true, List.any_eq_true, beq_iff_eq, Prod.exists,
+      exists_and_right, exists_eq_right] at hcont
+    rcases hcont with hcont | hcont
+    · simp only [← contains_find?_iff] at *
+      obtain ⟨v, hfind⟩ := hcont
+      exists v; rw [append_find_left]; assumption
+    · cases h' : m1.contains i
+      · simp only [← Bool.not_eq_true] at *
+        simp only [← contains_find?_isSome_iff] at h'
+        simp only [Bool.not_eq_true, Option.isSome_eq_false_iff, Option.isNone_iff_eq_none] at h'
+        simp only [← contains_find?_iff] at *
+        obtain ⟨v, hfind⟩ := hcont; exists v
+        rw [append_find_right] <;> assumption
+      · simp only [← contains_find?_iff] at *
+        obtain ⟨v, hfind⟩ := h'
+        exists v; rw [append_find_left]; assumption
+  · simp only [Bool.or_eq_true]
+    simp only [← contains_find?_iff] at *
+    obtain ⟨v, hfind⟩ := h
+    have := append_find?2 hfind
+    rcases this with h | h
+    · left; solve_by_elim
+    · right; exists v; apply h.right
+
+theorem contains_mapval {α β γ} [DecidableEq α] {f : α → β → γ} {m : AssocList α β} {i} : (m.mapVal f).contains i = m.contains i := by
+  cases h : (m.mapVal f).contains i <;> symm
+  · simp only [← Bool.not_eq_true] at *; intro hcont; apply h; clear h
+    rw [←contains_find?_iff] at *
+    obtain ⟨v, hfind⟩ := hcont
+    exists (f i v)
+    simp [find?_mapVal, hfind, -find?_eq]
+  · rw [←contains_find?_iff] at *
+    obtain ⟨v, hfind⟩ := h
+    rw [find?_mapVal, Option.map_eq_some] at hfind
+    obtain ⟨v', hfind, heq⟩ := hfind
+    subst v; solve_by_elim
+
+theorem contains_eraseAll3 {α β} [DecidableEq α] {m : AssocList α β} {i j} :
+  i ≠ j → contains i m → contains i (eraseAll j m) := by
+  intro hne hcont
+  simp only [← contains_find?_iff] at *
+  obtain ⟨x, hfind⟩ := hcont
+  exists x; rw [find?_eraseAll_neq] <;> assumption
+
+theorem contains_eraseAll2 {α β} [DecidableEq α] {m : AssocList α β} {i j} :
+  (j ≠ i && AssocList.contains i m) = AssocList.contains i (AssocList.eraseAll j m) := by
+  by_cases h : j = i
+  · subst j; have hnocont := eraseAll_not_contains2 m i
+    simp [-AssocList.find?_eq, -AssocList.contains_eq, *]
+  · cases hc : contains i (eraseAll j m)
+    · simp only [← Bool.not_eq_true] at *
+      intro hdec; apply hc; clear hc
+      simp [-contains_eq] at *
+      obtain ⟨_, hdec⟩ := hdec
+      apply contains_eraseAll3 <;> (solve | assumption | symm; assumption)
+    · simp [-contains_eq]; and_intros; grind
+      exact contains_eraseAll hc
+
+theorem disjoint_keys_find_some {α β γ} [DecidableEq α] {a : AssocList α β} {b : AssocList α γ} {i x} :
+  a.disjoint_keys b →
+  a.find? i = some x →
+  b.find? i = none := by
+  unfold disjoint_keys; intro hdisj hfind
+  simp only [List.inter, List.elem_eq_contains, List.contains_eq_mem, List.filter_eq_nil_iff,
+    decide_eq_true_eq] at *
+  have fsome : (find? i a).isSome := by rewrite [hfind]; rfl
+  rw [contains_find?_isSome_iff, keysList_contains_iff] at fsome
+  replace hdisj := hdisj _ fsome
+  rw [←keysList_contains_iff, ←contains_find?_isSome_iff] at hdisj
+  simp_all [-find?_eq]
 
 @[simp] theorem eraseAllP_false {α β} (l : AssocList α β) :
     AssocList.eraseAllP (λ _ _ => false) l = l := by

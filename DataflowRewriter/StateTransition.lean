@@ -6,12 +6,12 @@ Authors: Yann Herklotz
 
 namespace DataflowRewriter
 
-/-- 
+/--
 Create a class for an arbitrary state transition system.
 -/
 class StateTransition (State: Type _) (Event: outParam (Type _)) where
-  init : State
-  step : State -> List Event -> State -> Prop
+  init : State → Prop
+  step : State → List Event → State → Prop
 
 /--
 These are notations, which allow you to have nicer syntax when you write
@@ -32,7 +32,7 @@ inductive star : State -> List Event -> State -> Prop where
 notation:45 s " -[ " t:45 " ]*> " s':44 => star s t s'
 
 def behaviour (l : List Event): Prop :=
-  exists s', star trans.init l s'
+  exists s s', trans.init s ∧ star s l s'
 
 theorem star.plus_one (s s': State) (e: List Event) :
     s -[e]-> s' -> s -[e]*> s' := by

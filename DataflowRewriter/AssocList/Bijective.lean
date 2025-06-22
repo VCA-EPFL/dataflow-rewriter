@@ -27,6 +27,15 @@ theorem mapKey_find? {α β γ} [DecidableEq α] [DecidableEq γ] {a : AssocList
       have t2 : (k == i) = false := by simpa [*]
       rw [t1, t2]
 
+theorem mapKey_contains {α β γ} [DecidableEq α] [DecidableEq γ] {m : AssocList α β} {f : α → γ} {k} {hf : Function.Injective f} :
+  m.contains k = (m.mapKey f).contains (f k) := by
+  cases h : contains k m <;> symm
+  · rw [← Bool.not_eq_true] at *; intro hcont; apply h; clear h
+    rw [←contains_find?_iff] at *; rcases hcont with ⟨v, hcont⟩; exists v
+    rwa [mapKey_find?] at hcont; assumption
+  · rw [←contains_find?_iff] at *; rcases h with ⟨v, h⟩; exists v
+    rwa [mapKey_find?]; assumption
+
 theorem eraseAll_comm_mapKey {α β γ} [DecidableEq α] [DecidableEq γ] {f : α → γ}
   {Hinj : Function.Injective f} {i} {m : AssocList α β} :
   (m.mapKey f).eraseAll (f i) = (m.eraseAll i).mapKey f := by

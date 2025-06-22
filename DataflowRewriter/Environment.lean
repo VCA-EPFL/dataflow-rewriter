@@ -13,8 +13,6 @@ import DataflowRewriter.AssocList.Basic
 
 namespace DataflowRewriter
 
-def Env := IdentMap String (TModule String)
-
 namespace Env
 
 def subsetOf (ε₁ ε₂ : Env) : Prop :=
