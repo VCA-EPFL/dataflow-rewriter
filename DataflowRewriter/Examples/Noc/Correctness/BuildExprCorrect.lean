@@ -32,13 +32,6 @@ namespace DataflowRewriter.Noc
   def Noc.env_rmod_homogeneous (n : Noc Data) (rmod : n.RouterID → TModule String) (rmodS : Type _) : Prop :=
     ∀ rid : n.RouterID, (rmod rid).1 = rmodS
 
-  -- TODO:
-  -- env_rmod_ok + env_rmod_ok' means that inputs and outputs rule MUST be
-  -- permutations of one another right?
-  -- NO: This is false.
-  -- Theorem that says that env_rmod_ok gives us that, forall rid,
-  -- (rmod rid).2.inputs = RelIO.liftFinf ((n.topology.neigh_inp rid).length + 1) (n.mk_spec_router_input_rule rid)
-
   @[drenv]
   def Noc.env_rmod_in (n : Noc Data) (ε : Env) (rmod : n.RouterID → TModule String) : Prop :=
     ∀ rid : n.RouterID, AssocList.find? (router_name n rid) ε = .some (rmod rid)
@@ -51,36 +44,35 @@ namespace DataflowRewriter.Noc
     rmod              : n.RouterID → TModule String
     rmod_ok           : n.env_rmod_ok rmod
     rmod_in_ε         : n.env_rmod_in ε rmod
-    rmod_homogeneous  : n.env_rmod_homogeneous rmod n.routers.State
+    rmodT             : Type _
+    rmod_homogeneous  : n.env_rmod_homogeneous rmod rmodT
     empty_in_ε        : n.env_empty ε
 
   variable (n : Noc Data) (ε : Env) [EC : EnvCorrect n ε]
 
   abbrev mod := NatModule.stringify n.build_module
 
+  @[drunfold_defs]
   def_module expT : Type := [T| n.build_expr, ε] reduction_by
     dsimp [drunfold_defs, drcomponents]
     dsimp [ExprLow.build_module_type]
-    rw [ExprLow.build_module_connect_foldl]
-    rw [ExprLow.build_module_product_foldl]
+    dsimp [ExprLow.build_module]
+    rw [ExprLow.build_module_connect_foldr]
+    dsimp [ExprLow.build_module]
+    rw [ExprLow.build_module_product_foldr]
     dsimp [ExprLow.build_module_type, ExprLow.build_module, ExprLow.build_module']
     rw [EC.empty_in_ε]
     conv =>
-      pattern List.foldl _ _
+      pattern List.foldr _ _
       arg 2
       arg 1
-      intro acc i
+      intro i acc
       rw [←router_name, EC.rmod_in_ε i]
       dsimp
-    rw [Module.dep_foldl_1 (f := λ acc i => acc)]
-    rw [Module.dep_foldl_1 (f := λ acc i => (EC.rmod i).1 × acc)]
-    simp only [drenv, drcompute, List.foldl_fixed]
-    conv =>
-      arg 1
-      arg 1
-      intro acc i
-      rw [EC.rmod_homogeneous]
-    rw [←PListL'', PListL''_toPListL', ←PListL, fin_range_len]
+    rw [Module.dep_foldr_1 (f := λ i acc => acc)]
+    rw [Module.dep_foldr_1 (f := λ i acc => (EC.rmod i).1 × acc)]
+    simp only [drenv, drcompute, List.foldr_fixed]
+    rw [←DPListL', ←DPListL]
 
   theorem f_cast {f : Type _ → Type _} {a a'} (heq : a = a') : f a = f a' :=
     by subst a; rfl
@@ -97,19 +89,33 @@ namespace DataflowRewriter.Noc
     H2.mp (H1.mp v) = (Eq.trans H1 H2).mp v := by simpa
 
   theorem mp_lower {f : Type _ → Type _} {a'} {s : Σ T, f T} (h : f s.1 = f a') :
-    Opaque (h.mp s.2) ↔ Opaque (⟨a', h.mp s.2⟩: Σ T, f T).2 := by
+    Opaque (h.mp s.2) ↔ Opaque (⟨a', h.mp s.2⟩ : Σ T, f T).2 := by
       rfl
 
+  -- This is very probably false…
   theorem S_eq {Ident S S' : Type _} (h : Module Ident S = Module Ident S') :
-    S = S' := by sorry
+    S = S' := by
+      -- f x = f y
+      -- x = y
+      sorry
 
   theorem PortMap_eq {Ident S S' : Type _} (h : Module Ident S = Module Ident S') :
     PortMap Ident (RelIO S) = PortMap Ident (RelIO S') := by
       congr; exact S_eq h
 
+  theorem RelInt_eq {Ident S S' : Type _} (h : Module Ident S = Module Ident S') :
+    List (RelInt S) = List (RelInt S') := by
+      congr; exact S_eq h
+
   theorem S_Prop_eq {Ident S S' : Type _} (h : Module Ident S = Module Ident S') :
     (S → Prop) = (S' → Prop) := by
       congr; exact S_eq h
+
+  -- TODO: Is this true? Is this provable?
+  -- Seems fishy
+  theorem mp_inputs' {Ident S S' : Type _} {m : Module Ident S} (h : Module Ident S = Module Ident S') :
+    (PortMap_eq h).mpr (h.mp m).inputs = m.inputs := by
+      sorry
 
   theorem mp_inputs {Ident S S' : Type _} {m : Module Ident S} (h : Module Ident S = Module Ident S'):
     (h.mp m).inputs = (PortMap_eq h).mp m.inputs := by sorry
@@ -117,8 +123,31 @@ namespace DataflowRewriter.Noc
   theorem mp_outputs {Ident S S' : Type _} {m : Module Ident S} (h : Module Ident S = Module Ident S'):
     (h.mp m).outputs = (PortMap_eq h).mp m.outputs := by sorry
 
-  theorem mp_init_state {Ident S S' : Type _} {m : Module Ident S} (h : Module Ident S = Module Ident S'):
-    (h.mp m).init_state = (S_Prop_eq h).mp m.init_state := by sorry
+  theorem mp_init_state {Ident S S' : Type _} {m : Module Ident S} (h : Module Ident S = Module Ident S') :
+    (h.mp m).init_state = (S_Prop_eq h).mp m.init_state := by
+      sorry
+
+  theorem mp_init_state' {Ident S S' : Type _} {m : Module Ident S} (H1 : S = S') (h2 : Module Ident S = Module Ident S') :
+    (h2.mp m).init_state = (S_Prop_eq h2).mp m.init_state := by
+      ext f
+      constructor
+      · intro _; unfold S_Prop_eq; cases m; simp; sorry
+      · intro _; sorry
+
+  theorem mp_lower' {Ident S S' : Type _} {inp out int init} (h : Module Ident S = Module Ident S') :
+    h.mp {
+      inputs := inp,
+      outputs := out,
+      internals := int,
+      init_state := init,
+    }
+    = {
+        inputs := (PortMap_eq h).mp inp,
+        outputs := (PortMap_eq h).mp out,
+        internals := (RelInt_eq h).mp int,
+        init_state := (S_Prop_eq h).mp init,
+      } := by
+        sorry
 
   theorem nil_renaming {α β} [DecidableEq α] (l : AssocList α β) :
   (AssocList.mapKey (@AssocList.nil α α).bijectivePortRenaming l) = l := by
@@ -127,20 +156,22 @@ namespace DataflowRewriter.Noc
     | cons x v tl HR => simpa [HR, AssocList.bijectivePortRenaming, drcompute]
 
   @[drunfold_defs]
-  def_module expM : Module String (expT n) := [e| n.build_expr, ε] reduction_by
+  def_module expM : Module String (expT n ε) := [e| n.build_expr, ε] reduction_by
     dsimp [drunfold_defs, reduceAssocListfind?, reduceListPartition]
     dsimp [ExprLow.build_module_expr, ExprLow.build_module_type]
-    rw [ExprLow.build_module_connect_foldl]
-    rw [ExprLow.build_module_product_foldl]
+    dsimp [ExprLow.build_module]
+    rw [ExprLow.build_module_connect_foldr]
+    dsimp [ExprLow.build_module]
+    rw [ExprLow.build_module_product_foldr]
     dsimp [ExprLow.build_module, ExprLow.build_module']
     rw [EC.empty_in_ε]; dsimp
     dsimp [drcomponents]
     rw [rw_opaque (by
       conv =>
-        pattern List.foldl _ _
+        pattern List.foldr _ _
         arg 2
         arg 1
-        intro acc i
+        intro i acc
         rw [←router_name, EC.rmod_in_ε i]
         dsimp [Module.product]
         dsimp [
@@ -154,81 +185,105 @@ namespace DataflowRewriter.Noc
       Module.renamePorts, Module.mapPorts2, Module.mapOutputPorts,
       Module.mapInputPorts, reduceAssocListfind?
     ]
-    have := Module.foldl_acc_plist_2
+    have := Module.foldr_acc_plist_2
       (acc :=
         ⟨Unit, { inputs := .nil, outputs := .nil, init_state := λ x => True }⟩
       )
       (l := fin_range n.topology.netsz)
-      (f := λ acc1 i => (EC.rmod i).1 × acc1)
-      (g_inputs := λ acc i =>
+      (f := λ i acc1 => (EC.rmod i).1 × acc1)
+      (g_inputs := λ i acc =>
         AssocList.mapVal (λ x => Module.liftL) ((EC.rmod i).2.inputs)
           ++ AssocList.mapVal (λ x => Module.liftR) acc.2
       )
-      (g_outputs := λ acc i =>
+      (g_outputs := λ i acc =>
         (AssocList.mapVal (λ x => Module.liftL) ((EC.rmod i).2.outputs))
           ++ (AssocList.mapVal (λ x => Module.liftR) acc.2)
       )
-      (g_internals := λ acc i =>
+      (g_internals := λ i acc =>
             List.map Module.liftL' (EC.rmod i).2.internals
          ++ List.map Module.liftR' acc.2
       )
-      (g_init_state := λ acc i =>
+      (g_init_state := λ i acc =>
         λ x => (EC.rmod i).snd.init_state x.1 ∧ acc.2 x.2
       )
     rw [this]
     clear this
-    rw [Module.foldl_connect']
-    rw [rw_opaque_fst (by
-      dsimp
-    )]
-    rw [rw_opaque_fst (by
-      conv =>
-        arg 1
-        arg 1
-        intro acc i
-        rw [EC.rmod_homogeneous]
-    )]
-    rw [rw_opaque_fst (by
-      rw [←PListL'', PListL''_toPListL', ←PListL, fin_range_len]
-    )]
-    dsimp only
-    rw [mp_combine]
-    rw [mp_combine]
+    rw [Module.foldr_connect']
+    dsimp
     simp only [drcompute]
-    -- We want to lower the eraseAll but it is a bit annoying to do:
-    -- Erasing after a fold is rarely the same thing as erasing inside of it.
+    -- For the init_state:
+    -- We want to remove the dependent type part.
+    -- This is specific to the combination of a dep_foldl to produce a PListL,
+    -- but should work
+
+    -- For inputs, outputs:
+    -- We want to lower the eraseAll.
+    -- It is a bit annoying to do, since erasing after a fold is rarely the same
+    -- thing as erasing inside of it.
     -- Even here, there is a subtelty that we cannot make it disapear easily
     -- because otherwise we might not get the correct amount of lift…
     --
     -- What would be really nice would be to be able to transform the
     -- Module.foldl_io into a map-flatten or something...
 
-  instance : MatchInterface (mod n) (expM n ε) := by
+  instance : MatchInterface (expM n ε) (mod n) := by
     apply MatchInterface_simpler
     <;> intro _
     <;> dsimp [drunfold_defs, drcomponents]
     <;> sorry
 
-  def φ (I : n.State) (S : expT n) : Prop :=
-    I.toList = PListL.toList S
+  -- TODO: Proper name
+  def tmp_cast : Fin (fin_range n.topology.netsz).length = n.RouterID := by
+    rw [fin_range_len]
 
-  theorem refines_initial : Module.refines_initial (mod n) (expM n ε) (φ n) := by
+  -- TODO: Proper name
+  def tmp2 {rid : Fin (fin_range n.topology.netsz).length} :
+  (EC.rmod ((fin_range n.topology.netsz).get rid)).1 =
+    (EC.rmod (Fin.mk rid (by cases rid; rename_i n h; rw [fin_range_len] at h; simpa))).1 := by
+      rw [fin_range_get]; rfl
+
+  def φ (I : expT n ε) (S : n.State) : Prop :=
+    ∀ (rid : n.RouterID),
+      (Module.refines_refines' (EC.rmod_ok rid)).2.choose
+        ((tmp2 n ε).mp
+        (I.get' rid.1 (by rw [fin_range_len]; exact rid.2))) (S.get rid)
+
+  theorem vec_rep_get {α n} {v : α} {i : Fin n} :
+    (Vector.replicate n v).get i = v := by sorry
+
+  set_option pp.proofs true in
+  theorem refines_initial : Module.refines_initial (expM n ε) (mod n) (φ n ε) := by
     intro i H
-    exists PListL.ofVector i
-    dsimp [drunfold_defs, drcomponents]
-    -- Annoying: We do (cast m).init_state which we want to reduce
-    -- Interesting: The following does not work
-    -- rw [mp_init_state]
-    sorry
+    apply Exists.intro _
+    apply And.intro
+    · -- TODO: This work only because Noc's router initial state is just one
+      -- state and not a property on state, which is quite weak.
+      dsimp [drcomponents]
+    · intro rid
+      unfold Noc.φ._proof_1
+      unfold Noc.φ._proof_2
+      unfold Noc.φ._proof_3
+      unfold Noc.φ._proof_5
+      obtain Hspec := Exists.choose_spec ((Module.refines_refines' (EC.rmod_ok rid)).2)
+      obtain ⟨Hspec1, ⟨Hspec2, Hspec3⟩⟩ := Hspec
+      dsimp [Module.refines_initial] at Hspec3
+      specialize Hspec3 (((tmp2 n ε).mp (i.get' rid.1 (by rw [fin_range_len]; exact rid.2))))
+      specialize Hspec3 sorry -- TODO: Prove with H, annoying
+      obtain ⟨s, ⟨Hs1, Hs2⟩⟩ := Hspec3
+      dsimp [drcomponents] at Hs1
+      subst s
+      dsimp [drunfold_defs, drcomponents] at Hs2
+      rw [vec_rep_get]
+      exact Hs2
 
-  theorem refines_φ : (mod n) ⊑_{φ n} (expM n ε) := by
+  theorem refines_φ : (expM n ε)  ⊑_{φ n ε} (mod n) := by
     sorry
 
   theorem ϕ_indistinguishable :
-    ∀ i s, (φ n) i s → Module.indistinguishable (mod n) (expM n ε) i s := by
+    ∀ i s, (φ n ε) i s → Module.indistinguishable (expM n ε) (mod n) i s := by
       sorry
 
-  theorem correct : (mod n) ⊑ (expM n ε) := by
+  theorem correct : (expM n ε) ⊑ (mod n) := by
     apply (
       Module.refines_φ_refines
         (ϕ_indistinguishable n ε)

@@ -15,7 +15,6 @@
 - `UnboundedQueueInUnboundedBag` could be proven using `RouterIn`
 
 - Heterogeneous Vectors are a pain and should be left for later.
-  For now,
 
 ## Routing Policy
 

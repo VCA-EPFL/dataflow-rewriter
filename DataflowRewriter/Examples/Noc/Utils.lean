@@ -39,6 +39,9 @@ namespace DataflowRewriter.Noc
       | zero => rfl
       | succ sz HR => simpa [fin_range, HR]
 
+  def fin_conv {sz : Nat} (i : Fin (fin_range sz).length) : Fin sz :=
+    Fin.mk i.1 (by cases i; rename_i v h; rw [fin_range_len] at h; simpa)
+
   theorem mapFinIdx_length {α β} (l : List α) (f : (i : Nat) → α → (h : i < l.length) → β) :
     (List.mapFinIdx l f).length = l.length := by
       simpa
@@ -46,6 +49,11 @@ namespace DataflowRewriter.Noc
   theorem mapFinIdx_get {α β} (l : List α) (f : (i : Nat) → α → (h : i < l.length) → β) (i : Fin (List.mapFinIdx l f).length) :
     (List.mapFinIdx l f).get i = f i l[i] (by rw [← mapFinIdx_length l f]; exact i.isLt) := by
       simpa
+
+  theorem fin_range_get {sz : Nat} {i : Fin (fin_range sz).length} :
+    (fin_range sz).get i = fin_conv i := by
+    dsimp [fin_range]
+    apply mapFinIdx_get
 
   -- RelIO ---------------------------------------------------------------------
 
@@ -261,5 +269,48 @@ namespace DataflowRewriter.Noc
 
   def PListL.ofVector {α n} (v : Vector α n) : PListL α n :=
     PListL.ofList v.toList sorry
+
+  def PListL.get' {α n} (pl : PListL α n) (i : Nat) (hLt : i < n) : α :=
+    match n with
+    | 0 => by contradiction
+    | n' + 1 =>
+      have pl' := PListL_succ.mp pl
+      match i with
+      | 0 => pl'.1
+      | i' + 1 =>
+        PListL.get' pl'.2 i' (by simp only [Nat.add_lt_add_iff_right] at hLt; exact hLt)
+
+  def PListL.get {α n} (pl : PListL α n) (i : Fin n) : α :=
+    PListL.get' pl i.1 i.2
+
+  ------------------------------------------------------------------------------
+
+  abbrev DPListL'.{u} {α : Type _} (acc : Type u) (l : List α) (f : α → Type u) :=
+    List.foldr (λ i acc => f i × acc) acc l
+
+  abbrev DPListL {α : Type _} := @DPListL' α Unit
+
+  theorem DPListL_zero {α} {f : α → Type _} :
+    DPListL [] f = Unit := by rfl
+
+  theorem DPListL_succ' {α : Type _} {hd : α} {tl : List α} {acc : Type _} {f : α → Type _} :
+    DPListL' acc (hd :: tl) f = (f hd × (DPListL' acc tl f)) := by
+      rfl
+
+  theorem DPListL_succ {α : Type _} {hd : α} {tl : List α} {f : α → Type _} :
+    DPListL (hd :: tl) f = (f hd × (DPListL tl f)) := by
+      rfl
+
+  def DPListL.get' {α} {l : List α} {f} (pl : DPListL l f) (i : Nat) (h : i < List.length l) : f (l.get (Fin.mk i h)) :=
+    match l with
+    | [] => by contradiction
+    | hd :: tl =>
+      have pl' := DPListL_succ.mp pl
+      match i with
+      | 0 => pl'.1
+      | i' + 1 => pl'.2.get' i' (by simp only [List.length_cons, Nat.add_lt_add_iff_right] at h; exact h)
+
+  def DPListL.get {α} {l : List α} {f} (pl : DPListL l f) (i : Fin (List.length l)) : f (l.get i) :=
+    DPListL.get' pl i.1 i.2
 
 end DataflowRewriter.Noc

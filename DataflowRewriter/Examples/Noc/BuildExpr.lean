@@ -34,11 +34,11 @@ namespace DataflowRewriter.Noc
       .base { input := .nil, output := .nil } s!"Router {rid}"
 
     let mkrouters (acc : ExprLow String) : ExprLow String :=
-      List.foldl (λ acc i => .product (mkrouter i) acc) acc (fin_range n.topology.netsz)
+      List.foldr (λ i acc => .product (mkrouter i) acc) acc (fin_range n.topology.netsz)
 
     let mkconns (acc : ExprLow String) : ExprLow String :=
-      List.foldl
-        (λ acc c  =>
+      List.foldr
+        (λ c acc =>
           let rid_out := c.1
           let rid_inp := c.2.1
           let dir_out := c.2.2.1

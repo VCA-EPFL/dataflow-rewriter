@@ -2061,6 +2061,21 @@ variable {α : Type _}
 variable {β : Type _ → Type _}
 
 @[simp]
+abbrev dep_foldr (acc : Σ S, β S) (l : List α) (f : α → Type _ → Type _)
+  (g : (i : α) → (acc : Σ S, β S) → β (f i acc.1)) : Σ S, β S :=
+  List.foldr (λ i acc => ⟨f i acc.1, g i acc⟩) acc l
+
+theorem dep_foldr_1 acc l (f : α → Type _ → Type _) (g : (i : α) → (acc : Σ S, β S) → β (f i acc.1)) :
+  (dep_foldr acc l f g).1 = List.foldr f acc.1 l := by
+    induction l generalizing acc with
+    | nil => rfl
+    | cons x xs ih => dsimp [dep_foldr]; rw [ih]
+
+theorem dep_foldr_β {acc l} {f : α → Type _ → Type _} {g : (i : α) → (acc : Σ S, β S) → β (f i acc.1)} :
+  β (dep_foldr acc l f g).1 = β (List.foldr f acc.1 l) := by
+    rw [dep_foldr_1]
+
+@[simp]
 abbrev dep_foldl (acc : Σ S, β S) (l : List α) (f : Type _ → α → Type _)
   (g : (acc : Σ S, β S) → (i : α) → β (f acc.1 i)) : Σ S, β S :=
   List.foldl (λ acc i => ⟨f acc.1 i, g acc i⟩) acc l
@@ -2071,19 +2086,9 @@ theorem dep_foldl_1 acc l (f : Type _ → α → Type _) (g : (acc : Σ S, β S)
     | nil => rfl
     | cons x xs ih => dsimp [dep_foldl] at *; rw [ih]
 
--- theorem dep_foldl_2 (acc : Σ S, β S) l (g : (acc : Σ S, β S) → (i : α) → β acc.1) :
---   List.foldl (λ acc i => ⟨acc.1, g acc i⟩) acc l
---   = ⟨acc.1, List.foldl (λ acc' i => g ⟨acc.1, acc'⟩ i) acc.2 l⟩ := by sorry
-
 theorem dep_foldl_β {acc l} {f : Type _ → α → Type _} {g : (acc : Σ S, β S) → (i : α) → β (f acc.1 i)} :
   β (dep_foldl acc l f g).1 = β (List.foldl f acc.1 l) := by
     rw [dep_foldl_1]
-
-theorem dep_foldl_gg' {acc l} {f : Type _ → α → Type _}
-  {g : (acc : Σ S, β S) → (i : α) → β (f acc.1 i)}
-  {g' : (acc : Σ S, β S) → (i : α) → β (f acc.1 i)} :
-  β (dep_foldl acc l f g).1 = β (dep_foldl acc l f g').1 := by
-    simpa [dep_foldl_1]
 
 abbrev acc_int (S : Type _) := List (RelInt S)
 abbrev acc_io (S : Type _) := PortMap Ident (RelIO S)
@@ -2092,16 +2097,6 @@ abbrev acc_init (S : Type _) := S → Prop
 @[simp] abbrev foldl_int {α} := dep_foldl (α := α) (β := acc_int)
 @[simp] abbrev foldl_io {α} := dep_foldl (α := α) (β := @acc_io Ident)
 @[simp] abbrev foldl_init {α} := dep_foldl (α := α) (β := acc_init)
-
--- TODO: We need a cast but having a cast will make it very annoying to use this
--- theorem in rewrites...
--- theorem dep_foldl_fix (acc : Σ S, β S) (l : List α)
---   (g : β acc.1 → (i : α) → β acc.1) :
---   (List.foldl (λ acc' i => (⟨acc.1, g acc'.2 i⟩: Σ S, β acc.1)) acc l) = ⟨acc.1, List.foldl g acc.2 l⟩
---   := by sorry
-
--- TODO: It would be helpful to define a g_inputs_prod for product, and try to
--- specialize the following rewrite lemmas for products
 
 theorem foldl_acc_plist_2 (acc : TModule Ident) (l : List α) (f : Type _ → α → Type _)
   (g_inputs : (acc : Σ S, acc_io S) → (i : α) → (acc_io (f acc.1 i)))
@@ -2133,20 +2128,45 @@ theorem foldl_acc_plist_2 (acc : TModule Ident) (l : List α) (f : Type _ → α
       | nil => rfl
       | cons hd tl HR => simpa [HR]
 
--- Possibly useful lemmas?
+@[simp] abbrev foldr_int {α} := dep_foldr (α := α) (β := acc_int)
+@[simp] abbrev foldr_io {α} := dep_foldr (α := α) (β := @acc_io Ident)
+@[simp] abbrev foldr_init {α} := dep_foldr (α := α) (β := acc_init)
 
-theorem foldl_acc_plist_expand (acc : TModule Ident) (l : List α) (f : TModule Ident → α → TModule Ident) :
-  List.foldl f acc l
+theorem foldr_acc_plist_2 (acc : TModule Ident) (l : List α) (f : α → Type _ → Type _)
+  (g_inputs : (i : α) → (acc : Σ S, acc_io S) → (acc_io (f i acc.1)))
+  (g_outputs : (i : α) → (acc : Σ S, acc_io S) → (acc_io (f i acc.1)))
+  (g_internals : (i : α) → (acc : Σ S, acc_int S) → (acc_int (f i acc.1)))
+  (g_init_state : (i : α) → (acc : Σ S, acc_init S) → (acc_init (f i acc.1)))
+  :
+  (List.foldr (λ i acc =>
+    ⟨
+      f i acc.1,
+      {
+        inputs := g_inputs i ⟨acc.1, acc.2.inputs⟩
+        outputs := g_outputs i ⟨acc.1, acc.2.outputs⟩
+        internals := g_internals i ⟨acc.1, acc.2.internals⟩
+        init_state := g_init_state i ⟨acc.1, acc.2.init_state⟩
+      }
+    ⟩) acc l)
   =
-  ⟨
-    (List.foldl f acc l).1,
-    {
-      inputs := (List.foldl f acc l).2.inputs,
-      outputs := (List.foldl f acc l).2.outputs,
-      internals := (List.foldl f acc l).2.internals,
-      init_state := (List.foldl f acc l).2.init_state,
-    }
-  ⟩ := by rfl
+    ⟨
+      List.foldr f acc.1 l,
+      {
+        inputs := dep_foldr_β.mp (foldr_io ⟨acc.1, acc.2.inputs⟩ l f g_inputs).2
+        outputs := dep_foldr_β.mp (foldr_io ⟨acc.1, acc.2.outputs⟩ l f g_outputs).2
+        internals := dep_foldr_β.mp (foldr_int ⟨acc.1, acc.2.internals⟩ l f g_internals).2
+        init_state := dep_foldr_β.mp (foldr_init ⟨acc.1, acc.2.init_state⟩ l f g_init_state).2
+      }
+    ⟩ := by
+      sorry -- FIXME: This may be actually false
+      -- induction l generalizing acc with
+      -- | nil => rfl
+      -- | cons hd tl HR =>
+      --   dsimp; rw [HR]; dsimp; congr
+      --   · dsimp [g_inputs]; sorry
+      --   · sorry
+      --   · sorry
+      --   · sorry
 
 variable [DecidableEq Ident]
 
@@ -2180,6 +2200,35 @@ theorem foldl_connect' (l : List α) (acc : TModule Ident) (f g : α → Interna
       congr
       sorry
       sorry
+
+theorem foldr_connect' (l : List α) (acc : TModule Ident) (f g : α → InternalPort Ident)
+  (hfInj : Function.Injective f) (hgInj : Function.Injective g) (Hdup : l.Nodup) :
+  List.foldr (λ i acc => ⟨acc.1, acc.snd.connect' (f i) (g i)⟩) acc l
+  = ⟨
+      acc.1,
+      {
+        inputs := AssocList.eraseAllP (λ k v => k ∈ List.map g l) acc.2.inputs,
+        outputs := AssocList.eraseAllP (λ k v => k ∈ List.map f l) acc.2.outputs,
+        internals :=
+          List.foldr
+            (λ i acc' => connect'' (acc.2.outputs.getIO (f i)).2 (acc.2.inputs.getIO (g i)).2 :: acc')
+            acc.2.internals l,
+        init_state := acc.2.init_state,
+      }
+    ⟩ := by
+    induction l generalizing acc with
+    | nil => simpa
+    | cons hd tl HR =>
+      dsimp
+      rw [HR]
+      dsimp [Module.connect']
+      -- Doing congr here make us loose the fact that i is not in the list of
+      -- internals, which we later need to say that we can ignore the eraseAll
+      congr
+      · sorry
+      · sorry
+      · sorry
+      · simp at Hdup; simpa [Hdup]
 
 @[simp]
 theorem renamePorts_inputs {Ident S} [DecidableEq Ident] {m : Module Ident S} {i}:

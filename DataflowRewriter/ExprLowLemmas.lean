@@ -1828,6 +1828,25 @@ theorem build_module_product_foldl {α} {ε} {acc accb} {l : List α} {f : α �
     congr
     all_goals solve | rw [haccb]; rfl | rw [heb]; rfl
 
+theorem build_module_product_foldr {α} {ε} {acc accb} {l : List α} {f : α → ExprLow Ident}:
+  (∀ i, i ∈ l → ∃ b, (ExprLow.build_module' ε (f i)) = .some b) →
+  (ExprLow.build_module' ε acc) = .some accb →
+  ExprLow.build_module' ε (List.foldr (λ i acc => (f i).product acc) acc l)
+  = List.foldr (λ i acc => ⟨_, Module.product (ExprLow.build_module ε (f i)).2 acc.2⟩) (ExprLow.build_module ε acc) l := by
+  induction l generalizing acc accb with
+  | nil => intros h1 h2; dsimp [build_module]; rw [h2]; rfl
+  | cons x xs ih =>
+    intro hfb haccb
+    have Hxin: x ∈ x :: xs := by simpa
+    obtain ⟨eb, heb⟩ := hfb x Hxin
+    dsimp [build_module, build_module'];
+    rw [heb]
+    dsimp
+    rw [ih]
+    · dsimp; rfl
+    · intro i Hi; apply hfb; right; assumption
+    · exact haccb
+
 theorem build_module_connect_foldl {α} {ε} {acc accb} {l : List α} {f : α → Connection Ident}:
   (ExprLow.build_module' ε acc) = .some accb →
   ExprLow.build_module ε (List.foldl (λ acc i => acc.connect (f i)) acc l)
@@ -1844,6 +1863,12 @@ theorem build_module_connect_foldl {α} {ε} {acc accb} {l : List α} {f : α �
       simp [ExprLow.build_module, ExprLow.build_module']
       rw [haccb]
       dsimp
+
+theorem build_module_connect_foldr {α} {ε} {acc accb} {l : List α} {f : α → Connection Ident}:
+  (ExprLow.build_module' ε acc) = .some accb →
+  ExprLow.build_module' ε (List.foldr (λ i acc => acc.connect (f i)) acc l)
+  = List.foldr (λ i acc => ⟨acc.1, acc.2.connect' (f i).output (f i).input⟩) (ExprLow.build_module ε acc) l := by
+    sorry
 
 end ExprLow
 end DataflowRewriter
