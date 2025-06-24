@@ -11,30 +11,30 @@ import DataflowRewriter.Examples.Noc.Lang
 
 open Batteries (AssocList)
 
-variable {Data : Type} [BEq Data] [LawfulBEq Data]
-
 namespace DataflowRewriter.Noc
 
+  variable {Data : Type} [BEq Data] [LawfulBEq Data] {netsz : Netsz}
+
   @[drcomponents]
-  def router_name (n : Noc Data) (rid : n.topology.RouterID) :=
+  def router_name (n : Noc Data netsz) (rid : n.topology.RouterID) :=
     s!"Router {rid}"
 
   @[drcomponents]
-  def router_stringify_inp (n : Noc Data) (rid : n.topology.RouterID) (dir : Nat) :=
+  def router_stringify_inp (n : Noc Data netsz) (rid : n.topology.RouterID) (dir : Nat) :=
     s!"Router {rid} in{dir}"
 
   @[drcomponents]
-  def router_stringify_out (n : Noc Data) (rid : n.topology.RouterID) (dir : Nat) :=
+  def router_stringify_out (n : Noc Data netsz) (rid : n.topology.RouterID) (dir : Nat) :=
     s!"Router {rid} out{dir}"
 
   @[drunfold_defs]
-  def Noc.build_expr (n : Noc Data) : ExprLow String :=
+  def Noc.build_expr (n : Noc Data netsz) : ExprLow String :=
 
     let mkrouter (rid : n.RouterID) : ExprLow String :=
       .base { input := .nil, output := .nil } s!"Router {rid}"
 
     let mkrouters (acc : ExprLow String) : ExprLow String :=
-      List.foldr (λ i acc => .product (mkrouter i) acc) acc (fin_range n.topology.netsz)
+      List.foldr (λ i acc => .product (mkrouter i) acc) acc (fin_range netsz)
 
     let mkconns (acc : ExprLow String) : ExprLow String :=
       List.foldr

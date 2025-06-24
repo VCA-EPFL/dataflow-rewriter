@@ -83,9 +83,8 @@ namespace DataflowRewriter.Noc
     sorry
 
   @[drunfold_defs]
-  def DirectedTorus.to_topology (d : DirectedTorus) : Topology :=
+  def DirectedTorus.to_topology (d : DirectedTorus) : Topology d.netsz :=
     {
-      netsz     := d.netsz
       neigh_out := d.neigh_out
       neigh_inp := d.neigh_inp
       neigh_ok  := d.neigh_ok

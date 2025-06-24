@@ -13,6 +13,7 @@ import DataflowRewriter.Component
 import DataflowRewriter.Examples.Noc.Utils
 import DataflowRewriter.Examples.Noc.Lang
 import DataflowRewriter.Examples.Noc.Spec
+import DataflowRewriter.Examples.Noc.Tactic
 import DataflowRewriter.Examples.Noc.BuildExpr
 
 open Batteries (AssocList)
@@ -21,34 +22,30 @@ set_option Elab.async false
 
 namespace DataflowRewriter.Noc
 
-  variable {Data : Type} [BEq Data] [LawfulBEq Data]
+  variable {Data : Type} [BEq Data] [LawfulBEq Data] {netsz : Netsz}
 
-  def Noc.env_rmod_ok (n : Noc Data) (rmod : n.RouterID → TModule String) : Prop :=
+  def Noc.env_rmod_ok (n : Noc Data netsz) (rmod : n.RouterID → TModule String) : Prop :=
     ∀ rid : n.RouterID, (rmod rid).2 ⊑ (n.spec_router rid)
 
-  def Noc.env_rmod_ok' (n : Noc Data) (rmod : n.RouterID → TModule String) : Prop :=
+  def Noc.env_rmod_ok' (n : Noc Data netsz) (rmod : n.RouterID → TModule String) : Prop :=
     ∀ rid : n.RouterID, (n.spec_router rid) ⊑ (rmod rid).2
 
-  def Noc.env_rmod_homogeneous (n : Noc Data) (rmod : n.RouterID → TModule String) (rmodS : Type _) : Prop :=
-    ∀ rid : n.RouterID, (rmod rid).1 = rmodS
-
   @[drenv]
-  def Noc.env_rmod_in (n : Noc Data) (ε : Env) (rmod : n.RouterID → TModule String) : Prop :=
+  def Noc.env_rmod_in (n : Noc Data netsz) (ε : Env) (rmod : n.RouterID → TModule String) : Prop :=
     ∀ rid : n.RouterID, AssocList.find? (router_name n rid) ε = .some (rmod rid)
 
   @[drenv]
-  def Noc.env_empty (n : Noc Data) (ε : Env) : Prop :=
+  def Noc.env_empty (n : Noc Data netsz) (ε : Env) : Prop :=
     AssocList.find? "empty" ε = .some ⟨Unit, StringModule.empty⟩
 
-  class EnvCorrect (n : Noc Data) (ε : Env) where
-    rmod              : n.RouterID → TModule String
-    rmod_ok           : n.env_rmod_ok rmod
-    rmod_in_ε         : n.env_rmod_in ε rmod
-    rmodT             : Type _
-    rmod_homogeneous  : n.env_rmod_homogeneous rmod rmodT
-    empty_in_ε        : n.env_empty ε
+  class EnvCorrect (n : Noc Data netsz) (ε : Env) where
+    rmod        : n.RouterID → TModule String
+    rmod_ok     : n.env_rmod_ok rmod
+    rmod_in_ε   : n.env_rmod_in ε rmod
+    rmodT       : Type _
+    empty_in_ε  : n.env_empty ε
 
-  variable (n : Noc Data) (ε : Env) [EC : EnvCorrect n ε]
+  variable (n : Noc Data netsz) (ε : Env) [EC : EnvCorrect n ε]
 
   abbrev mod := NatModule.stringify n.build_module
 
@@ -73,81 +70,6 @@ namespace DataflowRewriter.Noc
     rw [Module.dep_foldr_1 (f := λ i acc => (EC.rmod i).1 × acc)]
     simp only [drenv, drcompute, List.foldr_fixed]
     rw [←DPListL', ←DPListL]
-
-  theorem f_cast {f : Type _ → Type _} {a a'} (heq : a = a') : f a = f a' :=
-    by subst a; rfl
-
-  theorem rw_opaque_fst {f : Type _ → Type _} {a b a'} (heq : a = a') :
-    Opaque (@Sigma.mk _ f a b).snd ↔ Opaque (@Sigma.mk _ f a' ((f_cast heq).mp b)).snd := by
-    subst a; rfl
-
-  theorem rw_opaque_snd {f : Type _ → Type _} {a b b'} (heq : b = b') :
-    Opaque (@Sigma.mk _ f a b).snd ↔ Opaque (@Sigma.mk _ f a b').snd := by
-    subst b; rfl
-
-  theorem mp_combine {T1 T2 T3 : Type _} (v : T1) (H1 : T1 = T2) (H2 : T2 = T3) :
-    H2.mp (H1.mp v) = (Eq.trans H1 H2).mp v := by simpa
-
-  theorem mp_lower {f : Type _ → Type _} {a'} {s : Σ T, f T} (h : f s.1 = f a') :
-    Opaque (h.mp s.2) ↔ Opaque (⟨a', h.mp s.2⟩ : Σ T, f T).2 := by
-      rfl
-
-  -- This is very probably false…
-  theorem S_eq {Ident S S' : Type _} (h : Module Ident S = Module Ident S') :
-    S = S' := by
-      -- f x = f y
-      -- x = y
-      sorry
-
-  theorem PortMap_eq {Ident S S' : Type _} (h : Module Ident S = Module Ident S') :
-    PortMap Ident (RelIO S) = PortMap Ident (RelIO S') := by
-      congr; exact S_eq h
-
-  theorem RelInt_eq {Ident S S' : Type _} (h : Module Ident S = Module Ident S') :
-    List (RelInt S) = List (RelInt S') := by
-      congr; exact S_eq h
-
-  theorem S_Prop_eq {Ident S S' : Type _} (h : Module Ident S = Module Ident S') :
-    (S → Prop) = (S' → Prop) := by
-      congr; exact S_eq h
-
-  -- TODO: Is this true? Is this provable?
-  -- Seems fishy
-  theorem mp_inputs' {Ident S S' : Type _} {m : Module Ident S} (h : Module Ident S = Module Ident S') :
-    (PortMap_eq h).mpr (h.mp m).inputs = m.inputs := by
-      sorry
-
-  theorem mp_inputs {Ident S S' : Type _} {m : Module Ident S} (h : Module Ident S = Module Ident S'):
-    (h.mp m).inputs = (PortMap_eq h).mp m.inputs := by sorry
-
-  theorem mp_outputs {Ident S S' : Type _} {m : Module Ident S} (h : Module Ident S = Module Ident S'):
-    (h.mp m).outputs = (PortMap_eq h).mp m.outputs := by sorry
-
-  theorem mp_init_state {Ident S S' : Type _} {m : Module Ident S} (h : Module Ident S = Module Ident S') :
-    (h.mp m).init_state = (S_Prop_eq h).mp m.init_state := by
-      sorry
-
-  theorem mp_init_state' {Ident S S' : Type _} {m : Module Ident S} (H1 : S = S') (h2 : Module Ident S = Module Ident S') :
-    (h2.mp m).init_state = (S_Prop_eq h2).mp m.init_state := by
-      ext f
-      constructor
-      · intro _; unfold S_Prop_eq; cases m; simp; sorry
-      · intro _; sorry
-
-  theorem mp_lower' {Ident S S' : Type _} {inp out int init} (h : Module Ident S = Module Ident S') :
-    h.mp {
-      inputs := inp,
-      outputs := out,
-      internals := int,
-      init_state := init,
-    }
-    = {
-        inputs := (PortMap_eq h).mp inp,
-        outputs := (PortMap_eq h).mp out,
-        internals := (RelInt_eq h).mp int,
-        init_state := (S_Prop_eq h).mp init,
-      } := by
-        sorry
 
   theorem nil_renaming {α β} [DecidableEq α] (l : AssocList α β) :
   (AssocList.mapKey (@AssocList.nil α α).bijectivePortRenaming l) = l := by
@@ -189,7 +111,7 @@ namespace DataflowRewriter.Noc
       (acc :=
         ⟨Unit, { inputs := .nil, outputs := .nil, init_state := λ x => True }⟩
       )
-      (l := fin_range n.topology.netsz)
+      (l := fin_range netsz)
       (f := λ i acc1 => (EC.rmod i).1 × acc1)
       (g_inputs := λ i acc =>
         AssocList.mapVal (λ x => Module.liftL) ((EC.rmod i).2.inputs)
@@ -233,50 +155,73 @@ namespace DataflowRewriter.Noc
     <;> sorry
 
   -- TODO: Proper name
-  def tmp_cast : Fin (fin_range n.topology.netsz).length = n.RouterID := by
+  def tmp_cast : Fin (fin_range netsz).length = n.RouterID := by
     rw [fin_range_len]
 
   -- TODO: Proper name
-  def tmp2 {rid : Fin (fin_range n.topology.netsz).length} :
-  (EC.rmod ((fin_range n.topology.netsz).get rid)).1 =
+  def tmp2 {rid : Fin (fin_range netsz).length} :
+  (EC.rmod ((fin_range netsz).get rid)).1 =
     (EC.rmod (Fin.mk rid (by cases rid; rename_i n h; rw [fin_range_len] at h; simpa))).1 := by
       rw [fin_range_get]; rfl
+
+  def I_cast_get (I : expT n ε) (rid : n.RouterID) :=
+    ((tmp2 n ε).mp (I.get' rid.1 (by rw [fin_range_len]; exact rid.2)))
 
   def φ (I : expT n ε) (S : n.State) : Prop :=
     ∀ (rid : n.RouterID),
       (Module.refines_refines' (EC.rmod_ok rid)).2.choose
-        ((tmp2 n ε).mp
-        (I.get' rid.1 (by rw [fin_range_len]; exact rid.2))) (S.get rid)
+        (I_cast_get n ε I rid)
+        (S.get rid)
 
-  theorem vec_rep_get {α n} {v : α} {i : Fin n} :
-    (Vector.replicate n v).get i = v := by sorry
+  -- set_option pp.proofs true in
+  def i_init_rid (i : expT n ε) (Hinit : (expM n ε).init_state i) :
+    ∀ (rid : n.RouterID), (EC.rmod rid).2.init_state (I_cast_get n ε i rid) := by
+      revert n
+      cases heq: netsz
+      <;> dsimp [drcomponents, drunfold_defs] at *
+      <;> intro n  EC i Hinit ⟨ridv, Hridv⟩
+      · contradiction
+      ·
+        -- TODO: We now only need to show that fin_range (n + 1) = 0 :: ...
+        -- We still have the problem that fin_range sucks for induction but yeah
+        -- this is better…
+        simp [fin_range] at i
+        induction ridv with
+        | zero =>
+          simp [I_cast_get]
+          -- Almost done…
+          sorry
+        | succ rid' HR2 =>
+          -- dsimp [fin_range, List.replicate]
+          -- unfold I_cast_get DPListL.get'
+          -- simp at Hinit ⊢
+          sorry
 
   set_option pp.proofs true in
   theorem refines_initial : Module.refines_initial (expM n ε) (mod n) (φ n ε) := by
     intro i H
     apply Exists.intro _
     apply And.intro
-    · -- TODO: This work only because Noc's router initial state is just one
+    · -- NOTE: This work only because Noc's router initial state is just one
       -- state and not a property on state, which is quite weak.
       dsimp [drcomponents]
     · intro rid
-      unfold Noc.φ._proof_1
-      unfold Noc.φ._proof_2
-      unfold Noc.φ._proof_3
-      unfold Noc.φ._proof_5
       obtain Hspec := Exists.choose_spec ((Module.refines_refines' (EC.rmod_ok rid)).2)
       obtain ⟨Hspec1, ⟨Hspec2, Hspec3⟩⟩ := Hspec
       dsimp [Module.refines_initial] at Hspec3
-      specialize Hspec3 (((tmp2 n ε).mp (i.get' rid.1 (by rw [fin_range_len]; exact rid.2))))
-      specialize Hspec3 sorry -- TODO: Prove with H, annoying
+      specialize Hspec3 (I_cast_get n ε i rid)
+      apply i_init_rid at H
+      specialize H rid
+      unfold I_cast_get at Hspec3
+      specialize Hspec3 H
       obtain ⟨s, ⟨Hs1, Hs2⟩⟩ := Hspec3
       dsimp [drcomponents] at Hs1
       subst s
       dsimp [drunfold_defs, drcomponents] at Hs2
-      rw [vec_rep_get]
+      rw [Vector.get_replicate]
       exact Hs2
 
-  theorem refines_φ : (expM n ε)  ⊑_{φ n ε} (mod n) := by
+  theorem refines_φ : (expM n ε) ⊑_{φ n ε} (mod n) := by
     sorry
 
   theorem ϕ_indistinguishable :

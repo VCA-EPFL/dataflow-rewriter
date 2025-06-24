@@ -22,16 +22,16 @@ namespace DataflowRewriter.Noc
       | cons hd tl HR =>
         rw [List.mem_cons] at H
         cases H <;> rename_i H
-        · rw [H]; apply Exists.intro (Fin.mk 0 (by simpa)); simpa
-        · obtain ⟨i, Hi'⟩ := HR H; exists (Fin.mk (i + 1) (by simpa))
+        · rw [H]; apply Exists.intro ⟨0, by simpa⟩; simpa
+        · obtain ⟨i, Hi'⟩ := HR H; exists ⟨i + 1, by simpa⟩
 
   def fin_range (sz : Nat) : List (Fin sz) :=
     List.replicate sz 0
-    |>.mapFinIdx (λ i _ h => Fin.mk i (by rwa [List.length_replicate] at h))
+    |>.mapFinIdx (λ i _ h => ⟨i, by rwa [List.length_replicate] at h⟩)
 
   theorem fin_in_fin_range (sz : Nat) (i : Fin sz) : i ∈ fin_range sz := by
     simp only [fin_range, List.mem_mapFinIdx, List.length_replicate]
-    exists i.toNat, i.isLt
+    exists i.1, i.2
 
   theorem fin_range_len (sz : Nat) :
     (fin_range sz).length = sz := by
@@ -44,16 +44,19 @@ namespace DataflowRewriter.Noc
 
   theorem mapFinIdx_length {α β} (l : List α) (f : (i : Nat) → α → (h : i < l.length) → β) :
     (List.mapFinIdx l f).length = l.length := by
-      simpa
+      simpa only [List.length_mapFinIdx]
 
   theorem mapFinIdx_get {α β} (l : List α) (f : (i : Nat) → α → (h : i < l.length) → β) (i : Fin (List.mapFinIdx l f).length) :
-    (List.mapFinIdx l f).get i = f i l[i] (by rw [← mapFinIdx_length l f]; exact i.isLt) := by
+    (List.mapFinIdx l f).get i = f i l[i] (by rw [←mapFinIdx_length l f]; exact i.2) := by
       simpa
 
   theorem fin_range_get {sz : Nat} {i : Fin (fin_range sz).length} :
     (fin_range sz).get i = fin_conv i := by
     dsimp [fin_range]
     apply mapFinIdx_get
+
+  theorem fin_cast {sz sz' : Nat} (h : sz = sz' := by rfl) :
+    Fin sz = Fin sz' := by subst h; rfl
 
   -- RelIO ---------------------------------------------------------------------
 
@@ -65,23 +68,25 @@ namespace DataflowRewriter.Noc
   theorem RelIO.liftFinf_in {S} {ident : InternalPort Nat} {n : Nat} {f : Fin n → RelIO S}:
     AssocList.contains ident (RelIO.liftFinf n f) = true
     → ∃ i : Fin n, ident = i := by
-        dsimp [liftFinf, fin_range]
-        simp only [
-          AssocList.contains_eq, List.toList_toAssocList, List.any_map,
-          List.any_eq_true, List.mem_mapFinIdx, List.length_replicate,
-          Function.comp_apply, beq_iff_eq, forall_exists_index, and_imp
-        ]
-        intros x1 x2 H1 H2 H3
-        subst ident
-        exists x1
+        -- dsimp [liftFinf, fin_range]
+        -- simp only [
+        --   AssocList.contains_eq, List.toList_toAssocList, List.any_map,
+        --   List.any_eq_true, List.mem_mapFinIdx, List.length_replicate,
+        --   Function.comp_apply, beq_iff_eq, forall_exists_index, and_imp
+        -- ]
+        -- intros x1 x2 H1 H2 H3
+        -- subst ident
+        -- exists x1
+        sorry
 
   theorem RelIO.liftFinf_get {S} {n : Nat} {i : Fin n} {f : Fin n → RelIO S}:
     (RelIO.liftFinf n f).getIO i = f i := by sorry
 
   theorem RelIO.mapVal {α β} {n : Nat} {f : Fin n → α} {g : α → β} :
     AssocList.mapVal (λ _ => g) (RelIO.liftFinf n f) = RelIO.liftFinf n (λ i => g (f i)) := by
-      dsimp [RelIO.liftFinf, fin_range]
-      rw [AssocList.mapVal_map_toAssocList]
+      -- dsimp [RelIO.liftFinf, fin_range]
+      -- rw [AssocList.mapVal_map_toAssocList]
+      sorry
 
   -- RelInt --------------------------------------------------------------------
 
@@ -101,11 +106,12 @@ namespace DataflowRewriter.Noc
       unfold liftFinf
       simp only [RelInt, List.get_eq_getElem, List.mem_flatten, List.mem_map]
       exists (f i)
-      and_intros
-      · exists i; and_intros
-        · apply fin_in_fin_range
-        · rfl
-      · simpa
+      sorry
+      -- and_intros
+      -- · exists i; and_intros
+      --   · apply fin_in_fin_range
+      --   · rfl
+      -- · simpa
 
   -- Some stuff about permutations ---------------------------------------------
 
@@ -312,5 +318,30 @@ namespace DataflowRewriter.Noc
 
   def DPListL.get {α} {l : List α} {f} (pl : DPListL l f) (i : Fin (List.length l)) : f (l.get i) :=
     DPListL.get' pl i.1 i.2
+
+  ------------------------------------------------------------------------------
+
+  abbrev DPVector'.{u} {α n} (acc : Type u) (l : Vector α n) (f : α → Type u) :=
+    Vector.foldr (λ i acc => f i × acc) acc l
+
+  abbrev DPVector {α n} := @DPVector' α n Unit
+
+  theorem DPVector_succ {α n} {v : Vector α (n + 1)} {f : α → Type _} :
+    DPVector v f = (f v[0] × (DPVector v.tail f)) := by
+      simp [DPVector, DPVector', Vector.foldr]
+      sorry
+
+  def DPVector.get {α n} {v : Vector α n} {f} (pv : DPVector v f) (i : Fin n) : f (v.get i) :=
+    let ⟨idx, Hidx⟩ := i
+    match n with
+    | 0 => by contradiction
+    | n' + 1 =>
+      have pv' := DPVector_succ.mp pv
+      match idx with
+      | 0 => pv'.1
+      | idx' + 1 =>
+        -- We need ANOTHER cast here…
+        -- DPVector.get pv'.2 ⟨idx', by simp at Hidx; simpa⟩
+        sorry
 
 end DataflowRewriter.Noc
