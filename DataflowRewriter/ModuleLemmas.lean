@@ -2152,54 +2152,41 @@ theorem foldr_acc_plist_2 (acc : TModule Ident) (l : List α) (f : α → Type _
     ⟨
       List.foldr f acc.1 l,
       {
+        -- FIXME: For a foldr, the cast should probably be inside of the fold in
+        -- some way, which means that `f` must be casting maybe?
         inputs := dep_foldr_β.mp (foldr_io ⟨acc.1, acc.2.inputs⟩ l f g_inputs).2
         outputs := dep_foldr_β.mp (foldr_io ⟨acc.1, acc.2.outputs⟩ l f g_outputs).2
         internals := dep_foldr_β.mp (foldr_int ⟨acc.1, acc.2.internals⟩ l f g_internals).2
         init_state := dep_foldr_β.mp (foldr_init ⟨acc.1, acc.2.init_state⟩ l f g_init_state).2
       }
     ⟩ := by
-      sorry -- FIXME: This may be actually false
-      -- induction l generalizing acc with
-      -- | nil => rfl
-      -- | cons hd tl HR =>
-      --   dsimp; rw [HR]; dsimp; congr
-      --   · dsimp [g_inputs]; sorry
-      --   · sorry
-      --   · sorry
-      --   · sorry
+      induction l with
+      | nil => rfl
+      | cons hd tl HR =>
+        dsimp; rw [HR]; dsimp; congr
+        -- FIXME: This is false
+        · sorry
+        · sorry
+        · sorry
+        · sorry
 
 variable [DecidableEq Ident]
 
-theorem foldl_connect' (l : List α) (acc : TModule Ident) (f g : α → InternalPort Ident)
-  (hfInj : Function.Injective f) (hgInj : Function.Injective g) (Hdup : l.Nodup) :
-  List.foldl (λ acc i => ⟨acc.1, acc.snd.connect' (f i) (g i)⟩) acc l
-  = ⟨
-      acc.1,
-      {
-        inputs := AssocList.eraseAllP (λ k v => k ∈ List.map g l) acc.2.inputs,
-        outputs := AssocList.eraseAllP (λ k v => k ∈ List.map f l) acc.2.outputs,
-        internals :=
-          List.foldl
-            (λ acc' i => connect'' (acc.2.outputs.getIO (f i)).2 (acc.2.inputs.getIO (g i)).2 :: acc')
-            acc.2.internals l,
-        init_state := acc.2.init_state,
-      }
-    ⟩
+theorem erase_decide_map {Ident δ S} [DecidableEq Ident] {l : PortMap Ident (RelIO S)} {f : δ → (InternalPort Ident)}
+  {hd : δ} {tl : List δ} {hdup : (hd :: tl).Nodup} {hfInj : Function.Injective f} :
+  (PortMap.getIO (AssocList.eraseAllP (λ k v => decide (k ∈ List.map f tl)) l) (f hd))
+  = PortMap.getIO l (f hd)
   := by
-    induction l generalizing acc with
-    | nil => simpa [AssocList.eraseAllP_false]
-    | cons hd tl HR =>
-      dsimp
-      rw [HR]
-      dsimp [Module.connect']
-      repeat rw [AssocList.eraseAllP_combine]
-      -- Doing congr here make us loose the fact that i is not in the list of
-      -- internals, which we later need to say that we can ignore the eraseAll
-      congr
-      funext acc' i
-      congr
-      sorry
-      sorry
+    unfold PortMap.getIO
+    rw [AssocList.find?_eraseAllP_false]
+    intro _
+    simp only [List.mem_map, decide_eq_false_iff_not, not_exists, not_and]
+    intro x Hx Heq
+    have hEqHd := hfInj Heq
+    subst x
+    rw [List.nodup_cons] at hdup
+    obtain ⟨hdup1, hdup2⟩ := hdup
+    contradiction
 
 theorem foldr_connect' (l : List α) (acc : TModule Ident) (f g : α → InternalPort Ident)
   (hfInj : Function.Injective f) (hgInj : Function.Injective g) (Hdup : l.Nodup) :
@@ -2219,15 +2206,14 @@ theorem foldr_connect' (l : List α) (acc : TModule Ident) (f g : α → Interna
     induction l generalizing acc with
     | nil => simpa
     | cons hd tl HR =>
-      dsimp
-      rw [HR]
-      dsimp [Module.connect']
-      -- Doing congr here make us loose the fact that i is not in the list of
-      -- internals, which we later need to say that we can ignore the eraseAll
-      congr
-      · sorry
-      · sorry
-      · sorry
+      dsimp; rw [HR]; dsimp [Module.connect']; congr
+      · rw [AssocList.eraseAll_eraseAllP]
+        simp only [List.mem_cons, Bool.decide_or]
+        congr
+      · rw [AssocList.eraseAll_eraseAllP]
+        simp only [List.mem_cons, Bool.decide_or]
+        congr
+      · rw [erase_decide_map, erase_decide_map]; repeat assumption
       · simp at Hdup; simpa [Hdup]
 
 @[simp]

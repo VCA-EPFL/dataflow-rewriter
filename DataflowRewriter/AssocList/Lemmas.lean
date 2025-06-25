@@ -1270,12 +1270,44 @@ theorem disjoint_keys_find_some {α β γ} [DecidableEq α] {a : AssocList α β
     AssocList.eraseAllP (λ _ _ => false) l = l := by
       induction l; rfl; simpa
 
-@[simp]
-theorem eraseAllP_combine {α β γ} [DecidableEq α] (hd : γ) (tl : List γ) (f : γ → α) (l : AssocList α β) :
-  AssocList.eraseAllP (λ k v => k ∈ List.map f tl) (AssocList.eraseAll (f hd) l)
-  = AssocList.eraseAllP (λ k v => (k ∈ List.map f (hd :: tl))) l := by
+theorem eraseAll_eraseAllP {α β} [DecidableEq α] (P : α → β → Bool) (x : α) (l : AssocList α β) :
+    (l.eraseAllP P).eraseAll x = l.eraseAllP (λ k v => k == x || P k v) := by
     induction l with
-    | nil => simpa
-    | cons k v tl' HR => sorry
+    | nil => rfl
+    | cons k v tl HR =>
+      cases Pkv: P k v
+      <;> simp only [eraseAllP, Pkv, cond_false, Bool.or_false, Bool.or_true]
+      · cases keqx: decide (k = x)
+        · rw [decide_eq_false_iff_not] at keqx
+          have heq : (k == x) = false := by simpa only [beq_eq_false_iff_ne, ne_eq]
+          simpa only [
+            ne_eq, keqx, not_false_eq_true, AssocList.eraseAll_cons_neq, HR,
+            heq, cond_false
+          ]
+        · rw [decide_eq_true_eq] at keqx; subst k
+          simpa only [AssocList.eraseAll_cons_eq, HR, BEq.rfl, cond_true]
+      · exact HR
+
+-- This statement could be made stronger by having not ∀v, P k v = false but
+-- ∀ (_, v) ∈ a
+theorem find?_eraseAllP_false {α β} [DecidableEq α] (a : AssocList α β) (k : α) (P : α → β → Bool)
+  (Hv : ∀ v, P k v = false) :
+  (a.eraseAllP P).find? k = a.find? k :=
+  by
+    induction a with
+    | nil => rfl
+    | cons k' v tl HR =>
+      rw [AssocList.eraseAllP_cons]
+      cases keqk' : decide (k = k')
+      · have Hneq : k' ≠ k := by
+          simp at keqk'; simp; intro H; subst k; apply keqk'; rfl
+        rw [AssocList.find?_cons_neq Hneq]
+        cases HPk' : P k' v
+        <;> dsimp
+        · rw [AssocList.find?_cons_neq Hneq]
+          exact HR
+        · exact HR
+      · simp at keqk'; subst k'; simp [Hv]
+
 
 end Batteries.AssocList

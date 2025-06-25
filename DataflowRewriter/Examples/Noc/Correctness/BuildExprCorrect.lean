@@ -69,7 +69,7 @@ namespace DataflowRewriter.Noc
     rw [Module.dep_foldr_1 (f := λ i acc => acc)]
     rw [Module.dep_foldr_1 (f := λ i acc => (EC.rmod i).1 × acc)]
     simp only [drenv, drcompute, List.foldr_fixed]
-    rw [←DPListL', ←DPListL]
+    rw [←DPList', ←DPList]
 
   theorem nil_renaming {α β} [DecidableEq α] (l : AssocList α β) :
   (AssocList.mapKey (@AssocList.nil α α).bijectivePortRenaming l) = l := by
@@ -177,24 +177,22 @@ namespace DataflowRewriter.Noc
   def i_init_rid (i : expT n ε) (Hinit : (expM n ε).init_state i) :
     ∀ (rid : n.RouterID), (EC.rmod rid).2.init_state (I_cast_get n ε i rid) := by
       revert n
-      cases heq: netsz
-      <;> dsimp [drcomponents, drunfold_defs] at *
-      <;> intro n  EC i Hinit ⟨ridv, Hridv⟩
-      · contradiction
-      ·
-        -- TODO: We now only need to show that fin_range (n + 1) = 0 :: ...
-        -- We still have the problem that fin_range sucks for induction but yeah
-        -- this is better…
-        simp [fin_range] at i
+      induction netsz with
+      | zero => intro _ _ _ _ ⟨_, _⟩; contradiction
+      | succ netsz' HR =>
+        dsimp [drcomponents, drunfold_defs] at *
+        intro n EC i Hinit ⟨ridv, Hrid⟩
         induction ridv with
         | zero =>
-          simp [I_cast_get]
-          -- Almost done…
+          -- TODO: This is true and should be provable but there is a lot of
+          -- annoying casts to handle everywhere
           sorry
-        | succ rid' HR2 =>
-          -- dsimp [fin_range, List.replicate]
-          -- unfold I_cast_get DPListL.get'
-          -- simp at Hinit ⊢
+        | succ ridv' HR =>
+          -- TODO: Trick here is probably to define a new noc but with one less
+          -- router so that we can use HR with this new noc.
+          -- This new noc will probably be also useful down the line for proving
+          -- other rules by induction, so this seems kind of like a custom
+          -- induction hypothesis
           sorry
 
   set_option pp.proofs true in
