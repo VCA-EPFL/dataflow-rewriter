@@ -129,22 +129,21 @@ theorem refines_implies_step_preservation {φ} :
 
 theorem refines_implies_star_preservation {φ} :
   imp ⊑_{φ} spec →
-  ∀ i s i' e,
-    φ i s →
-    @star _ _ (state_transition imp) ⟨i, imp⟩ e i' →
+  ∀ iimp s i' e,
+    @star _ _ (state_transition imp) iimp e i' →
+    iimp.module = imp →
+    φ iimp.state s →
     ∃ s',
       @star _ _ (state_transition spec) ⟨s, spec⟩ e s'
       ∧ φ i'.state s'.state := by
-  intro href i s i' e hphi hstar
-  generalize heq : State.mk i imp = y at *
+  intro href i s i' e hstar
   induction hstar with
   | refl =>
-    cases heq
+    stop
     exists ⟨s, spec⟩; and_intros
     · apply @star.refl _ _ (state_transition spec)
     · assumption
   | step =>
-    cases heq
     sorry
 
 end Refinement
