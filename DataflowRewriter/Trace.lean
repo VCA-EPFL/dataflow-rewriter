@@ -108,13 +108,16 @@ theorem refines_implies_step_preservation {φ} :
     subst v'
     dsimp at *; dsimp at v
     rcases href _ _ hphi with ⟨inp, out, int⟩; clear href inp int
-    obtain ⟨s1, h1, h2⟩ := out ident i' v step; clear out
-    exists ⟨s1, spec⟩
+    obtain ⟨s1, s2, h1, h2, h3⟩ := out ident i' v step; clear out
+    exists ⟨s2, spec⟩
     and_intros
-    · apply @star.plus_one _ _ (state_transition spec)
-      constructor
-      · apply h1
-      · simp; apply MatchInterface.output_types
+    · rw [show [Trace.output ⟨(imp.outputs.getIO ident).fst, v⟩] = [] ++ [Trace.output ⟨(imp.outputs.getIO ident).fst, v⟩] by rfl]
+      apply @star.trans_star _ _ (state_transition spec)
+      · apply existSR_implies_empty_steps; assumption
+      · apply @star.plus_one _ _ (state_transition spec)
+        constructor
+        · apply h2
+        · simp; apply MatchInterface.output_types
     · assumption
   | @internal r i' hin hrule =>
     dsimp at *

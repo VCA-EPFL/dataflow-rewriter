@@ -2,8 +2,6 @@
 
 ## Noc language
 
-- We should have a `List.foldlFinIdx`
-
 - `UnboundedQueueInUnboundedBag` could be proven using `RouterIn`
 
 ## Routing Policy
@@ -24,6 +22,10 @@
     a φ which is preserved with a ∀ instead of an ∃
 
 ## Other
+
+- We want an implementation of an ordered router and show that it is correct, so
+  that we can use it to implement a `Torus` router and we can actually extract
+  it to hardware
 
 - Tried using Vector for `fin_range` to keep the length information in the type
   to avoid cast, did not work
