@@ -224,7 +224,13 @@ namespace DataflowRewriter.Noc
 
   theorem ϕ_indistinguishable :
     ∀ i s, (φ n ε) i s → Module.indistinguishable (expM n ε) (mod n) i s := by
-      sorry
+      intros i s Hφ
+      constructor
+      <;> dsimp [drcomponents, drunfold_defs] at *
+      · intros ident i' v Hinp
+        sorry
+      · intros ident i' v Hout
+        sorry
 
   theorem correct : (expM n ε) ⊑ (mod n) := by
     apply (
