@@ -77,54 +77,53 @@ end Constant
 namespace Operator1
 
 def extract_type (typ : String) : RewriteResult (List String) := do
-  let [typName, typ, op] := typ.splitOn | throw .done
+  let [typName, typ1, typ2, op] := typ.splitOn | throw .done
   unless typName = "operator1" do throw .done
-  return [typ, op]
+  return [typ1, typ2, op]
 
 def match_node := DataflowRewriter.match_node extract_type
 
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
   throw (.error s!"{decl_name%}: not implemented")
 
-variable (T : Type)
+variable (T₁ T : Type)
 variable [Inhabited T]
-variable (Tₛ : String)
-variable (Op : String)
+variable (T₁ₛ Tₛ Op : String)
 
 def lhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i [type = "io"];
     o [type = "io"];
 
-    op [typeImp = $(⟨_, operator1 T Op⟩), type = $(s!"operator1 {Tₛ} {Op}")];
+    op [typeImp = $(⟨_, operator1 T₁ T Op⟩), type = $(s!"operator1 {T₁ₛ} {Tₛ} {Op}")];
 
     i -> op [to="in1"];
     op -> o [from="out1"];
   ]
 
-def lhs_extract := (lhs Unit Tₛ Op).fst.extract ["op"] |>.get rfl
+def lhs_extract := (lhs Unit Unit T₁ₛ Tₛ Op).fst.extract ["op"] |>.get rfl
 
-theorem double_check_empty_snd : (lhs_extract Tₛ Op).snd = ExprHigh.mk ∅ ∅ := by rfl
+theorem double_check_empty_snd : (lhs_extract T₁ₛ Tₛ Op).snd = ExprHigh.mk ∅ ∅ := by rfl
 
-def lhsLower := lhs_extract Tₛ Op |>.fst.lower.get rfl
+def lhsLower := lhs_extract T₁ₛ Tₛ Op |>.fst.lower.get rfl
 
 def rhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i [type = "io"];
     o [type = "io"];
 
-    op [typeImp = $(⟨_, StringModule.pure λ x => @NatModule.op1_function T _ Op x⟩),
-        type = $(s!"pure {Tₛ} {Tₛ}")];
+    op [typeImp = $(⟨_, StringModule.pure λ x => @NatModule.op1_function T _ T₁ Op x⟩),
+        type = $(s!"pure {T₁ₛ} {Tₛ}")];
 
     i -> op [to="in1"];
     op -> o [from="out1"];
   ]
 
-def rhsLower := (rhs Unit Tₛ Op).fst.lower.get rfl
+def rhsLower := (rhs Unit Unit T₁ₛ Tₛ Op).fst.lower.get rfl
 
 def rewrite : Rewrite String :=
   { abstractions := [],
     pattern := matcher,
     rewrite :=
-      λ | [Ts, Ops] => .some ⟨ lhsLower Ts Ops, rhsLower Ts Ops ⟩
+      λ | [T1s, Ts, Ops] => .some ⟨ lhsLower T1s Ts Ops, rhsLower T1s Ts Ops ⟩
         | _ => .none
     name := .some "pure-operator1"
   }
@@ -134,46 +133,45 @@ end Operator1
 namespace Operator2
 
 def extract_type (typ : String) : RewriteResult (List String) := do
-  let [typName, typ, op] := typ.splitOn | throw .done
+  let [typName, typ1, typ2, typ3, op] := typ.splitOn | throw .done
   unless typName = "operator2" do throw .done
-  return [typ, op]
+  return [typ1, typ2, typ3, op]
 
 def match_node := DataflowRewriter.match_node extract_type
 
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
   throw (.error s!"{decl_name%}: not implemented")
 
-variable (T : Type)
+variable (T₁ T₂ T : Type)
 variable [Inhabited T]
-variable (Tₛ : String)
-variable (Op : String)
+variable (T₁ₛ T₂ₛ Tₛ Op : String)
 
 def lhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i1 [type = "io"];
     i2 [type = "io"];
     o [type = "io"];
 
-    op [typeImp = $(⟨_, operator2 T Op⟩), type = $(s!"operator2 {Tₛ} {Op}")];
+    op [typeImp = $(⟨_, operator2 T₁ T₂ T Op⟩), type = $(s!"operator2 {T₁ₛ} {T₂ₛ} {Tₛ} {Op}")];
 
     i1 -> op [to="in1"];
     i2 -> op [to="in2"];
     op -> o [from="out1"];
   ]
 
-def lhs_extract := (lhs Unit Tₛ Op).fst.extract ["op"] |>.get rfl
+def lhs_extract := (lhs Unit Unit Unit T₁ₛ T₂ₛ Tₛ Op).fst.extract ["op"] |>.get rfl
 
-theorem double_check_empty_snd : (lhs_extract Tₛ Op).snd = ExprHigh.mk ∅ ∅ := by rfl
+theorem double_check_empty_snd : (lhs_extract T₁ₛ T₂ₛ Tₛ Op).snd = ExprHigh.mk ∅ ∅ := by rfl
 
-def lhsLower := lhs_extract Tₛ Op |>.fst.lower.get rfl
+def lhsLower := lhs_extract T₁ₛ T₂ₛ Tₛ Op |>.fst.lower.get rfl
 
 def rhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i1 [type = "io"];
     i2 [type = "io"];
     o [type = "io"];
 
-    join [typeImp = $(⟨_, join T T⟩), type = $(s!"join {Tₛ} {Tₛ}")];
-    op [typeImp = $(⟨_, StringModule.pure λ x => @NatModule.op2_function T _ Op x.1 x.2⟩),
-        type = $(s!"pure ({Tₛ}×{Tₛ}) {Tₛ}")];
+    join [typeImp = $(⟨_, join T₁ T₂⟩), type = $(s!"join {T₁ₛ} {T₂ₛ}")];
+    op [typeImp = $(⟨_, StringModule.pure λ x => @NatModule.op2_function T _ T₁ T₂ Op x.1 x.2⟩),
+        type = $(s!"pure ({T₁ₛ}×{T₂ₛ}) {Tₛ}")];
 
     i1 -> join [to="in1"];
     i2 -> join [to="in2"];
@@ -181,13 +179,13 @@ def rhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     op -> o [from="out1"];
   ]
 
-def rhsLower := (rhs Unit Tₛ Op).fst.lower.get rfl
+def rhsLower := (rhs Unit Unit Unit T₁ₛ T₂ₛ Tₛ Op).fst.lower.get rfl
 
 def rewrite : Rewrite String :=
   { abstractions := [],
     pattern := matcher,
     rewrite :=
-      λ | [Ts, Ops] => .some ⟨ lhsLower Ts Ops, rhsLower Ts Ops ⟩
+      λ | [T1s, T2s, Ts, Ops] => .some ⟨ lhsLower T1s T2s Ts Ops, rhsLower T1s T2s Ts Ops ⟩
         | _ => .none
     name := .some "pure-operator2"
   }
@@ -197,19 +195,18 @@ end Operator2
 namespace Operator3
 
 def extract_type (typ : String) : RewriteResult (List String) := do
-  let [typName, typ, op] := typ.splitOn | throw .done
+  let [typName, typ1, typ2, typ3, typ4, op] := typ.splitOn | throw .done
   unless typName = "operator3" do throw .done
-  return [typ, op]
+  return [typ1, typ2, typ3, typ4, op]
 
 def match_node := DataflowRewriter.match_node extract_type
 
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
   throw (.error s!"{decl_name%}: not implemented")
 
-variable (T : Type)
+variable (T₁ T₂ T₃ T : Type)
 variable [Inhabited T]
-variable (Tₛ : String)
-variable (Op : String)
+variable (T₁ₛ T₂ₛ T₃ₛ Tₛ Op : String)
 
 def lhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i1 [type = "io"];
@@ -217,7 +214,7 @@ def lhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i3 [type = "io"];
     o [type = "io"];
 
-    op [typeImp = $(⟨_, operator3 T Op⟩), type = $(s!"operator3 {Tₛ} {Op}")];
+    op [typeImp = $(⟨_, operator3 T₁ T₂ T₃ T Op⟩), type = $(s!"operator3 {T₁ₛ} {T₂ₛ} {T₃ₛ} {Tₛ} {Op}")];
 
     i1 -> op [to="in1"];
     i2 -> op [to="in2"];
@@ -225,11 +222,11 @@ def lhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     op -> o [from="out1"];
   ]
 
-def lhs_extract := (lhs Unit Tₛ Op).fst.extract ["op"] |>.get rfl
+def lhs_extract := (lhs Unit Unit Unit Unit T₁ₛ T₂ₛ T₃ₛ Tₛ Op).fst.extract ["op"] |>.get rfl
 
-theorem double_check_empty_snd : (lhs_extract Tₛ Op).snd = ExprHigh.mk ∅ ∅ := by rfl
+theorem double_check_empty_snd : (lhs_extract T₁ₛ T₂ₛ T₃ₛ Tₛ Op).snd = ExprHigh.mk ∅ ∅ := by rfl
 
-def lhsLower := lhs_extract Tₛ Op |>.fst.lower.get rfl
+def lhsLower := lhs_extract T₁ₛ T₂ₛ T₃ₛ Tₛ Op |>.fst.lower.get rfl
 
 def rhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i1 [type = "io"];
@@ -237,10 +234,10 @@ def rhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i3 [type = "io"];
     o [type = "io"];
 
-    join1 [typeImp = $(⟨_, join T T⟩), type = $(s!"join {Tₛ} {Tₛ}")];
-    join2 [typeImp = $(⟨_, join T (T × T)⟩), type = $(s!"join {Tₛ} ({Tₛ}×{Tₛ})")];
-    op [typeImp = $(⟨_, StringModule.pure λ (x : T × T × T) => @NatModule.op3_function T _ Op x.1 x.2.1 x.2.2⟩),
-        type = $(s!"pure ({Tₛ}×({Tₛ}×{Tₛ})) {Tₛ}")];
+    join1 [typeImp = $(⟨_, join T₂ T₃⟩), type = $(s!"join {T₂ₛ} {T₃ₛ}")];
+    join2 [typeImp = $(⟨_, join T₁ (T₂ × T₃)⟩), type = $(s!"join {T₁ₛ} ({T₂ₛ}×{T₃ₛ})")];
+    op [typeImp = $(⟨_, StringModule.pure λ (x : T₁ × T₂ × T₃) => @NatModule.op3_function T _ T₁ T₂ T₃ Op x.1 x.2.1 x.2.2⟩),
+        type = $(s!"pure ({T₁ₛ}×({T₂ₛ}×{T₃ₛ})) {Tₛ}")];
 
     i1 -> join2 [to="in1"];
     i2 -> join1 [to="in1"];
@@ -252,13 +249,13 @@ def rhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     op -> o [from="out1"];
   ]
 
-def rhsLower := (rhs Unit Tₛ Op).fst.lower.get rfl
+def rhsLower := (rhs Unit Unit Unit Unit T₁ₛ T₂ₛ T₃ₛ Tₛ Op).fst.lower.get rfl
 
 def rewrite : Rewrite String :=
   { abstractions := [],
     pattern := matcher,
     rewrite :=
-      λ | [Ts, Ops] => .some ⟨ lhsLower Ts Ops, rhsLower Ts Ops ⟩
+      λ | [T1s, T2s, T3s, Ts, Ops] => .some ⟨ lhsLower T1s T2s T3s Ts Ops, rhsLower T1s T2s T3s Ts Ops ⟩
         | _ => .none
     name := .some "pure-operator3"
   }

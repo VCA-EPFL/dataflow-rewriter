@@ -9,6 +9,7 @@ import DataflowRewriter.Rewrites.LoopRewrite2
 import DataflowRewriter.Rewrites.CombineBranch
 import DataflowRewriter.Rewrites.CombineMux
 import DataflowRewriter.Rewrites.JoinSplitLoopCond
+import DataflowRewriter.Rewrites.JoinSplitLoopCondAlt
 import DataflowRewriter.Rewrites.ReduceSplitJoin
 import DataflowRewriter.Rewrites.PureRewrites
 import DataflowRewriter.Rewrites.LoadRewrite
@@ -31,4 +32,7 @@ import DataflowRewriter.Rewrites.JoinComm
 import DataflowRewriter.Rewrites.ForkPure
 import DataflowRewriter.Rewrites.ForkJoin
 import DataflowRewriter.Rewrites.JoinRewrite
+import DataflowRewriter.Rewrites.Fork3Rewrite
+import DataflowRewriter.Rewrites.Fork4Rewrite
+import DataflowRewriter.Rewrites.Fork5Rewrite
 -- import DataflowRewriter.Rewrites.JoinRewriteCorrect

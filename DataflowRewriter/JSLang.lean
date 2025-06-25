@@ -97,9 +97,9 @@ def parseRewrites (s : String) : Except String (List JSLangRewrite) := do
   | j => throw s!"top-level JSON object is not an array: {j}"
 
 def JSLangRewrite.mapToRewrite : JSLangRewrite → Rewrite String
-| .assocL s true => JoinAssocL.targetedRewrite s
+| .assocL s true
 | .assocR s false => JoinAssocL.targetedRewrite s
-| .assocR s true => JoinAssocR.targetedRewrite s
+| .assocR s true
 | .assocL s false => JoinAssocR.targetedRewrite s
 | .comm s => JoinComm.targetedRewrite s
 | .elim s => JoinSplitElim.targetedRewrite s

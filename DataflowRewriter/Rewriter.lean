@@ -190,6 +190,7 @@ however, currently the low-level expression language does not remember any names
   -- throw (.error s!"mods :: {repr sub'}\n\nlhs :: {repr g_lower}\n\nrhs :: {repr g_lower'}\n\n{repr def_rewrite.input_expr}")
 
   addRewriteInfo <| RewriteInfo.mk RewriteType.rewrite g default sub default .nil .none rewrite.name
+  updRewriteInfo λ rw => {rw with debug := (.some <| (toString <| repr e_sub) ++ "\n\n" ++ ((toString <| repr def_rewrite.input_expr)))}
 
   -- beq is an α-equivalence check that returns a mapping to rename one expression into the other.  This mapping is
   -- split into the external mapping and internal mapping.
@@ -234,7 +235,7 @@ however, currently the low-level expression language does not remember any names
   let (rewritten, b) := g_lower.force_replace (canon e_sub_input) e_sub_output
 
   -- throw (.error s!"mods :: {repr sub'}rhs :: {repr g_lower}\n\ndep :: {repr (canon e_sub_input)}")
-  EStateM.guard (.error s!"subexpression not found in the graph: {repr g_lower}\n\n{repr (canon e_sub_input)}") b
+  EStateM.guard (.error s!"rewrite: subexpression not found in the graph: {repr g_lower}\n\n{repr (canon e_sub_input)}") b
 
   let norm := rewritten.normalisedNamesMap fresh_prefix
   EStateM.guard (.error s!"trying to remap IO ports which is forbidden") <| rewritten.ensureIOUnmodified norm
@@ -249,6 +250,7 @@ however, currently the low-level expression language does not remember any names
   let rwMap ← rewrite.nameMap g
   let portMap ← mergeRenamingMaps portMap rwMap
   updRewriteInfo <| λ _ => RewriteInfo.mk RewriteType.rewrite g out sub portMap .nil (.some (toString <| repr comb_mapping)) rewrite.name
+  EStateM.guard (.error s!"found duplicate node") out.modules.keysList.Nodup
   return out
 
 /--
@@ -261,10 +263,13 @@ framework should be enough.
 @[drunfold] def Abstraction.run (fresh_prefix : String) (g : ExprHigh String)
   (abstraction : Abstraction String) (norm : Bool := false)
   : RewriteResult (ExprHigh String × Concretisation String) := do
+  -- Extract a list of modules that match the pattern.
   let (sub, _) ← abstraction.pattern g
-  let (g₁, g₂) ← ofOption (.error "could not extract graph") <| g.extract sub
-  let e_sub ← ofOption (.error "could not lower subgraph: graph is empty") <| g₁.lower
-  let g_lower ← ofOption (.error "could not lower graph") g.lower
+  let sub := sub.pwFilter (. ≠ .)
+  -- Extract the subgraph that matches the pattern.
+  let (g₁, _g₂) ← ofOption (.error "could not extract graph") <| g.extract sub
+  -- Lower the subgraph g₁ to ExprLow
+  let g₁_l ← ofOption (.error "could not lower subgraph: graph is empty") <| g₁.lower
 
   -- g_lower is the fully lowered graph with the sub expression that is to be replaced rearranged so that it can be
   -- pattern matched.
@@ -276,11 +281,13 @@ framework should be enough.
   -- Here we have to make sure that the context contains a renamed version of e_sub to show equivalence to the
   -- abstracted version, because the abstracted version has `.top` IO ports.  These are needed because of the matcher
   -- that comes in the second phase.
-  let portMapping := e_sub.build_interface.toIdentityPortMapping' -- abstraction.typ
-  let (abstracted', b) := g_lower.force_abstract (canon e_sub) portMapping abstraction.typ
-  EStateM.guard (.error s!"subexpression not found in the graph: {repr g_lower}\n\n{repr (canon e_sub)}") b
+  let g₁_lc := canon <| ExprLow.comm_bases sub' g₁_l
+  let portMapping := g₁_lc.build_interface.toIdentityPortMapping' -- abstraction.typ
+  let (abstracted', b) := g_lower.force_abstract g₁_lc portMapping abstraction.typ
+  EStateM.guard (.error s!"abstraction: subexpression not found in the graph: {repr g₁_l}\n\n{repr g₁_lc}") b
+  -- EStateM.guard (.error s!"abstraction: subexpression not found in the graph: {repr g₁.connections}") b
 
-  let e_sub' ← ofOption (.error "renaming failed: 4") <| e_sub.renamePorts portMapping.inverse
+  let g₁_lcr ← ofOption (.error "renaming failed: 4") <| g₁_lc.renamePorts portMapping.inverse
 
   let mut abstracted := abstracted'
   let mut portMap : AssocList String (Option String) := .nil
@@ -298,7 +305,7 @@ framework should be enough.
   -- let portMap ← portmappingToNameRename' sub norm
   -- addRewriteInfo <| RewriteInfo.mk RewriteType.abstraction g highered sub
   --                     .nil [abstraction.typ] .none (.some s!"{abstraction.typ}")
-  return (highered, ⟨e_sub', abstraction.typ⟩)
+  return (highered, ⟨g₁_lcr, abstraction.typ⟩)
   -- return (abstracted.higherS fresh_prefix, ⟨e_sub, abstraction.typ⟩)
 
 /--
@@ -307,16 +314,18 @@ checked explicitly).  In addition to that, it currently assumes that the interna
 still fresh in the graph.
 -/
 @[drunfold] def Concretisation.run (fresh_prefix : String) (g : ExprHigh String)
-  (concretisation : Concretisation String) (norm : Bool := false) : RewriteResult (ExprHigh String) := do
+  (concretisation : Concretisation String) (norm : Bool := false) (debug := false) : RewriteResult (ExprHigh String) := do
   let g_lower ← ofOption (.error "could not lower graph") <| g.lower
   -- may need to uniquify the concretisation internal connections
   let base ← ofOption (.error "Could not find base of concretisation")
     <| g_lower.findBase concretisation.typ
   -- return g_lower.concretise (concretisation.expr.renameMapped base) base concretisation.typ
   --        |>.higherS fresh_prefix
-  let e_sub := concretisation.expr.renamePorts' base
+  let e_sub ← ofOption (.error "concretisation: could not rename ports") <| concretisation.expr.renamePorts base
   let (concr', b) := g_lower.force_concretise e_sub base concretisation.typ
-  EStateM.guard (.error s!"subexpression not found in the graph: {repr g_lower}\n\n{repr base}") b
+  if debug then
+    throw (.error s!"concr: {repr concretisation.expr}\n\n{repr e_sub}\n\n{repr base}")
+  EStateM.guard (.error s!"concretisation: subexpression not found in the graph: {repr g_lower}\n\n{repr base}") b
 
   let mut concr := concr'
   let mut portMap : AssocList String (Option String) := .nil

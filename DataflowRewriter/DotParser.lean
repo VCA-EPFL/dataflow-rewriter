@@ -210,12 +210,14 @@ def splitAndSearch (l : List Parser.DotAttr) (key searchStr : String) : Bool :=
     (x.value.trim.splitOn).find? (λ part => part.startsWith searchStr) |>.isSome
   | none => false
 
+def keyArg (l : List Parser.DotAttr) key :=
+  l.find? (·.key = key) |>.map (·.value) |>.getD "" |>.trim
 
 def keyArgNumbers (l : List Parser.DotAttr) key :=
-  (l.find? (·.key = key) |>.map (·.value) |>.getD "" |>.trim |>.splitOn |>.length)
+  keyArg l key |>.splitOn |>.length
 
-def keyArg (l : List Parser.DotAttr) key :=
-  (l.find? (·.key = key) |>.map (·.value) |>.getD "" |>.trim)
+def parseIOSizes (l : List Parser.DotAttr) (key : String) : List String :=
+  keyArg l key |>.splitOn |>.flatMap (λ x => x.splitOn ":" |>.drop 1)
 
 def addArgs (s : String) (l : List Parser.DotAttr) (current_extra_args : AssocList String String) (k : String) : Except String (AssocList String String) := do
   let some el := l.find? (·.key = k)
@@ -226,6 +228,12 @@ def addOptArgs (s : String) (l : List Parser.DotAttr) (current_extra_args : Asso
   match l.find? (·.key = k) with
   | some el => return current_extra_args.cons el.key el.value.trim
   | _ => return current_extra_args
+
+def translateSize : String → Except String String
+| "0" => .ok "Unit"
+| "1" => .ok "Bool"
+| "32" => .ok "T"
+| s => .error s!"Could not parse size: {s}"
 
 /--
 Parse a dot expression that comes from Dynamatic.  It returns the graph
@@ -254,7 +262,6 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
         current_extra_args ← addOpt current_extra_args "taggers_num"
         current_extra_args ← addOpt current_extra_args "tagger_id"
 
-
       -- Different bitwidths matter so we distinguish them with types: Unit vs. Bool vs. T
       if typVal = "Branch" then
         if keyStartsWith l "in" "in1:0" then
@@ -266,18 +273,21 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
 
       -- Different bitwidths matter so we distinguish them with types: Unit vs. Bool vs. T
       if typVal = "Fork" then
-        if keyStartsWith l "in" "in1:0" then
-          typVal := s!"fork Unit {keyArgNumbers l "in"}"
-        else typVal := s!"fork T {keyArgNumbers l "in"}"
+        let [sizesIn] ← parseIOSizes l "in" |>.mapM translateSize
+          | throw "more that one input in fork"
+        typVal := s!"fork {sizesIn} {keyArgNumbers l "out"}"
 
       if typVal = "Mux" then
         current_extra_args ← addOpt current_extra_args "delay"
         if splitAndSearch l "in" "in2:0" then
-          typVal := s!"mux Unit {keyArgNumbers l "in"}"
-        else typVal := s!"mux T {keyArgNumbers l "in"}"
+          typVal := s!"mux Unit"
+        else typVal := s!"mux T"
 
       if typVal = "Merge" then
         current_extra_args ← addOpt current_extra_args "delay"
+        if splitAndSearch l "in" "in0:0" then
+          typVal := s!"merge Unit {keyArgNumbers l "in"}"
+        else typVal := s!"merge T {keyArgNumbers l "in"}"
 
       if typVal = "Entry" then
         current_extra_args ← addOpt current_extra_args "control"
@@ -312,7 +322,9 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
         else if splitAndSearch l "op" "cast" then
           typVal := s!"pure T Bool"
         else
-          typVal := s!"operator{keyArgNumbers l "in"} T {keyArg l "op"}"
+          let sizesIn ← parseIOSizes l "in" |>.mapM translateSize
+          let sizesOut ← parseIOSizes l "out" |>.mapM translateSize
+          typVal := s!"operator{keyArgNumbers l "in"} {" ".intercalate sizesIn} {" ".intercalate sizesOut} {keyArg l "op"}"
 
        -- portId= 0, offset= 0  -- if mc_store_op and mc_load_op
 

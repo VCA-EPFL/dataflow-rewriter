@@ -7,7 +7,7 @@ Authors: Ayatallah Elakhras
 import DataflowRewriter.Rewriter
 import DataflowRewriter.ExprHighElaborator
 
-namespace DataflowRewriter.ReduceSplitJoin
+namespace DataflowRewriter.Fork5Rewrite
 
 open StringModule
 
@@ -62,20 +62,16 @@ def rhs (T : Type) (Tₛ : String) : ExprHigh String × IdentMap String (TModule
     o5 [type = "io"];
 
     fork1 [typeImp = $(⟨_, fork T 2⟩), type = $("fork " ++ Tₛ ++ " 2")];
-    fork2 [typeImp = $(⟨_, fork T 2⟩), type = $("fork " ++ Tₛ ++ " 2")];
-    fork3 [typeImp = $(⟨_, fork T 2⟩), type = $("fork " ++ Tₛ ++ " 2")];
-    fork4 [typeImp = $(⟨_, fork T 2⟩), type = $("fork " ++ Tₛ ++ " 2")];
+    fork2 [typeImp = $(⟨_, fork T 4⟩), type = $("fork " ++ Tₛ ++ " 4")];
 
     i -> fork1 [to="in1"];
-    fork1 -> fork2 [from="out1", to="in1"];
-    fork1 -> fork3 [from="out2", to="in1"];
-    fork2 -> fork3 [from="out2",to="in1"];
+    fork1 -> fork2 [from="out2", to="in1"];
 
-    fork2 -> o1 [from="out1"];
-    fork3 -> o2 [from="out1"];
-    fork3 -> o3 [from="out2"];
-    fork4 -> o4 [from="out1"];
-    fork4 -> o5 [from="out2"];
+    fork1 -> o1 [from="out1"];
+    fork2 -> o2 [from="out1"];
+    fork2 -> o3 [from="out2"];
+    fork2 -> o4 [from="out3"];
+    fork2 -> o5 [from="out4"];
   ]
 
 def rhsLower T₁ := (rhs Unit T₁).fst.lower.get rfl
@@ -91,4 +87,4 @@ def rewrite : Rewrite String :=
     name := .some "fork-5"
   }
 
-end DataflowRewriter.ReduceSplitJoin
+end DataflowRewriter.Fork5Rewrite

@@ -547,13 +547,9 @@ opaque polymorphic_getelemptr : T → T → T → T
 variable (T) in
 opaque op0_function : String → T
 
-opaque op1_function : String → T → T
-opaque op2_function : String → T → T → T
-opaque op3_function : String → T → T → T → T
-opaque op2_2_function : String → T → T → (T × T)
-opaque cast_function {S} : S → T
-
--- #reduce (types := true) Lean.MetaM Unit
+opaque op1_function {T₁} : String → T₁ → T
+opaque op2_function {T₁ T₂} : String → T₁ → T₂ → T
+opaque op3_function {T₁ T₂ T₃} : String → T₁ → T₂ → T₃ → T
 
 opaque constant_a : T
 opaque constant_b : T
@@ -564,17 +560,17 @@ opaque constant_f : T
 opaque constant_g : T
 end
 
-def operator1 T [Inhabited T] (s : String) :=
-  unary_op (name := s!"operator1 {s}") (@op1_function T _ s)
+def operator1 T₁ T [Inhabited T] (s : String) :=
+  unary_op (name := s!"operator1 {s}") (@op1_function T _ T₁ s)
 
-def operator2 T [Inhabited T] (s : String) :=
-  binary_op (name := s!"operator2 {s}") (@op2_function T _ s)
+def operator2 T₁ T₂ T [Inhabited T] (s : String) :=
+  binary_op (name := s!"operator2 {s}") (@op2_function T _ T₁ T₂ s)
 
-def operator3 T [Inhabited T] (s : String) :=
-  ternary_op (name := s!"operator3 {s}") (@op3_function T _ s)
+def operator3 T₁ T₂ T₃ T [Inhabited T] (s : String) :=
+  ternary_op (name := s!"operator3 {s}") (@op3_function T _ T₁ T₂ T₃ s)
 
 def cast S T [Inhabited T] :=
-  unary_op (name := s!"cast") (@cast_function T _ S)
+  unary_op (name := s!"cast") (@op1_function T _ S "cast")
 
 namespace FixedSize
 
@@ -683,11 +679,11 @@ namespace DataflowRewriter.StringModule
 
 @[drunfold, drcomponents] def pure {S T} f := @NatModule.pure S T f |>.stringify
 
-@[drunfold, drcomponents] def operator1 T [Inhabited T] s := NatModule.operator1 T s |>.stringify
+@[drunfold, drcomponents] def operator1 T₁ T [Inhabited T] s := NatModule.operator1 T₁ T s |>.stringify
 
-@[drunfold, drcomponents] def operator2 T [Inhabited T] s := NatModule.operator2 T s |>.stringify
+@[drunfold, drcomponents] def operator2 T₁ T₂ T [Inhabited T] s := NatModule.operator2 T₁ T₂ T s |>.stringify
 
-@[drunfold, drcomponents] def operator3 T [Inhabited T] s := NatModule.operator3 T s |>.stringify
+@[drunfold, drcomponents] def operator3 T₁ T₂ T₃ T [Inhabited T] s := NatModule.operator3 T₁ T₂ T₃ T s |>.stringify
 
 @[drunfold, drcomponents] def cast S T [Inhabited T] := NatModule.cast S T |>.stringify
 

@@ -7,7 +7,7 @@ Authors: Ayatallah Elakhras
 import DataflowRewriter.Rewriter
 import DataflowRewriter.ExprHighElaborator
 
-namespace DataflowRewriter.ReduceSplitJoin
+namespace DataflowRewriter.Fork3Rewrite
 
 open StringModule
 
@@ -79,4 +79,4 @@ def rewrite : Rewrite String :=
     name := .some "fork-3"
   }
 
-end DataflowRewriter.ReduceSplitJoin
+end DataflowRewriter.Fork3Rewrite

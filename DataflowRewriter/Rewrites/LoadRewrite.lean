@@ -26,7 +26,7 @@ def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :
        let (.some load) := followOutput g mc.inst "out1" | return none
        unless load.inst = inst do return none
 
-       let (.some op) := mc.typ.splitOn |>.get? 2 | return none
+       let (.some op) := mc.typ.splitOn |>.get? 3 | return none
 
        return some ([inst, mc.inst], [op])
     ) none | MonadExceptOf.throw RewriteError.done
@@ -37,7 +37,7 @@ def lhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     o_out [type = "io"];
 
     load [typeImp = $(⟨_, load T T⟩), type = $("load T T")];
-    mc [typeImp = $(⟨_, operator1 T Op⟩), type = $(s!"operator1 T {Op}")];
+    mc [typeImp = $(⟨_, operator1 T T Op⟩), type = $(s!"operator1 T T {Op}")];
 
     i_in -> load [to = "in2"];
     load -> o_out [from = "out1"];
@@ -56,7 +56,7 @@ def rhs : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i_in [type = "io"];
     o_out [type = "io"];
 
-    pure [typeImp = $(⟨_, StringModule.pure (@NatModule.op1_function T _ Op)⟩), type = $(s!"pure T T")];
+    pure [typeImp = $(⟨_, StringModule.pure (@NatModule.op1_function T _ T Op)⟩), type = $(s!"pure T T")];
 
     i_in -> pure [to = "in1"];
     pure -> o_out [from = "out1"];
