@@ -157,7 +157,22 @@ end Refinement
 
 theorem refines_implies_trace_inclusion :
   imp ⊑ spec →
-  trace_inclusion imp spec := by sorry
+  trace_inclusion imp spec := by
+    intros href l b
+    obtain ⟨i1, i2, Hi1, Hi2⟩ := b
+    have ⟨mm, φ, H1, H2⟩ := href
+    unfold refines_initial at H2
+    have ⟨Hi1_init, Hi1_mod⟩ := Hi1
+    obtain ⟨s1, Hs1_init, Hs1_φ⟩ := H2 i1.state Hi1_init
+    exists ⟨s1, spec⟩
+    have lred : @star _ _ (state_transition imp) ⟨i1.state, imp⟩ l i2 := by
+      have ⟨Hi11, Hi12⟩ := Hi1
+      obtain ⟨state, module⟩ := i1
+      subst imp
+      exact Hi2
+    obtain ⟨s2, Hs2_1, Hs2_2⟩ :=
+      refines_implies_star_preservation _ _ H1 i1.state s1 i2 l Hs1_φ lred
+    exists s2
 
 end TraceInclusion
 
