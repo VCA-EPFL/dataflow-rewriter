@@ -40,7 +40,6 @@ inductive step : State Ident S → List Trace → State Ident S → Prop where
   r ∈ st.module.internals →
   r st.state s' →
   step st [] ⟨s', st.module⟩
-| epsilon {st} : step st [] st
 
 def state_transition (m : Module Ident S) : StateTransition (State Ident S) Trace where
   init := fun s => m.init_state s.state ∧ s.module = m
@@ -126,11 +125,6 @@ theorem refines_implies_step_preservation {φ} :
     exists ⟨s1, spec⟩
     and_intros
     · apply existSR_implies_empty_steps <;> assumption
-    · assumption
-  | @epsilon =>
-    exists ⟨s, spec⟩
-    and_intros
-    · apply @star.refl _ _ (state_transition spec)
     · assumption
 
 theorem refines_implies_star_preservation {φ} :
