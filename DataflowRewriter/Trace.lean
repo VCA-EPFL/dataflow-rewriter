@@ -139,10 +139,10 @@ theorem steps_preserve_mod {i1 e i2} (h : @star _ _ (state_transition imp) i1 e 
 
 theorem refines_implies_star_preservation {φ} :
   imp ⊑_{φ} spec →
-  ∀ iimp s i' e,
-    @star _ _ (state_transition imp) iimp e i' →
-    iimp.module = imp →
-    φ iimp.state s →
+  ∀ i s i' e,
+    @star _ _ (state_transition imp) i e i' →
+    i.module = imp →
+    φ i.state s →
     ∃ s',
       @star _ _ (state_transition spec) ⟨s, spec⟩ e s'
       ∧ φ i'.state s'.state := by
@@ -174,6 +174,18 @@ theorem refines_implies_trace_inclusion :
   trace_inclusion imp spec := by
     intro ⟨mm, φ, H1, H2⟩ l ⟨i1, i2, ⟨Hi1_init, Hi1_mod⟩, Hi2⟩
     obtain ⟨s1, Hs1_init, Hs1_φ⟩ := H2 i1.state Hi1_init
+    exists ⟨s1, spec⟩
+    obtain ⟨s2, Hs2_1, Hs2_2⟩ :=
+      refines_implies_star_preservation _ _ H1 i1 s1 i2 l Hi2 Hi1_mod Hs1_φ
+    exists s2
+
+-- FIXME: Uh
+theorem refines_implies_trace_inclusion' :
+  imp ⊑' spec →
+  trace_inclusion imp spec := by
+    intro ⟨mm, φ, H1, H2, H3⟩ l ⟨i1, i2, ⟨Hi1_init, Hi1_mod⟩, Hi2⟩
+    clear H2
+    obtain ⟨s1, Hs1_init, Hs1_φ⟩ := H3 i1.state Hi1_init
     exists ⟨s1, spec⟩
     obtain ⟨s2, Hs2_1, Hs2_2⟩ :=
       refines_implies_star_preservation _ _ H1 i1 s1 i2 l Hi2 Hi1_mod Hs1_φ
