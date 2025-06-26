@@ -7,11 +7,11 @@ import DataflowRewriter.Examples.Noc.Spec
 
 namespace DataflowRewriter.Noc
 
-variable {Data : Type} [BEq Data] [LawfulBEq Data]
-
 section MQueueInBag
 
-variable (n : Noc Data)
+variable {Data : Type} [BEq Data] [LawfulBEq Data] {netsz : Netsz}
+
+variable (n : Noc Data netsz)
 
 def φ (I : n.spec_mqueueT) (S : n.spec_bagT) : Prop :=
   ∀ (src : n.topology.RouterID) (dst : n.topology.RouterID),
@@ -56,7 +56,7 @@ theorem refines_φ : n.spec_mqueue ⊑_{φ n} n.spec_bag := by
       unfold φ at Hφ
       specialize Hφ src' dst'
       dsimp at Hφ
-      by_cases Heq : (↑src' * n.topology.netsz + ↑dst') = (↑src * n.topology.netsz + ↑(Hv.mp v).2)
+      by_cases Heq : (↑src' * netsz + ↑dst') = (↑src * netsz + ↑(Hv.mp v).2)
       · simp only [
           Heq, typeOf, eq_mp_eq_cast, Vector.getElem_set_self, List.mem_append,
           List.mem_cons, List.not_mem_nil, or_false
