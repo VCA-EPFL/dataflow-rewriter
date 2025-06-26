@@ -9,7 +9,7 @@ namespace DataflowRewriter
 /--
 Create a class for an arbitrary state transition system.
 -/
-class StateTransition (State: Type _) (Event: outParam (Type _)) where
+class StateTransition (State : Type _) (Event : outParam (Type _)) where
   init : State → Prop
   step : State → List Event → State → Prop
 
@@ -25,35 +25,35 @@ section Behaviour
 variable {State Event : Type _}
 variable [trans: StateTransition State Event]
 
-inductive star : State -> List Event -> State -> Prop where
-  | refl : forall s1, star s1 [] s1
-  | step : forall s1 s2 s3 e1 e2, trans.step s1 e1 s2 -> star s2 e2 s3 -> star s1 (e1 ++ e2) s3
+inductive star : State → List Event → State → Prop where
+  | refl : ∀ s1, star s1 [] s1
+  | step : ∀ s1 s2 s3 e1 e2, trans.step s1 e1 s2 → star s2 e2 s3 → star s1 (e1 ++ e2) s3
 
 notation:45 s " -[ " t:45 " ]*> " s':44 => star s t s'
 
-def behaviour (l : List Event): Prop :=
-  exists s s', trans.init s ∧ star s l s'
+def behaviour (l : List Event) : Prop :=
+  ∃ s s', trans.init s ∧ star s l s'
 
-theorem star.plus_one (s s': State) (e: List Event) :
-    s -[e]-> s' -> s -[e]*> s' := by
+theorem star.plus_one (s s' : State) (e : List Event) :
+    s -[e]-> s' → s -[e]*> s' := by
   intros Hstep
   have He : e = e ++ [] := by simp
   rw [He]
   apply star.step <;> first | assumption | apply star.refl
 
 theorem step_internal (s1 s2 s3 : State) e2 :
-  s1 -[[]]-> s2 -> s2 -[e2]*> s3 -> s1 -[e2]*> s3 := by
+  s1 -[[]]-> s2 → s2 -[e2]*> s3 → s1 -[e2]*> s3 := by
   have h : e2 = [] ++ e2 := by rfl
   intros; rw [h]
   apply star.step <;> assumption
 
-theorem step_one (s1 s2 : State) e2 : s1 -[e2]-> s2 -> s1 -[e2]*> s2 := by
+theorem step_one (s1 s2 : State) e2 : s1 -[e2]-> s2 → s1 -[e2]*> s2 := by
   have h : e2 = e2 ++ [] := by simp
   intros; rw [h]
   apply star.step <;> first | assumption | apply star.refl
 
-theorem star.trans_star (s s' s'': State) e e' :
-  s -[e]*> s' -> s' -[e']*> s'' -> s -[e ++ e']*> s''  := by
+theorem star.trans_star (s s' s'' : State) e e' :
+  s -[e]*> s' → s' -[e']*> s'' → s -[e ++ e']*> s''  := by
   intros H1; induction H1 generalizing s'' e'
   . simp
   . intros H1
@@ -70,7 +70,7 @@ section UpdateFin
 variable {α : Type _}
 variable {n : Nat}
 
-def update_Fin (i' : Fin n) (e : α) (f : Fin n -> α) : Fin n -> α :=
+def update_Fin (i' : Fin n) (e : α) (f : Fin n → α) : Fin n → α :=
   fun i =>
     if i == i' then
       e
@@ -78,20 +78,20 @@ def update_Fin (i' : Fin n) (e : α) (f : Fin n -> α) : Fin n -> α :=
       f i
 
 @[simp]
-theorem update_Fin_gso (i i' : Fin n) (e : α) (f : Fin n -> α) :
-  ¬(i = i') -> update_Fin i' e f i = f i := by
+theorem update_Fin_gso (i i' : Fin n) (e : α) (f : Fin n → α) :
+  ¬(i = i') → update_Fin i' e f i = f i := by
     intro h1
     unfold update_Fin
     simp [*] at *
 
 
 @[simp]
-theorem update_Fin_gss (i  : Fin n) (e : α) (f : Fin n -> α) :
+theorem update_Fin_gss (i  : Fin n) (e : α) (f : Fin n → α) :
   update_Fin i e f i  = e := by
     unfold update_Fin
     simp
 
-def enq_Fin (i' : Fin n)  (e : α) (f : Fin n -> List α) : Fin n -> List α :=
+def enq_Fin (i' : Fin n)  (e : α) (f : Fin n → List α) : Fin n → List α :=
   fun i =>
     if i == i' then
       f i ++ [e]
@@ -119,7 +119,7 @@ inductive Event size where
 def range (n : Nat) : List (Fin n) :=
   loop n (Nat.le_of_eq (Eq.refl n)) []
 where
-  loop : (y:Nat) → y <= n → List (Fin n) → List (Fin n)
+  loop : (y : Nat) → y ≤ n → List (Fin n) → List (Fin n)
   | 0,   _,  ns => ns
   | n+1, lt, ns => let ltn := Nat.lt_of_succ_le lt; loop n (Nat.le_of_lt ltn) ({val := n, isLt := ltn}::ns)
 
@@ -137,7 +137,7 @@ variable {Event ImpState SpecState : Type _}
 variable [imp : StateTransition ImpState Event]
 variable [spec : StateTransition SpecState Event]
 
-def indistinguishable (i: ImpState) (s: SpecState): Prop :=
+def indistinguishable (i : ImpState) (s : SpecState) : Prop :=
   ∀ e i', i -[ e ]-> i' → ∃ s', s -[ e ]*> s'
 
 end Indistinguishable

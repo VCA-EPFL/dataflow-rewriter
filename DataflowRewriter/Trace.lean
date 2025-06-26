@@ -129,16 +129,13 @@ theorem refines_implies_step_preservation {φ} :
 
 theorem step_preserve_mod {i1 e i2} (h : (state_transition imp).step i1 e i2) :
   i2.module = i1.module := by
-    obtain ⟨state1, module1⟩ := i1
-    cases h <;> simpa
+    obtain ⟨_, _⟩ := i1; cases h <;> rfl
 
 theorem steps_preserve_mod {i1 e i2} (h : @star _ _ (state_transition imp) i1 e i2) :
   i2.module = i1.module := by
     induction h with
     | refl => rfl
-    | step i1 i2 i3 ei1 ei2 Hi1 Hi2 HR =>
-      rw [HR]
-      exact step_preserve_mod _ Hi1
+    | step i1 i2 i3 ei1 ei2 Hi1 Hi2 HR => rw [HR]; exact step_preserve_mod _ Hi1
 
 theorem refines_implies_star_preservation {φ} :
   imp ⊑_{φ} spec →
@@ -149,42 +146,33 @@ theorem refines_implies_star_preservation {φ} :
     ∃ s',
       @star _ _ (state_transition spec) ⟨s, spec⟩ e s'
       ∧ φ i'.state s'.state := by
-  intro href i s i' e hstar
+  intro href i s i' e hstar hmod hphi
   induction hstar generalizing s with
   | refl =>
-    intros Hmod Hphi
     exists ⟨s, spec⟩; and_intros
     · apply @star.refl _ _ (state_transition spec)
     · assumption
   | step i1 i2 i3 ei1 ei2 Hi1 Hi2 HR =>
-    intros Hmod Hphi
     have hblee :
       (state_transition imp).step ⟨i1.state, imp⟩ ei1 i2 := by
         obtain ⟨_, _⟩ := i1; dsimp at *; subst imp; exact Hi1
     obtain ⟨s2, Hs2, Hs2phi⟩ :=
-      refines_implies_step_preservation _ _ href i1.state s i2 ei1 Hphi hblee
+      refines_implies_step_preservation _ _ href i1.state s i2 ei1 hphi hblee
     have Hi2imp := step_preserve_mod _ hblee
-    dsimp at Hi2imp
-    specialize HR s2.state (Hi2imp) Hs2phi
-    obtain ⟨s3, Hs3, Hs3phi⟩ := HR
+    obtain ⟨s3, Hs3, Hs3phi⟩ := HR s2.state Hi2imp Hs2phi
     exists s3
     and_intros <;> try assumption
-    apply @star.trans_star _ _ (state_transition spec)
-    · exact Hs2
-    · have hs2 : s2 = ⟨s2.state, spec⟩ := by
-        cases s2; dsimp; congr; exact steps_preserve_mod _ Hs2
-      rwa [hs2]
+    apply @star.trans_star _ _ (state_transition spec) _ _ _ _ _ Hs2
+    have hs2 : s2 = ⟨s2.state, spec⟩ := by
+      cases s2; dsimp; congr; exact steps_preserve_mod _ Hs2
+    rwa [hs2]
 
 end Refinement
 
 theorem refines_implies_trace_inclusion :
   imp ⊑ spec →
   trace_inclusion imp spec := by
-    intros href l b
-    obtain ⟨i1, i2, Hi1, Hi2⟩ := b
-    have ⟨mm, φ, H1, H2⟩ := href
-    unfold refines_initial at H2
-    have ⟨Hi1_init, Hi1_mod⟩ := Hi1
+    intro ⟨mm, φ, H1, H2⟩ l ⟨i1, i2, ⟨Hi1_init, Hi1_mod⟩, Hi2⟩
     obtain ⟨s1, Hs1_init, Hs1_φ⟩ := H2 i1.state Hi1_init
     exists ⟨s1, spec⟩
     obtain ⟨s2, Hs2_1, Hs2_2⟩ :=
