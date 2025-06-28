@@ -5,7 +5,6 @@ Authors: Yann Herklotz
 -/
 
 import Lean
-import Leanses
 import Qq
 
 import DataflowRewriter.Basic

@@ -6,7 +6,7 @@ The following commands should successfully build the project.
 
 ```shell
 # Download the Mathlib cache
-lake exe cache get
+lake exe cache --repo=leanprover-community/mathlib4-nightly-testing get
 # Build DataflowRewriter
 lake build
 ```
