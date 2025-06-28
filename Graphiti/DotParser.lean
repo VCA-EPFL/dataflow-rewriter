@@ -5,13 +5,13 @@ Authors: Yann Herklotz
 -/
 
 import Lean
-import DataflowRewriter.ExprHigh
+import Graphiti.ExprHigh
 
 open Std.Internal (Parsec)
 open Std.Internal.Parsec String
 open Batteries (AssocList)
 
-namespace DataflowRewriter
+namespace Graphiti
 namespace Parser
 
 structure DotAttr where
@@ -352,9 +352,9 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
 
   return (⟨ maps'.instTypeMap.toList.toAssocList, conns ⟩, assoc)
 
-end DataflowRewriter
+end Graphiti
 
-open DataflowRewriter in
+open Graphiti in
 def String.toExprHigh (s : String) : Except String (ExprHigh String × AssocList String (AssocList String String)) := do
   let l ← Parser.dotGraph.run s
   dotToExprHigh l

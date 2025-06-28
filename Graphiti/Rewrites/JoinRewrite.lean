@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Martina Camaioni
 -/
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Rewriter
+import Graphiti.ExprHighElaborator
 
-namespace DataflowRewriter.JoinRewrite
+namespace Graphiti.JoinRewrite
 
 open StringModule
 
@@ -77,4 +77,4 @@ def rewrite : Rewrite String :=
     rewrite := λ | [S₁, S₂, S₃] => pure ⟨lhsLower S₁ S₂ S₃, rhsLower S₁ S₂ S₃⟩ | _ => failure
     }
 
-end DataflowRewriter.JoinRewrite
+end Graphiti.JoinRewrite

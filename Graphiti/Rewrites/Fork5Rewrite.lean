@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ayatallah Elakhras
 -/
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Rewriter
+import Graphiti.ExprHighElaborator
 
-namespace DataflowRewriter.Fork5Rewrite
+namespace Graphiti.Fork5Rewrite
 
 open StringModule
 
@@ -87,4 +87,4 @@ def rewrite : Rewrite String :=
     name := .some "fork-5"
   }
 
-end DataflowRewriter.Fork5Rewrite
+end Graphiti.Fork5Rewrite

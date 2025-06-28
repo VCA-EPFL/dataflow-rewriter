@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Module
-import DataflowRewriter.ExprHigh
+import Graphiti.Module
+import Graphiti.ExprHigh
 
-namespace DataflowRewriter.VerilogExport
+namespace Graphiti.VerilogExport
 
 structure VerilogInterface where
   input : PortMap String String
@@ -101,4 +101,4 @@ def build_verilog_module (modName : String) (env : IdentMap String VerilogTempla
   let args := ", ".intercalate ((e.inputPorts ++ e.outputPorts).map (InternalPort.mk .top ·) |>.map format_ident)
   s!"{mods}\n\nmodule {modName}({args});\n{decls}\n\n{body}\nendmodule\n"
 
-end DataflowRewriter.VerilogExport
+end Graphiti.VerilogExport

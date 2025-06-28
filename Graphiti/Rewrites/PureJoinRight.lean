@@ -4,12 +4,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Rewriter
+import Graphiti.ExprHighElaborator
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.PureJoinRight
+namespace Graphiti.PureJoinRight
 
 open StringModule
 
@@ -97,4 +97,4 @@ def rewrite : Rewrite String :=
     name := "pure-join-right"
   }
 
-end DataflowRewriter.PureJoinRight
+end Graphiti.PureJoinRight

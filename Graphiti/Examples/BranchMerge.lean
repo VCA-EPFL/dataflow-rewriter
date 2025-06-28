@@ -4,12 +4,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Module
-import DataflowRewriter.Component
-import DataflowRewriter.ExprHighLemmas
-import DataflowRewriter.Reduce
+import Graphiti.Module
+import Graphiti.Component
+import Graphiti.ExprHighLemmas
+import Graphiti.Reduce
 
-namespace DataflowRewriter
+namespace Graphiti
 
 attribute [drcompute] Batteries.AssocList.toList Function.uncurry Module.mapIdent List.toAssocList List.foldl Batteries.AssocList.find? Option.pure_def Option.bind_eq_bind Option.bind_some Module.renamePorts Batteries.AssocList.mapKey InternalPort.map toString Nat.repr Nat.toDigits Nat.toDigitsCore Nat.digitChar List.asString Option.bind Batteries.AssocList.mapVal Batteries.AssocList.eraseAll Batteries.AssocList.eraseP beq_self_eq_true Option.getD cond beq_self_eq_true  beq_iff_eq  InternalPort.mk.injEq  String.reduceEq  and_false  imp_self BEq.beq
 
@@ -115,4 +115,4 @@ def test4 (TagT T S : Type) [h:DecidableEq TagT] (input output : (T : Type) × (
 
 end BranchMerge
 
-end DataflowRewriter
+end Graphiti

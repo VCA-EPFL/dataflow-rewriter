@@ -4,12 +4,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Module
+import Graphiti.Module
 import Batteries
 
 open Batteries (RBMap)
 
-namespace DataflowRewriter.DC
+namespace Graphiti.DC
 
 /--
 `connect'` will produce a new rule that fuses an input with an output, with a
@@ -191,4 +191,4 @@ def graph :=
 
 #print graph
 
-end DataflowRewriter.DC
+end Graphiti.DC

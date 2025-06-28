@@ -8,20 +8,20 @@ import Lean
 import Init.Data.BitVec.Lemmas
 import Qq
 
-import DataflowRewriter.Simp
-import DataflowRewriter.Module
-import DataflowRewriter.Examples.Flushability.DeterministicModule
-import DataflowRewriter.Examples.Flushability.ConfluentModule
-import DataflowRewriter.Examples.Flushability.FlushedModule
-import DataflowRewriter.ModuleReduction
-import DataflowRewriter.ExprLow
-import DataflowRewriter.Component
-import DataflowRewriter.KernelRefl
-import DataflowRewriter.Reduce
-import DataflowRewriter.List
-import DataflowRewriter.ExprHighLemmas
-import DataflowRewriter.Tactic
-import DataflowRewriter.Rewrites.JoinRewrite
+import Graphiti.Simp
+import Graphiti.Module
+import Graphiti.Examples.Flushability.DeterministicModule
+import Graphiti.Examples.Flushability.ConfluentModule
+import Graphiti.Examples.Flushability.FlushedModule
+import Graphiti.ModuleReduction
+import Graphiti.ExprLow
+import Graphiti.Component
+import Graphiti.KernelRefl
+import Graphiti.Reduce
+import Graphiti.List
+import Graphiti.ExprHighLemmas
+import Graphiti.Tactic
+import Graphiti.Rewrites.JoinRewrite
 import Mathlib.Tactic
 
 open Batteries (AssocList)
@@ -29,7 +29,7 @@ open Batteries (AssocList)
 open Lean hiding AssocList
 open Meta Elab
 
-namespace DataflowRewriter.JoinRewrite
+namespace Graphiti.JoinRewrite
 
 open StringModule
 
@@ -1492,4 +1492,4 @@ by
     intros _ _ h₁ _
     simp only [flushed, List.not_mem_nil] at h₁
 
-end DataflowRewriter.JoinRewrite
+end Graphiti.JoinRewrite

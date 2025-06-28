@@ -4,35 +4,35 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Rewrites.LoopRewrite
-import DataflowRewriter.Rewrites.LoopRewrite2
-import DataflowRewriter.Rewrites.CombineBranch
-import DataflowRewriter.Rewrites.CombineMux
-import DataflowRewriter.Rewrites.JoinSplitLoopCond
-import DataflowRewriter.Rewrites.JoinSplitLoopCondAlt
-import DataflowRewriter.Rewrites.ReduceSplitJoin
-import DataflowRewriter.Rewrites.PureRewrites
-import DataflowRewriter.Rewrites.LoadRewrite
-import DataflowRewriter.Rewrites.JoinQueueLeftRewrite
-import DataflowRewriter.Rewrites.JoinQueueRightRewrite
-import DataflowRewriter.Rewrites.MuxQueueRightRewrite
-import DataflowRewriter.Rewrites.PureSink
-import DataflowRewriter.Rewrites.SplitSinkLeft
-import DataflowRewriter.Rewrites.SplitSinkRight
-import DataflowRewriter.Rewrites.PureSeqComp
-import DataflowRewriter.Rewrites.PureJoinLeft
-import DataflowRewriter.Rewrites.PureJoinRight
-import DataflowRewriter.Rewrites.PureSplitRight
-import DataflowRewriter.Rewrites.PureSplitLeft
-import DataflowRewriter.Rewrites.JoinPureUnit
-import DataflowRewriter.Rewrites.JoinSplitElim
-import DataflowRewriter.Rewrites.JoinAssocL
-import DataflowRewriter.Rewrites.JoinAssocR
-import DataflowRewriter.Rewrites.JoinComm
-import DataflowRewriter.Rewrites.ForkPure
-import DataflowRewriter.Rewrites.ForkJoin
-import DataflowRewriter.Rewrites.JoinRewrite
-import DataflowRewriter.Rewrites.Fork3Rewrite
-import DataflowRewriter.Rewrites.Fork4Rewrite
-import DataflowRewriter.Rewrites.Fork5Rewrite
--- import DataflowRewriter.Rewrites.JoinRewriteCorrect
+import Graphiti.Rewrites.LoopRewrite
+import Graphiti.Rewrites.LoopRewrite2
+import Graphiti.Rewrites.CombineBranch
+import Graphiti.Rewrites.CombineMux
+import Graphiti.Rewrites.JoinSplitLoopCond
+import Graphiti.Rewrites.JoinSplitLoopCondAlt
+import Graphiti.Rewrites.ReduceSplitJoin
+import Graphiti.Rewrites.PureRewrites
+import Graphiti.Rewrites.LoadRewrite
+import Graphiti.Rewrites.JoinQueueLeftRewrite
+import Graphiti.Rewrites.JoinQueueRightRewrite
+import Graphiti.Rewrites.MuxQueueRightRewrite
+import Graphiti.Rewrites.PureSink
+import Graphiti.Rewrites.SplitSinkLeft
+import Graphiti.Rewrites.SplitSinkRight
+import Graphiti.Rewrites.PureSeqComp
+import Graphiti.Rewrites.PureJoinLeft
+import Graphiti.Rewrites.PureJoinRight
+import Graphiti.Rewrites.PureSplitRight
+import Graphiti.Rewrites.PureSplitLeft
+import Graphiti.Rewrites.JoinPureUnit
+import Graphiti.Rewrites.JoinSplitElim
+import Graphiti.Rewrites.JoinAssocL
+import Graphiti.Rewrites.JoinAssocR
+import Graphiti.Rewrites.JoinComm
+import Graphiti.Rewrites.ForkPure
+import Graphiti.Rewrites.ForkJoin
+import Graphiti.Rewrites.JoinRewrite
+import Graphiti.Rewrites.Fork3Rewrite
+import Graphiti.Rewrites.Fork4Rewrite
+import Graphiti.Rewrites.Fork5Rewrite
+-- import Graphiti.Rewrites.JoinRewriteCorrect

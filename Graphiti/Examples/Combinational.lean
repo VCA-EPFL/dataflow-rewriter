@@ -4,16 +4,16 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Module
-import DataflowRewriter.Simp
-import DataflowRewriter.ExprHigh
-import DataflowRewriter.AssocList.Basic
-import DataflowRewriter.TypeExpr
-import DataflowRewriter.Environment
+import Graphiti.Module
+import Graphiti.Simp
+import Graphiti.ExprHigh
+import Graphiti.AssocList.Basic
+import Graphiti.TypeExpr
+import Graphiti.Environment
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.CombModule
+namespace Graphiti.CombModule
 
 @[drunfold] def nand : NatModule (Option Bool × Option Bool) :=
   { inputs := [ (0, ⟨ Bool, λ s tt s' => s.1 = none ∧ s'.1 = .some tt ∧ s'.2 = s.2 ⟩)
@@ -58,4 +58,4 @@ def connectNot : NatModule (Option Bool) := by
 
 #print connectNot
 
-end DataflowRewriter.CombModule
+end Graphiti.CombModule

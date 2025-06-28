@@ -8,19 +8,19 @@ import Lean
 import Init.Data.BitVec.Lemmas
 import Qq
 
-import DataflowRewriter.Simp
-import DataflowRewriter.AssocList.Lemmas
-import DataflowRewriter.Module
-import DataflowRewriter.ExprLow
-import DataflowRewriter.Component
-import DataflowRewriter.KernelRefl
-import DataflowRewriter.Reduce
-import DataflowRewriter.List
-import DataflowRewriter.ExprHighLemmas
-import DataflowRewriter.Tactic
+import Graphiti.Simp
+import Graphiti.AssocList.Lemmas
+import Graphiti.Module
+import Graphiti.ExprLow
+import Graphiti.Component
+import Graphiti.KernelRefl
+import Graphiti.Reduce
+import Graphiti.List
+import Graphiti.ExprHighLemmas
+import Graphiti.Tactic
 import Mathlib.Tactic
 
-namespace DataflowRewriter.BagQueue
+namespace Graphiti.BagQueue
 
 open NatModule
 
@@ -96,4 +96,4 @@ theorem ϕ_indistinguishable:
 theorem queue_refine_bag: queue T₁ ⊑ bag T₁ := by
   apply (Module.refines_φ_refines ϕ_indistinguishable φ_initial queue_refine_ϕ_bag)
 
-end DataflowRewriter.BagQueue
+end Graphiti.BagQueue

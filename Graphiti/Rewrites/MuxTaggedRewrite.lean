@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Martina Camaioni
 -/
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Rewriter
+import Graphiti.ExprHighElaborator
 
-namespace DataflowRewriter.MuxTaggedRewrite
+namespace Graphiti.MuxTaggedRewrite
 
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) := sorry
 
@@ -105,4 +105,4 @@ theorem double_check_empty_snd1 : lhs_int_extract.snd = ExprHigh.mk ∅ ∅ := b
 
 @[drunfold_defs] def lhsLower_int := lhs_int_extract.fst.lower.get rfl
 
-end DataflowRewriter.MuxTaggedRewrite
+end Graphiti.MuxTaggedRewrite

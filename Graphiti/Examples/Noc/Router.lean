@@ -4,12 +4,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz, Gurvan Debaussart
 -/
 
-import DataflowRewriter.Module
-import DataflowRewriter.ModuleLemmas
-import DataflowRewriter.Component
-import DataflowRewriter.Examples.Noc.Lang
+import Graphiti.Module
+import Graphiti.ModuleLemmas
+import Graphiti.Component
+import Graphiti.Examples.Noc.Lang
 
-namespace DataflowRewriter.Noc.Router
+namespace Graphiti.Noc.Router
 
   variable (netsz : Netsz) (Flit : Type)
 
@@ -59,4 +59,4 @@ namespace DataflowRewriter.Noc.Router
 
   end Bounded
 
-end DataflowRewriter.Noc.Router
+end Graphiti.Noc.Router

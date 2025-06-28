@@ -4,12 +4,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.TypeExpr
+import Graphiti.Rewriter
+import Graphiti.TypeExpr
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter
+namespace Graphiti
 
 /--
 - This should ideally be linked and generated from the environment definition in
@@ -226,4 +226,4 @@ def dynamaticString (a: ExprHigh String) (m : AssocList String (AssocList String
 {connections}
 }"
 
-end DataflowRewriter
+end Graphiti

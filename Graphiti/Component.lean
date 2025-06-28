@@ -4,16 +4,16 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Module
-import DataflowRewriter.Simp
-import DataflowRewriter.ExprHigh
-import DataflowRewriter.AssocList.Basic
-import DataflowRewriter.TypeExpr
-import DataflowRewriter.Environment
+import Graphiti.Module
+import Graphiti.Simp
+import Graphiti.ExprHigh
+import Graphiti.AssocList.Basic
+import Graphiti.TypeExpr
+import Graphiti.Environment
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.NatModule
+namespace Graphiti.NatModule
 
 @[drunfold, drcomponents] def io (T : Type) : NatModule (List T) :=
   {
@@ -617,9 +617,9 @@ def joinL T T' T'' n : NatModule (BoundedList (T × T') n × BoundedList T'' n) 
 
 end FixedSize
 
-end DataflowRewriter.NatModule
+end Graphiti.NatModule
 
-namespace DataflowRewriter.StringModule
+namespace Graphiti.StringModule
 
 @[drunfold, drcomponents] def empty := NatModule.empty |>.stringify
 
@@ -784,4 +784,4 @@ namespace FixedSize
 @[drunfold, drcomponents] def joinL T T' T'' n := NatModule.FixedSize.joinL T T' T'' n |>.stringify
 
 end FixedSize
-end DataflowRewriter.StringModule
+end Graphiti.StringModule

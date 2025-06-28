@@ -4,17 +4,17 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz, Gurvan Debaussart
 -/
 
-import DataflowRewriter.Module
-import DataflowRewriter.ModuleLemmas
-import DataflowRewriter.Component
-import DataflowRewriter.Examples.Noc.Lang
-import DataflowRewriter.Examples.Noc.BuildModule
-import DataflowRewriter.Examples.Noc.BuildExpr
+import Graphiti.Module
+import Graphiti.ModuleLemmas
+import Graphiti.Component
+import Graphiti.Examples.Noc.Lang
+import Graphiti.Examples.Noc.BuildModule
+import Graphiti.Examples.Noc.BuildExpr
 
 set_option autoImplicit false
 set_option linter.all false
 
-namespace DataflowRewriter.Noc
+namespace Graphiti.Noc
 
 variable {Data : Type} [BEq Data] [LawfulBEq Data] {netsz : Netsz}
 
@@ -154,4 +154,4 @@ instance (n : Noc Data netsz) : MatchInterface n.spec_bag n.spec_mqueue := by
   apply MatchInterface_symmetric
   repeat exact inferInstance
 
-end DataflowRewriter.Noc
+end Graphiti.Noc

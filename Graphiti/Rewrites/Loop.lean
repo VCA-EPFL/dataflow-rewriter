@@ -1,13 +1,13 @@
 
-import DataflowRewriter.Rewrites.LoopRewrite
-import DataflowRewriter.ExprLowLemmas
-import DataflowRewriter.Rewrites.LoopRewriteCorrect
+import Graphiti.Rewrites.LoopRewrite
+import Graphiti.ExprLowLemmas
+import Graphiti.Rewrites.LoopRewriteCorrect
 import Mathlib
 import Aesop
 
---import DataflowRewriter.Rewrites.MatchGoal
+--import Graphiti.Rewrites.MatchGoal
 
-namespace DataflowRewriter.LoopRewrite
+namespace Graphiti.LoopRewrite
 
 open Batteries (AssocList)
 
@@ -497,4 +497,4 @@ theorem only_one_data_in_flight:
 
 
 end Proof
-end DataflowRewriter.LoopRewrite
+end Graphiti.LoopRewrite

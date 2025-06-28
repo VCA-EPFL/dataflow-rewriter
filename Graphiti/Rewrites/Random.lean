@@ -1,4 +1,4 @@
-import DataflowRewriter.Tactic
+import Graphiti.Tactic
 
 set_option autoImplicit false
 

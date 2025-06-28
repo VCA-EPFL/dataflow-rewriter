@@ -9,7 +9,7 @@ import Qq
 
 import Batteries
 
-namespace DataflowRewriter
+namespace Graphiti
 
 open Batteries (AssocList)
 
@@ -208,4 +208,4 @@ macro "prove_refines_φ " t:term : tactic =>
       <;> [simp -failIfUnchanged at $(mkIdent `Hrule):ident; simp -failIfUnchanged at $(mkIdent `Hrule):ident; skip]
    )
 
-end DataflowRewriter
+end Graphiti

@@ -4,8 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Rewriter
+import Graphiti.ExprHighElaborator
 
 /-
 This file transforms every node in a datapath into a pure module with a combination of splits and joins.  This format
@@ -14,7 +14,7 @@ can then be optimised externally by egg, and the proof can be reconstructed on t
 The file contains all rewrites for this purpose, as they are all relatively simple.
 -/
 
-namespace DataflowRewriter.PureRewrites
+namespace Graphiti.PureRewrites
 
 open StringModule
 
@@ -25,7 +25,7 @@ def extract_type (typ : String) : RewriteResult (List String) := do
   unless typName = "constant" do throw .done
   return [num]
 
-def match_node := DataflowRewriter.match_node extract_type
+def match_node := Graphiti.match_node extract_type
 
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
   throw (.error s!"{decl_name%}: matcher not implemented")
@@ -81,7 +81,7 @@ def extract_type (typ : String) : RewriteResult (List String) := do
   unless typName = "operator1" do throw .done
   return [typ1, typ2, op]
 
-def match_node := DataflowRewriter.match_node extract_type
+def match_node := Graphiti.match_node extract_type
 
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
   throw (.error s!"{decl_name%}: not implemented")
@@ -137,7 +137,7 @@ def extract_type (typ : String) : RewriteResult (List String) := do
   unless typName = "operator2" do throw .done
   return [typ1, typ2, typ3, op]
 
-def match_node := DataflowRewriter.match_node extract_type
+def match_node := Graphiti.match_node extract_type
 
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
   throw (.error s!"{decl_name%}: not implemented")
@@ -199,7 +199,7 @@ def extract_type (typ : String) : RewriteResult (List String) := do
   unless typName = "operator3" do throw .done
   return [typ1, typ2, typ3, typ4, op]
 
-def match_node := DataflowRewriter.match_node extract_type
+def match_node := Graphiti.match_node extract_type
 
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
   throw (.error s!"{decl_name%}: not implemented")
@@ -270,7 +270,7 @@ def extract_type (typ : String) : RewriteResult (List String) := do
   unless num = "2" do throw .done
   return [typ]
 
-def match_node := DataflowRewriter.match_node extract_type
+def match_node := Graphiti.match_node extract_type
 
 def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :=
   throw (.error s!"{decl_name%}: not implemented")
@@ -364,4 +364,4 @@ def singleNodePureRewrites (s : String) :=
 def chainPureRewrites (l : List String) :=
   l.flatMap singleNodePureRewrites
 
-end DataflowRewriter.PureRewrites
+end Graphiti.PureRewrites

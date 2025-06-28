@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.ModuleLemmas
-import DataflowRewriter.StateTransition
+import Graphiti.ModuleLemmas
+import Graphiti.StateTransition
 
-namespace DataflowRewriter
+namespace Graphiti
 
 inductive Trace where
 | input : (Σ (T : Type _), T) → Trace
@@ -195,4 +195,4 @@ end TraceInclusion
 
 end Module
 
-end DataflowRewriter
+end Graphiti

@@ -8,16 +8,16 @@ import Lean
 import Init.Data.BitVec.Lemmas
 import Qq
 
-import DataflowRewriter.Simp
-import DataflowRewriter.Module
-import DataflowRewriter.ExprLow
-import DataflowRewriter.Component
-import DataflowRewriter.KernelRefl
-import DataflowRewriter.Reduce
-import DataflowRewriter.List
-import DataflowRewriter.ExprHighLemmas
-import DataflowRewriter.Tactic
-import DataflowRewriter.Rewrites.MergeRewrite
+import Graphiti.Simp
+import Graphiti.Module
+import Graphiti.ExprLow
+import Graphiti.Component
+import Graphiti.KernelRefl
+import Graphiti.Reduce
+import Graphiti.List
+import Graphiti.ExprHighLemmas
+import Graphiti.Tactic
+import Graphiti.Rewrites.MergeRewrite
 import Mathlib.Tactic
 
 open Batteries (AssocList)
@@ -25,7 +25,7 @@ open Batteries (AssocList)
 open Lean hiding AssocList
 open Meta Elab
 
-namespace DataflowRewriter.MergeRewrite
+namespace Graphiti.MergeRewrite
 
 attribute [drcompute] Batteries.AssocList.toList Function.uncurry Module.mapIdent List.toAssocList List.foldl Batteries.AssocList.find? Option.pure_def Option.bind_eq_bind Option.bind_some Module.renamePorts Batteries.AssocList.mapKey InternalPort.map toString Nat.repr Nat.toDigits Nat.toDigitsCore Nat.digitChar List.asString Option.bind Batteries.AssocList.mapVal Batteries.AssocList.eraseAll Batteries.AssocList.eraseP beq_self_eq_true Option.getD cond beq_self_eq_true  beq_iff_eq  InternalPort.mk.injEq  String.reduceEq  and_false  imp_self BEq.beq Module.bijectivePortRenaming ExprLow.filterId List.Nodup List.inter AssocList.keysList List.filter List.elem AssocList.eraseAllP
 
@@ -220,9 +220,9 @@ theorem φ_indistinguishable {T} :
 --   apply correct_threeway_merge'
 
 -- /--
--- info: 'DataflowRewriter.correct_threeway_merge' depends on axioms: [propext, Classical.choice, Quot.sound]
+-- info: 'Graphiti.correct_threeway_merge' depends on axioms: [propext, Classical.choice, Quot.sound]
 -- -/
 -- #guard_msgs in
 -- #print axioms correct_threeway_merge
 
-end DataflowRewriter.MergeRewrite
+end Graphiti.MergeRewrite

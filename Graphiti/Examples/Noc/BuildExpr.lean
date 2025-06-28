@@ -4,14 +4,14 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz, Gurvan Debaussart
 -/
 
-import DataflowRewriter.Module
-import DataflowRewriter.Component
-import DataflowRewriter.Examples.Noc.Utils
-import DataflowRewriter.Examples.Noc.Lang
+import Graphiti.Module
+import Graphiti.Component
+import Graphiti.Examples.Noc.Utils
+import Graphiti.Examples.Noc.Lang
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.Noc
+namespace Graphiti.Noc
 
   variable {Data : Type} [BEq Data] [LawfulBEq Data] {netsz : Netsz}
 
@@ -55,4 +55,4 @@ namespace DataflowRewriter.Noc
     |> mkrouters
     |> mkconns
 
-end DataflowRewriter.Noc
+end Graphiti.Noc

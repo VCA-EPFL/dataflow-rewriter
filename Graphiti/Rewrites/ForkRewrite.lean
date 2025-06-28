@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Rewriter
+import Graphiti.ExprHighElaborator
 
-namespace DataflowRewriter.ForkRewrite
+namespace Graphiti.ForkRewrite
 
 /--
 The matcher takes in a dot graph and should return the cluster of nodes that
@@ -110,4 +110,4 @@ def fullCircuit : ExprHigh String :=
 
 end TestRewriter
 
-end DataflowRewriter.ForkRewrite
+end Graphiti.ForkRewrite

@@ -7,17 +7,17 @@ Authors: Yann Herklotz
 import Lean
 import Qq
 
-import DataflowRewriter.Basic
-import DataflowRewriter.Simp
-import DataflowRewriter.List
-import DataflowRewriter.AssocList
-import DataflowRewriter.HVector
-import DataflowRewriter.Tactic
-import DataflowRewriter.BasicLemmas
+import Graphiti.Basic
+import Graphiti.Simp
+import Graphiti.List
+import Graphiti.AssocList
+import Graphiti.HVector
+import Graphiti.Tactic
+import Graphiti.BasicLemmas
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter
+namespace Graphiti
 
 /--
 State that there exists zero or more internal rule executions to reach a final
@@ -393,4 +393,4 @@ abbrev TModule1 Ident := Σ T : Type, Module Ident T
 
 def Env := IdentMap String (TModule String)
 
-end DataflowRewriter
+end Graphiti

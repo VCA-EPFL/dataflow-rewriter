@@ -4,12 +4,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Rewriter
+import Graphiti.ExprHighElaborator
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.JoinComm
+namespace Graphiti.JoinComm
 
 open StringModule
 
@@ -78,4 +78,4 @@ def targetedRewrite (s : String) : Rewrite String :=
                  nameMap := identRenaming s
   }
 
-end DataflowRewriter.JoinComm
+end Graphiti.JoinComm

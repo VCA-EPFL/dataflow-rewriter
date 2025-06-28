@@ -1,5 +1,5 @@
-name = "«dataflow-rewriter»"
-defaultTargets = ["DataflowRewriter"]
+name = "«graphiti»"
+defaultTargets = ["Graphiti"]
 
 [leanOptions]
 autoImplicit = false
@@ -21,11 +21,11 @@ git = "https://github.com/leanprover-community/mathlib4-nightly-testing"
 rev = "nightly-testing-2025-06-27"
 
 [[lean_lib]]
-name = "DataflowRewriter"
+name = "Graphiti"
 
 [[lean_lib]]
-name = "DataflowRewriterTest"
+name = "GraphitiTest"
 
 [[lean_exe]]
-name = "«dataflow-rewriter»"
+name = "«graphiti»"
 root = "Main"

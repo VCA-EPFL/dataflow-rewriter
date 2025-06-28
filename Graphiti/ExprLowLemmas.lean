@@ -4,16 +4,16 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.ModuleLemmas
-import DataflowRewriter.ExprLow
-import DataflowRewriter.Environment
-import DataflowRewriter.ModuleSimulation
+import Graphiti.ModuleLemmas
+import Graphiti.ExprLow
+import Graphiti.Environment
+import Graphiti.ModuleSimulation
 import Mathlib.Tactic
 import Mathlib.Data.QPF.Univariate.Basic
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter
+namespace Graphiti
 
 def Module.toBaseExprLow {Ident S} (m : Module Ident S) (inst typ : Ident) : ExprLow Ident :=
   .base (m.toPortMapping inst) typ
@@ -1871,4 +1871,4 @@ theorem build_module_connect_foldr {α} {ε} {acc accb} {l : List α} {f : α �
     sorry
 
 end ExprLow
-end DataflowRewriter
+end Graphiti

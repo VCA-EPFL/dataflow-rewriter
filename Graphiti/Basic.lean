@@ -7,12 +7,12 @@ Authors: Yann Herklotz
 import Lean
 import Batteries
 
-import DataflowRewriter.AssocList.Basic
-import DataflowRewriter.Simp
+import Graphiti.AssocList.Basic
+import Graphiti.Simp
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter
+namespace Graphiti
 
 attribute [drnat] OfNat.ofNat instOfNatNat
 
@@ -324,4 +324,4 @@ termination_by l.length
 decreasing_by
   subst l; rw [List.length_concat]; simp
 
-end DataflowRewriter
+end Graphiti

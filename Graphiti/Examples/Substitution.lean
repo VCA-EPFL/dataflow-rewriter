@@ -8,18 +8,18 @@ import Lean
 import Init.Data.BitVec.Lemmas
 import Qq
 
-import DataflowRewriter.Simp
-import DataflowRewriter.Module
-import DataflowRewriter.ExprLow
-import DataflowRewriter.Component
-import DataflowRewriter.KernelRefl
-import DataflowRewriter.Reduce
-import DataflowRewriter.List
-import DataflowRewriter.ExprHigh
+import Graphiti.Simp
+import Graphiti.Module
+import Graphiti.ExprLow
+import Graphiti.Component
+import Graphiti.KernelRefl
+import Graphiti.Reduce
+import Graphiti.List
+import Graphiti.ExprHigh
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter
+namespace Graphiti
 
 @[drunfold] def merge T : StringModule (List T) :=
       { inputs := [(⟨.top, "in2"⟩, ⟨ T, λ oldList newElement newList => newList = newElement :: oldList ⟩),
@@ -101,4 +101,4 @@ def partition'' := partition.fst.inlineD ((threemerge Nat).liftGraph "imerge3" "
 --     internals := []
 --   }
 
-end DataflowRewriter
+end Graphiti

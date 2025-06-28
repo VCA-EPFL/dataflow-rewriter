@@ -4,12 +4,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Rewrites.LoopRewrite
-import DataflowRewriter.ExprLowLemmas
-import DataflowRewriter.ExprHighElaborator
-import DataflowRewriter.Component
+import Graphiti.Rewrites.LoopRewrite
+import Graphiti.ExprLowLemmas
+import Graphiti.ExprHighElaborator
+import Graphiti.Component
 
-namespace DataflowRewriter.LoopRewrite
+namespace Graphiti.LoopRewrite
 
 open Batteries (AssocList)
 
@@ -78,7 +78,7 @@ info: ["branch T", "pure f", "mux T", "init Bool false", "fork2 Bool", "split T 
 --   decide ("a" = "a") = false := by
 --     simp only [decideSimproc_def]
 
-open DataflowRewriter.StringModule
+open Graphiti.StringModule
 
 @[drcompute] theorem find?_bag_data : (Batteries.AssocList.find? ("bag " ++ DataS) (environmentLhs DataS f)) = .some ⟨_, bag Data⟩ := by
   unfold environmentLhs lhs
@@ -108,14 +108,14 @@ def lhsTypeEvaled : Type := by
     -- rw [find?_bag_data,find?_init_data,find?_branch_data,find?_pure_f,find?_mux_data,find?_fork_bool,find?_split_data]
     -- simp
 
-#eval [e|(DataflowRewriter.ExprLow.base
+#eval [e|(Graphiti.ExprLow.base
                       { input := Batteries.AssocList.cons
-                                   { inst := DataflowRewriter.InstIdent.top, name := "in1" }
-                                   { inst := DataflowRewriter.InstIdent.internal "bag", name := "in1" }
+                                   { inst := Graphiti.InstIdent.top, name := "in1" }
+                                   { inst := Graphiti.InstIdent.internal "bag", name := "in1" }
                                    (Batteries.AssocList.nil),
                         output := Batteries.AssocList.cons
-                                    { inst := DataflowRewriter.InstIdent.top, name := "out1" }
-                                    { inst := DataflowRewriter.InstIdent.top, name := "o_out" }
+                                    { inst := Graphiti.InstIdent.top, name := "out1" }
+                                    { inst := Graphiti.InstIdent.top, name := "o_out" }
                                     (Batteries.AssocList.nil) }
                       "bag T"), environmentLhs "T" (λ _ => ((), true))].outputs.keysList
 
@@ -222,4 +222,4 @@ def rhsGhostEvaled : Module String (rhsGhostType Data) := by
 
 end Proof
 
-end DataflowRewriter.LoopRewrite
+end Graphiti.LoopRewrite

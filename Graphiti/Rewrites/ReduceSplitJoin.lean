@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ayatallah Elakhras
 -/
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Rewriter
+import Graphiti.ExprHighElaborator
 
-namespace DataflowRewriter.ReduceSplitJoin
+namespace Graphiti.ReduceSplitJoin
 
 open StringModule
 
@@ -83,4 +83,4 @@ def rewrite : Rewrite String :=
     name := .some "reduce-split-join"
   }
 
-end DataflowRewriter.ReduceSplitJoin
+end Graphiti.ReduceSplitJoin

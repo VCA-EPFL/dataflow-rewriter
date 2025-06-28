@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Thomas Bourgeat
 -/
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Rewriter
+import Graphiti.ExprHighElaborator
 
-namespace DataflowRewriter.FusionTaggerTagger
+namespace Graphiti.FusionTaggerTagger
 
 -- Rewrite to rewrite sequence of two single input/output taggers.
 
@@ -158,4 +158,4 @@ def lhs' : ExprHigh String :=[graph|
 
 end TEST
 
-end DataflowRewriter.FusionTaggerTagger
+end Graphiti.FusionTaggerTagger

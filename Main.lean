@@ -4,16 +4,16 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.ExprHigh
-import DataflowRewriter.DotParser
-import DataflowRewriter.Rewriter
-import DataflowRewriter.DynamaticPrinter
-import DataflowRewriter.Rewrites
-import DataflowRewriter.JSLang
+import Graphiti.ExprHigh
+import Graphiti.DotParser
+import Graphiti.Rewriter
+import Graphiti.DynamaticPrinter
+import Graphiti.Rewrites
+import Graphiti.JSLang
 
 open Batteries (AssocList)
 
-open DataflowRewriter
+open Graphiti
 
 structure CmdArgs where
   outputFile : Option System.FilePath
@@ -62,10 +62,10 @@ def parseArgs (args : List String) : Except String CmdArgs := go CmdArgs.empty a
       return c
 
 def helpText : String :=
-  "dataflow-rewriter -- v0.1.0
+  "graphiti -- v0.1.0
 
 FORMAT
-  dataflow-rewriter [OPTIONS...] FILE
+  graphiti [OPTIONS...] FILE
 
 OPTIONS
   -h, --help          Print this help text

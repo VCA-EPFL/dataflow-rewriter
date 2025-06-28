@@ -5,7 +5,7 @@ Authors: Aaron Liu, Wojciech Nawrocki
 -/
 import Lean.Elab.Tactic
 
-namespace DataflowRewriter.DRewrite
+namespace Graphiti.DRewrite
 open Lean Meta
 
 theorem dcongrArg.{u, v} {α : Sort u} {a a' : α}
@@ -461,4 +461,4 @@ def evalDepRwSeq : Tactic := fun stx => do
     -- This is done so that `dsimp` will not close the goal automatically.
 
 end Conv
-end DataflowRewriter.DRewrite
+end Graphiti.DRewrite

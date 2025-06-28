@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz, Gurvan Debaussart
 -/
 
-import DataflowRewriter.Module
-import DataflowRewriter.Examples.Noc.Lang
+import Graphiti.Module
+import Graphiti.Examples.Noc.Lang
 
-namespace DataflowRewriter.Noc
+namespace Graphiti.Noc
 
   variable (Data : Type) [BEq Data] [LawfulBEq Data]
 
@@ -165,4 +165,4 @@ namespace DataflowRewriter.Noc
       mkhead      := d.relative_mkhead Data
     }
 
-end DataflowRewriter.Noc
+end Graphiti.Noc

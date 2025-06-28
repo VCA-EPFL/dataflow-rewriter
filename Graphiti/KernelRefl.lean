@@ -6,7 +6,7 @@ Authors: Yann Herklotz
 
 import Lean
 
-namespace DataflowRewriter
+namespace Graphiti
 
 open Lean Meta
 
@@ -44,4 +44,4 @@ def _root_.Lean.MVarId.ker_refl (mvarId : MVarId) : MetaM Unit := do
 elab "ker_refl" : tactic => 
   Elab.Tactic.liftMetaTactic fun mvarId => do mvarId.ker_refl; pure []
 
-end DataflowRewriter
+end Graphiti

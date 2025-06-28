@@ -4,11 +4,11 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hamza Remmal
 -/
 
-import DataflowRewriter.Module
-import DataflowRewriter.ModuleLemmas
+import Graphiti.Module
+import Graphiti.ModuleLemmas
 import Mathlib.Tactic
 
-namespace DataflowRewriter
+namespace Graphiti
 
 variable {Ident S: Type _}
 variable [DecidableEq Ident]
@@ -177,4 +177,4 @@ by
     apply qc.internals _ _ _ r₁ <;> assumption
   . exact qc.outputs
 
-end DataflowRewriter
+end Graphiti

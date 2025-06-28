@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Rewriter
+import Graphiti.ExprHighElaborator
 
-namespace DataflowRewriter.MergeRewrite
+namespace Graphiti.MergeRewrite
 
 /--
 The matcher takes in a dot graph and should return the cluster of nodes that
@@ -132,8 +132,8 @@ info: ok: digraph {
 }
 -/
 -- #guard_msgs in
--- #eval DataflowRewriter.rewrite "rw0_" mergeHigh rewrite |> toString |> IO.print
+-- #eval Graphiti.rewrite "rw0_" mergeHigh rewrite |> toString |> IO.print
 
 end TestRewriter
 
-end DataflowRewriter.MergeRewrite
+end Graphiti.MergeRewrite

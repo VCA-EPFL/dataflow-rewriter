@@ -1,2 +1,2 @@
-import DataflowRewriter.Examples.Merge
-import DataflowRewriter.Examples.BranchMerge
+import Graphiti.Examples.Merge
+import Graphiti.Examples.BranchMerge

@@ -1,11 +1,11 @@
-import DataflowRewriter.Module
-import DataflowRewriter.ModuleLemmas
-import DataflowRewriter.Component
-import DataflowRewriter.Examples.Noc.Lang
-import DataflowRewriter.Examples.Noc.BuildModule
-import DataflowRewriter.Examples.Noc.Spec
+import Graphiti.Module
+import Graphiti.ModuleLemmas
+import Graphiti.Component
+import Graphiti.Examples.Noc.Lang
+import Graphiti.Examples.Noc.BuildModule
+import Graphiti.Examples.Noc.Spec
 
-namespace DataflowRewriter.Noc
+namespace Graphiti.Noc
 
 section MQueueInBag
 

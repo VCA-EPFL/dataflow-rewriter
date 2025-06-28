@@ -4,16 +4,16 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Module
-import DataflowRewriter.Simp
-import DataflowRewriter.ExprHigh
-import DataflowRewriter.AssocList.Basic
-import DataflowRewriter.TypeExpr
-import DataflowRewriter.Environment
+import Graphiti.Module
+import Graphiti.Simp
+import Graphiti.ExprHigh
+import Graphiti.AssocList.Basic
+import Graphiti.TypeExpr
+import Graphiti.Environment
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.CombModule
+namespace Graphiti.CombModule
 
 abbrev Val := Nat
 abbrev Reg := Nat
@@ -104,4 +104,4 @@ def moduleGen (f : Context → Option Context) : StringModule (Option Context) :
 
 end Denotation
 
-end DataflowRewriter.CombModule
+end Graphiti.CombModule

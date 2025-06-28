@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Ayatallah Elakhras
 -/
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Rewriter
+import Graphiti.ExprHighElaborator
 
-namespace DataflowRewriter.JoinSplitLoopCondAlt
+namespace Graphiti.JoinSplitLoopCondAlt
 
 open StringModule
 
@@ -109,4 +109,4 @@ def rewrite : Rewrite String :=
     name := .some "join-split-loop-cond"
   }
 
-end DataflowRewriter.JoinSplitLoopCondAlt
+end Graphiti.JoinSplitLoopCondAlt

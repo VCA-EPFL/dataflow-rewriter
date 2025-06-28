@@ -4,9 +4,9 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.StateTransition
+import Graphiti.StateTransition
 
-namespace DataflowRewriter
+namespace Graphiti
 
 /--
 This is the main state of a fork, it consists of the input and output queues,
@@ -147,4 +147,4 @@ theorem can_reach_some_output :
             apply step_fork.handle_read_event
             simp [enq_Fin]; rfl
 
-end DataflowRewriter
+end Graphiti

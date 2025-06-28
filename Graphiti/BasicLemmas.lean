@@ -7,11 +7,11 @@ Authors: Yann Herklotz
 import Lean
 import Batteries
 
-import DataflowRewriter.AssocList
-import DataflowRewriter.Simp
-import DataflowRewriter.Basic
+import Graphiti.AssocList
+import Graphiti.Simp
+import Graphiti.Basic
 
-namespace DataflowRewriter
+namespace Graphiti
 
 namespace PortMap
 
@@ -148,4 +148,4 @@ theorem getIO_cons_nil_false
 
 end PortMap
 
-end DataflowRewriter
+end Graphiti

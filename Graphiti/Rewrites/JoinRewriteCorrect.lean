@@ -8,17 +8,17 @@ import Lean
 import Init.Data.BitVec.Lemmas
 import Qq
 
-import DataflowRewriter.Simp
-import DataflowRewriter.Module
-import DataflowRewriter.ModuleReduction
-import DataflowRewriter.ExprLow
-import DataflowRewriter.Component
-import DataflowRewriter.KernelRefl
-import DataflowRewriter.Reduce
-import DataflowRewriter.List
-import DataflowRewriter.ExprHighLemmas
-import DataflowRewriter.Tactic
-import DataflowRewriter.Rewrites.JoinRewrite
+import Graphiti.Simp
+import Graphiti.Module
+import Graphiti.ModuleReduction
+import Graphiti.ExprLow
+import Graphiti.Component
+import Graphiti.KernelRefl
+import Graphiti.Reduce
+import Graphiti.List
+import Graphiti.ExprHighLemmas
+import Graphiti.Tactic
+import Graphiti.Rewrites.JoinRewrite
 import Mathlib.Tactic
 
 open Batteries (AssocList)
@@ -26,7 +26,7 @@ open Batteries (AssocList)
 open Lean hiding AssocList
 open Meta Elab
 
-namespace DataflowRewriter.JoinRewrite
+namespace Graphiti.JoinRewrite
 
 open StringModule
 
@@ -546,4 +546,4 @@ theorem refines {T: Type _} [DecidableEq T]: rhsModule T₁ T₂ T₃ ⊑_{φ} l
 
 #print axioms refines
 
-end DataflowRewriter.JoinRewrite
+end Graphiti.JoinRewrite

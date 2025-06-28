@@ -4,12 +4,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Module
-import DataflowRewriter.ExprHigh
-import DataflowRewriter.ExprLowLemmas
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Module
+import Graphiti.ExprHigh
+import Graphiti.ExprLowLemmas
+import Graphiti.ExprHighElaborator
 
-namespace DataflowRewriter
+namespace Graphiti
 
 namespace Module
 
@@ -60,4 +60,4 @@ end Semantics
 
 end ExprHigh
 
-end DataflowRewriter
+end Graphiti

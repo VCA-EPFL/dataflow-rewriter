@@ -7,11 +7,11 @@ Authors: Yann Herklotz
 import Lean
 import Qq
 
-import DataflowRewriter.Module
+import Graphiti.Module
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter
+namespace Graphiti
 
 /-- Input function --/
 @[simp] abbrev FunIn (S : Type _) := Σ T : Type, S → T → Option S
@@ -53,4 +53,4 @@ def FunInt.toRelInt (f : FunInt S) : RelInt S :=
 
 end SModule
 
-end DataflowRewriter
+end Graphiti

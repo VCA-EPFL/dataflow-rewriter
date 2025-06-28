@@ -4,23 +4,23 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz, Gurvan Debaussart
 -/
 
-import DataflowRewriter.Module
-import DataflowRewriter.ModuleLemmas
-import DataflowRewriter.ModuleReduction
-import DataflowRewriter.ExprLow
-import DataflowRewriter.ExprLowLemmas
-import DataflowRewriter.Component
-import DataflowRewriter.Examples.Noc.Utils
-import DataflowRewriter.Examples.Noc.Lang
-import DataflowRewriter.Examples.Noc.Spec
-import DataflowRewriter.Examples.Noc.Tactic
-import DataflowRewriter.Examples.Noc.BuildExpr
+import Graphiti.Module
+import Graphiti.ModuleLemmas
+import Graphiti.ModuleReduction
+import Graphiti.ExprLow
+import Graphiti.ExprLowLemmas
+import Graphiti.Component
+import Graphiti.Examples.Noc.Utils
+import Graphiti.Examples.Noc.Lang
+import Graphiti.Examples.Noc.Spec
+import Graphiti.Examples.Noc.Tactic
+import Graphiti.Examples.Noc.BuildExpr
 
 open Batteries (AssocList)
 
 set_option Elab.async false
 
-namespace DataflowRewriter.Noc
+namespace Graphiti.Noc
 
   variable {Data : Type} [BEq Data] [LawfulBEq Data] {netsz : Netsz}
 
@@ -240,4 +240,4 @@ namespace DataflowRewriter.Noc
         (refines_φ n ε)
     )
 
-end DataflowRewriter.Noc
+end Graphiti.Noc

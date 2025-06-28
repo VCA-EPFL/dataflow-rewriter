@@ -5,13 +5,13 @@ Authors: Yann Herklotz
 -/
 
 import Lean
-import DataflowRewriter.ExprHigh
+import Graphiti.ExprHigh
 
 open Std.Internal (Parsec)
 open Std.Internal.Parsec String
 open Batteries (AssocList)
 
-namespace DataflowRewriter
+namespace Graphiti
 
 inductive TypeExpr where
 | nat
@@ -152,4 +152,4 @@ section Tests
 end Tests
 
 end TypeExpr.Parser
-end DataflowRewriter
+end Graphiti

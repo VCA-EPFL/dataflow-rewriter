@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Rewriter
+import Graphiti.ExprHighElaborator
 
-namespace DataflowRewriter.JoinQueueRightRewrite
+namespace Graphiti.JoinQueueRightRewrite
 
 open StringModule
 
@@ -71,4 +71,4 @@ def rewrite : Rewrite String :=
     name := "join-queue-right"
   }
 
-end DataflowRewriter.JoinQueueRightRewrite
+end Graphiti.JoinQueueRightRewrite

@@ -1,6 +1,6 @@
-import DataflowRewriter.Module
+import Graphiti.Module
 
-namespace DataflowRewriterTest
+namespace GraphitiTest
 
 #eval merge3
 
@@ -38,4 +38,4 @@ def mergeLow : ExprLow := lower mod_interfaces mergeHigh |>.get rfl
 def mergeOther : Option ((T : Type _) × Module T) :=
   build_module' mergeLow modules
 
-end DataflowRewriterTest
+end GraphitiTest

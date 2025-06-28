@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Rewriter
+import Graphiti.ExprHighElaborator
 
-namespace DataflowRewriter.OoOAdd
+namespace Graphiti.OoOAdd
 
 def matcher (g : ExprHigh String) : RewriteResult (List String) := sorry
 
@@ -29,4 +29,4 @@ def rewrite : Rewrite String :=
     input_expr := lhsLower,
     output_expr := rhsLower }
 
-end DataflowRewriter.OoOAdd
+end Graphiti.OoOAdd

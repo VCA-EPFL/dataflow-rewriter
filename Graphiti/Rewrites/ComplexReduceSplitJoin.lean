@@ -9,10 +9,10 @@ Authors: Ayatallah Elakhras
 -- therefore, we do not necessarily end up with Split -> Join, but instead end with Split -> Split -> Join -> Join
 -- Temporarily, until we figure out how to make the order of applying the combine rewrites consistent, I'm adding this rewrite to reduce the complicated pattern
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Rewriter
+import Graphiti.ExprHighElaborator
 
-namespace DataflowRewriter.ReduceSplitJoin
+namespace Graphiti.ReduceSplitJoin
 
 open StringModule
 
@@ -99,4 +99,4 @@ def rewrite : Rewrite String :=
     name := .some "reduce-split-join"
   }
 
-end DataflowRewriter.ReduceSplitJoin
+end Graphiti.ReduceSplitJoin

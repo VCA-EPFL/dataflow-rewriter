@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Hamza Remmal
 -/
 
-import DataflowRewriter.Module
-import DataflowRewriter.Examples.Flushability.ConfluentModule
-import DataflowRewriter.Examples.Flushability.DeterministicModule
-import DataflowRewriter.ModuleLemmas
+import Graphiti.Module
+import Graphiti.Examples.Flushability.ConfluentModule
+import Graphiti.Examples.Flushability.DeterministicModule
+import Graphiti.ModuleLemmas
 import Mathlib.Tactic
 
 -- TODO: Move this to a more global file
@@ -20,7 +20,7 @@ theorem sigma_rw {S T : Type _} {m m' : Σ (y : Type _), S → y → T → Prop}
   m.snd x v y ↔ m'.snd x ((cast_first h).mp v) y := by
   constructor <;> (intros; subst h; assumption)
 
-namespace DataflowRewriter
+namespace Graphiti
 
   variable {Ident S : Type _}
   variable [DecidableEq Ident]
@@ -417,4 +417,4 @@ end
 
 end Refinement
 
-end DataflowRewriter
+end Graphiti

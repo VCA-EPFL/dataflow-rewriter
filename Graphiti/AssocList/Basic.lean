@@ -5,7 +5,7 @@ Authors: Yann Herklotz
 -/
 
 import Batteries
-import DataflowRewriter.Simp
+import Graphiti.Simp
 
 namespace Batteries.AssocList
 

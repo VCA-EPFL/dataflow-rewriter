@@ -1,4 +1,4 @@
-# Dataflow rewriter
+# Graphiti
 
 ## How to build
 
@@ -7,24 +7,24 @@ The following commands should successfully build the project.
 ```shell
 # Download the Mathlib cache
 lake exe cache --repo=leanprover-community/mathlib4-nightly-testing get
-# Build DataflowRewriter
+# Build Graphiti
 lake build
 ```
 
 ## Executing the rewriter
 
-The dataflow rewriter can be executed using:
+Graphiti can be executed using:
 
 ```shell
-lake exe dataflow-rewriter tests/mulvec.dot -o out.dot -l out.json --no-dynamatic-dot
+lake exe graphiti tests/mulvec.dot -o out.dot -l out.json --no-dynamatic-dot
 ```
 
 ```text
-$ lake exe dataflow-rewriter --help
-dataflow-rewriter -- v0.1.0
+$ lake exe graphiti --help
+graphiti -- v0.1.0
 
 FORMAT
-  dataflow-rewriter [OPTIONS...] FILE
+  graphiti [OPTIONS...] FILE
 
 OPTIONS
   -h, --help          Print this help text
@@ -49,7 +49,7 @@ following format:
     // name of the rewrite
     "name": "combine-mux",
     // type of rewrite, one of rewrite, abstraction or concretisation
-    "type": "DataflowRewriter.RewriteType.rewrite",
+    "type": "Graphiti.RewriteType.rewrite",
     // input dot graph that was received by the rewrite
     "input_graph": "digraph { ... }",
     // output dot graph that was produced by the rewrite

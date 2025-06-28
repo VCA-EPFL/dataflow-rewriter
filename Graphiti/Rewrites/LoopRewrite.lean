@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Rewriter
+import Graphiti.ExprHighElaborator
 
-namespace DataflowRewriter.LoopRewrite
+namespace Graphiti.LoopRewrite
 
 open StringModule
 
@@ -293,4 +293,4 @@ def rhsGhostLower (DataS : String):= (@ghost_rhs Unit DataS (λ _ => default) |>
 theorem rhs_ghost_type_independent b f b₂ f₂ T [Inhabited b] [Inhabited b₂]
   : (@ghost_rhs b T f).fst = (@ghost_rhs b₂ T f₂).fst := by rfl
 
-end DataflowRewriter.LoopRewrite
+end Graphiti.LoopRewrite

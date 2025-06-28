@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Rewriter
+import Graphiti.ExprHighElaborator
 
-namespace DataflowRewriter.MuxToTaggedMux
+namespace Graphiti.MuxToTaggedMux
 
 -- The following namespace just shows two alternative definitions of the matcher
 -- and the abstraction matcher that use the domination algorithm instead of
@@ -228,4 +228,4 @@ def lhs' : ExprHigh String := [graph|
 
 end TEST
 
-end DataflowRewriter.MuxToTaggedMux
+end Graphiti.MuxToTaggedMux

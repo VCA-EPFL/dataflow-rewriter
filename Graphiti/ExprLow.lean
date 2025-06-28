@@ -4,11 +4,11 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Simp
-import DataflowRewriter.Basic
-import DataflowRewriter.AssocList
+import Graphiti.Simp
+import Graphiti.Basic
+import Graphiti.AssocList
 
-namespace DataflowRewriter
+namespace Graphiti
 
 structure Connection (Ident : Type _) where
   output : InternalPort Ident
@@ -535,4 +535,4 @@ def comm_bases {Ident} [DecidableEq Ident] (bases : List (PortMapping Ident × I
   bases.foldr (Function.uncurry ExprLow.comm_base) e
 
 end ExprLow
-end DataflowRewriter
+end Graphiti

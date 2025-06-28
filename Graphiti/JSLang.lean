@@ -4,15 +4,15 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.ExprHigh
-import DataflowRewriter.Rewrites
+import Graphiti.ExprHigh
+import Graphiti.Rewrites
 
 open Std.Internal (Parsec)
 open Std.Internal.Parsec String
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter
+namespace Graphiti
 
 inductive JSLang where
 | join : String → JSLang → JSLang → JSLang
@@ -159,4 +159,4 @@ def JSLang.upd1 (m : AssocList String (Option String)) : JSLangRewrite → Rewri
 def JSLang.upd (m : AssocList String (Option String)) (j : List JSLangRewrite) : RewriteResult (List JSLangRewrite) :=
   j.mapM (JSLang.upd1 m)
 
-end DataflowRewriter
+end Graphiti

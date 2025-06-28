@@ -6,12 +6,12 @@ Authors: Yann Herklotz, Gurvan Debaussart
 
 -- A bunch of random stuff which doesn't quite fit with the rest
 
-import DataflowRewriter.Module
-import DataflowRewriter.Component
+import Graphiti.Module
+import Graphiti.Component
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.Noc
+namespace Graphiti.Noc
 
   @[simp] abbrev typeOf {α} (_ : α) := α
 
@@ -372,4 +372,4 @@ namespace DataflowRewriter.Noc
         -- DPVector.get pv'.2 ⟨idx', by simp at Hidx; simpa⟩
         sorry
 
-end DataflowRewriter.Noc
+end Graphiti.Noc

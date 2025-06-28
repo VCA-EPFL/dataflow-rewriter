@@ -8,23 +8,23 @@ import Lean
 import Init.Data.BitVec.Lemmas
 import Qq
 
-import DataflowRewriter.Simp
-import DataflowRewriter.Module
-import DataflowRewriter.ExprLow
-import DataflowRewriter.Component
-import DataflowRewriter.KernelRefl
-import DataflowRewriter.Reduce
-import DataflowRewriter.List
-import DataflowRewriter.ExprHighLemmas
-import DataflowRewriter.Tactic
-import DataflowRewriter.AssocList
+import Graphiti.Simp
+import Graphiti.Module
+import Graphiti.ExprLow
+import Graphiti.Component
+import Graphiti.KernelRefl
+import Graphiti.Reduce
+import Graphiti.List
+import Graphiti.ExprHighLemmas
+import Graphiti.Tactic
+import Graphiti.AssocList
 
 open Batteries (AssocList)
 
 open Lean hiding AssocList
 open Meta Elab
 
-namespace DataflowRewriter
+namespace Graphiti
 
 abbrev Ident := Nat
 
@@ -221,9 +221,9 @@ theorem correct_threeway_merge {T: Type _} [DecidableEq T] :
   apply correct_threeway_merge'
 
 -- /--
--- info: 'DataflowRewriter.correct_threeway_merge' depends on axioms: [propext, Classical.choice, Quot.sound]
+-- info: 'Graphiti.correct_threeway_merge' depends on axioms: [propext, Classical.choice, Quot.sound]
 -- -/
 -- #guard_msgs in
 #print axioms correct_threeway_merge
 
-end DataflowRewriter
+end Graphiti

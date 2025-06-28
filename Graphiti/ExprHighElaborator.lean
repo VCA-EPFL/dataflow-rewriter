@@ -7,10 +7,10 @@ Authors: Yann Herklotz
 import Lean
 import Qq
 
-import DataflowRewriter.ExprHigh
-import DataflowRewriter.Component
+import Graphiti.ExprHigh
+import Graphiti.Component
 
-namespace DataflowRewriter
+namespace Graphiti
 
 declare_syntax_cat dot_value
 declare_syntax_cat dot_stmnt
@@ -437,4 +437,4 @@ namespace mergemod
 
 end mergemod
 
-end DataflowRewriter
+end Graphiti

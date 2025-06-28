@@ -6,10 +6,10 @@ Authors: Yann Herklotz
 
 import Lean
 
-import DataflowRewriter.Tactic
-import DataflowRewriter.Module
-import DataflowRewriter.AssocList
-import DataflowRewriter.ExprHighLemmas
+import Graphiti.Tactic
+import Graphiti.Module
+import Graphiti.AssocList
+import Graphiti.ExprHighLemmas
 
 open Lean.Elab
 open Lean.Elab.Command
@@ -17,7 +17,7 @@ open Lean.Elab.Term
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.Module
+namespace Graphiti.Module
 
 variable {Ident : Type _}
 
@@ -228,9 +228,9 @@ def SigmaSnd {a b} := @Sigma.snd a b
 @[drnorm] theorem renamePorts'_liftRM {S S' : Type _} {m : Module Ident S} {p} :
   (m.renamePorts' p).liftRM (S' := S') = m.liftRM.renamePorts' p := by sorry
 
-end DataflowRewriter.Module
+end Graphiti.Module
 
-namespace DataflowRewriter
+namespace Graphiti
 
 open Lean Meta Simp Qq
 
@@ -348,4 +348,4 @@ macro "solve_match_interface" : tactic =>
           <;> (intro k heq; replace heq := Batteries.AssocList.keysInMap heq; fin_cases heq <;> rfl)))
   )
 
-end DataflowRewriter
+end Graphiti

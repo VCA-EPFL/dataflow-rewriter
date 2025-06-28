@@ -4,12 +4,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.ExprHigh
+import Graphiti.ExprHigh
 import Lean.Data.Json
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter
+namespace Graphiti
 
 inductive RewriteError where
 | error (s : String)
@@ -610,4 +610,4 @@ def match_node (extract_type : String → RewriteResult (List String)) (nn : Str
   let types ← extract_type typ
   return ([nn], types)
 
-end DataflowRewriter
+end Graphiti

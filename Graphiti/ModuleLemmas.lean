@@ -4,8 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Module
-import DataflowRewriter.AssocList.Bijective
+import Graphiti.Module
+import Graphiti.AssocList.Bijective
 import Mathlib.Tactic.Convert
 import Mathlib.Logic.Function.Basic
 
@@ -13,7 +13,7 @@ set_option Elab.async false
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter
+namespace Graphiti
 
 structure Disjoint {Ident S T} [DecidableEq Ident] (mod1 : Module Ident S) (mod2 : Module Ident T) : Prop where
   inputs_disjoint : mod1.inputs.disjoint_keys mod2.inputs
@@ -2226,4 +2226,4 @@ theorem renamePorts_outputs {Ident S} [DecidableEq Ident] {m : Module Ident S} {
 
 end Module
 
-end DataflowRewriter
+end Graphiti

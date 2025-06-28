@@ -10,7 +10,7 @@ import Batteries
 
 open Batteries (RBMap)
 
-namespace DataflowRewriter
+namespace Graphiti
 
 def _root_.Batteries.RBMap.modifyKeys {α β c} (map : RBMap α β c) (f : α → α) : RBMap α β c :=
   map.foldl (λ new_map k v => new_map.insert (f k) v) ∅
@@ -44,4 +44,4 @@ theorem in_inputs {α β γ} [BEq α] [LawfulBEq α] [Batteries.BEqCmp (α := α
   dsimp only [Batteries.RBMap.contains, Batteries.RBMap.find?, Option.map] at *
   split at H <;> cases H; simp [*]
 
-end DataflowRewriter
+end Graphiti

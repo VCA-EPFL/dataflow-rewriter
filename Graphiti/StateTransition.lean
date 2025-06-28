@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-namespace DataflowRewriter
+namespace Graphiti
 
 /--
 Create a class for an arbitrary state transition system.
@@ -142,4 +142,4 @@ def indistinguishable (i : ImpState) (s : SpecState) : Prop :=
 
 end Indistinguishable
 
-end DataflowRewriter
+end Graphiti

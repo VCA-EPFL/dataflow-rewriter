@@ -8,24 +8,24 @@ import Lean
 import Init.Data.BitVec.Lemmas
 import Qq
 
-import DataflowRewriter.Simp
-import DataflowRewriter.Module
-import DataflowRewriter.ModuleReduction
-import DataflowRewriter.ExprLow
-import DataflowRewriter.Component
-import DataflowRewriter.KernelRefl
-import DataflowRewriter.Reduce
-import DataflowRewriter.List
-import DataflowRewriter.ExprHighLemmas
-import DataflowRewriter.Tactic
-import DataflowRewriter.Rewrites.MuxTaggedRewrite
+import Graphiti.Simp
+import Graphiti.Module
+import Graphiti.ModuleReduction
+import Graphiti.ExprLow
+import Graphiti.Component
+import Graphiti.KernelRefl
+import Graphiti.Reduce
+import Graphiti.List
+import Graphiti.ExprHighLemmas
+import Graphiti.Tactic
+import Graphiti.Rewrites.MuxTaggedRewrite
 
 open Batteries (AssocList)
 
 open Lean hiding AssocList
 open Meta Elab
 
-namespace DataflowRewriter.MuxTaggedRewrite
+namespace Graphiti.MuxTaggedRewrite
 
 abbrev Ident := Nat
 
@@ -278,7 +278,7 @@ attribute [dmod] Batteries.AssocList.find? BEq.beq
 --         . subst_vars
 --           subst_vars
 --           rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
---           have : DataflowRewriter.MuxTaggedRewrite.φ' (x_fork, (x_muxT, x_muxF, x_muxC), (x_join1_l, x_join1_r), x_join2_l, x_join2_r)
+--           have : Graphiti.MuxTaggedRewrite.φ' (x_fork, (x_muxT, x_muxF, x_muxC), (x_join1_l, x_join1_r), x_join2_l, x_join2_r)
 --                 ((y_join_l, y_join_r ++ [(output, false)]), y_muxT, y_muxF, y_muxC) := by
 --             rcases φ with ⟨ φ₁, φ₂, φ₃, φ₄, φ₅ ⟩
 --             unfold φ'; and_intros
@@ -313,7 +313,7 @@ attribute [dmod] Batteries.AssocList.find? BEq.beq
 --         . subst_vars
 --           subst_vars
 --           rcases x with ⟨x_fork, ⟨x_muxT, x_muxF, x_muxC⟩, ⟨x_join1_l, x_join1_r⟩, ⟨x_join2_l, x_join2_r⟩⟩
---           have : DataflowRewriter.MuxTaggedRewrite.φ' (x_fork, (x_muxT, x_muxF, x_muxC), (x_join1_l, x_join1_r), x_join2_l, x_join2_r)
+--           have : Graphiti.MuxTaggedRewrite.φ' (x_fork, (x_muxT, x_muxF, x_muxC), (x_join1_l, x_join1_r), x_join2_l, x_join2_r)
 --                 ((y_join_l, y_join_r ++ [(output, true)]), y_muxT, y_muxF, y_muxC) := by
 --             rcases φ with ⟨ φ₁, φ₂, φ₃, φ₄, φ₅ ⟩
 --             unfold φ'; and_intros
@@ -572,4 +572,4 @@ attribute [dmod] Batteries.AssocList.find? BEq.beq
 
 
 
-end DataflowRewriter.MuxTaggedRewrite
+end Graphiti.MuxTaggedRewrite

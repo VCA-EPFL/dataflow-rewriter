@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Rewriter
+import Graphiti.ExprHighElaborator
 
-namespace DataflowRewriter.CombineMux
+namespace Graphiti.CombineMux
 
 open StringModule
 
@@ -150,4 +150,4 @@ def rewrite : Rewrite String :=
     name := .some "combine-mux"
   }
 
-end DataflowRewriter.CombineMux
+end Graphiti.CombineMux

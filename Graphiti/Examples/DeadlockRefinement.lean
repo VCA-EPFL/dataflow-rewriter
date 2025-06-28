@@ -4,16 +4,16 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz, Gurvan Debaussart
 -/
 
-import DataflowRewriter.Module
-import DataflowRewriter.ModuleLemmas
-import DataflowRewriter.ModuleReduction
-import DataflowRewriter.ExprLow
-import DataflowRewriter.ExprLowLemmas
-import DataflowRewriter.Component
+import Graphiti.Module
+import Graphiti.ModuleLemmas
+import Graphiti.ModuleReduction
+import Graphiti.ExprLow
+import Graphiti.ExprLowLemmas
+import Graphiti.Component
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter
+namespace Graphiti
 
   variable {Ident S : Type} [DecidableEq Ident] (m : Module Ident S)
 
@@ -131,4 +131,4 @@ namespace DataflowRewriter
   theorem φ2_initial' : Module.refines_initial m (m2 m) φ2' := by
     intro i h; exists (i, false); and_intros
 
-end DataflowRewriter
+end Graphiti

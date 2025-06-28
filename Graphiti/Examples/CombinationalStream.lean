@@ -4,18 +4,18 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.ModuleLemmas
-import DataflowRewriter.ModuleReduction
-import DataflowRewriter.Simp
-import DataflowRewriter.ExprHighElaborator
-import DataflowRewriter.AssocList.Basic
-import DataflowRewriter.TypeExpr
-import DataflowRewriter.Environment
-import DataflowRewriter.VerilogExport
+import Graphiti.ModuleLemmas
+import Graphiti.ModuleReduction
+import Graphiti.Simp
+import Graphiti.ExprHighElaborator
+import Graphiti.AssocList.Basic
+import Graphiti.TypeExpr
+import Graphiti.Environment
+import Graphiti.VerilogExport
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.CombModule
+namespace Graphiti.CombModule
 
 def Stream α := Option (List α)
 
@@ -352,4 +352,4 @@ def et_ms_flip_flop_m : ExprHigh String × Env := [graphEnv|
 
 end FlipFlop
 
-end DataflowRewriter.CombModule
+end Graphiti.CombModule

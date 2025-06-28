@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Thomas Bourgeat
 -/
 
-import DataflowRewriter.Rewriter
-import DataflowRewriter.ExprHighElaborator
+import Graphiti.Rewriter
+import Graphiti.ExprHighElaborator
 
-namespace DataflowRewriter.BranchInorderMux2Merge
+namespace Graphiti.BranchInorderMux2Merge
 
 -- TODO: 2 inputs, 2 outputs for the taggrCntrlAligner:
 -- enq_untagged, complete_tagged are the input ports
@@ -203,4 +203,4 @@ def lhs' : ExprHigh String :=
 
 end TEST
 
-end DataflowRewriter.BranchInorderMux2Merge
+end Graphiti.BranchInorderMux2Merge

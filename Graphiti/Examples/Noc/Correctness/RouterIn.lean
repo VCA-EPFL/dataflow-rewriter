@@ -4,17 +4,17 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz, Gurvan Debaussart
 -/
 
-import DataflowRewriter.Examples.Noc.Lang
-import DataflowRewriter.Examples.Noc.BuildModule
-import DataflowRewriter.Examples.Noc.Topology.Torus
-import DataflowRewriter.Examples.Noc.Spec
-import DataflowRewriter.Examples.Noc.Router
+import Graphiti.Examples.Noc.Lang
+import Graphiti.Examples.Noc.BuildModule
+import Graphiti.Examples.Noc.Topology.Torus
+import Graphiti.Examples.Noc.Spec
+import Graphiti.Examples.Noc.Router
 
 open Batteries (AssocList)
 
 set_option Elab.async false
 
-namespace DataflowRewriter.Noc.RouterIn
+namespace Graphiti.Noc.RouterIn
 
   variable (Data : Type) [BEq Data] [LawfulBEq Data]
 
@@ -75,4 +75,4 @@ namespace DataflowRewriter.Noc.RouterIn
         (refines_φ Data)
     )
 
-end DataflowRewriter.Noc.RouterIn
+end Graphiti.Noc.RouterIn

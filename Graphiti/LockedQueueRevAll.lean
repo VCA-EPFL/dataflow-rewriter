@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.StateTransition
+import Graphiti.StateTransition
 import Mathlib.Tactic
 
-namespace DataflowRewriter
+namespace Graphiti
 
 inductive Method where
   | enq (n : Nat)
@@ -951,4 +951,4 @@ theorem enough₂_star (i i': ImpState) (s : SpecState) (e : List Method):
 --   intro H
 --   have H' := enough₂_star _ _ _ _ φ₂_empty H
 
-end DataflowRewriter
+end Graphiti

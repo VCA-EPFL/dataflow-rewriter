@@ -6,12 +6,12 @@ Authors: Yann Herklotz
 
 import Lean
 
-import DataflowRewriter.Module
-import DataflowRewriter.Simp
-import DataflowRewriter.ExprHigh
-import DataflowRewriter.AssocList.Basic
+import Graphiti.Module
+import Graphiti.Simp
+import Graphiti.ExprHigh
+import Graphiti.AssocList.Basic
 
-namespace DataflowRewriter
+namespace Graphiti
 
 namespace Env
 
@@ -22,4 +22,4 @@ end Env
 
 axiom ε_global : Env
 
-end DataflowRewriter
+end Graphiti

@@ -1,2 +1,2 @@
-import «DataflowRewriter»
-import «DataflowRewriter».Examples
+import «Graphiti»
+import «Graphiti».Examples

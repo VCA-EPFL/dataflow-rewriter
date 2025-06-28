@@ -4,13 +4,13 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz
 -/
 
-import DataflowRewriter.ExprHighLemmas
-import DataflowRewriter.Rewriter
-import DataflowRewriter.Environment
+import Graphiti.ExprHighLemmas
+import Graphiti.Rewriter
+import Graphiti.Environment
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter
+namespace Graphiti
 
 structure CorrectRewrite where
   rewrite : Rewrite String
@@ -218,4 +218,4 @@ theorem Rewrite_run'_correct {g g' : ExprHigh String} {s _st _st'} {rw : Correct
 --   rewrite_loop s g rws n = .ok g' →
 --   ([Ge| g', ε ]) ⊑ ([Ge| g, ε ]) := by sorry
 
-end DataflowRewriter
+end Graphiti

@@ -4,16 +4,16 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz, Gurvan Debaussart
 -/
 
-import DataflowRewriter.Module
-import DataflowRewriter.Component
-import DataflowRewriter.Examples.Noc.Utils
+import Graphiti.Module
+import Graphiti.Component
+import Graphiti.Examples.Noc.Utils
 
 set_option autoImplicit false
 set_option linter.all false
 
 open Batteries (AssocList)
 
-namespace DataflowRewriter.Noc
+namespace Graphiti.Noc
 
   -- Topology definition -------------------------------------------------------
 
@@ -170,4 +170,4 @@ namespace DataflowRewriter.Noc
   abbrev Noc.Rel_inp (n : Noc Data netsz) (T : Type) :=
     (rid : n.RouterID) → (dir : n.Dir_inp rid) → (old_s : n.State) → (val : T) → (old_s : n.State) → Prop
 
-end DataflowRewriter.Noc
+end Graphiti.Noc

@@ -4,10 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Yann Herklotz, Gurvan Debaussart
 -/
 
-import DataflowRewriter.Module
-import DataflowRewriter.Examples.Noc.Lang
+import Graphiti.Module
+import Graphiti.Examples.Noc.Lang
 
-namespace DataflowRewriter.Noc
+namespace Graphiti.Noc
 
   structure Mesh2D where
     sizeX : Nat
@@ -15,4 +15,4 @@ namespace DataflowRewriter.Noc
 
   -- TODO: Harder than Torus because topology is less regular (edges)
 
-end DataflowRewriter.Noc
+end Graphiti.Noc

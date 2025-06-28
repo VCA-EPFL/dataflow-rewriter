@@ -5,9 +5,9 @@ Authors: Yann Herklotz
 -/
 
 import Lean
-import DataflowRewriter.ExprLow
+import Graphiti.ExprLow
 
-namespace DataflowRewriter
+namespace Graphiti
 
 /--
 Graph description of a cicruit.  Note that currently one cannot describe an
@@ -243,15 +243,15 @@ def higherS' (fresh : Nat) (fresh_prefix : String) : ExprLow String → (ExprHig
 def higherS (fresh_prefix : String) (e: ExprLow String) : ExprHigh String :=
   e.higherS' 0 fresh_prefix |>.fst
 
-def _root_.DataflowRewriter.PortMap.getInstanceName' (a : PortMap Ident (InternalPort Ident)) (i : Option Ident) : Option Ident :=
+def _root_.Graphiti.PortMap.getInstanceName' (a : PortMap Ident (InternalPort Ident)) (i : Option Ident) : Option Ident :=
   match a with
   | .cons _ ⟨.top, n⟩ xs => getInstanceName' xs (match i with | .some _ => i | _ => .some n)
   | .cons _ ⟨.internal a, _⟩ _ => .some a
   | .nil => i
 
-def _root_.DataflowRewriter.PortMap.getInstanceName (a : PortMap Ident (InternalPort Ident)) : Option Ident := a.getInstanceName' .none
+def _root_.Graphiti.PortMap.getInstanceName (a : PortMap Ident (InternalPort Ident)) : Option Ident := a.getInstanceName' .none
 
-def _root_.DataflowRewriter.PortMapping.getInstanceName (a : PortMapping Ident) : Option Ident :=
+def _root_.Graphiti.PortMapping.getInstanceName (a : PortMapping Ident) : Option Ident :=
   a.output.getInstanceName' a.input.getInstanceName
 
 def higherSS : ExprLow String → Option (ExprHigh String)
@@ -421,4 +421,4 @@ def updateConnMaps (maps : InstMaps) (conns : List (Connection String))
     instTypeMap := updatePortMappingInput instTypeMap aInst.snd outPort' bInst.snd inPort'
   return (⟨maps.instMap, instTypeMap⟩, conns)
 
-end DataflowRewriter
+end Graphiti
