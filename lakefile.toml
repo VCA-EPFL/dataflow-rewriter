@@ -16,14 +16,9 @@ weak.aesop.warn.applyIff = false
 grind.warning = false
 
 [[require]]
-name = "leanses"
-git = "https://github.com/VCA-EPFL/leanses"
-rev = "main"
-
-[[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4-nightly-testing"
-rev = "nightly-testing-2025-06-20"
+rev = "nightly-testing-2025-06-27"
 
 [[lean_lib]]
 name = "DataflowRewriter"

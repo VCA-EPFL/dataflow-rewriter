@@ -1,5 +1,4 @@
 import Lean
-import Leanses
 
 open Lean
 open Leanses

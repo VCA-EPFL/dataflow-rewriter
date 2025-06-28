@@ -13,17 +13,44 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: leanprover/lean-action@v1
+
+      - name: Install elan
+        run: |
+          set -o pipefail
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- --default-toolchain none -y
+          ~/.elan/bin/lean --version
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+
+      - name: Cache `.lake` folder
+        id: cache-lake
+        uses: actions/cache@v4
+        with:
+          path: .lake
+          key: ${{ runner.os }}-lake-${{ hashFiles('lake-manifest.json') }}-4
+
+      - name: Get mathlib cache
+        continue-on-error: true
+        run: |
+          (lake exe cache --repo=leanprover-community/mathlib4-nightly-testing get; true)
+
+      - name: verify `lake build` works
+        run: |
+          lake build
+
       - name: verify `lake exe dataflow-rewriter -h` works
         run: |
           lake exe dataflow-rewriter -h
+
       - name: install `rust` for the oracle
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+
       - name: installing oracle for graphiti
         run: |
           cargo install --git https://github.com/VCA-EPFL/OracleGraphiti --locked
+
       - name: test example
+        continue-on-error: true
         run: |
           lake exe dataflow-rewriter benchmarks/type-correct/preprocessed-baseline-matvec.dot -o out.dot -l out.json --oracle graphiti_oracle

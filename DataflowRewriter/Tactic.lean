@@ -135,7 +135,7 @@ theorem rw_opaque {f : Type _ → Type _} {s s' : Σ T, f T} (heq : s = s') : @O
 /--
 Creates a have which allows metavar holes in it.
 -/
-syntax (name := haveByLet) "have_hole " haveDecl : tactic
+syntax (name := haveByLet) "have_hole " letConfig letDecl : tactic
 macro_rules
   | `(tactic| have_hole $id:ident $bs* : $type := $proof) =>
     `(tactic| (let h $bs* : $type := $proof; have $id:ident := h; clear h))
