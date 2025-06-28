@@ -29,10 +29,17 @@ class DeterministicOutputs (mod: Module Ident S) where
     → (mod.outputs.getIO ident).snd s₁ v s₃
     → s₂ = s₃
 
+-- TODO: Make it an abbrev? (https://lean-lang.org/doc/reference/latest//Type-Classes/Class-Declarations/#class-abbrev)
 class Deterministic (mod: Module Ident S) extends
   DeterministicInputs mod,
   DeterministicInternals mod,
   DeterministicOutputs mod
 
+variable {mod: Module Ident S} in
+instance [d₁: DeterministicInputs mod] [d₂: DeterministicInternals mod] [d₃: DeterministicOutputs mod]: Deterministic mod := {
+  input_deterministic    := d₁.input_deterministic
+  internal_deterministic := d₂.internal_deterministic
+  output_deterministic   := d₃.output_deterministic
+}
 
 end Graphiti

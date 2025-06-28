@@ -486,6 +486,16 @@ structure indistinguishable (init_i : I) (init_s : S) : Prop where
     (imod.outputs.getIO ident).2 init_i v new_i →
     ∃ new_s, (smod.outputs.getIO ident).2 init_s ((mm.output_types ident).mp v) new_s
 
+structure new_indistinguishable (init_i : I) (init_s : S) : Prop where
+  inputs_indistinguishable : ∀ (ident : InternalPort Ident) new_i v,
+    (imod.inputs.getIO ident).2 init_i v new_i →
+    ∃ new_s, (smod.inputs.getIO ident).2 init_s ((mm.input_types ident).mp v) new_s
+  outputs_indistinguishable : ∀ ident new_i v,
+    (imod.outputs.getIO ident).2 init_i v new_i →
+    ∃ almost_new_s new_s,
+    existSR smod.internals init_s almost_new_s
+    → (smod.outputs.getIO ident).2 almost_new_s ((mm.output_types ident).mp v) new_s
+
 structure comp_refines (φ : I → S → Prop) (init_i : I) (init_s : S) : Prop where
   inputs :
     ∀ ident mid_i v,
@@ -509,7 +519,7 @@ structure comp_refines (φ : I → S → Prop) (init_i : I) (init_s : S) : Prop 
         existSR smod.internals init_s mid_s
         ∧ φ mid_i mid_s
 
-structure pcomp_refines (φ : I → S → Prop) (init_i : I) (init_s : S) : Prop where
+structure comp_refines' (φ : I → S → Prop) (init_i : I) (init_s : S) : Prop where
   inputs :
     ∀ ident mid_i v,
       (imod.inputs.getIO ident).2 init_i v mid_i →
@@ -520,8 +530,9 @@ structure pcomp_refines (φ : I → S → Prop) (init_i : I) (init_s : S) : Prop
   outputs :
     ∀ ident mid_i v,
       (imod.outputs.getIO ident).2 init_i v mid_i →
-      ∃ mid_s,
-        (smod.outputs.getIO ident).2 init_s ((mm.output_types ident).mp v) mid_s
+      ∃ almost_mid_s mid_s,
+        (smod.outputs.getIO ident).2 init_s ((mm.output_types ident).mp v) almost_mid_s
+        ∧ existSR smod.internals almost_mid_s mid_s
         ∧ φ mid_i mid_s
   internals :
     ∀ rule mid_i,
@@ -1173,13 +1184,13 @@ def refines_φ (φ : I → S → Prop) :=
     φ init_i init_s →
      comp_refines imod smod φ init_i init_s
 
-def prefines_φ (φ : I → S → Prop) :=
+def refines'_φ (φ : I → S → Prop) :=
   ∀ (init_i : I) (init_s : S),
     φ init_i init_s →
-     pcomp_refines imod smod φ init_i init_s
+     comp_refines' imod smod φ init_i init_s
 
 notation:35 x " ⊑_{" φ:35 "} " y:34 => refines_φ x y φ
-notation:35 x " p⊑_{" φ:35 "} " y:34 => prefines_φ x y φ
+notation:35 x " ⊑'_{" φ:35 "} " y:34 => refines'_φ x y φ
 
 theorem refines_φ_reflexive : imod ⊑_{Eq} imod := by
   intro init_i init_s heq; subst_vars
