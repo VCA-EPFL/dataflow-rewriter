@@ -1,7 +1,7 @@
 name: Update mathlib version
 on:
   schedule:
-    - cron: '44 * * * *'
+    - cron: '45 16 * * 5'
   workflow_dispatch:
 
 permissions: write-all
@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        daysbefore: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+        daysbefore: [0, 1, 2]
     permissions: write-all
     runs-on: ubuntu-latest
     steps:
