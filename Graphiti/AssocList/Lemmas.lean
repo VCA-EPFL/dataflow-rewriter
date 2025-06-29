@@ -278,7 +278,6 @@ theorem append_find_right_disjoint {α β} [DecidableEq α] {a b : AssocList α 
 -- @[simp] theorem erase_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} ident (f : α → β → γ) :
 --   (a.erase ident).mapVal f = (a.mapVal f).erase ident := by sorry
 
-
 @[simp, drcompute] theorem eraseAllP_cons {α β} [DecidableEq α] {a : AssocList α β} {p : α → β → Bool} {ident val} :
   (a.cons ident val).eraseAllP p = if p ident val then a.eraseAllP p else (a.eraseAllP p).cons ident val := by simpa
 
@@ -295,6 +294,18 @@ theorem append_find_right_disjoint {α β} [DecidableEq α] {a b : AssocList α 
 
 @[simp, drcompute] theorem eraseAll_nil {α β} [DecidableEq α] {ident} :
   ((@nil α β).eraseAll ident) = .nil := by rfl
+
+@[simp, drcompute] theorem eraseAllP_concat {α β} [DecidableEq α] {a b : AssocList α β} {p : α → β → Bool} :
+  (a ++ b).eraseAllP p = (a.eraseAllP p) ++ (b.eraseAllP p) := by
+    induction a with
+    | nil => rfl
+    | cons k v tl ih => dsimp; rw [ih] <;> cases p k v <;> dsimp
+
+@[simp] theorem eraseAllP_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} {p : α → Bool} {f : α → β → γ} :
+  (a.eraseAllP (λ k _ => p k)).mapVal f = (a.mapVal f).eraseAllP (λ k _ => p k) := by
+  induction a with
+  | nil => rfl
+  | cons k v xs ih => dsimp <;> cases p k <;> dsimp <;> rw [ih] <;> dsimp
 
 @[simp] theorem eraseAll_map_comm {α β γ} [DecidableEq α] {a : AssocList α β} {ident} {f : α → β → γ} :
   (a.eraseAll ident).mapVal f = (a.mapVal f).eraseAll ident := by

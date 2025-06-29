@@ -77,6 +77,32 @@ namespace Graphiti.Noc
     | nil => rfl
     | cons x v tl HR => simpa [HR, AssocList.bijectivePortRenaming, drcompute]
 
+  -- theorem magic {T₁ T₁' T₂} {h : T₁ = T₁'} {t : T₁} {f : T₁' → T₂}
+  --   : f (h.mp t) = (f t) := by sorry
+
+  -- f : (α → β) → α → β
+  -- theorem magic {α α' β} {h : α = α'} {f : (α → β) → α → α}
+  -- (h : α = α') : f p (h.mp v) = h.mpr (f (λ i => h.mp i) v)
+
+  theorem eraseAll_depfoldr {α β δ} [DecidableEq α] (l : List δ) (p : α → Bool) (f : δ → Type → Type) (g : δ → AssocList α β) h acc :
+      AssocList.eraseAllP (λ k _ => p k)
+        (
+          List.foldr
+          (λ i acc => (⟨f i acc.1, (g i) ++ (acc.2.mapVal h)⟩: Σ T, AssocList α β))
+          acc
+          l
+        ).snd
+      =
+        (List.foldr
+          (λ i acc => ⟨f i acc.1, AssocList.eraseAllP (λ k _ => p k) (g i) ++ (acc.2.mapVal h)⟩)
+          (⟨acc.1, AssocList.eraseAllP (λ k _ => p k) acc.2⟩: Σ T, AssocList α β)
+          l).snd
+      := by
+    induction l generalizing acc with
+    | nil => rfl
+    | cons hd tl HR =>
+      dsimp; rw [←HR, AssocList.eraseAllP_concat, AssocList.eraseAllP_map_comm]
+
   @[drunfold_defs]
   def_module expM : Module String (expT n ε) := [e| n.build_expr, ε] reduction_by
     dsimp [drunfold_defs, reduceAssocListfind?, reduceListPartition]
@@ -133,6 +159,9 @@ namespace Graphiti.Noc
     rw [Module.foldr_connect']
     dsimp
     simp only [drcompute]
+    -- Casts in i/o forbid us from anything, we must make them at top-level
+    -- rw [eraseAll_depfoldr]
+
     -- For the init_state:
     -- We want to remove the dependent type part.
     -- This is specific to the combination of a dep_foldl to produce a PListL,
