@@ -29,3 +29,8 @@
 
 - Tried using Vector for `fin_range` to keep the length information in the type
   to avoid cast, did not work
+
+- We need to clean up proofs and definitions, it is getting everywhere…
+
+- We need to simplify `dep_foldr` when β is a product type, so when we are
+  producing DPList'

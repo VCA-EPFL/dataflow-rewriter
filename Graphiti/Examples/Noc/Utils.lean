@@ -15,15 +15,7 @@ namespace Graphiti.Noc
 
   @[simp] abbrev typeOf {α} (_ : α) := α
 
-  theorem in_list_idx {α} {l : List α} {x : α} (H : x ∈ l) :
-    ∃ i : Fin (List.length l), l[i] = x := by
-      induction l with
-      | nil => contradiction
-      | cons hd tl HR =>
-        rw [List.mem_cons] at H
-        cases H <;> rename_i H
-        · rw [H]; apply Exists.intro ⟨0, by simpa⟩; simpa
-        · obtain ⟨i, Hi'⟩ := HR H; exists ⟨i + 1, by simpa⟩
+  -- fin_range -----------------------------------------------------------------
 
   def fin_range (sz : Nat) : List (Fin sz) :=
     List.replicate sz 0
@@ -56,6 +48,7 @@ namespace Graphiti.Noc
           List.replicate, List.length_cons, List.mapFinIdx_cons, Fin.zero_eta,
           map_mapFinIdx, lift_fin
         ]
+
 
   theorem fin_in_fin_range (sz : Nat) (i : Fin sz) : i ∈ fin_range sz := by
     simp only [fin_range, List.mem_mapFinIdx, List.length_replicate]
@@ -143,6 +136,16 @@ namespace Graphiti.Noc
 
   -- Some stuff about permutations ---------------------------------------------
 
+  theorem in_list_idx {α} {l : List α} {x : α} (H : x ∈ l) :
+    ∃ i : Fin (List.length l), l[i] = x := by
+      induction l with
+      | nil => contradiction
+      | cons hd tl HR =>
+        rw [List.mem_cons] at H
+        cases H <;> rename_i H
+        · rw [H]; apply Exists.intro ⟨0, by simpa⟩; simpa
+        · obtain ⟨i, Hi'⟩ := HR H; exists ⟨i + 1, by simpa⟩
+
   variable {α} {n : Nat}
 
   theorem vec_set_concat_perm {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
@@ -225,151 +228,40 @@ namespace Graphiti.Noc
         -- sorry
         sorry
 
-  -- Random --------------------------------------------------------------------
-
-  theorem list_foldl_foldl_map {α β γ} {l : List (List α)} {h : List α → List β}
-  {g : γ → γ} {f : γ → β → γ} {acc : γ} :
-    List.foldl (λ acc i => List.foldl f (g acc) (h i)) acc l
-    = List.foldl (λ acc i => List.foldl f (g acc) i) acc (List.map h l) := by
-      induction l generalizing acc with
-      | nil => rfl
-      | cons hd tl HR => simpa [HR]
-
-  -- theorem list_foldl_foldl_map {α β γ} {l : List (List α)} {h : List α → List β}
-  -- {g : γ → γ} {f : γ → β → γ} {acc : γ} :
-  --   List.foldl (λ acc i => List.foldl f (g acc) i) acc (List.map h l)
-  --   = ???
-  --    := by sorry
-
-  -- Problem: We need to get rid of the inside `g acc`, meaning we need to have
-  -- it below...
-  -- We can do it by folding with a new function which applies `g` to the acc ?
-
-  theorem list_foldl_foldl_flatten {α β} {l : List (List α)} {f} {acc : β} :
-  List.foldl (λ acc i => List.foldl f acc i) acc l = List.foldl f acc l.flatten
-  := by
-    induction l generalizing acc with
-    | nil => rfl
-    | cons hd tl HR => simpa [HR]
-
-  -- PLists --------------------------------------------------------------------
-
-  def PListL''.{u} {β : Type _} (l : List β) (acc : Type u) (α : Type u) :=
-    List.foldl (λ acc i => α × acc) acc l
-
-  def PListL' (acc : Type _) (α : Type _) (n : Nat) :=
-    PListL'' (List.replicate n 0) acc α
-
-  theorem PListL''_toPListL' {β} {l : List β} {acc : Type _} :
-    PListL'' l acc α = PListL' acc α (List.length l) := by
-      induction l generalizing acc with
-      | nil => rfl
-      | cons hd tl HR => simp [PListL', PListL'', List.replicate] at HR ⊢; rw [HR]
-
-  def PListL := PListL' Unit
-
-  theorem PListL_succ' (acc : Type _) (α : Type _) (n : Nat) :
-    PListL' acc α (n + 1) = (α × (PListL' acc α n)) := by
-    induction n generalizing acc with
-    | zero => rfl
-    | succ n HR => simp [PListL', PListL'', List.replicate] at HR ⊢; rw [HR]
-
-  theorem PListL_zero {α : Type _} :
-    PListL α 0 = Unit := by rfl
-
-  theorem PListL_succ {α : Type _} {n : Nat} :
-    PListL α (n + 1) = (α × (PListL α n)) := by apply PListL_succ'
-
-  def PListL.replicate {α : Type _} (n : Nat) (v : α) : PListL α n :=
-    match n with
-    | 0 => PListL_zero.mpr ()
-    | n + 1 => PListL_succ.mpr (v, PListL.replicate n v)
-
-  def PListL.toList {α n} (pl : PListL α n) : List α :=
-    match n with
-    | 0 => []
-    | n + 1 =>
-      have pl' := PListL_succ.mp pl
-      pl'.1 :: PListL.toList pl'.2
-
-  def PListL.ofList {α n} (l : List α) (h : List.length l = n) : PListL α n :=
-    match n with
-    | 0 => PListL_zero.mpr ()
-    | n + 1 =>
-      match l with
-      | [] => by simp only [List.length_nil, Nat.right_eq_add, Nat.add_eq_zero, Nat.succ_ne_self, and_false] at h
-      | hd :: tl =>
-        PListL_succ.mpr (hd, PListL.ofList tl (by simp only [List.length_cons, Nat.add_right_cancel_iff] at h; exact h))
-
-  def PListL.ofVector {α n} (v : Vector α n) : PListL α n :=
-    PListL.ofList v.toList sorry
-
-  def PListL.get' {α n} (pl : PListL α n) (i : Nat) (hLt : i < n) : α :=
-    match n with
-    | 0 => by contradiction
-    | n' + 1 =>
-      have pl' := PListL_succ.mp pl
-      match i with
-      | 0 => pl'.1
-      | i' + 1 =>
-        PListL.get' pl'.2 i' (by simp only [Nat.add_lt_add_iff_right] at hLt; exact hLt)
-
-  def PListL.get {α n} (pl : PListL α n) (i : Fin n) : α :=
-    PListL.get' pl i.1 i.2
-
   -- DPList --------------------------------------------------------------------
 
-  abbrev DPList'.{u} {α : Type _} (acc : Type u) (l : List α) (f : α → Type u) :=
-    List.foldr (λ i acc => f i × acc) acc l
+  section DPList
 
-  abbrev DPList {α : Type _} := @DPList' α Unit
+    variable {α : Type _}
 
-  theorem DPList_zero {α} {f : α → Type _} :
-    DPList [] f = Unit := by rfl
+    abbrev DPList'.{u} (acc : Type u) (l : List α) (f : α → Type u) :=
+      List.foldr (λ i acc => f i × acc) acc l
 
-  theorem DPList_succ' {α : Type _} {hd : α} {tl : List α} {acc : Type _} {f : α → Type _} :
-    DPList' acc (hd :: tl) f = (f hd × (DPList' acc tl f)) := by
-      rfl
+    abbrev DPList := @DPList' α Unit
 
-  theorem DPList_succ {α : Type _} {hd : α} {tl : List α} {f : α → Type _} :
-    DPList (hd :: tl) f = (f hd × (DPList tl f)) := by
-      rfl
+    theorem DPList_zero {f : α → Type _} :
+      DPList [] f = Unit := by rfl
 
-  def DPList.get' {α} {l : List α} {f} (pl : DPList l f) (i : Nat) (h : i < List.length l) : f (l.get (Fin.mk i h)) :=
-    match l with
-    | [] => by contradiction
-    | hd :: tl =>
-      have pl' := DPList_succ.mp pl
-      match i with
-      | 0 => pl'.1
-      | i' + 1 => pl'.2.get' i' (by simp only [List.length_cons, Nat.add_lt_add_iff_right] at h; exact h)
+    theorem DPList_succ' {hd : α} {tl : List α} {acc : Type _} {f : α → Type _} :
+      DPList' acc (hd :: tl) f = (f hd × (DPList' acc tl f)) := by
+        rfl
 
-  def DPList.get {α} {l : List α} {f} (pl : DPList l f) (i : Fin (List.length l)) : f (l.get i) :=
-    DPList.get' pl i.1 i.2
+    theorem DPList_succ {hd : α} {tl : List α} {f : α → Type _} :
+      DPList (hd :: tl) f = (f hd × (DPList tl f)) := by
+        rfl
 
-  ------------------------------------------------------------------------------
+    def DPList.get' {l : List α} {f} (pl : DPList l f) (i : Nat) (h : i < List.length l) : f (l.get (Fin.mk i h)) :=
+      match l with
+      | [] => by contradiction
+      | hd :: tl =>
+        have pl' := DPList_succ.mp pl
+        match i with
+        | 0 => pl'.1
+        | i' + 1 => pl'.2.get' i' (by simp only [List.length_cons, Nat.add_lt_add_iff_right] at h; exact h)
 
-  abbrev DPVector'.{u} {α n} (acc : Type u) (l : Vector α n) (f : α → Type u) :=
-    Vector.foldr (λ i acc => f i × acc) acc l
+    def DPList.get {l : List α} {f} (pl : DPList l f) (i : Fin (List.length l)) : f (l.get i) :=
+      DPList.get' pl i.1 i.2
 
-  abbrev DPVector {α n} := @DPVector' α n Unit
-
-  theorem DPVector_succ {α n} {v : Vector α (n + 1)} {f : α → Type _} :
-    DPVector v f = (f v[0] × (DPVector v.tail f)) := by
-      simp [DPVector, DPVector', Vector.foldr]
-      sorry
-
-  def DPVector.get {α n} {v : Vector α n} {f} (pv : DPVector v f) (i : Fin n) : f (v.get i) :=
-    let ⟨idx, Hidx⟩ := i
-    match n with
-    | 0 => by contradiction
-    | n' + 1 =>
-      have pv' := DPVector_succ.mp pv
-      match idx with
-      | 0 => pv'.1
-      | idx' + 1 =>
-        -- We need ANOTHER cast here…
-        -- DPVector.get pv'.2 ⟨idx', by simp at Hidx; simpa⟩
-        sorry
+  end DPList
 
 end Graphiti.Noc
