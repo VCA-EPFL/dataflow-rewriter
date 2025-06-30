@@ -66,9 +66,9 @@ namespace Graphiti.Noc.DirectedTorusAbsoluteUnboundedCorrect
       · unfold φ; simpa [drunfold_defs]
 
   theorem refines_φ : (mod Data dt) ⊑_{φ Data dt} (spec Data dt) := by
-    intros i s H
+    intro i s H
     constructor
-    · intros ident mid_i v Hrule
+    · intro ident mid_i v Hrule
       case_transition Hcontains : (Module.inputs (mod Data dt)), ident,
        (PortMap.getIO_not_contained_false' Hrule)
       dsimp [drcomponents] at v Hrule Hcontains ⊢
@@ -149,7 +149,10 @@ namespace Graphiti.Noc.DirectedTorusAbsoluteUnboundedCorrect
         apply Exists.intro i[↑idx]
         and_intros
         · apply idx_in_vec; exists idx
-        · sorry
+        · simp at Hrule2 ⊢
+          -- TODO: Should be true but can't rewrite
+          -- rw [Hrule2]
+          sorry
       -- We need to show that idx = head, this is done with a correctness for
       -- route_xy
       obtain ⟨idx', Hidx'⟩ := in_list_idx hv
@@ -167,7 +170,7 @@ namespace Graphiti.Noc.DirectedTorusAbsoluteUnboundedCorrect
             sorry
       · unfold φ
         sorry
-    · intros rule mid_i HruleIn Hrule
+    · intro rule mid_i HruleIn Hrule
       exists s
       and_intros
       · constructor
@@ -178,15 +181,39 @@ namespace Graphiti.Noc.DirectedTorusAbsoluteUnboundedCorrect
         rw [mapFinIdx_get] at Hij
         subst rule
         dsimp [drcomponents] at Hrule
-        obtain ⟨val, i', ⟨Hval1, Hval2⟩, Hval3⟩ := Hrule
-        dsimp [drcomponents, drunfold_defs] at Hval1 Hval2 Hval3
-        -- subst i
-        -- subst mid_i
-        -- apply List.Subset.trans (h₂ := H)
-        -- dsimp [noc, drunfold_defs]
-        -- TODO: annoying
-        -- apply vec_set_cons_in (v := i') (idx1 := (↑((noc Data dt).neigh idx1)[idx2])) (idx2 := idx1) (elt := val)
-        sorry
+        obtain ⟨val, i', ⟨⟨Hval1, Hval2⟩, Hval3⟩, Hval4, Hval5⟩ := Hrule
+        dsimp [drcomponents, drunfold_defs] at Hval1 Hval2 Hval3 Hval4 Hval5
+        apply List.Subset.trans (h₂ := H)
+        intro x Hx
+        simp only [List.mem_flatten, Vector.mem_toList_iff] at Hx ⊢
+        obtain ⟨y, hy1, hy2⟩ := Hx
+        obtain ⟨idxy1, hidxy1⟩ := vec_in_if_idx hy1
+        subst y
+        dsimp [drcomponents, drunfold_defs] at idx2
+        by_cases heq: (dt.neigh_out idx1)[idx2] = idxy1
+        · simp only [heq] at Hval4
+          -- TODO: Is this true?
+          sorry
+        · specialize Hval5 idxy1 heq
+          by_cases heq2: idx1 = idxy1
+          · subst idxy1
+            simp at hy2
+            exists i[↑idx1]
+            and_intros
+            · apply idx_in_vec; exists idx1
+            · -- dsimp
+              -- TODO: Should be true but can't rewrite
+              -- rw [Hval2]
+              sorry
+          · specialize Hval3 idxy1 heq2
+            simp at hy2
+            exists i[↑idxy1]
+            apply And.intro
+            · apply idx_in_vec; exists idxy1
+            · simp at ⊢ Hval3
+              -- TODO: Should be true but can't rewrite
+              -- rw [←Hval3]
+              sorry
 
   theorem ϕ_indistinguishable :
     ∀ i s, (φ Data dt) i s → Module.indistinguishable (mod Data dt) (spec Data dt) i s := by

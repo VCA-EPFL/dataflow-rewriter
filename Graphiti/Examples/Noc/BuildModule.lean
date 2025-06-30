@@ -24,10 +24,15 @@ namespace Graphiti.Noc
       n.routers.output_rel rid old_s val new_s
 
   @[drcomponents]
-  abbrev Noc.input_rel (n : Noc Data netsz) : n.Rel_inp (Data × n.RouterID) :=
+  abbrev Noc.input_rel (n : Noc Data netsz) : n.Rel_inp n.Flit :=
     λ rid dir old_s val new_s =>
-      n.routers.input_rel rid old_s[rid] (val.1, (n.routing_pol.mkhead rid val.2 val.1)) new_s[rid]
+      n.routers.input_rel rid old_s[rid] val new_s[rid]
       ∧ ∀ (rid' : n.RouterID), rid ≠ rid' → new_s[rid'] = old_s[rid']
+
+  @[drcomponents]
+  abbrev Noc.input_rel' (n : Noc Data netsz) : n.Rel_inp (Data × n.RouterID) :=
+    λ rid dir old_s val new_s =>
+      n.input_rel rid dir old_s (val.1, (n.routing_pol.mkhead rid val.2 val.1)) new_s
 
   @[drcomponents]
   abbrev Noc.output_rel (n : Noc Data netsz) : n.Rel_out n.Flit :=
@@ -38,7 +43,7 @@ namespace Graphiti.Noc
   @[drcomponents]
   def Noc.mk_router_input (n : Noc Data netsz) (rid : n.RouterID) (dir : n.Dir_inp rid) : RelIO n.State :=
     ⟨
-      Data × n.topology.RouterID, n.input_rel rid dir
+      Data × n.topology.RouterID, n.input_rel' rid dir
     ⟩
 
   @[drcomponents]
@@ -51,9 +56,9 @@ namespace Graphiti.Noc
   @[drcomponents]
   def Noc.mk_router_conn (n : Noc Data netsz) (rid : n.RouterID) : List (RelInt n.State) :=
     (n.topology.neigh_out rid).mapFinIdx (λ (dir : Nat) (rid' : n.RouterID) Hdir =>
-      λ old_s new_s => ∃ val, ∃ (mid_s : n.State),
+      λ old_s new_s => ∃ (val : n.Flit) (mid_s : n.State),
         n.output_rel rid (Fin.mk (dir + 1) (by simpa)) old_s val mid_s ∧
-        n.routers.input_rel rid' mid_s[rid'] val new_s[rid']
+        n.input_rel rid' sorry mid_s val new_s
       )
 
   @[drcomponents]
