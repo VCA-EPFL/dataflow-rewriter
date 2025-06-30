@@ -2138,16 +2138,15 @@ theorem foldr_acc_plist_2 (acc : TModule Ident) (l : List α) (f : α → Type _
   (g_internals : (i : α) → (acc : Σ S, acc_int S) → (acc_int (f i acc.1)))
   (g_init_state : (i : α) → (acc : Σ S, acc_init S) → (acc_init (f i acc.1)))
   :
-  (List.foldr (λ i acc =>
-    ⟨
-      f i acc.1,
-      {
-        inputs := g_inputs i ⟨acc.1, acc.2.inputs⟩
-        outputs := g_outputs i ⟨acc.1, acc.2.outputs⟩
-        internals := g_internals i ⟨acc.1, acc.2.internals⟩
-        init_state := g_init_state i ⟨acc.1, acc.2.init_state⟩
-      }
-    ⟩) acc l)
+    dep_foldr acc l f
+      (λ i acc =>
+        {
+          inputs := g_inputs i ⟨acc.1, acc.2.inputs⟩
+          outputs := g_outputs i ⟨acc.1, acc.2.outputs⟩
+          internals := g_internals i ⟨acc.1, acc.2.internals⟩
+          init_state := g_init_state i ⟨acc.1, acc.2.init_state⟩
+        }
+      )
   =
     ⟨
       List.foldr f acc.1 l,
@@ -2163,9 +2162,9 @@ theorem foldr_acc_plist_2 (acc : TModule Ident) (l : List α) (f : α → Type _
       induction l with
       | nil => rfl
       | cons hd tl HR =>
-        dsimp; rw [HR]; dsimp; congr
+        dsimp at ⊢ HR; rw [HR]; dsimp; congr
         -- FIXME: This is false
-        · sorry
+        · simp; sorry
         · sorry
         · sorry
         · sorry

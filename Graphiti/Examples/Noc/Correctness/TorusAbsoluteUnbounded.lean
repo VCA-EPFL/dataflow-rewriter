@@ -16,29 +16,30 @@ set_option Elab.async false
 
 namespace Graphiti.Noc.DirectedTorusAbsoluteUnboundedCorrect
 
-  variable (dt : DirectedTorus)
   variable (Data : Type) [BEq Data] [LawfulBEq Data]
+  variable (dt : DirectedTorus)
 
   @[drunfold_defs]
-  def noc : Noc Data :=
+  def noc : Noc Data dt.netsz :=
     let topology := dt.to_topology
     let routing_pol := dt.AbsoluteRoutingPolicy Data
     {
       topology := topology
       routing_pol := routing_pol
-      routers := Router.Unbounded.queue topology.netsz routing_pol.Flit
+      routers := Router.Unbounded.queue dt.netsz routing_pol.Flit
     }
 
   @[drunfold_defs]
-  abbrev mod := (noc dt Data).build_module
+  abbrev mod := (noc Data dt).build_module
 
   @[drunfold_defs]
-  abbrev spec := (noc dt Data).spec_bag
+  abbrev spec := (noc Data dt).spec_bag
 
   @[drunfold_defs]
-  abbrev specT := (noc dt Data).spec_bagT
+  abbrev specT := (noc Data dt).spec_bagT
 
-  -- theorem route_xy_correct : Noc.Route_correct (noc dt Data) := by
+  -- TODO
+  -- theorem route_xy_correct : Noc.Route_correct (noc Data dt) := by
   --   intros src dst
   --   dsimp [noc, DirectedTorus.xy_to_noc, DirectedTorus.route_xy]
   --   intros H
@@ -51,11 +52,11 @@ namespace Graphiti.Noc.DirectedTorusAbsoluteUnboundedCorrect
   --   · simp [DirLocal'] at H
   --   · simp [DirLocal'] at H
 
-  def φ (I : (noc dt Data).State) (S : specT dt Data) : Prop :=
+  def φ (I : (noc Data dt).State) (S : specT Data dt) : Prop :=
     I.toList.flatten ⊆ S
 
   theorem refines_initial :
-    Module.refines_initial (mod dt Data) (spec dt Data) (φ dt Data) := by
+    Module.refines_initial (mod Data dt) (spec Data dt) (φ Data dt) := by
       dsimp [drcomponents, Module.refines_initial]
       intros i s
       subst i
@@ -64,11 +65,11 @@ namespace Graphiti.Noc.DirectedTorusAbsoluteUnboundedCorrect
       · rfl
       · unfold φ; simpa [drunfold_defs]
 
-  theorem refines_φ : (mod dt Data) ⊑_{φ dt Data} (spec dt Data) := by
+  theorem refines_φ : (mod Data dt) ⊑_{φ Data dt} (spec Data dt) := by
     intros i s H
     constructor
     · intros ident mid_i v Hrule
-      case_transition Hcontains : (Module.inputs (mod dt Data)), ident,
+      case_transition Hcontains : (Module.inputs (mod Data dt)), ident,
        (PortMap.getIO_not_contained_false' Hrule)
       dsimp [drcomponents] at v Hrule Hcontains ⊢
       obtain ⟨idx, Hidx⟩ := RelIO.liftFinf_in Hcontains
@@ -79,7 +80,7 @@ namespace Graphiti.Noc.DirectedTorusAbsoluteUnboundedCorrect
         dsimp
       rw [PortMap.rw_rule_execution RelIO.liftFinf_get] at Hrule
       dsimp [drcomponents, drunfold_defs] at Hrule
-      -- subst mid_i
+      obtain ⟨Hrule1, Hrule2⟩ := Hrule
       exists s.concat (Hv.mp v)
       exists s.concat (Hv.mp v)
       and_intros
@@ -87,35 +88,85 @@ namespace Graphiti.Noc.DirectedTorusAbsoluteUnboundedCorrect
         simpa [drcomponents]
       · constructor
       · rw [List.concat_eq_append]
-        -- FIXME: Fix when we have info on other element of mid_i
-        sorry
+        have hEq := vec_set_reconstruct (f := λ i => i ++ [Hv.mp v]) Hrule2 Hrule1
+        subst mid_i
+        intros flit hflit
+        simp at hflit
+        obtain ⟨l, hflit1, hflit2⟩ := hflit
+        obtain ⟨idx', hidx'⟩ := vec_in_if_idx hflit1
+        subst l
+        by_cases heq: idx = idx'
+        · subst idx'
+          simp at hflit2
+          cases hflit2
+          · unfold φ at H
+            have hin : flit ∈ (Vector.toList i).flatten := by
+              simp
+              exists i[idx]
+              apply And.intro
+              · apply idx_in_vec; exists idx
+              · simpa
+            specialize H hin
+            simp
+            left
+            assumption
+          · subst flit
+            simp only [
+              typeOf, eq_mp_eq_cast, List.mem_append, List.mem_cons,
+              List.not_mem_nil, or_false, or_true
+            ]
+        · simp at hflit2
+          rw [Vector.getElem_set_ne] at hflit2
+          · have hin : flit ∈ (Vector.toList i).flatten := by
+              simp
+              exists i[idx']
+              apply And.intro
+              · apply idx_in_vec; exists idx'
+              · simpa
+            specialize H hin
+            simp
+            left
+            assumption
+          · cases idx; cases idx'; simp at heq <;> simpa
     · intros ident mid_i v Hrule
-      case_transition Hcontains : (Module.outputs (mod dt Data)), ident,
+      case_transition Hcontains : (Module.outputs (mod Data dt)), ident,
        (PortMap.getIO_not_contained_false' Hrule)
       dsimp [drcomponents] at v Hrule Hcontains ⊢
       obtain ⟨idx, Heq⟩ := RelIO.liftFinf_in Hcontains
+      clear Hcontains
       subst ident
       rw [PortMap.rw_rule_execution RelIO.liftFinf_get] at Hrule
-      dsimp at Hrule
-      obtain ⟨head, Hrule1, Hrule2⟩ := Hrule
-      dsimp [drcomponents, drunfold_defs] at Hrule1 Hrule2
-      -- subst i
-      -- unfold φ at H
-      -- obtain ⟨idx', Hidx'⟩ := vec_set_subset_in H
-      -- exists s
-      -- exists s.remove idx'
-      -- and_intros
-      -- · constructor
-      -- · rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
-      --   dsimp only [drcomponents]
-      --   exists idx'
-      --   and_intros
-      --   · rfl
-      --   · -- From Hrule1 we have idx = head
-      --     -- Then we can conclude from Hidx'
-      --     sorry
-      -- · apply vec_set_cons_remove_in Hidx' H
-      sorry
+      dsimp only [RelIO] at Hrule
+      obtain ⟨head, ⟨Hrule1, Hrule2⟩, Hrule3⟩ := Hrule
+      dsimp only [drcomponents, drunfold_defs] at Hrule1 Hrule2
+      have_hole Hv : typeOf v = _ := by
+        unfold typeOf
+        rewrite [RelIO.liftFinf_get]
+        dsimp
+      have hv : (Hv.mp v, head) ∈ s := by
+        apply H
+        simp
+        apply Exists.intro i[↑idx]
+        and_intros
+        · apply idx_in_vec; exists idx
+        · sorry
+      -- We need to show that idx = head, this is done with a correctness for
+      -- route_xy
+      obtain ⟨idx', Hidx'⟩ := in_list_idx hv
+      apply Exists.intro s
+      apply Exists.intro (s.remove idx')
+      and_intros
+      · constructor
+      · rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
+        · dsimp only [drcomponents]
+          exists idx'
+          and_intros
+          · rfl
+          · simp at Hidx'; simp;
+            -- rw [Hidx'];
+            sorry
+      · unfold φ
+        sorry
     · intros rule mid_i HruleIn Hrule
       exists s
       and_intros
@@ -134,15 +185,15 @@ namespace Graphiti.Noc.DirectedTorusAbsoluteUnboundedCorrect
         -- apply List.Subset.trans (h₂ := H)
         -- dsimp [noc, drunfold_defs]
         -- TODO: annoying
-        -- apply vec_set_cons_in (v := i') (idx1 := (↑((noc dt Data).neigh idx1)[idx2])) (idx2 := idx1) (elt := val)
+        -- apply vec_set_cons_in (v := i') (idx1 := (↑((noc Data dt).neigh idx1)[idx2])) (idx2 := idx1) (elt := val)
         sorry
 
   theorem ϕ_indistinguishable :
-    ∀ i s, (φ dt Data) i s → Module.indistinguishable (mod dt Data) (spec dt Data) i s := by
+    ∀ i s, (φ Data dt) i s → Module.indistinguishable (mod Data dt) (spec Data dt) i s := by
       intros i s Hφ
       constructor
       <;> intros ident new_i v Hrule
-      · case_transition Hcontains : (Module.inputs (mod dt Data)), ident,
+      · case_transition Hcontains : (Module.inputs (mod Data dt)), ident,
          (PortMap.getIO_not_contained_false' Hrule)
         obtain ⟨idx, Hidx⟩ := RelIO.liftFinf_in Hcontains
         subst ident
@@ -156,7 +207,7 @@ namespace Graphiti.Noc.DirectedTorusAbsoluteUnboundedCorrect
         exists s.concat (Hv.mp v)
         rw [PortMap.rw_rule_execution RelIO.liftFinf_get]
         simpa [drcomponents]
-      · case_transition Hcontains : (Module.outputs (mod dt Data)), ident,
+      · case_transition Hcontains : (Module.outputs (mod Data dt)), ident,
          (PortMap.getIO_not_contained_false' Hrule)
         obtain ⟨idx, Hidx⟩ := RelIO.liftFinf_in Hcontains
         subst ident
@@ -181,10 +232,10 @@ namespace Graphiti.Noc.DirectedTorusAbsoluteUnboundedCorrect
         --   sorry
         sorry
 
-  theorem correct : (mod dt Data) ⊑ (spec dt Data) := by
+  theorem correct : (mod Data dt) ⊑ (spec Data dt) := by
     apply (
       Module.refines_φ_refines
-        (ϕ_indistinguishable dt Data)
-        (refines_initial dt Data)
-        (refines_φ dt Data)
+        (ϕ_indistinguishable Data dt)
+        (refines_initial Data dt)
+        (refines_φ Data dt)
     )

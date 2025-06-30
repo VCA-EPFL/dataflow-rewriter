@@ -148,6 +148,12 @@ namespace Graphiti.Noc
 
   variable {α} {n : Nat}
 
+  theorem vec_in_if_idx {v : Vector α n} {x : α} (hin : x ∈ v) :
+     ∃ i : Fin n, v[i] = x := by sorry
+
+  theorem idx_in_vec {v : Vector α n} {x : α} (hidx : ∃ i : Fin n, v[i] = x) :
+     x ∈ v := by sorry
+
   theorem vec_set_concat_perm {v : Vector (List α) n} {idx : Fin n} {l : List α} {elt : α} :
     v.toList.flatten.Perm l →
     (v.set idx (v[idx] ++ [elt])).toList.flatten.Perm (l ++ [elt]) := by
@@ -217,16 +223,54 @@ namespace Graphiti.Noc
       intros H1 H2 x Hx
       sorry
 
+    theorem vec_point_eq {v1 v2 : Vector α n} :
+      (∀ (idx : Fin n), v1[↑idx] = v2[↑idx]) → v1 = v2 := by
+        intros h
+        obtain ⟨⟨l1⟩, sz1⟩ := v1
+        obtain ⟨⟨l2⟩, sz2⟩ := v2
+        congr
+        dsimp at h
+        dsimp [Array.size] at sz1 sz2
+        induction l1 generalizing n l2 with
+        | nil =>
+          induction l2 with
+          | nil => rfl
+          | cons hd2 tl2 HR2 => rw [←sz1] at sz2; contradiction
+        | cons hd1 tl1 HR1 =>
+          induction l2 with
+          | nil => rw [←sz1] at sz2; contradiction
+          | cons hd2 tl2 HR2 =>
+            congr
+            · apply h ⟨0, by simpa [←sz2]⟩
+            · apply @HR1 (n - 1)
+              · intros idx
+                let idx' : Fin n := ⟨idx.1 + 1, by sorry⟩
+                specialize h idx'
+                simp only [List.getElem_cons_succ, idx'] at h
+                assumption
+              · simpa [←sz1]
+              · simpa [←sz2]
+
    theorem vec_set_reconstruct {v v' : Vector α n} {idx : Fin n} {f : α → α} :
-      (∀ idx' : Fin n, ¬(idx' = idx) → v'[idx'] = v[idx']) →
-      v'[idx] = f v[idx] →
-      v' = v.set idx (f v[idx])
+      (∀ idx' : Fin n, ¬(idx = idx') → v'[↑idx'] = v[↑idx']) →
+      v'[↑idx] = f v[↑idx] →
+      v' = v.set idx (f v[↑idx])
       := by
         intros H1 H2
-        -- have Htmp : v' = v'.set idx (f v[idx]) := by
-        --   sorry
-        -- sorry
-        sorry
+        apply vec_point_eq
+        intros idx'
+        by_cases heq: ↑idx' = ↑idx
+        · subst idx'
+          simp only [Fin.getElem_fin, Vector.getElem_set_self]
+          assumption
+        · dsimp [Fin.getElem_fin]
+          rw [Vector.getElem_set_ne]
+          · apply H1
+            sorry
+          · simp
+            intros h
+            apply heq
+            cases idx; cases idx'; simp at heq h <;> simp [h]
 
   -- DPList --------------------------------------------------------------------
 

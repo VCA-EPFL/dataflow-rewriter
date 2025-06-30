@@ -84,6 +84,10 @@ namespace Graphiti.Noc
   -- theorem magic {α α' β} {h : α = α'} {f : (α → β) → α → α}
   -- (h : α = α') : f p (h.mp v) = h.mpr (f (λ i => h.mp i) v)
 
+  theorem tmp_magic {α β T₁} [DecidableEq α] (l : AssocList α β) (l : T₁)
+    (p : α → β → Bool) (h : T₁ = AssocList α β) :
+    AssocList.eraseAllP p (h.mp l) = sorry := by sorry
+
   theorem eraseAll_depfoldr {α β δ} [DecidableEq α] (l : List δ) (p : α → Bool) (f : δ → Type → Type) (g : δ → AssocList α β) h acc :
       AssocList.eraseAllP (λ k _ => p k)
         (
@@ -103,6 +107,7 @@ namespace Graphiti.Noc
     | cons hd tl HR =>
       dsimp; rw [←HR, AssocList.eraseAllP_concat, AssocList.eraseAllP_map_comm]
 
+  set_option pp.proofs true in
   @[drunfold_defs]
   def_module expM : Module String (expT n ε) := [e| n.build_expr, ε] reduction_by
     dsimp [drunfold_defs, reduceAssocListfind?, reduceListPartition]
