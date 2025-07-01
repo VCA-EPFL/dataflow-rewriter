@@ -13,7 +13,6 @@ import Graphiti.AssocList.Lemmas
 import Graphiti.Module
 import Graphiti.ExprLow
 import Graphiti.Component
-import Graphiti.KernelRefl
 import Graphiti.Reduce
 import Graphiti.List
 import Graphiti.ExprHighLemmas
@@ -63,10 +62,12 @@ theorem queue_refine_ϕ_bag: queue T₁ ⊑_{φ} bag T₁ := by
      (PortMap.getIO_not_contained_false' Hrule)
     simp [queue] at Hrule Hcontains;
     subst ident
-    exists mid_i
+    exists s, mid_i
     and_intros
-    · unfold bag; rw [PortMap.rw_rule_execution (h := by apply PortMap.getIO_cons)]
-      subst i s; exists (Fin.mk 0 (by simpa))
+    · constructor
+    · dsimp [drcomponents]
+      rw [PortMap.rw_rule_execution (h := by apply PortMap.getIO_cons)]
+      subst i s; exists ⟨0, by simpa⟩
     · rfl
   · exists mid_i
 
