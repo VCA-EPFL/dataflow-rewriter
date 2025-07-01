@@ -17,7 +17,6 @@ import Graphiti.Reduce
 import Graphiti.List
 import Graphiti.ExprHighLemmas
 import Graphiti.Tactic
-import Mathlib.Tactic
 
 namespace Graphiti.BagQueue
 
@@ -26,18 +25,16 @@ open NatModule
 variable {T₁ : Type}
 
 instance : MatchInterface (queue T₁) (bag T₁) where
-  input_types := by
-    intro ident; unfold queue bag; simp [drnat]
+  input_types := by intro ident; rfl
   output_types := by
-    intro ident; unfold queue bag; simp
+    intro ident; dsimp [drcomponents]
     by_cases H: ({ inst := InstIdent.top, name := 0 }: InternalPort Nat) = ident
-    <;> simpa [*, drunfold, drnat, PortMap.getIO_cons]
+    <;> simpa [H, drunfold, drnat]
   inputs_present := by intros; rfl
   outputs_present := by
-    intros ident;
-    unfold queue bag
-    by_cases ({ inst := InstIdent.top, name := 0 }: InternalPort Nat) = ident
-    <;> simpa [*, drunfold, drnat]
+    intros ident; dsimp [drcomponents]
+    by_cases H: ({ inst := InstIdent.top, name := 0 }: InternalPort Nat) = ident
+    <;> simpa [H, drnat]
 
 def φ (I S : List T₁) : Prop := I = S
 
@@ -74,25 +71,27 @@ theorem queue_refine_ϕ_bag: queue T₁ ⊑_{φ} bag T₁ := by
 theorem ϕ_indistinguishable:
   ∀ x y, φ x y → Module.indistinguishable (queue T₁) (bag T₁) x y := by
     intros x y Hϕ
-    constructor <;> intros ident new_i v H <;> exists new_i <;> unfold queue at *
-    · by_cases Hident: ({ inst := InstIdent.top, name := 0 }: InternalPort Nat) = ident
-      · rw [PortMap.rw_rule_execution] at H
-        unfold bag; subst ident
-        rw [PortMap.rw_rule_execution]; rw [Hϕ] at H; exact H
-      · exfalso
-        apply (PortMap.getIO_cons_nil_false _ _ ident)
-        · exact Hident
-        · exact H
+    constructor
+    <;> intros ident new_i v H
+    <;> exists new_i
+    <;> dsimp [drcomponents] at *
     · by_cases Hident: ({ inst := InstIdent.top, name := 0 }: InternalPort Nat) = ident
       · rw [PortMap.rw_rule_execution] at H
         subst ident
-        rw [PortMap.rw_rule_execution (h := by apply PortMap.getIO_cons)]; rw [Hϕ] at H;
-        rw [←H]
-        exists (Fin.mk 0 (by simpa))
+        rw [PortMap.rw_rule_execution]
+        rw [Hϕ] at H
+        exact H
       · exfalso
-        apply (PortMap.getIO_cons_nil_false _ _ ident)
-        · exact Hident
-        · exact H
+        apply (PortMap.getIO_cons_nil_false _ _ ident _ _ _ Hident H)
+    · by_cases Hident: ({ inst := InstIdent.top, name := 0 }: InternalPort Nat) = ident
+      · rw [PortMap.rw_rule_execution] at H
+        subst ident
+        rw [PortMap.rw_rule_execution (h := by apply PortMap.getIO_cons)]
+        rw [Hϕ] at H
+        rw [←H]
+        exists ⟨0, by simpa⟩
+      · exfalso
+        exact (PortMap.getIO_cons_nil_false _ _ ident _ _ _ Hident H)
 
 theorem queue_refine_bag: queue T₁ ⊑ bag T₁ := by
   apply (Module.refines_φ_refines ϕ_indistinguishable φ_initial queue_refine_ϕ_bag)
