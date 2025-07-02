@@ -58,9 +58,9 @@ def Noc.mk_spec_router_output_rule (n : Noc Data netsz) (rid : n.RouterID) (dir 
 @[drcomponents]
 def Noc.spec_router' (n : Noc Data netsz) (rid : n.topology.RouterID) : NatModule n.routers.State :=
   {
-    inputs      := RelIO.liftFinf ((n.topology.neigh_inp rid).length + 1) (n.mk_spec_router_input_rule rid)
-    outputs     := RelIO.liftFinf ((n.topology.neigh_out rid).length + 1) (n.mk_spec_router_output_rule rid)
-    init_state  := λ s => s = n.routers.init_state
+    inputs := RelIO.liftFinf ((n.topology.neigh_inp rid).length + 1) (n.mk_spec_router_input_rule rid)
+    outputs := RelIO.liftFinf ((n.topology.neigh_out rid).length + 1) (n.mk_spec_router_output_rule rid)
+    init_state := λ s => s = n.routers.init_state
   }
 
 @[drcomponents]

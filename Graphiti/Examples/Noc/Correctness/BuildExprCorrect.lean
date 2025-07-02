@@ -41,6 +41,7 @@ namespace Graphiti.Noc
   class EnvCorrect (n : Noc Data netsz) (ε : Env) where
     rmod        : n.RouterID → TModule String
     rmod_ok     : n.env_rmod_ok rmod
+    rmod_ok'    : n.env_rmod_ok' rmod
     rmod_in_ε   : n.env_rmod_in ε rmod
     rmodT       : Type _
     empty_in_ε  : n.env_empty ε

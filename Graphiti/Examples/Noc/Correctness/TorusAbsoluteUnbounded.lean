@@ -23,11 +23,8 @@ namespace Graphiti.Noc.DirectedTorusAbsoluteUnboundedCorrect
   def noc : Noc Data dt.netsz :=
     let topology := dt.to_topology
     let routing_pol := dt.AbsoluteRoutingPolicy Data
-    {
-      topology := topology
-      routing_pol := routing_pol
-      routers := Router.Unbounded.queue dt.netsz routing_pol.Flit
-    }
+    let routers := Router.Unbounded.queue dt.netsz routing_pol.Flit
+    { topology, routing_pol, routers }
 
   @[drunfold_defs]
   abbrev mod := (noc Data dt).build_module

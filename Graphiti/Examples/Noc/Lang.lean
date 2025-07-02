@@ -54,16 +54,16 @@ namespace Graphiti.Noc
     Fin (List.length (t.neigh_inp rid) + 1)
 
   abbrev Topology.mkDir_out (t : Topology netsz) (rid : t.RouterID) (i : Nat) (h : i < List.length (t.neigh_out rid)) : t.Dir_out rid :=
-    Fin.mk (i + 1) (by simpa)
+    ⟨i + 1, by simpa only [Nat.add_lt_add_iff_right]⟩
 
   abbrev Topology.mkDir_inp (t : Topology netsz) (rid : t.RouterID) (i : Nat) (h : i < List.length (t.neigh_inp rid)) : t.Dir_inp rid :=
-    Fin.mk (i + 1) (by simpa)
+    ⟨i + 1, by simpa only [Nat.add_lt_add_iff_right]⟩
 
   def Topology.DirLocal_out (t : Topology netsz) {rid : t.RouterID} : t.Dir_out rid :=
-    Fin.mk 0 (by simpa)
+    ⟨0, by simpa only [Nat.zero_lt_succ]⟩
 
   def Topology.DirLocal_inp (t : Topology netsz) {rid : t.RouterID} : t.Dir_inp rid :=
-    Fin.mk 0 (by simpa)
+    ⟨0, by simp only [Nat.zero_lt_succ]⟩
 
   abbrev Topology.out_len (t : Topology netsz) (rid : t.RouterID) : Nat :=
     (t.neigh_out rid).length
@@ -136,9 +136,9 @@ namespace Graphiti.Noc
   -- Noc -----------------------------------------------------------------------
 
   structure Noc (Data : Type) [BEq Data] [LawfulBEq Data] (netsz : Netsz) where
-    topology      : Topology netsz
-    routing_pol   : RoutingPolicy topology Data
-    routers       : Router netsz routing_pol.Flit
+    topology    : Topology netsz
+    routing_pol : RoutingPolicy topology Data
+    routers     : Router netsz routing_pol.Flit
 
   variable {Data : Type} [BEq Data] [LawfulBEq Data] {netsz : Netsz}
 

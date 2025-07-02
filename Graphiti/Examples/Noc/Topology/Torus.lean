@@ -34,31 +34,29 @@ namespace Graphiti.Noc
 
   def DirectedTorus.get_x (d : DirectedTorus) (i : d.RouterID) : d.pos_x :=
     -- TODO
-    Fin.mk (i.toNat % d.size_x) (by sorry)
+    ⟨i.toNat % d.size_x, by sorry⟩
 
   def DirectedTorus.get_y (d : DirectedTorus) (i : d.RouterID) : d.pos_y :=
     -- TODO
-    Fin.mk ((i.toNat / d.size_x) % d.size_y) (by sorry)
+    ⟨(i.toNat / d.size_x) % d.size_y, by sorry⟩
 
   def DirectedTorus.get_rid (d : DirectedTorus) (x : d.pos_x) (y : d.pos_y) : d.RouterID :=
     -- TODO
-    Fin.mk (y * d.size_x + x) (by sorry)
+    ⟨y * d.size_x + x, by sorry⟩
 
   def DirectedTorus.get_succ_x (d : DirectedTorus) (x : d.pos_x) : d.pos_x :=
     -- TODO
-    Fin.mk ((x.toNat + 1) % d.size_x) (by sorry)
+    ⟨(x.1 + 1) % d.size_x, by sorry⟩
 
   def DirectedTorus.get_succ_y (d : DirectedTorus) (y : d.pos_y) : d.pos_y :=
     -- TODO
-    Fin.mk ((y.toNat + 1) % d.size_y) (by sorry)
+    ⟨(y.1 + 1) % d.size_y, by sorry⟩
 
   def DirectedTorus.get_pred_x (d : DirectedTorus) (x : d.pos_x) : d.pos_x :=
-    -- TODO
-    sorry
+    ⟨if x.1 == 0 then d.size_x - 1 else x.1 - 1, by sorry⟩
 
   def DirectedTorus.get_pred_y (d : DirectedTorus) (y : d.pos_y) : d.pos_y :=
-    -- TODO
-    sorry
+    ⟨if y.1 == 0 then d.size_y - 1 else y.1 - 1, by sorry⟩
 
   def DirectedTorus.neigh_out (d : DirectedTorus) : d.Neigh :=
     λ src =>
@@ -78,7 +76,9 @@ namespace Graphiti.Noc
         d.get_rid src_x (d.get_pred_y src_y),
       ]
 
-  def DirectedTorus.neigh_ok (d : DirectedTorus) : Neigh_ok' d.netsz d.neigh_inp d.neigh_out :=
+  theorem DirectedTorus.neigh_ok (d : DirectedTorus) : Neigh_ok' d.netsz d.neigh_inp d.neigh_out := by
+    intro rid rid'
+    dsimp [neigh_out, neigh_inp, get_rid]
     -- TODO
     sorry
 
@@ -97,13 +97,13 @@ namespace Graphiti.Noc
     (d.neigh_inp src).length = 2 := by simpa [DirectedTorus.neigh_inp]
 
   abbrev DirectedTorus.DirX_out (d : DirectedTorus) {src} : d.to_topology.Dir_out src :=
-    Fin.mk 1 (by simp [DirectedTorus.neigh_out_uniform, drunfold_defs])
+    ⟨1, by simp [DirectedTorus.neigh_out_uniform, drunfold_defs]⟩
 
   abbrev DirectedTorus.DirY_out (d : DirectedTorus) {src} : d.to_topology.Dir_out src :=
-    Fin.mk 2 (by simpa [DirectedTorus.neigh_out_uniform, drunfold_defs])
+    ⟨2, by simpa [DirectedTorus.neigh_out_uniform, drunfold_defs]⟩
 
   def DirectedTorus.DirLocal_out (d : DirectedTorus) {src} : d.to_topology.Dir_out src :=
-    Fin.mk 0 (by simpa)
+    ⟨0, by simpa⟩
 
   -- Absolute Header, XY Routing Policy ------------------------------------------
 

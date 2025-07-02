@@ -49,7 +49,6 @@ namespace Graphiti.Noc
           map_mapFinIdx, lift_fin
         ]
 
-
   theorem fin_in_fin_range (sz : Nat) (i : Fin sz) : i ∈ fin_range sz := by
     simp only [fin_range, List.mem_mapFinIdx, List.length_replicate]
     exists i.1, i.2

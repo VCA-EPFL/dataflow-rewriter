@@ -7,6 +7,7 @@ Authors: Yann Herklotz, Gurvan Debaussart
 import Graphiti.Module
 import Graphiti.ModuleLemmas
 import Graphiti.Component
+import Graphiti.ExprLow
 import Graphiti.Examples.Noc.Lang
 
 namespace Graphiti.Noc.Router
@@ -23,6 +24,10 @@ namespace Graphiti.Noc.Router
         input_rel   := λ rid s flit s' => s' = s ++ [flit]
         output_rel  := λ rid s flit s' => s = flit :: s'
       }
+
+    def queueM : ExprLow String :=
+      .base { } "Hello"
+
 
     @[drunfold_defs]
     def bag : Router netsz Flit :=

@@ -34,3 +34,10 @@
 
 - We need to simplify `dep_foldr` when β is a product type, so when we are
   producing DPList'
+
+- We cannot really compile computable function into pure module unfortunately.
+  We could have our own custom small language to do it, but it would be very
+  annoying...
+
+- We could have a `Router` implementation which depends on an `Arbiter`
+  definition
