@@ -43,7 +43,6 @@ namespace Graphiti.Noc
     rmod_ok     : n.env_rmod_ok rmod
     rmod_ok'    : n.env_rmod_ok' rmod
     rmod_in_ε   : n.env_rmod_in ε rmod
-    rmodT       : Type _
     empty_in_ε  : n.env_empty ε
 
   variable (n : Noc Data netsz) (ε : Env) [EC : EnvCorrect n ε]
@@ -160,7 +159,7 @@ namespace Graphiti.Noc
       (g_init_state := λ i acc =>
         λ x => (EC.rmod i).snd.init_state x.1 ∧ acc.2 x.2
       )
-    rw [this]
+    rw [←Module.dep_foldr, this]
     clear this
     rw [Module.foldr_connect']
     dsimp
@@ -196,11 +195,14 @@ namespace Graphiti.Noc
   -- TODO: Proper name
   def tmp2 {rid : Fin (fin_range netsz).length} :
   (EC.rmod ((fin_range netsz).get rid)).1 =
-    (EC.rmod (Fin.mk rid (by cases rid; rename_i n h; rw [fin_range_len] at h; simpa))).1 := by
+    (EC.rmod ⟨rid, by cases rid; rename_i n h; rw [fin_range_len] at h; simpa⟩).1 := by
       rw [fin_range_get]; rfl
 
   def I_cast_get (I : expT n ε) (rid : n.RouterID) :=
     ((tmp2 n ε).mp (I.get' rid.1 (by rw [fin_range_len]; exact rid.2)))
+
+  set_option pp.proofs true in
+  #check I_cast_get
 
   def φ (I : expT n ε) (S : n.State) : Prop :=
     ∀ (rid : n.RouterID),
@@ -228,7 +230,6 @@ namespace Graphiti.Noc
     ∀ (rid : n.RouterID), (EC.rmod rid).2.init_state (I_cast_get n ε i rid) := by
       dsimp [drunfold_defs] at Hinit i
       revert n
-
       induction netsz with
       | zero => intro _ _ _ _ ⟨_, _⟩; contradiction
       | succ netsz' HR =>
@@ -236,6 +237,7 @@ namespace Graphiti.Noc
         intro n EC i Hinit ⟨ridv, Hrid⟩
         induction ridv with
         | zero =>
+          simp
           -- TODO: This is true and should be provable but there is a lot of
           -- annoying casts to handle everywhere
           sorry
