@@ -6,6 +6,7 @@ Authors: Hamza Remmal
 
 import Graphiti.Module
 import Graphiti.ModuleLemmas
+import Graphiti.Examples.Flushability.DeterministicModule
 import Mathlib.Tactic
 
 namespace Graphiti
@@ -14,7 +15,9 @@ variable {Ident S: Type _}
 variable [DecidableEq Ident]
 variable (mod: Module Ident S)
 
-class DiamondModule: Prop where
+section Confluence
+
+class DiamondConfluent: Prop where
   inputs: ∀ ident s₁ v s₂ s₃,
     (mod.inputs.getIO ident).snd s₁ v s₂ → (mod.inputs.getIO ident).snd s₁ v s₃
     → ∃ r₃ ∈ mod.internals, ∃ r₄ ∈ mod.internals, ∃ s₄, r₃ s₂ s₄ ∧ r₄ s₃ s₄
@@ -73,7 +76,11 @@ class LocallyConfluent: Prop where
     (mod.outputs.getIO ident).snd s₁ v s₂ → (mod.outputs.getIO ident).snd s₁ v s₃
     → ∃ s₄, existSR mod.internals s₂ s₄ ∧ existSR mod.internals s₃ s₄
 
-instance diamond_is_strong [dm: DiamondModule mod] : StronglyConfluent mod :=
+end Confluence
+
+section ConfluenceDerivation
+
+instance diamond_is_strong [dm: DiamondConfluent mod] : StronglyConfluent mod :=
 by
   constructor
   . intros _ _ _ s₂ s₃ _ _
@@ -129,10 +136,10 @@ by
           apply existSR_single_step <;> assumption
         apply existSR_transitive <;> assumption
       | step i₁ i₂ _ r₂ =>
-        have: ∃ s₄, (existSR mod.internals mid s₄ ∧ ∃ r ∈ mod.internals, r i₂ s₄) ∨ (existSR mod.internals i₂ s₄ ∧ ∃ r ∈ mod.internals, r mid s₄) := by
-          apply sc.internals _ _ _ r₁ <;> assumption
-        obtain ⟨s₄, h⟩ := this
-        rcases h with h | h <;> obtain ⟨_, _⟩ := h
+        rename_i ih₁ _ _ ih₂
+        apply ih₁
+        . sorry
+        . sorry
         . sorry
         . sorry
   . intros _ s₁ _ s₂ s₃ _ _
@@ -176,5 +183,67 @@ by
       apply existSR_single_step <;> assumption
     apply qc.internals _ _ _ r₁ <;> assumption
   . exact qc.outputs
+
+end ConfluenceDerivation
+
+section Determinism
+
+theorem bla {α : Type _} {a c : α} (b : List α) :
+  a ∈ b → c ∈ b → b.length = 1 → a = c :=
+by
+  intro ha hc hl
+  cases b with
+  | nil => exfalso; rw [List.length_nil] at hl; contradiction
+  | cons x xs => cases xs with
+    | nil =>
+      simp at *; subst_vars; rfl
+    | cons x' xs' =>
+      repeat rw [List.length_cons] at hl
+      rw [Nat.add_eq_right] at hl
+      rw [Nat.add_eq_zero] at hl
+      cases ‹ _ ∧ _ ›
+      contradiction
+
+-- TODO: This proof relies on the fact that the module has a single internal rule
+--       Actually, deterministic → GloballyConfluent in that case
+--       This instance is useless because of the implicit argument
+instance [dm: Deterministic mod] {sr: mod.internals.length = 1}: QuasiConfluent mod := {
+  inputs    := by
+    intros _ _ _ s₂ s₃ _ _
+    use s₂
+    and_intros
+    . apply existSR_reflexive
+    . have: s₂ = s₃ := by apply dm.input_deterministic <;> assumption
+      rw [this]
+      apply existSR_reflexive
+  internals := by
+    intros s₁ s₂ s₃ r₁ hr₁ _ h
+    cases h with
+    | done =>
+      use s₂ <;> and_intros
+      . apply existSR_reflexive
+      . apply existSR_single_step <;> assumption
+    | step _ mid _ r₂  =>
+      have: r₁ = r₂ := by
+        apply bla _ (by assumption) at hr₁
+        specialize hr₁ sr
+        symm <;> assumption
+      subst this
+      have: mid = s₂ := by
+        apply dm.internal_deterministic <;> assumption
+      subst this
+      use s₃
+      simpa [existSR_reflexive]
+  outputs   := by
+    intros _ _ _ s₂ s₃ _ _
+    use s₂
+    and_intros
+    . apply existSR_reflexive
+    . have: s₂ = s₃ := by apply dm.output_deterministic <;> assumption
+      rw [this]
+      apply existSR_reflexive
+}
+
+end Determinism
 
 end Graphiti

@@ -47,6 +47,7 @@ definition of refinement, where inputs can be followed by internal steps, but ou
 connect an output to an input, because it is guaranteed that there won't be any intermediate internal steps that have to
 be executed in between the output rule and input rule execution.
 -/
+@[ext]
 structure Module (Ident S : Type _) where
   inputs : PortMap Ident (RelIO S)
   outputs : PortMap Ident (RelIO S)
