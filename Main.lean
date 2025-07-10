@@ -23,6 +23,7 @@ structure CmdArgs where
   noDynamaticDot : Bool
   parseOnly : Bool
   graphitiOracle : Option String
+  slow : Bool
   help : Bool
 deriving Inhabited
 
@@ -53,6 +54,8 @@ def parseArgs (args : List String) : Except String CmdArgs := go CmdArgs.empty a
       go {c with parseOnly := true} rst
     | .cons "--oracle" (.cons fp rst) =>
       go {c with graphitiOracle := fp} rst
+    | .cons "--slow" rst =>
+      go {c with slow := true} rst
     | .cons fp rst => do
       if "-".isPrefixOf fp then throw s!"argument '{fp}' not recognised"
       if c.inputFile.isSome then throw s!"more than one input file passed"
@@ -154,33 +157,42 @@ def writeLogFile (parsed : CmdArgs) (st : List RewriteInfo) := do
   | .none =>
     if parsed.logStdout then IO.println <| Lean.toJson st
 
-def runRewriter {α} (parsed : CmdArgs) (st : List RewriteInfo) (r : RewriteResult α) : IO (α × List RewriteInfo) :=
+def runRewriter {α} (parsed : CmdArgs) (g : α) (st : List RewriteInfo) (r : RewriteResult α) : IO (α × List RewriteInfo) :=
   match r.run st with
-  | .ok a st' => writeLogFile parsed st *> pure (a, st')
+  | .ok a st' => writeLogFile parsed st' *> pure (a, st')
+  | .error .done st' => writeLogFile parsed st' *> pure (g, st')
+  | .error p st' => do
+    IO.eprintln p
+    writeLogFile parsed st'
+    IO.Process.exit 1
+
+def runRewriter' {α} (parsed : CmdArgs) (st : List RewriteInfo) (r : RewriteResult α) : IO (α × List RewriteInfo) :=
+  match r.run st with
+  | .ok a st' => writeLogFile parsed st' *> pure (a, st')
   | .error p st' => do
     IO.eprintln p
     writeLogFile parsed st'
     IO.Process.exit 1
 
 def rewriteGraph (parsed : CmdArgs) (g : ExprHigh String) (st : List RewriteInfo)
-    : IO (ExprHigh String × List RewriteInfo) := do
-  let (rewrittenExprHigh, st) ← runRewriter parsed st (normaliseLoop g)
-  let (rewrittenExprHigh, st) ← runRewriter parsed st (pureGeneration rewrittenExprHigh LoopRewrite.nonPureMatcher LoopRewrite.nonPureForkMatcher)
+    : IO (ExprHigh String × List RewriteInfo × List RewriteInfo) := do
+  let (rewrittenExprHigh, st) ← runRewriter parsed g st (normaliseLoop g)
+  let (rewrittenExprHigh, st) ← runRewriter parsed rewrittenExprHigh st (pureGeneration rewrittenExprHigh LoopRewrite.nonPureMatcher LoopRewrite.nonPureForkMatcher)
   let (rewrittenExprHigh, st) ← eggPureGenerator 100 parsed LoopRewrite.boxLoopBodyOther rewrittenExprHigh st <* writeLogFile parsed st
-  let (rewrittenExprHigh, st) ← runRewriter parsed st (LoopRewrite2.rewrite.run "loop_rw_" rewrittenExprHigh)
-  return (rewrittenExprHigh, st)
+  let (rewrittenExprHigh, st) ← runRewriter parsed rewrittenExprHigh st (LoopRewrite2.rewrite.run "loop_rw_" rewrittenExprHigh)
+  return (rewrittenExprHigh, st, st)
 
 def rewriteGraphAbs (parsed : CmdArgs) (g : ExprHigh String) (st : List RewriteInfo)
     : IO (ExprHigh String × List RewriteInfo × List RewriteInfo) := do
-  let (g, st) ← runRewriter parsed st (normaliseLoop g)
+  let (g, st) ← runRewriter parsed g st (normaliseLoop g)
 
   let a : Abstraction String := ⟨λ g => LoopRewrite.boxLoopBody g >>= λ (a, _b) => pure (a, []), "M"⟩
-  let ((bigg, concr), st) ← runRewriter parsed st <| a.run "abstr_" g
+  let ((bigg, concr), st) ← runRewriter' parsed st <| a.run "abstr_" g
   let .some g := concr.expr.higherSS | throw <| .userError s!"{decl_name%}: failed to higher expr"
   -- IO.print <| bigg
   let st_final := st
 
-  let (g, st) ← runRewriter parsed st (pureGeneration g (allPattern LoopRewrite.isNonPure') (allPattern LoopRewrite.isNonPureFork'))
+  let (g, st) ← runRewriter parsed g st (pureGeneration g (allPattern LoopRewrite.isNonPure') (allPattern LoopRewrite.isNonPureFork'))
 
   let (g, st) ← eggPureGenerator 100 parsed LoopRewrite.boxLoopBodyOther' g st <* writeLogFile parsed st
 
@@ -188,12 +200,12 @@ def rewriteGraphAbs (parsed : CmdArgs) (g : ExprHigh String) (st : List RewriteI
 
   -- The first concretisation replaces "M" by the "pure" block
   let newConcr : Concretisation String := ⟨subexpr, concr.2⟩
-  let (g, st) ← runRewriter parsed st <| newConcr.run "concr_" bigg
+  let (g, st) ← runRewriter' parsed st <| newConcr.run "concr_" bigg
 
-  let (g, st) ← runRewriter parsed st (LoopRewrite2.rewrite.run "loop_rw_" g)
+  let (g, st) ← runRewriter parsed g st (LoopRewrite2.rewrite.run "loop_rw_" g)
 
   let newConcr' : Concretisation String := ⟨concr.1, typ⟩
-  let (g, st) ← runRewriter parsed st <| newConcr'.run "concr2_" g
+  let (g, st) ← runRewriter parsed g st <| newConcr'.run "concr2_" g
 
   return (g, st_final, st)
 
@@ -218,7 +230,7 @@ def main (args : List String) : IO Unit := do
   let mut st : List RewriteInfo := default
 
   if !parsed.parseOnly then
-    let (g', _, st') ← rewriteGraphAbs parsed rewrittenExprHigh st
+    let (g', _, st') ← (if parsed.slow then rewriteGraph else rewriteGraphAbs) parsed rewrittenExprHigh st
     rewrittenExprHigh := g'; st := st'
   -- IO.println (repr (rewrittenExprHigh.modules.toList.map Prod.fst))
   let some l :=
