@@ -229,11 +229,14 @@ def addOptArgs (s : String) (l : List Parser.DotAttr) (current_extra_args : Asso
   | some el => return current_extra_args.cons el.key el.value.trim
   | _ => return current_extra_args
 
-def translateSize : String → Except String String
+def translateSize' : String → Except String String
 | "0" => .ok "Unit"
 | "1" => .ok "Bool"
 | "32" => .ok "T"
 | s => .error s!"Could not parse size: {s}"
+
+def translateSize (s : String) : Except String String :=
+  translateSize' (s.takeWhile (·.isDigit))
 
 /--
 Parse a dot expression that comes from Dynamatic.  It returns the graph

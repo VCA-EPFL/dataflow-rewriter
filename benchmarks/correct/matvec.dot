@@ -82,9 +82,10 @@ Digraph G {
         "ret_0" [type = "Operator", bbID= 5, op = "ret_op", in = "in1:32 ", out = "out1:32 ", delay=0.000, latency=0, II=1, tagged=false, taggers_num=0, tagger_id=-1];
 
     }
-    "MC_V" [type = "MC", bbID= 0, in = "in1:32 ", out = "out1:32 ", memory = "V", bbcount = 0, ldcount = 1, stcount = 0];
-    "MC_M" [type = "MC", bbID= 0, in = "in1:32 ", out = "out1:32 ", memory = "M", bbcount = 0, ldcount = 1, stcount = 0];
-    "MC_Out" [type = "MC", bbID= 0, in = "in1:32 in2:32 in3:32 ", out = "out1:0 ", memory = "Out", bbcount = 1, ldcount = 0, stcount = 1];
+    "MC_V" [type = "MC", bbID= 0, in = "in1:32*l0a ", out = "out1:32*l0d", memory = "V", bbcount = 0, ldcount = 1, stcount = 0];
+    "MC_M" [type = "MC", bbID= 0, in = "in1:32*l0a ", out = "out1:32*l0d", memory = "M", bbcount = 0, ldcount = 1, stcount = 0];
+    "MC_Out" [type = "MC", bbID= 0, in = "in1:32*c0 in2:32*s0a in3:32*s0d ", out = "out1:0*e ", memory = "Out", bbcount = 1, ldcount = 0, stcount = 1];
+
     "sink_0" [type = "Sink", bbID= 0, in = "in1:32"];
     "sink_1" [type = "Sink", bbID= 0, in = "in1:32"];
     "sink_2" [type = "Sink", bbID= 0, in = "in1:0"];
