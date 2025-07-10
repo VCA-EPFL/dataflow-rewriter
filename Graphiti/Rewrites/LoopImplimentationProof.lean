@@ -187,13 +187,17 @@ axiom forall₂_cons_reverse {α}{β} {R : α → β → Prop} {a b l₁ l₂} :
   -- rw [←Batteries.AssocList.findEntry?_eq, ←Option.map_eq_none', ←Batteries.AssocList.find?_eq_findEntry?]
   -- have := find?_eraseAll_eq a T; unfold eraseAll at *; rw [eraseAllP_TR_eraseAll] at *; assumption
 
-
-axiom state_relation_preserve_input:
+theorem state_relation_preserve_input:
   ∀ (s s' : rhsGhostType Data) rule,
     rule ∈ ( rhsGhostEvaled f).internals ->
     rule s s' ->
     state_relation f s ->
-    (List.map Prod.snd s.2.2.2.1.1 ++ List.map Prod.fst s.2.2.2.1.2.2) = (List.map Prod.snd s'.2.2.2.1.1 ++ List.map Prod.fst s'.2.2.2.1.2.2)
+    (List.map Prod.snd s.2.2.2.1.1 ++ List.map Prod.fst s.2.2.2.1.2.2) = (List.map Prod.snd s'.2.2.2.1.1 ++ List.map Prod.fst s'.2.2.2.1.2.2) := by
+  intro s s' rule hrulein hrule hstate
+  dsimp [rhsGhostEvaled] at hrulein
+  fin_cases hrulein <;> try grind
+  dsimp [Module.liftR, Module.liftL] at *
+  grind
 
 axiom in_eraseAll_noDup {α β γ δ} {l : List ((α × β) × γ × δ)} (Ta : α) [DecidableEq α](a : AssocList α (β × γ × δ)):
   (List.map Prod.fst ( List.map Prod.fst (l ++ (List.map (fun x => ((x.1, x.2.1), x.2.2.1, x.2.2.2)) a.toList)))).Nodup ->
