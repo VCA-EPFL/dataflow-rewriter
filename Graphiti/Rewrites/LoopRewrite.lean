@@ -134,6 +134,7 @@ def matcher (g : ExprHigh String) : RewriteResult (List String × List String) :
 --                merge1 -> merge2 [from = "out1", to = "in1"]; ] /- <--- replace this with the input graph to test with (as an ExprHigh). -/
 --        ).run' default
 
+@[drunfold_defs]
 def lhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
       : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i_in [type = "io"];
@@ -167,6 +168,7 @@ def lhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
 
 -- #eval lhs Unit Unit Unit (λ _ _ _ => False) (λ _ _ _ => False) |>.1 |> IO.print
 
+@[drunfold_defs]
 def lhs_extract T := lhs Unit T (λ _ => default) |>.1
   |>.extract ["mux", "condition_fork", "branch", "tag_split", "mod", "loop_init", "queue",  "queue_out"]
   |>.get rfl
@@ -177,12 +179,15 @@ theorem lhs_type_independent a f a₂ f₂ T
         [Inhabited a] [Inhabited a₂]
   : (lhs a T f).fst = (lhs a₂ T f₂).fst := by rfl
 
-def lhsLower T := (lhs_extract T).fst.lower.get rfl
+@[drunfold_defs]
+def lhsLower T := (lhs_extract T).fst.lower_TR.get rfl
 
 abbrev TagT := Nat
 
+@[drunfold_defs]
 def liftF {α β γ δ} (f : α -> β × δ) : γ × α -> (γ × β) × δ | (g, a) => ((g, f a |>.fst), f a |>.snd)
 
+@[drunfold_defs]
 def rhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
     : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i_in [type = "io"];
@@ -206,13 +211,20 @@ def rhs (T : Type) [Inhabited T] (Tₛ : String) (f : T → T × Bool)
     branch -> tagger [from="out2", to="in1"];
   ]
 
-def rhsLower T := (rhs Unit T (λ _ => default) |>.1).lower.get rfl
+@[drunfold_defs]
+def rhs_extract T := rhs Unit T (λ _ => default) |>.1
+  |>.extract ["tag_split", "tagger", "merge", "branch", "mod"]
+  |>.get rfl
+
+@[drunfold_defs]
+def rhsLower T := (rhs_extract T |>.1).lower_TR.get rfl
 
 theorem rhs_type_independent b f b₂ f₂ T [Inhabited b] [Inhabited b₂]
   : (rhs b T f).fst = (rhs b₂ T f₂).fst := by rfl
 
 -- #eval IO.print ((rhs Unit "T" (λ _ => default)).fst)
 
+@[drunfold_defs]
 def rewrite : Rewrite String :=
   { abstractions := [],
     pattern := unsafe matcher,
@@ -220,10 +232,10 @@ def rewrite : Rewrite String :=
     name := .some "loop-rewrite"
   }
 
-  /--
+/--
 Essentially tagger + join without internal rule
 -/
-@[drunfold] def NatModule.tagger_untagger_val_ghost (TagT : Type 0) [_i: DecidableEq TagT] (T : Type 0) (name := "tagger_untagger_val_ghost") : NatModule (NatModule.Named name (List (TagT × T) × Batteries.AssocList TagT (T × (Nat × T)) × List (T × (Nat × T)))) :=
+@[drunfold_defs] def NatModule.tagger_untagger_val_ghost (TagT : Type 0) [_i: DecidableEq TagT] (T : Type 0) (name := "tagger_untagger_val_ghost") : NatModule (NatModule.Named name (List (TagT × T) × Batteries.AssocList TagT (T × (Nat × T)) × List (T × (Nat × T)))) :=
   {
     inputs := [
       -- Complete computation
@@ -255,7 +267,7 @@ Essentially tagger + join without internal rule
     init_state := λ s => s = ⟨[], Batteries.AssocList.nil, []⟩,
   }
 
-@[drunfold] def StringModule.tagger_untagger_val_ghost TagT [DecidableEq TagT] T :=
+@[drunfold_defs] def StringModule.tagger_untagger_val_ghost TagT [DecidableEq TagT] T :=
   NatModule.tagger_untagger_val_ghost TagT T |>.stringify
 
 def liftF2 {α β γ δ} (f : α -> β × δ) : α × (Nat × γ) -> (β × (Nat × γ)) × δ
@@ -263,6 +275,7 @@ def liftF2 {α β γ δ} (f : α -> β × δ) : α × (Nat × γ) -> (β × (Nat
   let b := f a
   ((b.1, (g.1 + 1, g.2)), b.2)
 
+@[drunfold_defs]
 def ghost_rhs {Data : Type} (DataS : String) (f : Data → Data × Bool)
     : ExprHigh String × IdentMap String (TModule1 String) := [graphEnv|
     i_in [type = "io"];
@@ -286,9 +299,15 @@ def ghost_rhs {Data : Type} (DataS : String) (f : Data → Data × Bool)
     branch -> tagger [from="out2", to="in1"];
   ]
 
+@[drunfold_defs]
+def ghost_rhs_extract T := @ghost_rhs Unit T (λ _ => default) |>.1
+  |>.extract ["tag_split", "tagger", "merge", "branch", "mod"]
+  |>.get rfl
+
 def environmentRhsGhost {Data : Type} (DataS : String) (f : Data → Data × Bool): IdentMap String (TModule1 String) := ghost_rhs DataS f |>.snd
 
-def rhsGhostLower (DataS : String):= (@ghost_rhs Unit DataS (λ _ => default) |>.1).lower.get rfl
+@[drunfold_defs]
+def rhsGhostLower (DataS : String):= (@ghost_rhs_extract DataS |>.1).lower_TR.get rfl
 
 theorem rhs_ghost_type_independent b f b₂ f₂ T [Inhabited b] [Inhabited b₂]
   : (@ghost_rhs b T f).fst = (@ghost_rhs b₂ T f₂).fst := by rfl
