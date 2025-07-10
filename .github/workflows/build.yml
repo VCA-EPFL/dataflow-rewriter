@@ -54,3 +54,7 @@ jobs:
         continue-on-error: true
         run: |
           lake exe graphiti benchmarks/type-correct/preprocessed-baseline-matvec.dot -o out.dot -l out.json --oracle graphiti_oracle
+
+      - name: build loop rewrite
+        run: |
+          lake build Graphiti.Rewrites.LoopImplimentationProof

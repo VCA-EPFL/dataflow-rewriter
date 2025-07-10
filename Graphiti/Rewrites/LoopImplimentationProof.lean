@@ -214,14 +214,7 @@ axiom notinfirst {A B} {x : List (A × B)} {a} :
 
 set_option maxHeartbeats 0
 
-axiom state_relation_preserve:
-  ∀ (s s' : rhsGhostType Data) rule,
-    rule ∈ ( rhsGhostEvaled f).internals ->
-    rule s s' ->
-    state_relation f s ->
-    state_relation f s'
-
-theorem state_relation_preserve':
+theorem state_relation_preserve:
   ∀ (s s' : rhsGhostType Data) rule,
     rule ∈ ( rhsGhostEvaled f).internals ->
     rule s s' ->
@@ -231,8 +224,7 @@ theorem state_relation_preserve':
   let ⟨ x_module, ⟨x_branchD, x_branchB⟩, x_merge, ⟨x_tagT, x_tagM, x_tagD ⟩, ⟨x_splitD, x_splitB⟩⟩ := s
   let ⟨ x_module', ⟨x_branchD', x_branchB'⟩, x_merge', ⟨x_tagT', x_tagM', x_tagD' ⟩, ⟨x_splitD', x_splitB'⟩⟩ := s'
   fin_cases h1
-  . stop
-    replace h2 := h2.1 rfl
+  . replace h2 := h2.1 rfl
     simp only [List.concat_eq_append] at *
     obtain ⟨cons, newC, h⟩ := h2
     obtain ⟨ x_module', ⟨x_branchD', x_branchB'⟩, x_merge', ⟨x_tagT', x_tagM', x_tagD' ⟩, ⟨x_splitD', x_splitB'⟩⟩ := cons
@@ -389,8 +381,7 @@ theorem state_relation_preserve':
         specialize Hnewnew (by simp)
         dsimp at Hnewnew; assumption
     · intros; apply Hnewnew; simp [*]
-  . stop
-    replace h2 := h2.1 rfl
+  . replace h2 := h2.1 rfl
     simp only [List.concat_eq_append] at *
     obtain ⟨cons, newC, h⟩ := h2
     obtain ⟨ x_module', ⟨x_branchD', x_branchB'⟩, x_merge', ⟨x_tagT', x_tagM', x_tagD' ⟩, ⟨x_splitD', x_splitB'⟩⟩ := cons
@@ -617,8 +608,7 @@ theorem state_relation_preserve':
                 . exact newCN
                 . aesop
           . aesop (config := {useDefaultSimpSet := false})
-  . stop
-    replace h2 := h2.1 rfl
+  . replace h2 := h2.1 rfl
     simp only [List.concat_eq_append] at *
     obtain ⟨cons, newC, h⟩ := h2
     obtain ⟨ x_module', ⟨x_branchD', x_branchB'⟩, x_merge', ⟨x_tagT', x_tagM', x_tagD' ⟩, ⟨x_splitD', x_splitB'⟩⟩ := cons
@@ -686,8 +676,7 @@ theorem state_relation_preserve':
       (repeat rw [List.length_append] at H13)
       rw[H13]
       simp
-  . stop
-    replace h2 := h2.1 rfl
+  . replace h2 := h2.1 rfl
     simp only [List.concat_eq_append] at *
     obtain ⟨cons, newC, h⟩ := h2
     obtain ⟨ x_module', ⟨x_branchD', x_branchB'⟩, x_merge', ⟨x_tagT', x_tagM', x_tagD' ⟩, ⟨x_splitD', x_splitB'⟩⟩ := cons
@@ -739,8 +728,7 @@ theorem state_relation_preserve':
       (repeat rw [List.length_append] at H13)
       rw[← H13]
       ac_nf at *
-  . stop
-    replace h2 := h2.1 rfl
+  . replace h2 := h2.1 rfl
     simp only [List.concat_eq_append] at *
     obtain ⟨cons, newC, h⟩ := h2
     . obtain ⟨ x_module', ⟨x_branchD', x_branchB'⟩, x_merge', ⟨x_tagT', x_tagM', x_tagD' ⟩, ⟨x_splitD', x_splitB'⟩⟩ := cons
@@ -806,8 +794,7 @@ theorem state_relation_preserve':
     --     (repeat rw [List.length_append] at H13)
     --     rw[H13]
     --     ac_nf at *
-  . stop
-    replace h2 := h2.1 rfl
+  . replace h2 := h2.1 rfl
     simp only [List.concat_eq_append] at *
     obtain ⟨cons, newC, h⟩ := h2
     obtain ⟨ x_module', ⟨x_branchD', x_branchB'⟩, x_merge', ⟨x_tagT', x_tagM', x_tagD' ⟩, ⟨x_splitD', x_splitB'⟩⟩ := cons
@@ -1430,6 +1417,8 @@ theorem refine:
           assumption
         . assumption
         . assumption
+
+#print axioms refine
 
 end Proof
 end Graphiti.LoopRewrite
