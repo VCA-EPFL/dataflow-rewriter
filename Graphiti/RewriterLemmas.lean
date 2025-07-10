@@ -60,7 +60,7 @@ axiom refines_higherSS {e : ExprLow String} {e' : ExprHigh String} :
   e.higherSS = .some e' →
   e'.lower = .some e
 
-#eval (ExprLow.connect ⟨⟨.internal "a", "b"⟩, ⟨.internal "a", "b"⟩⟩ (.connect ⟨⟨.internal "C", "b"⟩, ⟨.internal "C", "b"⟩⟩ (.product (.base (⟨AssocList.nil |>.cons ⟨.top, "b"⟩ ⟨.internal "a", "b"⟩, AssocList.nil |>.cons ⟨.top, "b"⟩ ⟨.internal "a", "b"⟩⟩) "A") (.product (.base ⟨AssocList.nil |>.cons ⟨.top, "b"⟩ ⟨.internal "a", "b"⟩, AssocList.nil |>.cons ⟨.top, "b"⟩ ⟨.internal "b", "b"⟩⟩ "B") (.base ⟨AssocList.nil |>.cons ⟨.top, "b"⟩ ⟨.internal "a", "b"⟩, AssocList.nil |>.cons ⟨.top, "b"⟩ ⟨.internal "c", "b"⟩⟩ "C"))))).higher_correct_connections |>.get rfl |>.lower
+-- #eval (ExprLow.connect ⟨⟨.internal "a", "b"⟩, ⟨.internal "a", "b"⟩⟩ (.connect ⟨⟨.internal "C", "b"⟩, ⟨.internal "C", "b"⟩⟩ (.product (.base (⟨AssocList.nil |>.cons ⟨.top, "b"⟩ ⟨.internal "a", "b"⟩, AssocList.nil |>.cons ⟨.top, "b"⟩ ⟨.internal "a", "b"⟩⟩) "A") (.product (.base ⟨AssocList.nil |>.cons ⟨.top, "b"⟩ ⟨.internal "a", "b"⟩, AssocList.nil |>.cons ⟨.top, "b"⟩ ⟨.internal "b", "b"⟩⟩ "B") (.base ⟨AssocList.nil |>.cons ⟨.top, "b"⟩ ⟨.internal "a", "b"⟩, AssocList.nil |>.cons ⟨.top, "b"⟩ ⟨.internal "c", "b"⟩⟩ "C"))))).higher_correct_connections |>.get rfl |>.lower
 
 theorem higher_correct_products_correct {e₂ : ExprLow String} {v'} :
   e₂.higher_correct_products = some v' →
