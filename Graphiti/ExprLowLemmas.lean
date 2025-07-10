@@ -271,6 +271,11 @@ theorem wf_builds_module {e} : wf ε e → (e.build_module' ε).isSome := by
     cases ihe₁; cases ihe₂
     simp only [*]; rfl
 
+theorem well_formed_builds_module {e} : well_formed ε e → (e.build_module' ε).isSome := by
+  intros; apply wf_builds_module
+  apply well_formed_implies_wf
+  assumption
+
 theorem wf_modify_expression {e : ExprLow Ident} {i i'}:
   (ε.find? i').isSome →
   e.wf ε →
@@ -819,16 +824,14 @@ universe v w
 variable {Ident : Type w}
 variable [DecidableEq Ident]
 
-variable (ε : IdentMap Ident (TModule Ident))
-
 variable {S : Type v}
 variable (smod : Module Ident S)
 
-theorem refines_product {e₁ e₂ e₁' e₂'} :
-    wf ε e₁ → wf ε e₂ → wf ε e₁' → wf ε e₂' →
-    [e| e₁, ε ] ⊑ ([e| e₁', ε ]) →
-    [e| e₂, ε ] ⊑ ([e| e₂', ε ]) →
-    [e| e₁.product e₂, ε ] ⊑ ([e| e₁'.product e₂', ε ]) := by
+theorem refines_product {ε₁ ε₂ : IdentMap Ident (TModule Ident)} {e₁ e₂ e₁' e₂'} :
+    wf ε₁ e₁ → wf ε₁ e₂ → wf ε₂ e₁' → wf ε₂ e₂' →
+    [e| e₁, ε₁ ] ⊑ ([e| e₁', ε₂ ]) →
+    [e| e₂, ε₁ ] ⊑ ([e| e₂', ε₂ ]) →
+    [e| e₁.product e₂, ε₁ ] ⊑ ([e| e₁'.product e₂', ε₂ ]) := by
   intro wf1 wf2 wf3 wf4 ref1 ref2
   simp only [drunfold] at *
   replace wf1 := wf_builds_module wf1
@@ -845,10 +848,10 @@ theorem refines_product {e₁ e₂ e₁' e₂'} :
   rw [wf2, wf4] at ref2
   solve_by_elim [Module.refines_product]
 
-theorem refines_connect {e e' c} :
-    wf ε e → wf ε e' →
-    [e| e, ε ] ⊑ ([e| e', ε ]) →
-    [e| e.connect c, ε ] ⊑ ([e| e'.connect c, ε ]) := by
+theorem refines_connect {ε₁ ε₂ : IdentMap Ident (TModule Ident)} {e e' c} :
+    wf ε₁ e → wf ε₂ e' →
+    [e| e, ε₁ ] ⊑ ([e| e', ε₂ ]) →
+    [e| e.connect c, ε₁ ] ⊑ ([e| e'.connect c, ε₂ ]) := by
   intro wf1 wf2 ref
   replace wf1 := wf_builds_module wf1
   replace wf2 := wf_builds_module wf2
@@ -858,6 +861,8 @@ theorem refines_connect {e e' c} :
   simp only [build_module_expr, build_module, build_module'] at *
   rw [wf1,wf2] at ref ⊢
   solve_by_elim [Module.refines_connect]
+
+variable (ε : IdentMap Ident (TModule Ident))
 
 theorem refines_product_associative {e₁ e₂ e₃} :
     wf ε e₁ → wf ε e₂ → wf ε e₃ →
@@ -1945,13 +1950,104 @@ theorem force_replace_eq_replace {e e₁ e₂ : ExprLow Ident} :
     (e.force_replace e₁ e₂).1 = e.replace e₁ e₂ := by
   induction e <;> simp [force_replace, replace] <;> split <;> simp [*]
 
-axiom refines_subset {e e' : ExprLow Ident} (ε' : IdentMap Ident (Σ T : Type, Module Ident T)) :
-  ε.subsetOf ε' → e.wf ε → e'.wf ε →
-  [e| e, ε ] ⊑ ([e| e', ε ]) →
-  [e| e, ε' ] ⊑ ([e| e', ε' ])
+theorem refines_subset_well_formed {e : ExprLow Ident} (ε' : IdentMap Ident (Σ T : Type, Module Ident T)) :
+  ε.subsetOf ε' → e.well_formed ε → e.well_formed ε' := by
+  induction e with
+  | base inst typ =>
+    intro hsub hwf
+    dsimp [well_formed] at *
+    split at hwf <;> try contradiction
+    simp at hwf
+    have ⟨ha, hb, hc, hd⟩ := hwf; clear hwf
+    rename_i T m heq
+    rw [hsub _ _ heq]; simp; and_intros <;> assumption
+  | product e₁ e₂ ih1 ih2 =>
+    intro hsub1 hwf1
+    rw [well_formed_product] at *
+    grind
+  | connect c e ihe =>
+    intro hsub1 hwf1
+    rw [well_formed_connect] at *
+    grind
 
-axiom refines_subset_well_formed {e : ExprLow Ident} (ε' : IdentMap Ident (Σ T : Type, Module Ident T)) :
-  ε.subsetOf ε' → e.well_formed ε → e.well_formed ε'
+theorem refines_subset_left {e : ExprLow Ident} (ε₁ ε : IdentMap Ident (Σ T : Type, Module Ident T)) :
+  ε₁.subsetOf ε → e.well_formed ε₁ →
+  [e| e, ε₁ ] ⊑ ([e| e, ε ]) := by
+  induction e with
+  | base inst typ =>
+    intro hsub1 hwf1
+    dsimp [drunfold] at *
+    dsimp [well_formed] at hwf1
+    split at hwf1 <;> try contradiction
+    rename_i T mod heq
+    rw [hsub1 _ _ heq]
+    rw [heq]
+    apply Module.refines_reflexive
+  | product e₁ e₂ ih1 ih2 =>
+    intro hsub1 hwf1
+    have ⟨ hwfl, hwfr ⟩ := (well_formed_product _).mp hwf1
+    have hwfl' := refines_subset_well_formed _ _ hsub1 hwfl
+    have hwfr' := refines_subset_well_formed _ _ hsub1 hwfr
+    apply refines_product
+    apply well_formed_implies_wf; assumption
+    apply well_formed_implies_wf; assumption
+    apply well_formed_implies_wf; assumption
+    apply well_formed_implies_wf; assumption
+    all_goals solve_by_elim
+  | connect c e ihe =>
+    intro hsub1 hwf1
+    have hwfl := (well_formed_connect _).mp hwf1
+    have hwfl' := refines_subset_well_formed _ _ hsub1 hwfl
+    apply refines_connect
+    apply well_formed_implies_wf; assumption
+    apply well_formed_implies_wf; assumption
+    solve_by_elim
+
+theorem refines_subset_right {e : ExprLow Ident} (ε₁ ε : IdentMap Ident (Σ T : Type, Module Ident T)) :
+  ε₁.subsetOf ε → e.well_formed ε₁ →
+  [e| e, ε ] ⊑ ([e| e, ε₁ ]) := by
+  induction e with
+  | base inst typ =>
+    intro hsub1 hwf1
+    dsimp [drunfold] at *
+    dsimp [well_formed] at hwf1
+    split at hwf1 <;> try contradiction
+    rename_i T mod heq
+    rw [hsub1 _ _ heq]
+    rw [heq]
+    apply Module.refines_reflexive
+  | product e₁ e₂ ih1 ih2 =>
+    intro hsub1 hwf1
+    have ⟨ hwfl, hwfr ⟩ := (well_formed_product _).mp hwf1
+    have hwfl' := refines_subset_well_formed _ _ hsub1 hwfl
+    have hwfr' := refines_subset_well_formed _ _ hsub1 hwfr
+    apply refines_product
+    apply well_formed_implies_wf; assumption
+    apply well_formed_implies_wf; assumption
+    apply well_formed_implies_wf; assumption
+    apply well_formed_implies_wf; assumption
+    all_goals solve_by_elim
+  | connect c e ihe =>
+    intro hsub1 hwf1
+    have hwfl := (well_formed_connect _).mp hwf1
+    have hwfl' := refines_subset_well_formed _ _ hsub1 hwfl
+    apply refines_connect
+    apply well_formed_implies_wf; assumption
+    apply well_formed_implies_wf; assumption
+    solve_by_elim
+
+theorem refines_subset {e e' : ExprLow Ident} (ε₁ ε₂ ε : IdentMap Ident (Σ T : Type, Module Ident T)) :
+  ε₁.subsetOf ε → ε₂.subsetOf ε → e.well_formed ε₁ → e'.well_formed ε₂ →
+  [e| e, ε₁ ] ⊑ ([e| e', ε₂ ]) →
+  [e| e, ε ] ⊑ ([e| e', ε ]) := by
+  intro hsub1 hsub2 hwf1 hwf2 href
+  have hwfl' := refines_subset_well_formed _ _ hsub1 hwf1
+  have hwfr' := refines_subset_well_formed _ _ hsub2 hwf2
+  apply Module.refines_transitive
+  apply refines_subset_right
+  apply hsub1; assumption
+  apply Module.refines_transitive; assumption
+  apply refines_subset_left <;> assumption
 
 end Refinement
 

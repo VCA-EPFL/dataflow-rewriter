@@ -175,12 +175,17 @@ def invert (g : ExprHigh Ident) : ExprHigh Ident :=
 @[inline] def uncurry {α β γ} (f : α → β → γ) (v : α × β): γ :=
   f v.fst v.snd
 
+@[inline] def generate_product := (fun (val : Ident × PortMapping Ident × Ident) expr =>
+  match expr with
+  | none => some (ExprHigh.uncurry ExprLow.base val.2)
+  | some expr' => some ((ExprHigh.uncurry ExprLow.base val.2).product expr'))
+
 @[drunfold] def lower' (el : ExprLow Ident) (e : ExprHigh Ident) : ExprLow Ident :=
   let prod_expr :=
-    e.modules.toList.foldl (λ expr val =>
-        -- return .product (.base (int.toPortMapping val.1) val.2) expr)
-        .product (uncurry .base val.snd) expr) el
-  e.connections.foldl (λ expr conn => .connect conn expr) prod_expr
+    match e.modules.toList.foldr generate_product none with
+    | none => el
+    | some el' => el.product el'
+  e.connections.foldr (λ conn expr => .connect conn expr) prod_expr
 
 def lower'_prod_TR (e : IdentMap Ident (PortMapping Ident × Ident)) (el : ExprLow Ident) : ExprLow Ident :=
   e.toList.foldl (λ expr val => .product (uncurry .base val.snd) expr) el
@@ -264,6 +269,30 @@ def higherSS : ExprLow String → Option (ExprHigh String)
   let e₁' ← e₁.higherSS
   let e₂' ← e₂.higherSS
   return ⟨ e₁'.1.append e₂'.1, e₁'.2.append e₂'.2 ⟩
+
+def higher_correct_products : ExprLow String → Option (Batteries.AssocList String (PortMapping String × String))
+| product (base inst typ) e => do
+  let e' ← e.higher_correct_products
+  return e'.cons (← inst.getInstanceName) (inst, typ)
+| base inst typ => do
+  return .nil |>.cons (← inst.getInstanceName) (inst, typ)
+| _ => failure
+
+def higher_correct_connections : ExprLow String → Option (ExprHigh String)
+| connect c e => do
+  let e' ← e.higher_correct_connections
+  return { e' with connections := e'.connections.cons c }
+| e => do
+  let e' ← e.higher_correct_products
+  return { modules := e', connections := [] }
+
+def get_all_products : ExprLow String → List (PortMapping String × String)
+| base inst typ => [(inst, typ)]
+| connect c e => get_all_products e
+| product e₁ e₂ => get_all_products e₁ ++ get_all_products e₂
+
+def higher_correct (e : ExprLow String) : Option (ExprHigh String) :=
+  higher_correct_connections (comm_bases (get_all_products e) e)
 
 end ExprLow
 

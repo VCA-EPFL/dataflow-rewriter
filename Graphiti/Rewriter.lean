@@ -239,7 +239,7 @@ however, currently the low-level expression language does not remember any names
 
   let norm := rewritten.normalisedNamesMap fresh_prefix
   EStateM.guard (.error s!"trying to remap IO ports which is forbidden") <| rewritten.ensureIOUnmodified norm
-  let out ← rewritten.renamePorts norm >>= ExprLow.higherSS |> ofOption (.error "could not lift expression to graph")
+  let out ← rewritten.renamePorts norm >>= ExprLow.higher_correct |> ofOption (.error "could not lift expression to graph")
 
   -- Using comb_mapping to find the portMap does not work because with rewrites where there is a single module, the name
   -- won't even appear in the rewrite.
