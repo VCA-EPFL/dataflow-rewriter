@@ -284,6 +284,10 @@ theorem Rewrite_run'_correct {ε_global : Env} {g g' : ExprHigh String} {e_g : E
   rw [‹g.lower = _›]
   apply Module.refines_reflexive
 
+/--
+info: 'Graphiti.Rewrite_run'_correct' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
 #print axioms Rewrite_run'_correct
 
 -- theorem Rewrite_abstraction_correct {g g' : ExprHigh String} {s a c} :
