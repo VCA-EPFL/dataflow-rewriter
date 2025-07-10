@@ -20,6 +20,4 @@ def subsetOf (ε₁ ε₂ : Env) : Prop :=
 
 end Env
 
-axiom ε_global : Env
-
 end Graphiti
