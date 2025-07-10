@@ -37,4 +37,7 @@ import Graphiti.Rewrites.Fork4Rewrite
 import Graphiti.Rewrites.Fork5Rewrite
 import Graphiti.Rewrites.Fork6Rewrite
 import Graphiti.Rewrites.Fork7Rewrite
+import Graphiti.Rewrites.Fork8Rewrite
+import Graphiti.Rewrites.Fork9Rewrite
+import Graphiti.Rewrites.Fork10Rewrite
 -- import Graphiti.Rewrites.JoinRewriteCorrect
