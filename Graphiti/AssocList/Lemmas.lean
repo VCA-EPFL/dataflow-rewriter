@@ -1309,5 +1309,4 @@ theorem find?_eraseAllP_false {α β} [DecidableEq α] (a : AssocList α β) (k 
         · exact HR
       · simp at keqk'; subst k'; simp [Hv]
 
-
 end Batteries.AssocList
