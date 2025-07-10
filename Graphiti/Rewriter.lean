@@ -185,7 +185,7 @@ however, currently the low-level expression language does not remember any names
   let canon := ExprLow.comm_connections' g₁.connections
   let g_lower ← ofOption (.error "failed lowering of the graph: graph is empty") g.lower
   let sub' ← ofOption (.error "could not extract base information") <| sub.mapM (λ a => g.modules.find? a)
-  let g_lower := canon <| ExprLow.comm_bases sub' g_lower
+  let g_lower := canon <| ExprLow.comm_bases sub'.reverse g_lower
 
   -- throw (.error s!"mods :: {repr sub'}\n\nlhs :: {repr g_lower}\n\nrhs :: {repr g_lower'}\n\n{repr def_rewrite.input_expr}")
 
