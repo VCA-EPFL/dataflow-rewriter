@@ -333,7 +333,7 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
 
       if typVal = "MC" then
         let sizesIn ← parseIOSizes l "in" |>.mapM translateSize
-        let sizesOut ← parseIOSizes l "out" |>.mapM translateSize
+        let sizesOut ← parseIOSizes l "out" |>.filter (·.trim.endsWith "*e" |> not) |>.mapM translateSize
         typVal := s!"operator{keyArgNumbers l "in"} {" ".intercalate sizesIn} {" ".intercalate sizesOut} MC"
         current_extra_args ← addOpt current_extra_args "memory"
         current_extra_args ← addOpt current_extra_args "bbcount"
