@@ -143,11 +143,13 @@ theorem refines_higher_correct {ε e g} :
   rw [refines_higher_correct_connections] <;> try assumption
   apply ExprLow.refines_comm_bases
 
-theorem Rewrite_run'_correct {ε_global : Env} {g g' : ExprHigh String} {e_g : ExprLow String} {s _st _st'} {rw : CorrectRewrite ε_global} :
+theorem Rewrite_run'_correct {ε_global : Env} {g g' : ExprHigh String} {e_g : ExprLow String}
+        {s _st _st'} {rw : CorrectRewrite ε_global} :
   g.lower = some e_g →
   e_g.well_formed ε_global →
   Rewrite.run' s g (toRewrite rw) _st = .ok g' _st' →
   ([Ge| g', ε_global ]) ⊑ ([Ge| g, ε_global ]) := by
+
   unfold Rewrite.run'; simp; intro hlower_some hwell_formed_global hrewrite
   dsimp [Bind.bind, Monad.toBind, EStateM.instMonad] at *
   repeat

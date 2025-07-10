@@ -91,6 +91,7 @@ axiom flushing_lhs' {s i s_queue_out s_initL s_initB} :
 
 axiom iterate_congr  (i i' a' : Data) (n : Nat) ( k : Nat) : iterate f i n i' -> iterate f i k a' -> n = k ∧ i' = a'
 
+
 theorem flushing_lhs {n v} {s i s_queue_out s_initL s_initB} :
   ⟨s_queue_out, [], ⟨s_initL, s_initB⟩, [], ⟨[], []⟩ ,⟨[], []⟩, ⟨[], []⟩, [i], [], [] ⟩ = s ->
   (s_initB = true -> s_initL = []) ∧ (s_initB = false ->  s_initL = [false]) ->
@@ -123,8 +124,9 @@ inductive φ: rhsGhostType Data -> lhsType Data -> Prop where
     lhs_is_empty s ->
     φ i s
 
-axiom mm: MatchInterface (rhsGhostEvaled f) (lhsEvaled f)
-instance : MatchInterface (rhsGhostEvaled f) (lhsEvaled f) := mm f
+instance : MatchInterface (rhsGhostEvaled f) (lhsEvaled f) := by
+  unfold rhsGhostEvaled lhsEvaled
+  solve_match_interface
 
 
 

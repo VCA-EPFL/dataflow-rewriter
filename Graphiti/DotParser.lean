@@ -329,7 +329,9 @@ def dotToExprHigh (d : Parser.DotGraph) : Except String (ExprHigh String × Asso
        -- portId= 0, offset= 0  -- if mc_store_op and mc_load_op
 
       if typVal = "MC" then
-        typVal := s!"operator{keyArgNumbers l "in"} T MC"
+        let sizesIn ← parseIOSizes l "in" |>.mapM translateSize
+        let sizesOut ← parseIOSizes l "out" |>.mapM translateSize
+        typVal := s!"operator{keyArgNumbers l "in"} {" ".intercalate sizesIn} {" ".intercalate sizesOut} MC"
         current_extra_args ← addOpt current_extra_args "memory"
         current_extra_args ← addOpt current_extra_args "bbcount"
         current_extra_args ← addOpt current_extra_args "ldcount"
