@@ -237,6 +237,7 @@ def main (args : List String) : IO Unit := do
     if parsed.noDynamaticDot then pure (toString rewrittenExprHigh)
     else dynamaticString rewrittenExprHigh (renameAssocAll assoc st rewrittenExprHigh)
     | IO.eprintln s!"Failed to print ExprHigh: {rewrittenExprHigh}"
+  -- IO.print (repr rewrittenExprHigh)
 
   match parsed.outputFile with
   | some ofile => IO.FS.writeFile ofile l
