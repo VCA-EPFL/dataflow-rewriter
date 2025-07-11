@@ -249,7 +249,7 @@ however, currently the low-level expression language does not remember any names
   -- (outputPortMap.toList.map Prod.snd |>.reduceOption)
   let rwMap ← rewrite.nameMap g
   let portMap ← mergeRenamingMaps portMap rwMap
-  updRewriteInfo <| λ _ => RewriteInfo.mk RewriteType.rewrite g out sub portMap .nil (.some (toString <| repr comb_mapping)) rewrite.name
+  updRewriteInfo <| λ _ => RewriteInfo.mk RewriteType.rewrite g out sub portMap (out.modules.keysList.diff (g.modules.keysList.map (λ x => portMap.find? x |>.getD (.some "") |>.getD ""))) .none rewrite.name
   EStateM.guard (.error s!"found duplicate node") out.modules.keysList.Nodup
   return out
 
